@@ -52,6 +52,7 @@ Breaking any of these is a regression even if the code works:
 | Content validator | `scripts/validate-content.mjs` |
 | KaTeX render check for all curriculum math | `scripts/check-math.mjs` |
 | Authoring QA: blind dumps, answer key, language lint | `scripts/qa-tools.mjs` |
+| Language lint for the app's own strings (app.js, viz.js) | `scripts/lint-ui.mjs` |
 | Engine tests | `test/engine.test.mjs` |
 
 ## Engine invariants (pinned by tests — change tests and README together)

@@ -29,8 +29,9 @@ Tests and content validation:
 npm test                # engine unit tests (node:test, no dependencies)
 npm run validate        # schema-validates every unit, then renders every math
                         # segment with the vendored KaTeX to catch broken LaTeX
-npm run lint            # language lint: no exclamation marks, no shaming
-                        # phrases, no idioms, no emoji in anything a learner reads
+npm run lint            # language lint of the app's own text and of every unit:
+                        # no exclamation marks, no shaming phrases, no idioms,
+                        # no emoji in anything a learner reads
 ```
 
 ## How the learning model works (the exact rules)
@@ -161,9 +162,12 @@ DevDashCalc (repo root)
 ├── content/
 │   ├── manifest.json      # the 10 units, ordering, app-wide constants
 │   ├── schema.md          # authoring contract for unit content
-│   └── unit-01..10.json   # curriculum: skills, lessons, ~300 verified questions
+│   └── unit-01..10.json   # curriculum: skills, lessons, 358 verified questions
 ├── scripts/
-│   └── validate-content.mjs  # enforces schema.md; run via npm run validate
+│   ├── validate-content.mjs  # enforces schema.md; run via npm run validate
+│   ├── check-math.mjs        # renders every math segment with the vendored KaTeX
+│   ├── qa-tools.mjs          # blind question dumps, answer key, language lint
+│   └── lint-ui.mjs           # the same language rules applied to app.js/viz.js strings
 ├── test/
 │   └── engine.test.mjs    # node:test suite for the engine
 └── data/                  # runtime progress storage (gitignored)
@@ -177,12 +181,16 @@ DevDashCalc (repo root)
 - **The engine is pure and tested.** `public/engine.js` has no DOM or network
   access and is exercised by `test/engine.test.mjs` — the mastery math above
   is pinned by assertions, not prose.
-- **Content is data, verified before shipping.** Unit files were authored
-  per-unit, then independently re-solved question-by-question by verifier
-  passes, then cross-audited (id uniqueness, BC topic coverage, difficulty
-  balance) — and `validate-content.mjs` enforces the structural contract
-  (including per-skill question minimums and math-delimiter balance) on every
-  change.
+- **Content is data, verified before shipping.** Each unit was authored
+  per-unit against `content/schema.md`, then every question was re-solved
+  blind by two independent solvers who saw only the prompt and choices
+  (`node scripts/qa-tools.mjs blind unit-NN` prints exactly that view); any
+  disagreement with the key was adjudicated by a from-scratch re-derivation
+  before the unit shipped. A language critic pass then checked every string
+  against the invariants above without touching answers. On every change,
+  `validate-content.mjs` enforces the structural contract (per-skill question
+  minimums, math-delimiter balance, allowed HTML), `check-math.mjs` renders
+  every math segment, and the lints reject non-literal language.
 - **Math rendering** is KaTeX, vendored locally under `public/vendor/katex/`
   (JS, CSS, and woff2 fonts, ~600 KB) so math renders with or without
   internet access — no CDN dependency at runtime.
