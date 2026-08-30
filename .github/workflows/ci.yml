@@ -20,13 +20,14 @@ jobs:
           node --check public/app.js
           node --check public/engine.js
           node --check public/viz.js
+          node --check public/canvas-insights.js
           node --check scripts/validate-content.mjs
           node --check scripts/check-math.mjs
           node --check scripts/qa-tools.mjs
           node --check scripts/lint-ui.mjs
 
-      - name: Engine unit tests
-        run: node --test test/engine.test.mjs
+      - name: Engine and Canvas-insights unit tests
+        run: node --test test/engine.test.mjs test/canvas-insights.test.mjs
 
       - name: Language lint of app text (CLAUDE.md invariant 3)
         run: node scripts/lint-ui.mjs

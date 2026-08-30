@@ -17,7 +17,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const files = process.argv.slice(2).length ? process.argv.slice(2) : ['public/app.js', 'public/viz.js'];
+const files = process.argv.slice(2).length ? process.argv.slice(2) : ['public/app.js', 'public/viz.js', 'public/canvas-insights.js'];
 
 const shaming = /\b(you forgot|you made|you missed|you failed|you neglected|you should have|your mistake|careless|wrong again|try harder)\b/i;
 const idioms = /\b(plug and chug|piece of cake|no-brainer|nail(ed|s)? (it|down)|in a nutshell|rule of thumb|at the end of the day|long story short|hang in there|slam dunk|by luck|where you left off|keeps? .{0,20} honest|hugs?|pokes?|tell the same story|blows? up|the trick|boils down|heads up|bottom line|on the fly|dive in|hit the ground|kick off|wrap your head|under the hood)\b/i;
