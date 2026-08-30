@@ -27,7 +27,10 @@ Tests and content validation:
 
 ```bash
 npm test                # engine unit tests (node:test, no dependencies)
-npm run validate        # validates every unit content file against the schema
+npm run validate        # schema-validates every unit, then renders every math
+                        # segment with the vendored KaTeX to catch broken LaTeX
+npm run lint            # language lint: no exclamation marks, no shaming
+                        # phrases, no idioms, no emoji in anything a learner reads
 ```
 
 ## How the learning model works (the exact rules)

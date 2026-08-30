@@ -21,6 +21,8 @@ jobs:
           node --check public/engine.js
           node --check public/viz.js
           node --check scripts/validate-content.mjs
+          node --check scripts/check-math.mjs
+          node --check scripts/qa-tools.mjs
 
       - name: Engine unit tests
         run: node --test test/engine.test.mjs
@@ -32,6 +34,8 @@ jobs:
           present=$(ls content/unit-*.json 2>/dev/null | xargs -r -n1 basename | sed 's/\.json$//')
           if [ -n "$present" ]; then
             node scripts/validate-content.mjs $present
+            node scripts/check-math.mjs $present
+            for u in $present; do node scripts/qa-tools.mjs lint $u; done
           else
             echo "No unit content files yet — skipping."
           fi

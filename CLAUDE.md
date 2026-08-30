@@ -50,6 +50,8 @@ Breaking any of these is a regression even if the code works:
 | Curriculum data | `content/unit-NN.json`, `content/manifest.json` |
 | Content authoring contract | `content/schema.md` |
 | Content validator | `scripts/validate-content.mjs` |
+| KaTeX render check for all curriculum math | `scripts/check-math.mjs` |
+| Authoring QA: blind dumps, answer key, language lint | `scripts/qa-tools.mjs` |
 | Engine tests | `test/engine.test.mjs` |
 
 ## Engine invariants (pinned by tests — change tests and README together)
@@ -69,11 +71,13 @@ Breaking any of these is a regression even if the code works:
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
 npm test             # 14 engine tests (node --test)
-npm run validate     # schema-validate all curriculum units
+npm run validate     # schema-validate all units, then render every math segment with KaTeX
+npm run lint         # language lint (no exclamation marks, shaming, idioms, emoji)
 ```
 
-Run all three before pushing. CI (`.github/workflows/ci.yml`) runs syntax
-checks, the tests, and validation of every unit file present.
+Run all of them before pushing. CI (`.github/workflows/ci.yml`) runs syntax
+checks, the tests, and validation, math rendering, and lint of every unit
+file present.
 
 ## Working rules
 
@@ -85,7 +89,9 @@ checks, the tests, and validation of every unit file present.
   solutions are complete enough to follow when stuck.
 - If you change a question's answer, re-derive it yourself from scratch
   first — the keys were independently verified and a "fix" that breaks a
-  correct key teaches wrong math.
+  correct key teaches wrong math. New questions are verified by blind
+  re-solving: `node scripts/qa-tools.mjs blind unit-NN` prints prompts and
+  choices only, so a second solver can work without seeing the key.
 - Learner progress lives in `data/progress-*.json` (gitignored). Never
   commit it; never reset it without explicit permission from Melody.
 - Branch, PR to `main`, merge when CI is green.
