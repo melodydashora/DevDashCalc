@@ -961,15 +961,44 @@ function viewSettings() {
 // is kept in S, localStorage, or the progress export, so exporting Calc
 // Coach progress can never expose Canvas data. Course and assignment names
 // are external data and are shown as Canvas reports them.
-const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, assessment: null, note: '' };
+const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, note: '' };
 
 const canvasDateTime = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : null);
 const canvasDateOnly = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)) : null);
 
 // One consistent lens: the insights are always built from the snapshot plus
-// the current term selection (null = every term).
+// the current term selection (null = every term), the subject rule, and the
+// learner's remembered show/hide choices.
 function canvasRebuildInsights() {
-  CANVAS.insights = CI.buildInsights(CANVAS.snapshot, Date.now(), { termIds: CANVAS.termIds || [] });
+  CANVAS.insights = CI.buildInsights(CANVAS.snapshot, Date.now(), {
+    termIds: CANVAS.termIds || [],
+    subjectFilter: true,
+    courseOverrides: (CANVAS.prefs && CANVAS.prefs.courseOverrides) || {},
+  });
+}
+
+async function canvasEnsurePrefs() {
+  if (CANVAS.prefs) return;
+  try {
+    const { res, data } = await canvasApi('/api/canvas/prefs');
+    CANVAS.prefs = res.ok && data && data.courseOverrides ? { courseOverrides: data.courseOverrides } : { courseOverrides: {} };
+  } catch {
+    CANVAS.prefs = { courseOverrides: {} };
+  }
+}
+
+// Records one show/hide choice, saves it on the server (survives restarts
+// and disconnects), and rebuilds the lens.
+async function canvasSetCourseOverride(courseId, value) {
+  const overrides = { ...((CANVAS.prefs && CANVAS.prefs.courseOverrides) || {}) };
+  overrides[String(courseId)] = value;
+  CANVAS.prefs = { courseOverrides: overrides };
+  try {
+    await canvasApi('/api/canvas/prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(CANVAS.prefs) });
+  } catch {
+    console.warn('Canvas preference save failed; the choice still applies until this page is reloaded.');
+  }
+  canvasRebuildInsights();
 }
 
 async function canvasApi(path, options) {
@@ -1014,6 +1043,7 @@ async function canvasLoadSnapshot() {
       return false;
     }
     CANVAS.snapshot = data;
+    await canvasEnsurePrefs();
     // Canvas keeps courses from earlier school years in its active list, so
     // the views filter by term. The current term (by its Canvas dates) is
     // selected on each load; a still-valid manual selection is kept.
@@ -1250,11 +1280,22 @@ function viewCanvas() {
     if (snap.missingSubmissionsTruncated) notes.push('Canvas returned more missing-assignment entries than could be loaded; that list is incomplete.');
     const courseRows = ins.perCourse.map((row) => {
       const score = row.score === null ? 'No current score' : `Current score ${row.score}${row.grade ? ` (${esc(row.grade)})` : ''}`;
-      return `<a class="canvas-course" href="#/canvas/course/${esc(row.courseId)}">
-        <span><strong>${esc(row.courseName)}</strong><small>${esc(row.courseCode || 'Canvas course')}</small></span>
-        <span class="canvas-meta">${score} · ${row.submitted} of ${row.totalAssignments} submitted</span>
-      </a>`;
+      return `<div class="canvas-course-row">
+        <a class="canvas-course" href="#/canvas/course/${esc(row.courseId)}">
+          <span><strong>${esc(row.courseName)}</strong><small>${esc(row.courseCode || 'Canvas course')}</small></span>
+          <span class="canvas-meta">${score} · ${row.submitted} of ${row.totalAssignments} submitted</span>
+        </a>
+        <button type="button" class="quiet canvas-hide" data-course-id="${esc(row.courseId)}">Hide</button>
+      </div>`;
     }).join('');
+    const hidden = ins.hiddenCourses.length ? `<details class="explorer-details"><summary>Hidden courses (${ins.hiddenCourses.length})</summary>
+      <div class="explorer-body">
+        <p class="canvas-meta">A course is hidden by default when its name does not include calculus or physics, the subjects this app family covers. Hidden courses are left out of the plan, Grades, and the assessment. Show adds a course back everywhere; Hide removes one. These choices are saved on the server and survive restarts and disconnects.</p>
+        <div class="canvas-list">${ins.hiddenCourses.map((c) => `<div class="canvas-item">
+          <div><strong>${esc(c.name)}</strong><span class="canvas-meta">${c.reason === 'manual' ? 'Hidden by you' : 'Does not match a covered subject'}</span></div>
+          <div class="canvas-item-side"><button type="button" class="secondary canvas-show" data-course-id="${esc(c.id)}">Show</button></div>
+        </div>`).join('')}</div>
+      </div></details>` : '';
     const stale = ins.staleCourses.length ? `<details class="explorer-details"><summary>Courses not shown (${ins.staleCourses.length})</summary>
       <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; Calc Coach only hides them here.</p>
       <ul>${ins.staleCourses.map((c) => `<li>${esc(c.name)}</li>`).join('')}</ul></div></details>` : '';
@@ -1270,12 +1311,25 @@ function viewCanvas() {
       </div>
       <div class="card">
         <h2>Your courses (${ins.perCourse.length})</h2>
-        <p class="canvas-meta">Select a course for its modules, assignments, and statuses.</p>
+        <p class="canvas-meta">Select a course for its modules, assignments, and statuses. Hide removes a course from every Canvas page; it can be shown again below.</p>
         <div class="canvas-list">${courseRows}</div>
+        ${hidden}
         ${otherTerms}
         ${stale}
       </div>`;
-  }, ['Canvas'], 'overview');
+  }, ['Canvas'], 'overview', (body) => {
+    const rerender = () => { if ((location.hash || '').startsWith('#/canvas')) router(); };
+    body.querySelectorAll('.canvas-hide').forEach((b) => b.addEventListener('click', async () => {
+      await canvasSetCourseOverride(b.dataset.courseId, 'hidden');
+      announce('Course hidden. It is listed under Hidden courses.');
+      rerender();
+    }));
+    body.querySelectorAll('.canvas-show').forEach((b) => b.addEventListener('click', async () => {
+      await canvasSetCourseOverride(b.dataset.courseId, 'shown');
+      announce('Course shown.');
+      rerender();
+    }));
+  });
 }
 
 function viewCanvasPlan() {

@@ -482,6 +482,52 @@ test('a term selection excludes other-term courses everywhere and lists them; te
   assert.equal(unfiltered.attention.missing.length, 1);
 });
 
+// -------------------------------------------------------- course visibility
+
+test('courseMatchesApps matches calculus and physics courses by name or code', () => {
+  const match = (name, courseCode = '') => CI.courseMatchesApps({ name, courseCode });
+  assert.equal(match('AP Calculus BC'), true);
+  assert.equal(match('Calc 3 Honors'), true);
+  assert.equal(match('AP Physics 1 S1 (SCAIFE, K.)'), true);
+  assert.equal(match('Algebra 2 S1'), false, 'algebra is not a covered subject');
+  assert.equal(match('Health Science S1'), false);
+  assert.equal(match('Weird Name', 'CALC-BC'), true, 'the course code also counts');
+});
+
+test('with the subject filter on, non-matching courses hide with reason subject and leave every list', () => {
+  const calc = makeCourse({
+    id: 'calc', name: 'AP Calculus BC',
+    assignments: [makeAssignment({ id: 'c1', dueAt: iso(NOW + DAY), submission: makeSubmission() })],
+  });
+  const health = makeCourse({
+    id: 'health', name: 'Health Science S1', courseCode: 'HS',
+    assignments: [makeAssignment({ id: 'h1', dueAt: iso(NOW - DAY), submission: makeSubmission({ missing: true }) })],
+  });
+  const missing = [{ assignmentId: 'h1', courseId: 'health', name: 'Health thing', dueAt: iso(NOW - DAY), pointsPossible: 10, htmlUrl: null }];
+  const out = CI.buildInsights(makeSnapshot([calc, health], missing), NOW, { subjectFilter: true });
+  assert.deepEqual(out.hiddenCourses, [{ id: 'health', name: 'Health Science S1', courseCode: 'HS', reason: 'subject' }]);
+  assert.deepEqual(out.perCourse.map((r) => r.courseId), ['calc']);
+  assert.equal(out.attention.missing.length, 0, 'missing work in a hidden course stays hidden');
+  assert.equal(allPlanItems(out).some((i) => i.courseId === 'health'), false);
+});
+
+test('overrides win: shown reveals a non-matching course, hidden hides a matching one', () => {
+  const calc = makeCourse({ id: 'calc', name: 'AP Calculus BC' });
+  const health = makeCourse({ id: 'health', name: 'Health Science S1' });
+  const out = CI.buildInsights(makeSnapshot([calc, health]), NOW, {
+    subjectFilter: true,
+    courseOverrides: { health: 'shown', calc: 'hidden' },
+  });
+  assert.deepEqual(out.perCourse.map((r) => r.courseId), ['health'], 'shown override reveals it');
+  assert.deepEqual(out.hiddenCourses, [{ id: 'calc', name: 'AP Calculus BC', courseCode: 'CALC', reason: 'manual' }]);
+});
+
+test('without the subject filter and without overrides, no course is hidden', () => {
+  const out = CI.buildInsights(makeSnapshot([makeCourse({ id: 'c1', name: 'Health Science S1' })]), NOW);
+  assert.deepEqual(out.hiddenCourses, []);
+  assert.equal(out.perCourse.length, 1);
+});
+
 test('the plan bucket cutoffs are the exported spec constants', () => {
   assert.deepEqual(
     CI.PLAN_BUCKETS.map((b) => b.ms),

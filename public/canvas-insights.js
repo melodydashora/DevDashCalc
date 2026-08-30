@@ -37,6 +37,17 @@ export const LOW_COURSE_SCORE = 70;
 export const STALE_MONTHS = 10;
 export const STALE_MS = STALE_MONTHS * 30 * DAY_MS;
 
+// The subjects the companion apps cover: Calc Coach today, the physics coach
+// next. A course whose name or code matches none of these is hidden by
+// default (listed under Hidden courses, never silently dropped); the learner
+// can show or hide any course, and that choice is remembered.
+export const APP_SUBJECT_PATTERNS = [/calculus/i, /\bcalc\b/i, /physics/i];
+
+export function courseMatchesApps(course) {
+  const haystack = `${course?.name || ''} ${course?.courseCode || ''}`;
+  return APP_SUBJECT_PATTERNS.some((re) => re.test(haystack));
+}
+
 // ------------------------------------------------------------- small helpers
 const str = (v) => (v === null || v === undefined ? '' : String(v));
 const numOrNull = (v) => {
@@ -293,11 +304,18 @@ function planItem(course, a) {
 }
 
 // buildInsights(snapshot, now, opts) -> the plan, the attention lists, the
-// courses filtered out (by term selection or staleness), and one summary row
-// per course. opts.termIds: when a non-empty array of term ids is given,
-// courses in other terms are excluded and listed under otherTermCourses; a
-// course with no term data is always included (the stale rule still covers
-// it). Data only — every learner-facing sentence lives in app.js where the
+// courses filtered out (by term selection, visibility, or staleness), and
+// one summary row per course.
+// opts.termIds: when a non-empty array of term ids is given, courses in
+//   other terms are excluded and listed under otherTermCourses; a course
+//   with no term data is always included (the stale rule still covers it).
+// opts.subjectFilter: when true, courses matching no APP_SUBJECT_PATTERNS
+//   entry are hidden (reason 'subject') unless overridden.
+// opts.courseOverrides: { [courseId]: 'shown' | 'hidden' } — the learner's
+//   remembered per-course choices; 'shown' beats the subject filter, and
+//   'hidden' (reason 'manual') beats a subject match.
+// Hidden courses are listed under hiddenCourses, never silently dropped.
+// Data only — every learner-facing sentence lives in app.js where the
 // language lint scans it.
 export function buildInsights(snapshot, now, opts = {}) {
   const allCourses = Array.isArray(snapshot?.courses) ? snapshot.courses : [];
@@ -305,16 +323,28 @@ export function buildInsights(snapshot, now, opts = {}) {
 
   // Term-selection rule (see termsFrom/currentTermId above).
   const termIds = Array.isArray(opts.termIds) && opts.termIds.length ? new Set(opts.termIds.map(String)) : null;
+  const overrides = opts.courseOverrides && typeof opts.courseOverrides === 'object' ? opts.courseOverrides : {};
   const otherTermCourses = [];
+  const hiddenCourses = [];
   const courses = [];
   for (const course of allCourses) {
     if (termIds && course.term && course.term.id && !termIds.has(course.term.id)) {
       otherTermCourses.push({ id: course.id, name: course.name, termName: course.term.name });
-    } else {
-      courses.push(course);
+      continue;
     }
+    const override = overrides[course.id];
+    if (override === 'hidden') {
+      hiddenCourses.push({ id: course.id, name: course.name, courseCode: course.courseCode, reason: 'manual' });
+      continue;
+    }
+    if (opts.subjectFilter && override !== 'shown' && !courseMatchesApps(course)) {
+      hiddenCourses.push({ id: course.id, name: course.name, courseCode: course.courseCode, reason: 'subject' });
+      continue;
+    }
+    courses.push(course);
   }
   otherTermCourses.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  hiddenCourses.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
   // Stale-course rule (see STALE_MS above).
   const staleCourses = [];
@@ -339,9 +369,10 @@ export function buildInsights(snapshot, now, opts = {}) {
 
   const missingIdSet = new Set(missingList.map((m) => m.assignmentId));
   const courseNameById = new Map(allCourses.map((c) => [c.id, c.name]));
-  // Missing submissions from courses hidden by the term selection or the
-  // stale rule stay out of the attention list too — one consistent lens.
-  const hiddenCourseIds = new Set([...otherTermCourses, ...staleCourses].map((c) => c.id));
+  // Missing submissions from courses hidden by the term selection, the
+  // visibility rules, or the stale rule stay out of the attention list too —
+  // one consistent lens.
+  const hiddenCourseIds = new Set([...otherTermCourses, ...hiddenCourses, ...staleCourses].map((c) => c.id));
 
   const buckets = PLAN_BUCKETS.map((b) => ({ id: b.id, ms: b.ms, items: [] }));
   const plan = {
@@ -499,5 +530,5 @@ export function buildInsights(snapshot, now, opts = {}) {
   staleCourses.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   perCourse.sort((a, b) => (a.courseName < b.courseName ? -1 : a.courseName > b.courseName ? 1 : 0));
 
-  return { generatedAt: now, plan, attention, staleCourses, otherTermCourses, perCourse };
+  return { generatedAt: now, plan, attention, staleCourses, otherTermCourses, hiddenCourses, perCourse };
 }

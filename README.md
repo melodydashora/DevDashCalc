@@ -109,6 +109,12 @@ by default) diagnoses where the learner's specific answer diverged from the
 correct path and answers follow-up questions about the problem, in the same
 literal, calm style as the rest of the app.
 
+**Deliberately generous budgets.** The Anthropic lane runs with extended
+thinking enabled and a large token cap (a cap is not a spend), and every
+provider reply is checked for truncation: a cut-off reply is never shown as
+complete — it carries a literal notice saying it stops early, and an empty
+truncated reply moves to the next provider in the chain.
+
 **Providers and fallback.** The tutor talks to vendors through small adapters
 in `server.js` that all present the same call, using built-in `fetch` only.
 A provider joins the chain when its key is set; the first that answers wins,
@@ -179,6 +185,7 @@ tests, with no hidden scoring:
 | Rule | Threshold |
 |---|---|
 | Term selection | Canvas keeps old courses "active", so views filter by enrollment term. The current term — the dated term containing today (`currentTermId`; an undated Default Term is never current) — is selected on each load; the learner can change it under "Terms shown". Unselected-term courses are listed by name, never silently dropped; term-less courses always show |
+| Course visibility | Courses whose name or code matches no covered subject (`APP_SUBJECT_PATTERNS`: calculus, physics) are hidden by default and listed under "Hidden courses" with a Show button; any course can be hidden or shown, the choice is saved server-side in gitignored `data/canvas-prefs.json` (course ids only, no credentials), and it applies to the plan, Grades, and the assessment alike |
 | Due-date priority buckets | 4 h, 12 h, 24 h, 3 days, 5 days (`PLAN_BUCKETS`) |
 | Low graded score | below 70 percent of points (`LOW_SCORE_RATIO`) |
 | Low course score | below 70 (`LOW_COURSE_SCORE`) |

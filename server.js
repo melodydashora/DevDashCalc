@@ -155,6 +155,33 @@ async function canvasStoreDelete() {
   try { await unlink(CANVAS_PROFILE_FILE); } catch { /* already gone */ }
 }
 
+// ------------------------------------------------- remembered view choices
+// Per-course show/hide choices (course ids only, no credentials) live in
+// their own gitignored file, so they survive restarts and disconnects alike
+// and are never part of a progress export.
+const CANVAS_PREFS_FILE = join(DATA, 'canvas-prefs.json');
+
+async function canvasPrefsLoad() {
+  try {
+    const parsed = JSON.parse(await readFile(CANVAS_PREFS_FILE, 'utf8'));
+    const overrides = {};
+    const raw = parsed && typeof parsed.courseOverrides === 'object' && parsed.courseOverrides ? parsed.courseOverrides : {};
+    for (const [id, v] of Object.entries(raw)) {
+      if (CANVAS_NUMERIC_ID.test(id) && (v === 'shown' || v === 'hidden')) overrides[id] = v;
+    }
+    return { courseOverrides: overrides };
+  } catch {
+    return { courseOverrides: {} };
+  }
+}
+
+async function canvasPrefsSave(prefs) {
+  await mkdir(DATA, { recursive: true });
+  const tmp = `${CANVAS_PREFS_FILE}.tmp`;
+  await writeFile(tmp, JSON.stringify(prefs, null, 2), 'utf8');
+  await rename(tmp, CANVAS_PREFS_FILE);
+}
+
 // Returns the cookie session, or silently reconnects from the remembered
 // profile when there is one. A remembered token Canvas rejects outright is
 // deleted so a revoked token cannot cause a reconnect loop.
@@ -488,6 +515,9 @@ function canvasAssessmentContext(snapshot, insights) {
   if (insights.otherTermCourses.length) {
     lines.push('', `Courses left out by the learner's term selection (earlier or other school terms): ${insights.otherTermCourses.map((c) => `${c.name} (${c.termName})`).join(', ')}. Do not analyze these.`);
   }
+  if (insights.hiddenCourses.length) {
+    lines.push('', `Courses the learner has hidden from this view: ${insights.hiddenCourses.map((c) => c.name).join(', ')}. Do not analyze these.`);
+  }
   return `Analyze this learner's Canvas data and write the assessment described in your instructions.\n\n${lines.join('\n')}`.slice(0, 60_000);
 }
 
@@ -508,13 +538,19 @@ async function handleCanvasAssessment(req, res) {
   } catch { /* an empty or invalid body means no term filter */ }
   try {
     const snapshot = await canvasSnapshot(found.session);
-    const insights = buildInsights(snapshot, Date.now(), { termIds });
+    const prefs = await canvasPrefsLoad();
+    const insights = buildInsights(snapshot, Date.now(), { termIds, subjectFilter: true, courseOverrides: prefs.courseOverrides });
     const out = await completeWithFallback({
       system: CANVAS_ASSESSMENT_SYSTEM,
       messages: [{ role: 'user', content: canvasAssessmentContext(snapshot, insights) }],
     });
     if (out.refusal) return sendJson(res, 200, { text: 'The AI service declined to analyze this data. The plan and Grades pages still show everything Canvas reported.' });
-    if (out.text) return sendJson(res, 200, { text: out.text });
+    if (out.text) {
+      const text = out.truncated
+        ? `${out.text}\n\nThis assessment reached its length limit and stops early. Ask for a new assessment to get a complete one.`
+        : out.text;
+      return sendJson(res, 200, { text });
+    }
     console.error('[calc-coach] canvas assessment: every provider failed —', out.failures.join(' | '));
     return sendJson(res, 502, { error: 'The assessment service could not be reached.' });
   } catch (e) {
@@ -526,6 +562,24 @@ async function handleCanvas(req, res, url) {
   const path = url.pathname;
 
   if (path === '/api/canvas/assessment') return handleCanvasAssessment(req, res);
+
+  // View preferences (course show/hide). Same trust model as /api/progress:
+  // this is a single-learner app and the file holds no credentials.
+  if (path === '/api/canvas/prefs') {
+    if (req.method === 'GET') return sendJson(res, 200, await canvasPrefsLoad());
+    if (req.method === 'PUT') {
+      let body;
+      try { body = JSON.parse(await readBody(req, 50_000)); } catch { return sendJson(res, 400, { error: 'body must be valid JSON' }); }
+      const overrides = {};
+      const raw = body && typeof body.courseOverrides === 'object' && body.courseOverrides ? body.courseOverrides : {};
+      for (const [id, v] of Object.entries(raw).slice(0, 200)) {
+        if (CANVAS_NUMERIC_ID.test(id) && (v === 'shown' || v === 'hidden')) overrides[id] = v;
+      }
+      await canvasPrefsSave({ courseOverrides: overrides });
+      return sendJson(res, 200, { saved: true, courseOverrides: overrides });
+    }
+    return sendJson(res, 405, { error: 'use GET or PUT' });
+  }
 
   if (path === '/api/canvas/session') {
     if (req.method === 'GET') {
@@ -609,8 +663,12 @@ async function handleCanvas(req, res, url) {
 //   OPENAI_API_KEY                     TUTOR_MODEL_OPENAI     (default gpt-5)
 //   GEMINI_API_KEY or GOOGLE_API_KEY   TUTOR_MODEL_GEMINI     (default gemini-2.5-pro)
 //   TUTOR_PROVIDERS="anthropic,openai,gemini" reorders or limits the chain.
-const PROVIDER_TIMEOUT_MS = 60_000;
-const MAX_TUTOR_TOKENS = 2000;
+// Generous by choice: a cap is not a spend, and a cut-off explanation is
+// worse than a slow one for this learner. Extended thinking is enabled for
+// the Anthropic lane; the timeout leaves room for it.
+const PROVIDER_TIMEOUT_MS = 120_000;
+const MAX_TUTOR_TOKENS = 16_000;
+const THINKING_BUDGET_TOKENS = 10_000;
 
 class ProviderError extends Error {
   constructor(provider, status, message) { super(`${provider} ${status}: ${message || 'unknown error'}`); this.status = status; }
@@ -630,10 +688,19 @@ const ADAPTERS = {
     async complete({ key, model, system, messages, signal }) {
       const { res, data } = await postJson('https://api.anthropic.com/v1/messages',
         { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-        { model, max_tokens: MAX_TUTOR_TOKENS, system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }], messages }, signal);
+        {
+          model,
+          max_tokens: MAX_TUTOR_TOKENS,
+          thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET_TOKENS },
+          system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }],
+          messages,
+        }, signal);
       if (!res.ok) throw new ProviderError('anthropic', res.status, data?.error?.message);
       if (data?.stop_reason === 'refusal') return { refusal: true };
-      return { text: (data?.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim() };
+      return {
+        text: (data?.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim(),
+        truncated: data?.stop_reason === 'max_tokens',
+      };
     },
   },
   openai: {
@@ -646,7 +713,7 @@ const ADAPTERS = {
       if (!res.ok) throw new ProviderError('openai', res.status, data?.error?.message);
       const choice = data?.choices?.[0];
       if (choice?.finish_reason === 'content_filter') return { refusal: true };
-      return { text: String(choice?.message?.content || '').trim() };
+      return { text: String(choice?.message?.content || '').trim(), truncated: choice?.finish_reason === 'length' };
     },
   },
   gemini: {
@@ -664,7 +731,10 @@ const ADAPTERS = {
       if (data?.promptFeedback?.blockReason) return { refusal: true };
       const cand = data?.candidates?.[0];
       if (cand && ['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST'].includes(cand.finishReason)) return { refusal: true };
-      return { text: (cand?.content?.parts || []).map((p) => p.text || '').join('').trim() };
+      return {
+        text: (cand?.content?.parts || []).map((p) => p.text || '').join('').trim(),
+        truncated: cand?.finishReason === 'MAX_TOKENS',
+      };
     },
   },
 };
@@ -687,8 +757,12 @@ async function completeWithFallback({ system, messages }) {
     try {
       const out = await adapter.complete({ key: adapter.key(), model: adapter.model(), system, messages, signal: controller.signal });
       if (out.refusal) return { refusal: true, provider: name };
-      if (out.text) return { text: out.text, provider: name };
-      failures.push(`${name}: empty answer`);
+      // A reply cut off by the token budget must never be presented as
+      // complete (the app promises complete explanations): callers append a
+      // literal notice when truncated text is still worth showing, and a
+      // fully-consumed budget with no text moves to the next provider.
+      if (out.text) return { text: out.text, truncated: Boolean(out.truncated), provider: name };
+      failures.push(out.truncated ? `${name}: budget spent with no answer text` : `${name}: empty answer`);
     } catch (e) {
       failures.push(e instanceof ProviderError ? e.message : `${name}: ${e.name === 'AbortError' ? 'timed out' : e.message}`);
     } finally {
@@ -795,7 +869,12 @@ async function handleTutor(req, res, url) {
   if (out.refusal) {
     return sendJson(res, 200, { text: 'The tutor cannot answer that particular question. A question about this calculus problem will work.' });
   }
-  if (out.text) return sendJson(res, 200, { text: out.text });
+  if (out.text) {
+    const text = out.truncated
+      ? `${out.text}\n\nThis reply reached its length limit and stops early. Ask a follow-up question to continue from this point.`
+      : out.text;
+    return sendJson(res, 200, { text });
+  }
   console.error('[calc-coach] tutor: every provider failed —', out.failures.join(' | '));
   return sendJson(res, 502, { error: 'The tutor could not be reached.' });
 }
