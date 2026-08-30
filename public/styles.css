@@ -260,6 +260,8 @@ table.simple th { background: var(--surface-2); }
 .canvas-terms legend { font-weight: 600; padding: 0 0.3rem; }
 .canvas-term { display: flex; gap: 0.5rem; align-items: baseline; margin: 0.25rem 0; }
 .canvas-list { display: grid; gap: 0.6rem; margin-top: 0.6rem; }
+.canvas-course-row { display: flex; gap: 0.4rem; align-items: stretch; }
+.canvas-course-row .canvas-course { flex: 1; }
 .canvas-course { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.65rem 0.75rem; border: 2px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); text-decoration: none; }
 .canvas-course:hover { border-color: var(--accent); background: var(--accent-soft); }
 .canvas-course span { display: grid; }

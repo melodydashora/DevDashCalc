@@ -2,3 +2,4 @@
 progress-*.json
 *.tmp
 canvas-profile.json
+canvas-prefs.json
