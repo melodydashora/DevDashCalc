@@ -47,7 +47,7 @@ function validateUnit(unitMeta, seenSkillIds, seenQuestionIds) {
   if (u.id !== unitMeta.id) err(`id "${u.id}" does not match manifest id "${unitMeta.id}"`);
   if (u.number !== unitMeta.number) err(`number ${u.number} does not match manifest number ${unitMeta.number}`);
   if (u.title !== unitMeta.title) err(`title does not match manifest title`);
-  checkString(u.overview, 'overview');
+  checkString(u.overview, 'overview', { html: true }); // app.js injects the overview as HTML
 
   // --- skills ---
   if (!Array.isArray(u.skills) || u.skills.length < 4 || u.skills.length > 8) err(`skills: need 4–8, found ${u.skills?.length ?? 0}`);

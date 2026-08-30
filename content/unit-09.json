@@ -1,0 +1,2000 @@
+{
+ "id": "unit-09",
+ "number": 9,
+ "title": "Parametric Equations, Polar Coordinates, and Vector-Valued Functions",
+ "overview": "This unit extends derivatives and integrals from functions of the form y = f(x) to curves described by a parameter: parametric equations x = x(t) and y = y(t), vector-valued functions r(t) whose components are x(t) and y(t), and polar curves r = f(theta). You will convert points between polar and Cartesian coordinates, compute slopes and second derivatives of such curves, their arc lengths, and the velocity, acceleration, speed, and distance traveled of a particle moving along them, and you will compute areas of regions bounded by one or two polar curves. Every method in this unit is a chain rule or an integral formula you already use from Units 2, 3, 6, and 8, applied one coordinate at a time. These topics are BC-only, they make up 11 to 12 percent of the BC exam, and a parametric or polar free-response question appears in most years.",
+ "skills": [
+  {
+   "id": "u9-parametric-derivatives",
+   "name": "Slopes, tangent lines, and second derivatives of parametric curves",
+   "core": true
+  },
+  {
+   "id": "u9-parametric-arc-length",
+   "name": "Arc length of a parametric curve",
+   "core": true
+  },
+  {
+   "id": "u9-vector-valued-functions",
+   "name": "Differentiating and integrating vector-valued functions",
+   "core": true
+  },
+  {
+   "id": "u9-vector-motion",
+   "name": "Speed, direction, and distance traveled for motion in the plane",
+   "core": true
+  },
+  {
+   "id": "u9-polar-derivatives",
+   "name": "Polar coordinates, dr/dtheta, and tangent lines to polar curves",
+   "core": true
+  },
+  {
+   "id": "u9-polar-area",
+   "name": "Area of a region bounded by one polar curve",
+   "core": true
+  },
+  {
+   "id": "u9-polar-area-between",
+   "name": "Area of a region bounded by two polar curves",
+   "core": true
+  }
+ ],
+ "lessons": [
+  {
+   "id": "u9-l1",
+   "title": "Derivatives of parametric curves",
+   "skillIds": [
+    "u9-parametric-derivatives"
+   ],
+   "estMinutes": 24,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>parametric curve</strong> is the set of points $(x(t), y(t))$ produced by two functions of one variable $t$ over an interval of $t$ values. The variable $t$ is the <strong>parameter</strong>, and it is often time. The curve is traced in the direction of increasing $t$: the point at $t = 0$ is visited before the point at $t = 1$. Neither coordinate has to be a function of the other, so a parametric curve can cross itself or meet a vertical line more than once.</p><p>The slope of the curve at a point is still $\\frac{dy}{dx}$. Where $y$ is locally a differentiable function of $x$, the chain rule gives $\\frac{dy}{dt} = \\frac{dy}{dx}\\cdot\\frac{dx}{dt}$. Dividing by $\\frac{dx}{dt}$ gives the <strong>parametric derivative</strong>, valid at every $t$ where $\\frac{dx}{dt} \\neq 0$:</p><p>$$\\frac{dy}{dx} = \\frac{dy/dt}{dx/dt}$$</p><p>The result is a function of $t$, not of $x$. To find the slope at a particular point you substitute the value of $t$, and the point itself is $(x(t_0), y(t_0))$.</p><p>The <strong>tangent line</strong> at $t = t_0$ has slope $m = \\frac{dy}{dx}$ evaluated at $t_0$ and passes through $(x(t_0), y(t_0))$:</p><p>$$y - y(t_0) = m\\,\\big(x - x(t_0)\\big)$$</p><p>The point is $(x(t_0), y(t_0))$, never $(t_0, y(t_0))$. The value $t_0$ is not a coordinate of any point on the curve; it is the label of the instant at which the curve passes through that point.</p><p>Three cases classify the tangent from the two rates:</p><ul><li><strong>Horizontal tangent</strong>: $\\frac{dy}{dt} = 0$ and $\\frac{dx}{dt} \\neq 0$. The slope is $0$.</li><li><strong>Vertical tangent</strong>: $\\frac{dx}{dt} = 0$ and $\\frac{dy}{dt} \\neq 0$. The slope is undefined.</li><li>Both rates equal $0$: the ratio is the indeterminate form $\\frac{0}{0}$. The slope, if it exists, must be found as $\\lim_{t \\to t_0} \\frac{dy/dt}{dx/dt}$. No conclusion is drawn from the two derivatives alone.</li></ul><p>The standard exam forms are: find $\\frac{dy}{dx}$ at a given $t$; write the tangent line at a given $t$; find every $t$ at which the tangent is horizontal or vertical. A complete answer for a horizontal tangent states both conditions, $\\frac{dy}{dt} = 0$ and $\\frac{dx}{dt} \\neq 0$ at that $t$. Solving one equation without checking the other is an incomplete justification.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "For $x = t^3 + 1$, $y = t^2 - 2t$: the tangent line at $t = 2$, and every $t$ with a horizontal or vertical tangent",
+     "steps": [
+      {
+       "text": "Differentiate each coordinate with respect to $t$. These two rates are used in every part of the problem.",
+       "math": "\\frac{dx}{dt} = 3t^2, \\qquad \\frac{dy}{dt} = 2t - 2"
+      },
+      {
+       "text": "Part (a). Find the point and the slope at $t = 2$. The point is $(x(2), y(2)) = (8 + 1, 4 - 4) = (9, 0)$. Since $\\frac{dx}{dt} = 12 \\neq 0$ at $t = 2$, the parametric derivative applies.",
+       "math": "\\frac{dy}{dx}\\Big|_{t=2} = \\frac{2(2) - 2}{3(2)^2} = \\frac{2}{12} = \\frac{1}{6}"
+      },
+      {
+       "text": "Write the tangent line through $(9, 0)$ with slope $\\frac{1}{6}$. The $x$-coordinate of the point is $9$, not $2$.",
+       "math": "y - 0 = \\frac{1}{6}(x - 9)"
+      },
+      {
+       "text": "Part (b), horizontal tangents. Solve $\\frac{dy}{dt} = 0$, then confirm $\\frac{dx}{dt} \\neq 0$ there. From $2t - 2 = 0$, $t = 1$, and $\\frac{dx}{dt} = 3(1)^2 = 3 \\neq 0$. The tangent is horizontal at $t = 1$, at the point $(x(1), y(1)) = (2, -1)$."
+      },
+      {
+       "text": "Part (b), vertical tangents. Solve $\\frac{dx}{dt} = 0$, then confirm $\\frac{dy}{dt} \\neq 0$ there. From $3t^2 = 0$, $t = 0$, and $\\frac{dy}{dt} = 2(0) - 2 = -2 \\neq 0$. The tangent is vertical at $t = 0$, at the point $(x(0), y(0)) = (1, 0)$. Both parts are complete because each conclusion names the zero rate and the nonzero rate."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q001",
+      "u9-q002",
+      "u9-q003"
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Two sensors are sampled by the same clock. Sensor A reports <code>x(t)</code> and sensor B reports <code>y(t)</code>, and each sample carries the shared timestamp <code>t</code>. Nothing stores $y$ as a function of $x$; both streams are functions of the timestamp. To ask how fast $y$ changes per unit of $x$, you compute each rate against the clock and divide: <code>dy_dx = dy_dt / dx_dt</code>. This is the same computation as deriving a rate ratio from two counters that share a timestamp, such as bytes per request from a bytes counter and a request counter that are read at the same instant.</p><p>Where the analogy holds: on any interval where <code>dx_dt</code> is not zero, the ratio is a well-defined finite float, and it is exactly the slope of $y$ against $x$ at that instant. The parameter is the shared clock, and the chain rule $\\frac{dy}{dt} = \\frac{dy}{dx}\\cdot\\frac{dx}{dt}$ is the statement that a rate against the clock factors into a rate against $x$ times the rate of $x$ against the clock. Finding a horizontal tangent is filtering for samples where <code>dy_dt === 0</code> while <code>dx_dt</code> is nonzero.</p><p>Where it breaks: a division by zero in this ratio is not an error state. When <code>dx_dt === 0</code> and <code>dy_dt</code> is nonzero, the curve has a vertical tangent, which is a real geometric feature, and the code path must branch on that case instead of throwing. When both rates are zero the ratio is <code>0/0</code>, which floating point reports as <code>NaN</code>, and no single sample can resolve it; only a limit, which in the analogy is sampling at a finer resolution around that instant, can determine the slope. A real counter is also never read at a single instant, while the calculus version is exact at every $t$.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q004"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The <strong>second derivative of a parametric curve</strong> is the derivative of the slope with respect to $x$. Since the slope $\\frac{dy}{dx}$ is a function of $t$, differentiating it with respect to $x$ uses the same quotient as before, with $\\frac{dy}{dx}$ in place of $y$:</p><p>$$\\frac{d^2y}{dx^2} = \\frac{d}{dx}\\left(\\frac{dy}{dx}\\right) = \\frac{\\dfrac{d}{dt}\\left(\\dfrac{dy}{dx}\\right)}{\\dfrac{dx}{dt}}$$</p><p>The numerator is the $t$-derivative of the slope function. The denominator is $\\frac{dx}{dt}$ again, not squared and not differentiated. Two shortcuts look plausible and are both wrong:</p><ul><li>$\\dfrac{d^2y}{dx^2} \\neq \\dfrac{d^2y/dt^2}{d^2x/dt^2}$</li><li>$\\dfrac{d^2y}{dx^2} \\neq \\dfrac{d^2y/dt^2}{(dx/dt)^2}$</li></ul><p>A check with $x = t^2$, $y = t^4$ shows this. Eliminating $t$ gives $y = x^2$, so the true second derivative is $2$ at every point. The correct procedure agrees: $\\frac{dy}{dx} = \\frac{4t^3}{2t} = 2t^2$, its $t$-derivative is $4t$, and dividing by $\\frac{dx}{dt} = 2t$ gives $2$. The first shortcut gives $\\frac{12t^2}{2} = 6t^2$, which is $6$ at $t = 1$ and $24$ at $t = 2$. The second shortcut gives $\\frac{12t^2}{4t^2} = 3$. Neither equals $2$.</p><p>The three-step procedure is:</p><ol><li>Compute $\\frac{dy}{dx} = \\frac{dy/dt}{dx/dt}$ and simplify it as a function of $t$.</li><li>Differentiate that expression with respect to $t$, using the quotient rule when it is a quotient.</li><li>Divide the result by $\\frac{dx}{dt}$.</li></ol><p>The sign of $\\frac{d^2y}{dx^2}$ at a point gives the <strong>concavity</strong> of the curve there, with the same meaning as in Unit 5: $\\frac{d^2y}{dx^2} > 0$ means concave up and $\\frac{d^2y}{dx^2} < 0$ means concave down. At a $t$ where the tangent is horizontal, the sign classifies the point as an extremum of $y$ as a function of $x$ along the curve: positive means a local minimum, negative means a local maximum. This is the second derivative test with the parametric second derivative in the role of $f''$.</p><p>Exam items ask for $\\frac{d^2y}{dx^2}$ at a specific $t$, or for the concavity at that $t$. A complete answer shows $\\frac{dy}{dx}$ as a function of $t$, its $t$-derivative, the division by $\\frac{dx}{dt}$, and the sign conclusion with the value that supports it.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "For $x = \\ln t$, $y = t^2 + 1$ with $t > 0$, find $\\dfrac{d^2y}{dx^2}$ and state the concavity",
+     "steps": [
+      {
+       "text": "Step 1 of the procedure. Compute the two rates and form the slope as a function of $t$. Dividing by $\\frac{1}{t}$ is multiplying by $t$.",
+       "math": "\\frac{dx}{dt} = \\frac{1}{t}, \\qquad \\frac{dy}{dt} = 2t, \\qquad \\frac{dy}{dx} = \\frac{2t}{1/t} = 2t^2"
+      },
+      {
+       "text": "Step 2. Differentiate the slope function with respect to $t$.",
+       "math": "\\frac{d}{dt}\\left(\\frac{dy}{dx}\\right) = \\frac{d}{dt}\\left(2t^2\\right) = 4t"
+      },
+      {
+       "text": "Step 3. Divide by $\\frac{dx}{dt}$, which is $\\frac{1}{t}$.",
+       "math": "\\frac{d^2y}{dx^2} = \\frac{4t}{1/t} = 4t^2"
+      },
+      {
+       "text": "State the concavity. For every $t > 0$, $4t^2 > 0$, so $\\frac{d^2y}{dx^2} > 0$ and the curve is concave up at every point. A check by elimination agrees: $t = e^x$ gives $y = e^{2x} + 1$, whose second derivative $4e^{2x} = 4t^2$ is positive."
+      },
+      {
+       "text": "Contrast with the first wrong shortcut. Here $\\frac{d^2x}{dt^2} = -\\frac{1}{t^2}$ and $\\frac{d^2y}{dt^2} = 2$, so the ratio of second derivatives is $\\frac{2}{-1/t^2} = -2t^2$. That value is negative, which would report concave down for a curve that is concave up. The shortcut gives the wrong sign, not only the wrong magnitude."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q005",
+      "u9-q006"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u9-l2",
+   "title": "Arc length of a parametric curve",
+   "skillIds": [
+    "u9-parametric-arc-length"
+   ],
+   "estMinutes": 16,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>The <strong>arc length</strong> of a curve is the distance measured along the curve itself, from one endpoint to the other. For a parametric curve $x = x(t)$, $y = y(t)$ on $a \\le t \\le b$, the formula comes from the Pythagorean theorem applied to a very short piece of the curve.</p><p>Over a short parameter interval of width $dt$, the point moves $dx = \\frac{dx}{dt}\\,dt$ horizontally and $dy = \\frac{dy}{dt}\\,dt$ vertically. For a small enough piece the curve is close to a straight segment, and the length of that segment is the hypotenuse of a right triangle with legs $dx$ and $dy$:</p><p>$$ds = \\sqrt{(dx)^2 + (dy)^2} = \\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}\\,dt$$</p><p>Adding all such pieces and taking the limit as the pieces shrink is a definite integral, the Riemann sum idea from Unit 6:</p><p>$$L = \\int_a^b \\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}\\,dt$$</p><p>The formula has two hypotheses. First, $\\frac{dx}{dt}$ and $\\frac{dy}{dt}$ must be continuous on $[a, b]$. Second, the curve must be traced exactly once as $t$ runs from $a$ to $b$. If the parameter retraces part of the curve, the integral counts that part again: it then measures the distance the point traveled, not the length of the set of points. Lesson 4 of this unit uses this same integral, with that meaning, as distance traveled.</p><p>The Unit 8 formula is the special case $x = t$. Then $\\frac{dx}{dt} = 1$, $\\frac{dy}{dt} = \\frac{dy}{dx}$, and $dt = dx$, so the integrand becomes $\\sqrt{1 + \\left(\\frac{dy}{dx}\\right)^2}$.</p><p>Two algebra habits keep the integrand manageable. First, factor a common factor out of the radicand before taking the square root, and write $\\sqrt{t^2} = |t|$, which equals $t$ only when $t \\ge 0$ on the whole interval. Second, expand the radicand fully and check whether it is a perfect square trinomial; when it is, the square root disappears and the integrand is a polynomial. The second concept section of this lesson lists the three simplification patterns the exam uses.</p><p>The common question forms are: choose the correct integral from lookalike formulas, set up the integral for a given curve and evaluate it on a calculator, and evaluate it exactly when the radicand simplifies. A complete justification states the formula, shows both derivatives, shows the simplified integrand, and states the limits of integration in terms of $t$. When the answer is a decimal, three decimal places are the exam standard.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the length of $x = \\cos t + t\\sin t$, $y = \\sin t - t\\cos t$ for $0 \\le t \\le \\pi$",
+     "steps": [
+      {
+       "text": "Differentiate $x$ with respect to $t$. The term $t\\sin t$ needs the product rule, and its derivative $\\sin t + t\\cos t$ cancels the $-\\sin t$ from the first term.",
+       "math": "\\frac{dx}{dt} = -\\sin t + (\\sin t + t\\cos t) = t\\cos t"
+      },
+      {
+       "text": "Differentiate $y$ the same way. The product rule on $t\\cos t$ gives $\\cos t - t\\sin t$, and the $\\cos t$ terms cancel.",
+       "math": "\\frac{dy}{dt} = \\cos t - (\\cos t - t\\sin t) = t\\sin t"
+      },
+      {
+       "text": "Square the derivatives and add. The identity $\\cos^2 t + \\sin^2 t = 1$ removes the trigonometric functions, and the square root of $t^2$ is $|t|$, which equals $t$ because $t \\ge 0$ on $[0, \\pi]$.",
+       "math": "\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2 = t^2\\cos^2 t + t^2\\sin^2 t = t^2, \\qquad \\sqrt{t^2} = t"
+      },
+      {
+       "text": "Integrate the simplified integrand over the parameter interval.",
+       "math": "L = \\int_0^{\\pi} t\\,dt = \\left[\\frac{t^2}{2}\\right]_0^{\\pi} = \\frac{\\pi^2}{2} \\approx 4.935"
+      },
+      {
+       "text": "Justification: both derivatives are continuous on $[0, \\pi]$, and the integrand $t$ is positive for $t > 0$, so the point never stops or reverses along its path and the curve is traced once. The length of the curve is $\\frac{\\pi^2}{2}$ units, about $4.935$."
+      }
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Arc length is the length of a polyline through sampled points. Given arrays <code>x[0..n]</code> and <code>y[0..n]</code> sampled at parameter values spaced <code>dt</code> apart, the polyline length is <code>sum(hypot(x[i+1] - x[i], y[i+1] - y[i]))</code> over consecutive samples. Dividing each difference by <code>dt</code> and multiplying the whole term by <code>dt</code> gives <code>hypot((x[i+1] - x[i]) / dt, (y[i+1] - y[i]) / dt) * dt</code>, and the two quotients are difference-quotient approximations of $\\frac{dx}{dt}$ and $\\frac{dy}{dt}$. The integrand $\\sqrt{(dx/dt)^2 + (dy/dt)^2}$ is <code>hypot</code> of the two rates, and the integral is the limit of the polyline sum as <code>dt</code> goes to $0$.</p><p>Where the analogy holds: for any curve with continuous derivatives, the polyline length converges to the arc length as the sample spacing shrinks, and it converges from below, because a straight segment is the shortest path between two sample points. A numerical check of an exact answer is therefore cheap: sample finely, sum the <code>hypot</code> values, and expect a number slightly less than the exact value.</p><p>Where it breaks: the polyline measures the path of the parameter, not the set of points. If the parameter interval traces the curve twice, every segment appears twice and the sum doubles, although the geometric curve did not change; the integral has the same property, which is why the formula requires the curve to be traced exactly once. In the other direction, a coarse sample can cut across a loop or a sharp turn and under-count by a large amount, and no fixed <code>dt</code> is adequate for every curve; the integral removes that dependence by taking the limit.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q008",
+      "u9-q009",
+      "u9-q010"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The <strong>radicand</strong> is the expression under the square root. Its form decides whether the integral can be evaluated by hand. The BC exam uses three simplification patterns, and recognizing them is the skill this section trains.</p><p><strong>Pattern 1, a common factor.</strong> For $x = t^2$, $y = t^3$ the derivatives are $2t$ and $3t^2$, and the radicand is $4t^2 + 9t^4 = t^2(4 + 9t^2)$, so for $t \\ge 0$</p><p>$$\\sqrt{4t^2 + 9t^4} = t\\sqrt{4 + 9t^2}$$</p><p>The factor $t$ outside the root is exactly what the substitution $u = 4 + 9t^2$, $du = 18t\\,dt$ needs, so the integral becomes $\\frac{1}{18}\\int \\sqrt{u}\\,du$, which the power rule evaluates. Without the factoring step the substitution has no $t$ to absorb.</p><p><strong>Pattern 2, a perfect square.</strong> For $x = t^3 - 3t$, $y = 3t^2$ the derivatives are $3t^2 - 3$ and $6t$, and the radicand expands to</p><p>$$(3t^2 - 3)^2 + (6t)^2 = 9t^4 - 18t^2 + 9 + 36t^2 = 9t^4 + 18t^2 + 9 = 9(t^2 + 1)^2$$</p><p>The square root is $3(t^2 + 1)$, a polynomial, and no calculator is needed. The signal for this pattern is a middle term whose sign flips when the second square is added.</p><p><strong>Pattern 3, a trigonometric identity.</strong> For $x = e^t\\cos t$, $y = e^t\\sin t$ the product rule gives $\\frac{dx}{dt} = e^t(\\cos t - \\sin t)$ and $\\frac{dy}{dt} = e^t(\\sin t + \\cos t)$. Squaring and adding, the cross terms $-2\\sin t\\cos t$ and $+2\\sin t\\cos t$ cancel, and $\\cos^2 t + \\sin^2 t = 1$ appears twice:</p><p>$$e^{2t}(\\cos t - \\sin t)^2 + e^{2t}(\\sin t + \\cos t)^2 = 2e^{2t}$$</p><p>The integrand is $\\sqrt{2}\\,e^t$, because $\\sqrt{e^{2t}} = e^t$ for every real $t$.</p><p>When none of the three patterns applies, for example $x = t^2$, $y = \\sin t$ with radicand $4t^2 + \\cos^2 t$, the exam expects the integral to be set up correctly and evaluated numerically on a calculator. The setup earns its own points: a correct integrand with correct limits scores even when the numerical value is wrong or missing. Write the setup in full before using the calculator, and report the value to three decimal places.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q011",
+      "u9-q012"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u9-l3",
+   "title": "Vector-valued functions: derivatives and integrals",
+   "skillIds": [
+    "u9-vector-valued-functions"
+   ],
+   "estMinutes": 20,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>vector-valued function</strong> is a rule that assigns a vector to each value of a parameter $t$. In the plane it has two components, and each component is an ordinary function of $t$:</p><p>$$\\vec r(t) = \\langle x(t),\\ y(t) \\rangle = x(t)\\,\\mathbf{i} + y(t)\\,\\mathbf{j}$$</p><p>The angle-bracket form and the $\\mathbf{i}$, $\\mathbf{j}$ form mean the same thing. Here $\\mathbf{i} = \\langle 1, 0 \\rangle$ and $\\mathbf{j} = \\langle 0, 1 \\rangle$ are the unit vectors along the axes, so $x(t)\\,\\mathbf{i} + y(t)\\,\\mathbf{j}$ is the vector whose components are $x(t)$ and $y(t)$. Exam items use both notations, and an answer in either form is accepted.</p><p>When $\\vec r(t)$ is the <strong>position</strong> of a particle at time $t$, the vector is drawn with its tail at the origin and its head at the particle. The head traces the parametric curve $x = x(t)$, $y = y(t)$ from the first two lessons of this unit. The point $(x(t), y(t))$ and the vector $\\langle x(t), y(t) \\rangle$ carry the same two numbers.</p><p>The derivative of a vector-valued function is taken <strong>component-wise</strong>: each component is differentiated on its own, and the results are assembled into a vector of the same shape. The <strong>velocity</strong> is the derivative of position, and the <strong>acceleration</strong> is the derivative of velocity:</p><p>$$\\vec v(t) = \\vec r\\,'(t) = \\langle x'(t),\\ y'(t) \\rangle, \\qquad \\vec a(t) = \\vec r\\,''(t) = \\langle x''(t),\\ y''(t) \\rangle$$</p><p>Inside each component the usual rules apply: power rule, chain rule, product rule, quotient rule. A factor produced by the chain rule in one component does not affect the other component.</p><p>Two facts about $\\vec v(t)$ are used through the rest of this unit. First, when $\\vec v(t) \\neq \\vec 0$, the velocity vector is tangent to the path at the particle's position and points in the direction the particle is moving at that instant; its slope $\\frac{y'(t)}{x'(t)}$ is the parametric derivative $\\frac{dy}{dx}$ from Lesson 1. Second, its length, which is called its <strong>magnitude</strong> and is written $|\\vec v(t)|$, is a single number called the <strong>speed</strong>:</p><p>$$|\\vec v(t)| = \\sqrt{x'(t)^2 + y'(t)^2}$$</p><p>Speed is a <strong>scalar</strong>, meaning a single number with no direction, not a vector; the next lesson develops it. The standard question forms for this lesson are: find $\\vec v(t)$ or $\\vec a(t)$ from $\\vec r(t)$; evaluate one of them at a given $t$; and report one component, such as the $x$-component of acceleration at $t = 1$. A complete answer states the vector with both components, or the single component that was requested, with the value of $t$ substituted.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A vector-valued function is a function that returns a record with two fields: <code>r(t) = { x: x(t), y: y(t) }</code>. Differentiating it is <code>map(derivative, fields)</code>: apply the derivative to each field independently and return a record of the same shape. So <code>v(t) = { x: dx(t), y: dy(t) }</code>, and <code>a(t)</code> is the same map applied once more. No field reads another field during the operation.</p><p>Where the analogy holds: derivatives, antiderivatives, sums of two vector functions, and multiplication by a scalar are all field-by-field operations. Each returns a record with the same two fields, and each field can be computed by a separate call that knows nothing about the other field. This is why a chain-rule factor in the $y$-component of $\\langle t^3 - 2t,\\ e^{2t} \\rangle$ has no effect on the $x$-component, and why an antiderivative needs one constant of integration per field rather than one constant overall.</p><p>Where it breaks: magnitude, and the dot product that the next lesson defines, are reductions across fields, like a <code>fold</code> that reads every field and returns one number. Speed, $|\\vec v(t)| = \\sqrt{x'(t)^2 + y'(t)^2}$, is such a reduction. A reduction does not commute with the map: the derivative of the magnitude is not the magnitude of the derivative. In symbols, $\\frac{d}{dt}|\\vec r(t)|$ is not $|\\vec v(t)|$, and $\\frac{d}{dt}|\\vec v(t)|$ is not $|\\vec a(t)|$. When a question asks for the rate of change of a speed or of a distance from the origin, compute the reduction first to get a scalar function of $t$, then differentiate that scalar.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find $\\vec v(t)$, $\\vec a(t)$, $\\vec v(0)$, and $\\vec a(0)$ for $\\vec r(t) = \\langle e^{-t},\\ t^3 - 6t \\rangle$",
+     "steps": [
+      {
+       "text": "Differentiate each component of position to get velocity. The chain rule on $e^{-t}$ produces the factor $-1$; the power rule handles $t^3 - 6t$.",
+       "math": "\\vec v(t) = \\vec r\\,'(t) = \\langle -e^{-t},\\ 3t^2 - 6 \\rangle"
+      },
+      {
+       "text": "Differentiate each component of velocity to get acceleration. The chain-rule factor $-1$ appears again, so the $x$-component returns to $e^{-t}$.",
+       "math": "\\vec a(t) = \\vec v\\,'(t) = \\langle e^{-t},\\ 6t \\rangle"
+      },
+      {
+       "text": "Substitute $t = 0$ into both vectors, using $e^{0} = 1$.",
+       "math": "\\vec v(0) = \\langle -1,\\ -6 \\rangle, \\qquad \\vec a(0) = \\langle 1,\\ 0 \\rangle"
+      },
+      {
+       "text": "Read the vectors. At $t = 0$ both components of velocity are negative, so the particle is moving left and down. The acceleration points in the positive $x$ direction with no vertical component, so $x'(t)$ is increasing through the value $-1$: the horizontal velocity is becoming less negative, while the vertical velocity is momentarily not changing. The answer is $\\vec v(0) = \\langle -1, -6 \\rangle$ and $\\vec a(0) = \\langle 1, 0 \\rangle$, or equivalently $-\\mathbf{i} - 6\\mathbf{j}$ and $\\mathbf{i}$."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q013",
+      "u9-q014"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Integration of a vector-valued function is also component-wise. For an indefinite integral, each component receives its own constant of integration:</p><p>$$\\int \\langle f(t),\\ g(t) \\rangle\\,dt = \\Big\\langle \\int f(t)\\,dt,\\ \\int g(t)\\,dt \\Big\\rangle = \\langle F(t) + C_1,\\ G(t) + C_2 \\rangle$$</p><p>The two constants are independent. A single $+C$ is not enough, because the $x$ and $y$ initial conditions are two separate numbers.</p><p>The most common exam task is recovering <strong>position from velocity</strong> when the position at one time $t_0$ is known. The Fundamental Theorem of Calculus, part 2, applied to each component gives</p><p>$$\\vec r(t) = \\vec r(t_0) + \\int_{t_0}^{t} \\vec v(u)\\,du$$</p><p>The lower limit is the time at which the position is known, and $u$ is a placeholder variable. When only the position at a single time $t_1$ is needed, this reads $x(t_1) = x(t_0) + \\int_{t_0}^{t_1} x'(t)\\,dt$, and the same for $y$; each integral may be evaluated on a calculator. The equivalent route without limits is to find an antiderivative of each component and use the known position to solve for $C_1$ and $C_2$. Both routes give the same result, and both are accepted on the exam when the setup is written down.</p><p>Starting from <strong>acceleration</strong> requires two integrations and two initial conditions: an initial velocity and an initial position. Integrate $\\vec a(t)$ and use $\\vec v(t_0)$ to fix the two velocity constants; then integrate $\\vec v(t)$ and use $\\vec r(t_0)$ to fix the two position constants. Four constants are determined in total, two per component.</p><p>Two errors account for most lost points on this task. Each is named here so that you can check your own work against it.</p><ul><li>Using $0$ as the lower limit when the initial condition is given at another time. If the position is known at $t = 1$, the integral runs from $1$. The expression $\\vec r(1) + \\int_0^2 \\vec v(u)\\,du$ is not $\\vec r(2)$.</li><li>Adding the velocity vector to the initial position instead of integrating. The expression $\\vec r(1) + \\vec v(2)$ is not a position; velocity must be integrated over the time interval to produce a displacement. The related expression $\\vec r(t_0) + \\vec v(t_0)\\,(t - t_0)$ is correct only when the velocity is constant.</li></ul><p>A complete written justification states the formula with its limits, shows the integral of each component, and reports the position as an ordered pair or a vector.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find $\\vec r(t)$ and $\\vec r(\\pi/2)$ given $\\vec v(t) = \\langle \\cos t,\\ 2t + 1 \\rangle$ and $\\vec r(0) = \\langle 3, -1 \\rangle$",
+     "steps": [
+      {
+       "text": "Integrate each component of velocity separately, with its own constant.",
+       "math": "x(t) = \\int \\cos t\\,dt = \\sin t + C_1, \\qquad y(t) = \\int (2t + 1)\\,dt = t^2 + t + C_2"
+      },
+      {
+       "text": "Apply the initial position at $t = 0$ to each component. Since $\\sin 0 = 0$ and $0^2 + 0 = 0$, each constant equals the corresponding initial coordinate.",
+       "math": "x(0) = 0 + C_1 = 3 \\implies C_1 = 3, \\qquad y(0) = 0 + C_2 = -1 \\implies C_2 = -1"
+      },
+      {
+       "text": "Assemble the position function.",
+       "math": "\\vec r(t) = \\langle \\sin t + 3,\\ t^2 + t - 1 \\rangle"
+      },
+      {
+       "text": "Evaluate at $t = \\pi/2$, using $\\sin(\\pi/2) = 1$.",
+       "math": "\\vec r\\left(\\tfrac{\\pi}{2}\\right) = \\Big\\langle 4,\\ \\frac{\\pi^2}{4} + \\frac{\\pi}{2} - 1 \\Big\\rangle \\approx \\langle 4,\\ 3.038 \\rangle"
+      },
+      {
+       "text": "The same result comes from the definite-integral form: $\\vec r(\\pi/2) = \\vec r(0) + \\int_0^{\\pi/2} \\vec v(u)\\,du = \\langle 3, -1 \\rangle + \\big\\langle 1,\\ \\frac{\\pi^2}{4} + \\frac{\\pi}{2} \\big\\rangle$. The position at $t = \\pi/2$ is $\\left(4,\\ \\frac{\\pi^2}{4} + \\frac{\\pi}{2} - 1\\right)$, approximately $(4, 3.04)$."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q015",
+      "u9-q016",
+      "u9-q017"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u9-l4",
+   "title": "Motion along a plane curve",
+   "skillIds": [
+    "u9-vector-motion"
+   ],
+   "estMinutes": 22,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>In the previous lesson the position of a particle at time $t$ was the vector-valued function $\\vec r(t) = \\langle x(t), y(t)\\rangle$, its <strong>velocity</strong> was $\\vec v(t) = \\vec r\\,'(t) = \\langle x'(t), y'(t)\\rangle$, and its <strong>acceleration</strong> was $\\vec a(t) = \\vec v\\,'(t) = \\langle x''(t), y''(t)\\rangle$. This lesson turns those vectors into the scalar quantities the exam asks about.</p><p>The <strong>speed</strong> of the particle at time $t$ is the magnitude of its velocity vector:</p><p>$$|\\vec v(t)| = \\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}$$</p><p>Speed is a scalar, never negative, with units of distance per time. It is computed from the derivatives $x'(t)$ and $y'(t)$, not from the coordinates $x(t)$ and $y(t)$.</p><p>The <strong>direction of motion</strong> at time $t$ is read from the signs of the velocity components. The particle moves to the right when $\\frac{dx}{dt} > 0$ and to the left when $\\frac{dx}{dt} < 0$; it moves upward when $\\frac{dy}{dt} > 0$ and downward when $\\frac{dy}{dt} < 0$. The two signs together give the direction of $\\vec v(t)$: for example, $\\frac{dx}{dt} < 0$ together with $\\frac{dy}{dt} > 0$ means the particle is moving left and up.</p><p>The <strong>total distance traveled</strong> from $t = a$ to $t = b$ is the integral of speed:</p><p>$$\\text{distance traveled} = \\int_a^b \\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}\\,dt$$</p><p>This is the arc-length integrand from Lesson 2 of this unit. Because speed is never negative, every portion of the path counts, including portions the particle retraces. Two other quantities use similar words. The <strong>displacement</strong> from $t = a$ to $t = b$ is the vector $\\vec r(b) - \\vec r(a)$; its magnitude $|\\vec r(b) - \\vec r(a)|$ is the straight-line distance between the starting and ending positions, and it is never larger than the distance traveled. The <strong>distance from the origin</strong> at time $t$ is $|\\vec r(t)| = \\sqrt{x(t)^2 + y(t)^2}$, a value at one instant that involves no integral.</p><p>The <strong>speed test</strong> decides whether speed is increasing or decreasing at a time $t$. It uses the <strong>dot product</strong> of two vectors, which is the scalar obtained by multiplying matching components and adding: $\\langle a_1, a_2\\rangle \\cdot \\langle b_1, b_2\\rangle = a_1 b_1 + a_2 b_2$. Suppose $x(t)$ and $y(t)$ are twice differentiable. Since $|\\vec v|^2 = x'(t)^2 + y'(t)^2$, the chain rule applied to each squared term gives</p><p>$\\frac{d}{dt}|\\vec v(t)|^2 = 2\\,x'(t)\\,x''(t) + 2\\,y'(t)\\,y''(t) = 2\\,\\vec v(t)\\cdot\\vec a(t)$</p><p>Because $|\\vec v|$ is never negative, $|\\vec v|^2$ increases exactly when $|\\vec v|$ increases. Therefore speed is increasing at $t$ when $\\vec v(t)\\cdot\\vec a(t) > 0$ and decreasing when $\\vec v(t)\\cdot\\vec a(t) < 0$. The sign of one component of $\\vec a$ alone, or of one component of $\\vec v$ alone, does not determine whether speed is increasing.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Speed, direction, distance traveled, and speed change for $x(t) = 3t^2$, $y(t) = 2t^3$ (meters, $0 \\le t \\le 2$ seconds)",
+     "steps": [
+      {
+       "text": "Differentiate each coordinate to get the velocity vector, then compute the speed. On the interval $t \\ge 0$, $\\sqrt{36t^2} = 6t$.",
+       "math": "\\vec v(t) = \\langle 6t,\\ 6t^2\\rangle, \\qquad |\\vec v(t)| = \\sqrt{36t^2 + 36t^4} = 6t\\sqrt{1 + t^2}"
+      },
+      {
+       "text": "(a) Evaluate the speed at $t = 1$. The units are meters per second because position is in meters and time is in seconds.",
+       "math": "|\\vec v(1)| = 6\\sqrt{2} \\approx 8.49 \\text{ m/s}"
+      },
+      {
+       "text": "(b) Read the direction of motion from the signs of the velocity components at $t = 1$: $x'(1) = 6 > 0$ and $y'(1) = 6 > 0$, so the particle is moving to the right and upward."
+      },
+      {
+       "text": "(c) The total distance traveled is the integral of speed from $t = 0$ to $t = 2$. Substitute $u = 1 + t^2$, so $du = 2t\\,dt$ and $6t\\,dt = 3\\,du$; the limits become $u = 1$ and $u = 5$.",
+       "math": "\\int_0^2 6t\\sqrt{1 + t^2}\\,dt = \\int_1^5 3\\sqrt{u}\\,du = \\Big[\\,2u^{3/2}\\,\\Big]_1^5 = 2\\left(5\\sqrt{5} - 1\\right) \\approx 20.36 \\text{ m}"
+      },
+      {
+       "text": "For contrast, the displacement is $\\vec r(2) - \\vec r(0) = \\langle 12, 16\\rangle - \\langle 0, 0\\rangle = \\langle 12, 16\\rangle$, whose magnitude is $\\sqrt{144 + 256} = 20$ m. The straight-line distance $20$ m is less than the distance traveled $20.36$ m because the path curves."
+      },
+      {
+       "text": "(d) Differentiate the velocity to get the acceleration, then form the dot product at $t = 1$. The speed is increasing at $t = 1$ because $\\vec v(1)\\cdot\\vec a(1) = 108 > 0$.",
+       "math": "\\vec a(t) = \\langle 6,\\ 12t\\rangle, \\qquad \\vec v(1)\\cdot\\vec a(1) = (6)(6) + (6)(12) = 36 + 72 = 108"
+      }
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A physics tick loop stores <code>vx</code> and <code>vy</code> and advances the position each frame with <code>x += vx * dt; y += vy * dt</code>. The speed at a frame is <code>Math.hypot(vx, vy)</code>, which is exactly $\\sqrt{v_x^2 + v_y^2}$. Distance traveled is an odometer: a separate accumulator that adds <code>Math.hypot(vx, vy) * dt</code> every tick and never decreases. Displacement is <code>[x - x0, y - y0]</code>, the current position minus the starting position, like a straight-line GPS reading that returns to zero after a round trip while the odometer keeps its total.</p><p>Where the analogy holds: the odometer sum $\\sum |\\vec v(t_i)|\\,\\Delta t$ is a Riemann sum of speed, and as <code>dt</code> shrinks it converges to $\\int_a^b |\\vec v(t)|\\,dt$, the total distance traveled. The sign checks in the loop are the direction test: a negative <code>vx</code> at a tick is motion to the left, and a positive <code>vy</code> at that tick is motion upward.</p><p>Where it breaks: a signed accumulator of <code>vx * dt</code> alone gives the net horizontal change $x(b) - x(a)$, not a distance, because leftward motion cancels rightward motion inside the sum. And checking whether <code>vx</code> and <code>vy</code> individually grow does not tell you whether <code>Math.hypot(vx, vy)</code> grows: if <code>vx</code> changes from $10$ to $8$ while <code>vy</code> changes from $0$ to $6$, the speed changes from $10$ to $10$, which is no change at all. That is why the speed test uses the dot product $\\vec v\\cdot\\vec a$, which weights each component of the acceleration by the matching component of the velocity.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q018",
+      "u9-q019",
+      "u9-q020"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The distance question appears on the exam in three forms.</p><p><strong>Form 1, exact.</strong> The velocity components are chosen so that the sum of squares under the root is a perfect square. Expand $\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2$, factor it as a square, take the root, and integrate the resulting polynomial. For example, if $\\frac{dx}{dt} = 2t$ and $\\frac{dy}{dt} = t^2 - 1$, then $4t^2 + (t^2 - 1)^2 = t^4 + 2t^2 + 1 = (t^2 + 1)^2$, so the speed is $t^2 + 1$. When the sum does not simplify, a calculator evaluates the integral numerically; write the integral in full before giving the decimal.</p><p><strong>Form 2, from a table.</strong> The table lists $\\frac{dx}{dt}$ and $\\frac{dy}{dt}$ at a few times. First compute the speed $\\sqrt{(x')^2 + (y')^2}$ at each tabulated time. Then apply a trapezoidal sum to those speeds, using the subinterval widths from the table:</p><p>$$\\int_a^b |\\vec v(t)|\\,dt \\approx \\sum_{i} \\frac{|\\vec v(t_i)| + |\\vec v(t_{i+1})|}{2}\\,(t_{i+1} - t_i)$$</p><p>The trapezoid rule is applied to the speed, not to each component separately. A trapezoidal sum of $\\frac{dx}{dt}$ alone approximates $x(b) - x(a)$, a net change, which is a different quantity.</p><p><strong>Form 3, speed increasing or decreasing.</strong> Compute $\\vec v(t)$ and $\\vec a(t)$ at the given time, form the dot product, and state its sign. A complete justification names the quantity and its sign: speed is increasing at $t = 1$ because $\\vec v(1)\\cdot\\vec a(1) = 10 > 0$. A justification that cites only one component of $\\vec a$ or of $\\vec v$ is incomplete. An equivalent method is to differentiate the speed function $|\\vec v(t)|$ directly and check the sign of that derivative; it earns the same credit when the derivative is correct, and the dot product is the shorter route.</p><p>Three questions use similar words and have different answers. <strong>Distance traveled</strong> from $t = a$ to $t = b$ is $\\int_a^b |\\vec v(t)|\\,dt$. <strong>Distance from the origin</strong> at time $t$ is $|\\vec r(t)|$. <strong>Distance between two positions</strong> is $|\\vec r(b) - \\vec r(a)|$. Before computing, identify which of the three the prompt asks for: the first is an integral of speed, and the other two are magnitudes of position vectors with no integral.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q021",
+      "u9-q022",
+      "u9-q023"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u9-l5",
+   "title": "Polar coordinates and derivatives in polar form",
+   "skillIds": [
+    "u9-polar-derivatives"
+   ],
+   "estMinutes": 22,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A point in the plane has <strong>polar coordinates</strong> $(r, \\theta)$ when $\\theta$ is the angle measured counterclockwise from the positive $x$-axis and $r$ is the signed distance from the origin along the ray at angle $\\theta$. The origin is called the <strong>pole</strong>, and the positive $x$-axis, which is the ray $\\theta = 0$, is called the <strong>polar axis</strong>. When $r < 0$, the point lies at distance $|r|$ along the opposite ray, the one at angle $\\theta + \\pi$. So $(-2, \\pi/6)$ and $(2, 7\\pi/6)$ name the same point. Every point has infinitely many polar names, because $\\theta$ and $\\theta + 2\\pi$ give the same ray.</p><p>The conversion formulas between polar and Cartesian coordinates are</p><p>$$x = r\\cos\\theta, \\qquad y = r\\sin\\theta, \\qquad r^2 = x^2 + y^2, \\qquad \\tan\\theta = \\frac{y}{x}.$$</p><p>The first two convert polar to Cartesian directly. Converting Cartesian to polar with $r > 0$ takes $r = \\sqrt{x^2 + y^2}$, and $\\theta$ is chosen so that $\\tan\\theta = y/x$ and the ray at angle $\\theta$ lies in the quadrant given by the signs of $x$ and $y$. The value $\\arctan(y/x)$ alone is not enough, because $\\arctan$ returns angles only in $(-\\pi/2, \\pi/2)$, which covers the first and fourth quadrants; for a point in the second or third quadrant, add $\\pi$.</p><p>A <strong>polar curve</strong> is the set of points $(r, \\theta)$ with $r = f(\\theta)$ for a function $f$. Substituting into the conversion formulas shows that a polar curve is a parametric curve with parameter $\\theta$:</p><p>$$x = f(\\theta)\\cos\\theta, \\qquad y = f(\\theta)\\sin\\theta.$$</p><p>Every derivative rule from Lesson 1 of this unit therefore applies with $\\theta$ in the role of $t$.</p><p>The standard curves, named by formula:</p><ul><li>$r = a\\cos\\theta$ and $r = a\\sin\\theta$: circles of diameter $|a|$ passing through the pole. The first is centered on the $x$-axis, the second on the $y$-axis. Each is traced once as $\\theta$ runs from $0$ to $\\pi$.</li><li>$r = a + a\\cos\\theta$ (and the versions with $\\sin\\theta$ or a minus sign): a <strong>cardioid</strong>. For $r = 1 + \\cos\\theta$, $r = 2$ at $\\theta = 0$, $r = 1$ at $\\theta = \\pi/2$, and $r = 0$ at $\\theta = \\pi$, so the curve touches the pole once and is widest along the positive $x$-axis.</li><li>$r = a + b\\cos\\theta$ with $a, b > 0$: a <strong>limaçon</strong>. When $b > a$, $r$ is negative for angles near $\\pi$, and those points trace an inner loop. When $a \\ge b$ there is no inner loop.</li><li>$r = a\\cos(n\\theta)$ or $r = a\\sin(n\\theta)$: a <strong>rose</strong> with $n$ petals when $n$ is odd and $2n$ petals when $n$ is even.</li><li>$r = \\theta$ for $\\theta \\ge 0$: a <strong>spiral</strong> whose distance from the pole grows at a constant rate with respect to the angle.</li></ul>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Convert $(r, \\theta) = (6, 5\\pi/6)$ to Cartesian coordinates, and convert $(x, y) = (-1, -1)$ to polar coordinates with $r > 0$ and $0 \\le \\theta < 2\\pi$",
+     "steps": [
+      {
+       "text": "Part (a). Apply $x = r\\cos\\theta$ and $y = r\\sin\\theta$ with $r = 6$ and $\\theta = 5\\pi/6$. The <strong>reference angle</strong> of an angle is the acute angle between its ray and the $x$-axis; here it is $\\pi/6$. Since $5\\pi/6$ lies in the second quadrant, so the cosine is negative and the sine is positive.",
+       "math": "x = 6\\cos\\frac{5\\pi}{6} = 6\\left(-\\frac{\\sqrt{3}}{2}\\right) = -3\\sqrt{3}, \\qquad y = 6\\sin\\frac{5\\pi}{6} = 6\\cdot\\frac{1}{2} = 3"
+      },
+      {
+       "text": "The Cartesian point is $(-3\\sqrt{3}, 3)$. Check: $x^2 + y^2 = 27 + 9 = 36 = r^2$, as required.",
+       "math": "(x, y) = \\left(-3\\sqrt{3},\\ 3\\right)"
+      },
+      {
+       "text": "Part (b). The distance from the origin is $r = \\sqrt{x^2 + y^2}$, with $x = -1$ and $y = -1$.",
+       "math": "r = \\sqrt{(-1)^2 + (-1)^2} = \\sqrt{2}"
+      },
+      {
+       "text": "The angle satisfies $\\tan\\theta = y/x = 1$. The value $\\arctan 1 = \\pi/4$ is a first-quadrant angle, but both coordinates are negative, so the point is in the third quadrant. Adding $\\pi$ gives the angle on the correct ray.",
+       "math": "\\theta = \\frac{\\pi}{4} + \\pi = \\frac{5\\pi}{4}"
+      },
+      {
+       "text": "The polar coordinates are $(\\sqrt{2}, 5\\pi/4)$. Check: $\\sqrt{2}\\cos(5\\pi/4) = \\sqrt{2}\\left(-\\frac{\\sqrt{2}}{2}\\right) = -1$ and $\\sqrt{2}\\sin(5\\pi/4) = -1$, which recovers $(-1, -1)$.",
+       "math": "(r, \\theta) = \\left(\\sqrt{2},\\ \\frac{5\\pi}{4}\\right)"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q024"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The derivative $\\dfrac{dr}{d\\theta}$ measures how the signed coordinate $r$ changes as the angle increases. Its interpretation depends on the sign of $r$. When $r > 0$, the distance from the origin equals $r$, so $\\dfrac{dr}{d\\theta} > 0$ means the distance from the origin is increasing as $\\theta$ increases, and $\\dfrac{dr}{d\\theta} < 0$ means it is decreasing. When $r < 0$, the distance from the origin is $|r| = -r$, whose derivative is $-\\dfrac{dr}{d\\theta}$, so the interpretation reverses: $\\dfrac{dr}{d\\theta} > 0$ then means the distance is decreasing. A complete justification states the sign of $\\dfrac{dr}{d\\theta}$ on the interval and the sign of $r$ there.</p><p>The quantity $\\dfrac{dr}{d\\theta}$ is not the slope of the curve. The slope is $\\dfrac{dy}{dx}$, and it comes from the parametric form. Because $x = r\\cos\\theta$ and $y = r\\sin\\theta$ with $r$ a function of $\\theta$, the product rule gives</p><p>$$\\frac{dx}{d\\theta} = \\frac{dr}{d\\theta}\\cos\\theta - r\\sin\\theta, \\qquad \\frac{dy}{d\\theta} = \\frac{dr}{d\\theta}\\sin\\theta + r\\cos\\theta,$$</p><p>and, exactly as for any parametric curve,</p><p>$$\\frac{dy}{dx} = \\frac{dy/d\\theta}{dx/d\\theta} \\qquad \\text{where } \\frac{dx}{d\\theta} \\ne 0.$$</p><p>Memorizing the two product-rule results is optional. Writing $x = f(\\theta)\\cos\\theta$ and $y = f(\\theta)\\sin\\theta$ for the specific $f$ and differentiating each product reproduces them every time.</p><p>The curve has a <strong>horizontal tangent</strong> at $\\theta_0$ when $\\dfrac{dy}{d\\theta} = 0$ and $\\dfrac{dx}{d\\theta} \\ne 0$ there, and a <strong>vertical tangent</strong> when $\\dfrac{dx}{d\\theta} = 0$ and $\\dfrac{dy}{d\\theta} \\ne 0$. When both derivatives are $0$ at the same angle, which happens at the pole for many curves, the ratio gives no information, and the limit of $\\dfrac{dy}{dx}$ as $\\theta \\to \\theta_0$ is needed instead. Setting $\\dfrac{dr}{d\\theta} = 0$ finds where $r$ is largest or smallest; it does not find horizontal tangents.</p><p>The tangent line at $\\theta_0$ passes through the Cartesian point $\\big(r(\\theta_0)\\cos\\theta_0,\\ r(\\theta_0)\\sin\\theta_0\\big)$. The pair $(r, \\theta)$ is never used as $(x, y)$ in a point-slope equation. On the exam, a tangent-line question is scored on three items: the slope from $\\dfrac{dy/d\\theta}{dx/d\\theta}$, the converted point, and the equation of the line through that point with that slope.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Polar to Cartesian is an adapter. The function <code>toCartesian(r, theta)</code> returns <code>{ x: r * Math.cos(theta), y: r * Math.sin(theta) }</code>, and every slope calculation goes through it: the slope $\\dfrac{dy}{dx}$ is a property of the Cartesian output, not of the polar input. Computing $\\dfrac{dr}{d\\theta}$ and reporting it as a slope is passing a value from one unit system to a function that expects another. Both values are plain numbers, so no type checker warns you, and the result is silently wrong. The chain rule and product rule are the derivative of the adapter composed with the derivative of <code>r(theta)</code>: differentiate <code>r(theta) * Math.cos(theta)</code> and <code>r(theta) * Math.sin(theta)</code> as products, and the formulas for $\\dfrac{dx}{d\\theta}$ and $\\dfrac{dy}{d\\theta}$ appear directly.</p><p>Where the analogy holds: the adapter is a pure function with no hidden state, so converting and then differentiating gives the same answer as differentiating the formulas symbolically. Running every polar computation through the conversion before asking a Cartesian question (slope, horizontal tangent, tangent-line equation) is the discipline that prevents the unit-mismatch error, in the same way that converting units at a module boundary keeps mismatched units out of the interior.</p><p>Where it breaks: the adapter is not injective, meaning that different inputs can produce the same output. Every input <code>(0, theta)</code> maps to the origin, so the pole is a key with infinitely many aliases, and a result that depends on $\\theta$ at the pole (for example the direction of the tangent there) must be read as a limit rather than a lookup. The adapter is also periodic: <code>(r, theta)</code> and <code>(r, theta + 2 * Math.PI)</code> map to the same output, and so do <code>(r, theta)</code> and <code>(-r, theta + Math.PI)</code>. A Cartesian point therefore has no single polar preimage, which is why the reverse conversion needs the quadrant rule and a stated range for $\\theta$.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Tangent line to the limaçon $r = 1 + 2\\cos\\theta$ at $\\theta = \\pi/2$, and the behavior of the distance from the origin there",
+     "steps": [
+      {
+       "text": "Write the curve in parametric form with parameter $\\theta$ by substituting $r = 1 + 2\\cos\\theta$ into $x = r\\cos\\theta$ and $y = r\\sin\\theta$.",
+       "math": "x = (1 + 2\\cos\\theta)\\cos\\theta, \\qquad y = (1 + 2\\cos\\theta)\\sin\\theta"
+      },
+      {
+       "text": "Differentiate $x$ with the product rule, then evaluate at $\\theta = \\pi/2$, where $\\sin\\theta = 1$ and $\\cos\\theta = 0$.",
+       "math": "\\frac{dx}{d\\theta} = -2\\sin\\theta\\cos\\theta - (1 + 2\\cos\\theta)\\sin\\theta, \\qquad \\left.\\frac{dx}{d\\theta}\\right|_{\\theta = \\pi/2} = 0 - (1)(1) = -1"
+      },
+      {
+       "text": "Differentiate $y$ with the product rule and evaluate at the same angle.",
+       "math": "\\frac{dy}{d\\theta} = -2\\sin^2\\theta + (1 + 2\\cos\\theta)\\cos\\theta, \\qquad \\left.\\frac{dy}{d\\theta}\\right|_{\\theta = \\pi/2} = -2 + 0 = -2"
+      },
+      {
+       "text": "The slope is the ratio of the two derivatives. Since $\\dfrac{dx}{d\\theta} = -1 \\ne 0$, the ratio is defined.",
+       "math": "\\frac{dy}{dx} = \\frac{dy/d\\theta}{dx/d\\theta} = \\frac{-2}{-1} = 2"
+      },
+      {
+       "text": "Convert the point of tangency to Cartesian coordinates. At $\\theta = \\pi/2$, $r = 1 + 2\\cos(\\pi/2) = 1$, so $x = 1\\cdot\\cos(\\pi/2) = 0$ and $y = 1\\cdot\\sin(\\pi/2) = 1$. The tangent line passes through $(0, 1)$ with slope $2$.",
+       "math": "y - 1 = 2(x - 0), \\qquad \\text{so } y = 2x + 1"
+      },
+      {
+       "text": "For the distance from the origin, compute $\\dfrac{dr}{d\\theta} = -2\\sin\\theta$, which equals $-2$ at $\\theta = \\pi/2$. Since $r = 1 > 0$ there, the distance from the origin is decreasing as $\\theta$ increases through $\\pi/2$. Note that $\\dfrac{dr}{d\\theta} = -2$ and the slope $\\dfrac{dy}{dx} = 2$ are different quantities with different meanings.",
+       "math": "\\left.\\frac{dr}{d\\theta}\\right|_{\\theta = \\pi/2} = -2 < 0 \\quad \\text{and} \\quad r\\!\\left(\\tfrac{\\pi}{2}\\right) = 1 > 0"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q025",
+      "u9-q026"
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q027",
+      "u9-q028",
+      "u9-q029"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u9-l6",
+   "title": "Area in polar coordinates",
+   "skillIds": [
+    "u9-polar-area",
+    "u9-polar-area-between"
+   ],
+   "estMinutes": 28,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>circular sector</strong> is the region between two rays from the pole (the origin) and an arc of a circle centered at the pole. A sector of radius $r$ and central angle $\\Delta\\theta$ radians is the fraction $\\frac{\\Delta\\theta}{2\\pi}$ of a full disk, so its area is $\\frac{\\Delta\\theta}{2\\pi}\\cdot\\pi r^2 = \\frac{1}{2}r^2\\,\\Delta\\theta$. This sector is the element of area in polar coordinates, in the role that the rectangle of area $f(x)\\,\\Delta x$ plays in rectangular coordinates.</p><p>Let $r = f(\\theta)$ be continuous on $[\\alpha, \\beta]$. Divide the interval into thin angular slices of width $\\Delta\\theta$. Each slice of the region between the pole and the curve is close to a sector of radius $f(\\theta)$, with area $\\frac{1}{2}f(\\theta)^2\\,\\Delta\\theta$. Summing the slices and taking the limit as $\\Delta\\theta \\to 0$ gives the <strong>polar area formula</strong>:</p><p>$$A = \\frac{1}{2}\\int_\\alpha^\\beta r^2\\,d\\theta = \\frac{1}{2}\\int_\\alpha^\\beta \\big(f(\\theta)\\big)^2\\,d\\theta$$</p><p>The formula measures the region swept by the segment from the pole to the curve as $\\theta$ runs from $\\alpha$ to $\\beta$. Choosing $\\alpha$ and $\\beta$ is the step where errors occur, and three rules govern it.</p><ul><li>The interval must trace the boundary of the region exactly once. The limaçon $r = 2 + \\cos\\theta$ needs $0 \\le \\theta \\le 2\\pi$. The circle $r = a\\cos\\theta$ is traced completely on $0 \\le \\theta \\le \\pi$; integrating to $2\\pi$ traces it a second time and doubles the area.</li><li>A petal or loop begins and ends at the pole, so its limits are consecutive solutions of $f(\\theta) = 0$. For the rose $r = 4\\sin 2\\theta$, $r = 0$ at $\\theta = 0$ and next at $\\theta = \\frac{\\pi}{2}$, so those are the limits for one petal.</li><li>The integrand is $r^2$, which is never negative. A negative $r$ on part of the interval still contributes positive area, so checking the sign of $r$ does not detect wrong limits.</li></ul><p>When the region is symmetric about the polar axis or about the line $\\theta = \\frac{\\pi}{2}$, integrate over half of the region and double the result. The limits must then cover exactly half.</p><p>The integrand $r^2$ usually produces $\\cos^2$ or $\\sin^2$ terms. The two <strong>power-reducing identities</strong> convert them to first powers:</p><p>$$\\cos^2 u = \\frac{1 + \\cos 2u}{2}, \\qquad \\sin^2 u = \\frac{1 - \\cos 2u}{2}$$</p><p>A shortcut follows from them. The function $\\cos^2(k\\theta)$ has period $\\frac{\\pi}{k}$, and over any interval of exactly that length its integral is half the length, $\\frac{\\pi}{2k}$; the same holds for $\\sin^2(k\\theta)$. For example, $\\int_0^{2\\pi}\\cos^2\\theta\\,d\\theta = \\pi$ (two full periods of length $\\pi$) and $\\int_0^{\\pi/2}\\sin^2 2\\theta\\,d\\theta = \\frac{\\pi}{4}$. On the exam, write the integral with its limits before evaluating it, because the setup earns its own point.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the area enclosed by the limaçon $r = 2 + \\cos\\theta$",
+     "steps": [
+      {
+       "text": "Check the traversal and the sign of $r$. Since $-1 \\le \\cos\\theta \\le 1$, the radius satisfies $1 \\le r \\le 3$, so $r > 0$ for every $\\theta$ and the curve never passes through the pole. As $\\theta$ runs from $0$ to $2\\pi$ the curve is traced exactly once, so the limits are $0$ and $2\\pi$."
+      },
+      {
+       "text": "Set up the polar area formula and expand the square.",
+       "math": "A = \\frac{1}{2}\\int_0^{2\\pi}(2 + \\cos\\theta)^2\\,d\\theta = \\frac{1}{2}\\int_0^{2\\pi}\\left(4 + 4\\cos\\theta + \\cos^2\\theta\\right)d\\theta"
+      },
+      {
+       "text": "Integrate term by term over the full period. The constant $4$ gives $4 \\cdot 2\\pi = 8\\pi$. The term $4\\cos\\theta$ integrates to $4\\sin\\theta$, which is $0$ at both limits. The term $\\cos^2\\theta$ has period $\\pi$, and $[0, 2\\pi]$ is two full periods, so its integral is half the interval length, $\\pi$.",
+       "math": "\\int_0^{2\\pi}4\\,d\\theta = 8\\pi, \\qquad \\int_0^{2\\pi}4\\cos\\theta\\,d\\theta = 0, \\qquad \\int_0^{2\\pi}\\cos^2\\theta\\,d\\theta = \\pi"
+      },
+      {
+       "text": "Combine the three pieces and apply the factor $\\frac{1}{2}$.",
+       "math": "A = \\frac{1}{2}(8\\pi + 0 + \\pi) = \\frac{9\\pi}{2} \\approx 14.14"
+      },
+      {
+       "text": "The area is $\\frac{9\\pi}{2}$ square units. As a check, the limaçon lies between the circles $r = 1$ and $r = 3$, whose areas are $\\pi \\approx 3.14$ and $9\\pi \\approx 28.27$, and $14.14$ lies between those values."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q030",
+      "u9-q031",
+      "u9-q032"
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>The polar area formula is the same <code>reduce</code> as a Riemann sum. In rectangular coordinates the loop body is <code>total += f(x) * dx</code> over a grid of <code>x</code> values; in polar coordinates it is <code>total += 0.5 * r(theta) ** 2 * dtheta</code> over a grid of <code>theta</code> values. The accumulator, the loop, and the limit as the step goes to zero are identical. Only the per-element formula changes, from a thin rectangle of area $f(x)\\,dx$ to a thin sector of area $\\frac{1}{2}r^2\\,d\\theta$.</p><p>Where the analogy holds: every property of a definite integral carries over unchanged. Splitting the interval at an intersection angle, doubling by symmetry, and subtracting an inner curve are the same operations on the accumulator that they are for any sum. A numerical check such as <code>sum(0.5 * r(t)**2 * dt for t in grid)</code> with a fine grid confirms an exact answer to a few decimal places.</p><p>Where it breaks: the loop has no bounds checking. Iterating <code>theta</code> past one full traversal of the curve is like walking a circular buffer past its length: no error is raised, the same elements are visited a second time, and the total silently doubles. The circle $r = a\\cos\\theta$ integrated over $[0, 2\\pi]$ is exactly this defect. And because the element is $r^2$, a negative $r$ contributes the same positive area as a positive $r$ of the same size, so an assertion such as <code>assert r &gt;= 0</code> inside the loop does not detect wrong limits. The only reliable guard is to determine, before the loop runs, the interval on which the curve traces the boundary exactly once.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q033",
+      "u9-q035"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Suppose a region is bounded, for $\\alpha \\le \\theta \\le \\beta$, on the outside by the curve $r = r_{\\text{outer}}(\\theta)$ and on the inside by $r = r_{\\text{inner}}(\\theta)$, with $r_{\\text{outer}}(\\theta) \\ge r_{\\text{inner}}(\\theta) \\ge 0$ on the interval. Each thin slice of the region is a sector of radius $r_{\\text{outer}}$ with a sector of radius $r_{\\text{inner}}$ removed, so the <strong>area between two polar curves</strong> is</p><p>$$A = \\frac{1}{2}\\int_\\alpha^\\beta \\left(r_{\\text{outer}}^2 - r_{\\text{inner}}^2\\right)d\\theta$$</p><p>The integrand is the difference of the squares, not the square of the difference. For the circles $r = 3$ and $r = 2$ on $[0, 2\\pi]$ the formula gives $\\frac{1}{2}(9 - 4)(2\\pi) = 5\\pi$, which matches $9\\pi - 4\\pi$. The expression $(3 - 2)^2$ in the integrand would give $\\pi$, which is not the area of the ring.</p><p>The procedure has four parts.</p><ol><li>Find the intersection angles by solving $r_1(\\theta) = r_2(\\theta)$. Check separately whether both curves pass through the pole, because the pole can be a common point reached at different angles: $r = 3\\sin\\theta$ is at the pole when $\\theta = 0$, and $r = 1 + \\sin\\theta$ is at the pole when $\\theta = \\frac{3\\pi}{2}$, so solving $r_1 = r_2$ never reports that common point.</li><li>Decide which curve is outer by testing one angle strictly between two consecutive intersection angles. The curve with the larger $r$ at that angle is $r_{\\text{outer}}$ on that whole interval, since the curves do not cross between consecutive intersections.</li><li>For a region inside both curves, the boundary switches from one curve to the other at each intersection angle. Split the interval there and add two single-curve integrals, each using the curve that is closer to the pole on its piece.</li><li>When the region is symmetric about an axis, integrate over half and double.</li></ol><p>The common exam forms are the area of the region inside $r_1$ and outside $r_2$, the area of the region common to both curves, and, on the calculator section, a decimal value rounded to three places. A complete answer states the equation that produced the intersection angles and their values, the integral with its limits and integrand, and the result. When the intersection angles come from a calculator, report them to at least three decimal places, store the full values, and use the stored values as the limits.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the area of the region inside $r = 3\\sin\\theta$ and outside $r = 1 + \\sin\\theta$",
+     "steps": [
+      {
+       "text": "Find the intersection angles by setting the two radii equal. Both curves also reach the pole, the circle at $\\theta = 0$ and the cardioid at $\\theta = \\frac{3\\pi}{2}$, but near the pole the circle lies inside the cardioid, so the pole is not on the boundary of the region inside the circle and outside the cardioid.",
+       "math": "3\\sin\\theta = 1 + \\sin\\theta \\implies \\sin\\theta = \\frac{1}{2} \\implies \\theta = \\frac{\\pi}{6},\\ \\frac{5\\pi}{6}"
+      },
+      {
+       "text": "Decide which curve is outer on $\\left[\\frac{\\pi}{6}, \\frac{5\\pi}{6}\\right]$ by testing $\\theta = \\frac{\\pi}{2}$: the circle gives $r = 3$ and the cardioid gives $r = 2$. So $r_{\\text{outer}} = 3\\sin\\theta$ and $r_{\\text{inner}} = 1 + \\sin\\theta$ on the whole interval."
+      },
+      {
+       "text": "Set up the difference of squares, expand, and reduce the power with $\\sin^2\\theta = \\frac{1 - \\cos 2\\theta}{2}$, so that $8\\sin^2\\theta = 4 - 4\\cos 2\\theta$.",
+       "math": "A = \\frac{1}{2}\\int_{\\pi/6}^{5\\pi/6}\\left(9\\sin^2\\theta - (1 + \\sin\\theta)^2\\right)d\\theta = \\frac{1}{2}\\int_{\\pi/6}^{5\\pi/6}\\left(8\\sin^2\\theta - 2\\sin\\theta - 1\\right)d\\theta = \\frac{1}{2}\\int_{\\pi/6}^{5\\pi/6}\\left(3 - 4\\cos 2\\theta - 2\\sin\\theta\\right)d\\theta"
+      },
+      {
+       "text": "Integrate. The antiderivative of $\\cos 2\\theta$ is $\\frac{1}{2}\\sin 2\\theta$, so $-4\\cos 2\\theta$ integrates to $-2\\sin 2\\theta$, and $-2\\sin\\theta$ integrates to $2\\cos\\theta$.",
+       "math": "A = \\frac{1}{2}\\Big[\\,3\\theta - 2\\sin 2\\theta + 2\\cos\\theta\\,\\Big]_{\\pi/6}^{5\\pi/6}"
+      },
+      {
+       "text": "Evaluate at both limits. At $\\theta = \\frac{5\\pi}{6}$: $\\sin\\frac{5\\pi}{3} = -\\frac{\\sqrt{3}}{2}$ and $\\cos\\frac{5\\pi}{6} = -\\frac{\\sqrt{3}}{2}$, so the bracket equals $\\frac{5\\pi}{2} + \\sqrt{3} - \\sqrt{3} = \\frac{5\\pi}{2}$. At $\\theta = \\frac{\\pi}{6}$: $\\sin\\frac{\\pi}{3} = \\frac{\\sqrt{3}}{2}$ and $\\cos\\frac{\\pi}{6} = \\frac{\\sqrt{3}}{2}$, so the bracket equals $\\frac{\\pi}{2} - \\sqrt{3} + \\sqrt{3} = \\frac{\\pi}{2}$.",
+       "math": "A = \\frac{1}{2}\\left(\\frac{5\\pi}{2} - \\frac{\\pi}{2}\\right) = \\pi \\approx 3.14"
+      },
+      {
+       "text": "The area is $\\pi$ square units. As a check, the circle $r = 3\\sin\\theta$ has radius $\\frac{3}{2}$ and area $\\frac{9\\pi}{4} \\approx 7.07$, and the region is the part of that circle lying beyond the cardioid, so an answer smaller than $7.07$ is consistent."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u9-q036",
+      "u9-q037",
+      "u9-q038"
+     ]
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "u9-q001",
+   "skillId": "u9-parametric-derivatives",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A curve is given by the parametric equations $x = t^2 + 1$ and $y = t^3 - 5t$. What is the value of $\\dfrac{dy}{dx}$ at $t = 2$?</p>",
+   "choices": [
+    "$\\dfrac{4}{7}$",
+    "$7$",
+    "$\\dfrac{7}{4}$",
+    "$\\dfrac{17}{4}$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from inverting the ratio and computing $\\dfrac{dx/dt}{dy/dt}$. The slope of the curve is $\\dfrac{dy}{dx} = \\dfrac{dy/dt}{dx/dt}$, with $dy/dt$ in the numerator.",
+    "This choice comes from reporting $\\dfrac{dy}{dt} = 3t^2 - 5 = 7$ as the slope. The rate $dy/dt$ is a rate with respect to $t$; the slope of the curve is $dy/dt$ divided by $dx/dt$.",
+    null,
+    "This choice comes from differentiating $-5t$ as $+5$, giving $\\dfrac{dy}{dt} = 3t^2 + 5 = 17$ at $t = 2$. The derivative of $-5t$ is $-5$, so $\\dfrac{dy}{dt} = 3t^2 - 5$."
+   ],
+   "hints": [
+    "For a parametric curve, the slope $\\dfrac{dy}{dx}$ is the ratio of the two rates $\\dfrac{dy}{dt}$ and $\\dfrac{dx}{dt}$. Compute both rates first.",
+    "Use $\\dfrac{dy}{dx} = \\dfrac{dy/dt}{dx/dt}$. Evaluate $\\dfrac{dy}{dt} = 3t^2 - 5$ and $\\dfrac{dx}{dt} = 2t$ at $t = 2$, then divide."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate with respect to $t$.",
+     "math": "\\frac{dx}{dt} = 2t, \\qquad \\frac{dy}{dt} = 3t^2 - 5"
+    },
+    {
+     "text": "The slope of a parametric curve is the ratio of the rates, with $dy/dt$ in the numerator. This formula is valid wherever $dx/dt \\neq 0$.",
+     "math": "\\frac{dy}{dx} = \\frac{dy/dt}{dx/dt} = \\frac{3t^2 - 5}{2t}"
+    },
+    {
+     "text": "Evaluate at $t = 2$. Since $dx/dt = 4 \\neq 0$ there, the slope is defined.",
+     "math": "\\left.\\frac{dy}{dx}\\right|_{t = 2} = \\frac{3(4) - 5}{2(2)} = \\frac{7}{4}"
+    }
+   ]
+  },
+  {
+   "id": "u9-q002",
+   "skillId": "u9-parametric-derivatives",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>A curve is given by the parametric equations $x = t^3 - 12t$ and $y = t^2 - 6t$. There is exactly one value of $t$ at which the curve has a horizontal tangent line. Find that value of $t$. Give an exact integer.</p>",
+   "answer": 3,
+   "hints": [
+    "A horizontal tangent has slope $0$. For a parametric curve, $\\dfrac{dy}{dx} = \\dfrac{dy/dt}{dx/dt}$, and a fraction is $0$ exactly when its numerator is $0$ and its denominator is not $0$.",
+    "Solve $\\dfrac{dy}{dt} = 0$ for $t$. Then confirm that $\\dfrac{dx}{dt}$ is not $0$ at that value; if it were $0$, the tangent would need separate analysis. Setting $\\dfrac{dx}{dt} = 0$ instead locates the vertical tangents, not the horizontal one."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate with respect to $t$.",
+     "math": "\\frac{dx}{dt} = 3t^2 - 12, \\qquad \\frac{dy}{dt} = 2t - 6"
+    },
+    {
+     "text": "The tangent line is horizontal where the slope $\\dfrac{dy}{dx} = \\dfrac{dy/dt}{dx/dt}$ equals $0$, which requires $\\dfrac{dy}{dt} = 0$ and $\\dfrac{dx}{dt} \\neq 0$. Solve the numerator condition.",
+     "math": "2t - 6 = 0 \\quad \\Longrightarrow \\quad t = 3"
+    },
+    {
+     "text": "Check the denominator at $t = 3$. It is not $0$, so the slope is defined and equals $0$ there.",
+     "math": "\\left.\\frac{dx}{dt}\\right|_{t = 3} = 3(9) - 12 = 15 \\neq 0"
+    },
+    {
+     "text": "For comparison, $\\dfrac{dx}{dt} = 3t^2 - 12 = 0$ at $t = 2$ and $t = -2$. At those values $\\dfrac{dy}{dt}$ is $-2$ and $-10$, both nonzero, so the tangent lines there are vertical, not horizontal. The only horizontal tangent occurs at $t = 3$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q003",
+   "skillId": "u9-parametric-derivatives",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A particle moves in the plane along a differentiable parametric curve $(x(t), y(t))$. Selected values at $t = 3$ are given in the table.</p><table><thead><tr><th>$t$</th><th>$x(t)$</th><th>$y(t)$</th><th>$x'(t)$</th><th>$y'(t)$</th></tr></thead><tbody><tr><td>$3$</td><td>$5$</td><td>$-2$</td><td>$4$</td><td>$-6$</td></tr></tbody></table><p>Which of the following is an equation of the line tangent to the curve at the point corresponding to $t = 3$?</p>",
+   "choices": [
+    "$y + 2 = -\\dfrac{3}{2}(x - 5)$",
+    "$y + 2 = -\\dfrac{2}{3}(x - 5)$",
+    "$y + 2 = -6(x - 5)$",
+    "$y + 2 = -\\dfrac{3}{2}(x - 3)$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from inverting the slope ratio and using $\\dfrac{x'(3)}{y'(3)} = \\dfrac{4}{-6} = -\\dfrac{2}{3}$. The slope of the curve is $\\dfrac{dy}{dx} = \\dfrac{y'(3)}{x'(3)}$, with the $y$ rate in the numerator.",
+    "This choice comes from using $y'(3) = -6$ alone as the slope. The rate $y'(3)$ is a rate with respect to $t$; the slope of the curve is $y'(3)$ divided by $x'(3)$.",
+    "This choice comes from treating the parameter value $t = 3$ as the $x$-coordinate of the point of tangency. The point on the curve at $t = 3$ is $(x(3), y(3)) = (5, -2)$, so the line passes through $x = 5$, not $x = 3$."
+   ],
+   "hints": [
+    "A tangent line needs a point and a slope. The point is $(x(3), y(3))$, read directly from the table. The parameter value $3$ is not a coordinate of that point.",
+    "The slope is $\\dfrac{dy}{dx} = \\dfrac{y'(3)}{x'(3)}$. Then write the line in point-slope form, $y - y_0 = m(x - x_0)$."
+   ],
+   "solution": [
+    {
+     "text": "The point of tangency is the position at $t = 3$, which the table gives as $(x(3), y(3)) = (5, -2)$."
+    },
+    {
+     "text": "The slope of a parametric curve is the ratio of the $t$-rates, with the $y$ rate in the numerator. Since $x'(3) = 4 \\neq 0$, the slope is defined.",
+     "math": "m = \\frac{dy}{dx} = \\frac{y'(3)}{x'(3)} = \\frac{-6}{4} = -\\frac{3}{2}"
+    },
+    {
+     "text": "Write the tangent line in point-slope form through $(5, -2)$ with slope $-\\dfrac{3}{2}$.",
+     "math": "y - (-2) = -\\frac{3}{2}(x - 5), \\quad \\text{that is,} \\quad y + 2 = -\\frac{3}{2}(x - 5)"
+    }
+   ]
+  },
+  {
+   "id": "u9-q004",
+   "skillId": "u9-parametric-derivatives",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A curve is given by the parametric equations $x = t^3 - 3t$ and $y = t^2 + 1$. For which values of $t$ is the line tangent to the curve vertical?</p>",
+   "choices": [
+    "$t = 0$ only",
+    "$t = 1$ only",
+    "$t = -1$, $t = 0$, and $t = 1$",
+    "$t = -1$ and $t = 1$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from solving $\\dfrac{dy}{dt} = 2t = 0$. That condition makes the numerator of $\\dfrac{dy}{dx}$ zero, which gives a horizontal tangent at $t = 0$, not a vertical one. A vertical tangent comes from $\\dfrac{dx}{dt} = 0$ with $\\dfrac{dy}{dt} \\neq 0$.",
+    "This choice comes from solving $3t^2 - 3 = 0$ as $t^2 = 1$ and keeping only the positive root. The equation $t^2 = 1$ has two solutions, $t = 1$ and $t = -1$, and $\\dfrac{dy}{dt} = 2t$ is nonzero at both.",
+    "This choice comes from combining the values where $\\dfrac{dx}{dt} = 0$ with the value where $\\dfrac{dy}{dt} = 0$. At $t = 0$, $\\dfrac{dx}{dt} = -3 \\neq 0$ and $\\dfrac{dy}{dt} = 0$, so the tangent there is horizontal, not vertical.",
+    null
+   ],
+   "hints": [
+    "A vertical line has an undefined slope. For a parametric curve, $\\dfrac{dy}{dx} = \\dfrac{dy/dt}{dx/dt}$ is undefined where the denominator $\\dfrac{dx}{dt}$ is $0$, provided the numerator is not also $0$ there.",
+    "Solve $\\dfrac{dx}{dt} = 3t^2 - 3 = 0$, keeping every real solution. Then confirm that $\\dfrac{dy}{dt} = 2t$ is nonzero at each solution."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate with respect to $t$.",
+     "math": "\\frac{dx}{dt} = 3t^2 - 3, \\qquad \\frac{dy}{dt} = 2t"
+    },
+    {
+     "text": "The tangent line is vertical where $\\dfrac{dx}{dt} = 0$ and $\\dfrac{dy}{dt} \\neq 0$, because then $\\dfrac{dy}{dx} = \\dfrac{dy/dt}{dx/dt}$ has a nonzero numerator over a zero denominator. Solve the denominator condition.",
+     "math": "3t^2 - 3 = 0 \\quad \\Longrightarrow \\quad t^2 = 1 \\quad \\Longrightarrow \\quad t = 1 \\text{ or } t = -1"
+    },
+    {
+     "text": "Check the numerator at each value. Both are nonzero, so both give vertical tangents.",
+     "math": "\\left.\\frac{dy}{dt}\\right|_{t = 1} = 2 \\neq 0, \\qquad \\left.\\frac{dy}{dt}\\right|_{t = -1} = -2 \\neq 0"
+    },
+    {
+     "text": "The value $t = 0$ makes $\\dfrac{dy}{dt} = 0$ while $\\dfrac{dx}{dt} = -3 \\neq 0$; that is a horizontal tangent, not a vertical one. The tangent line is vertical at $t = -1$ and $t = 1$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q005",
+   "skillId": "u9-parametric-derivatives",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A curve is given by the parametric equations $x = t^2 + t$ and $y = t^3$. What is the value of $\\dfrac{d^2y}{dx^2}$ at $t = 1$?</p>",
+   "choices": [
+    "$\\dfrac{4}{3}$",
+    "$\\dfrac{4}{9}$",
+    "$3$",
+    "$\\dfrac{2}{3}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from differentiating $\\dfrac{dy}{dx}$ with respect to $t$ and stopping there. The result $\\dfrac{d}{dt}\\left(\\dfrac{dy}{dx}\\right) = \\dfrac{4}{3}$ is a rate with respect to $t$; dividing by $\\dfrac{dx}{dt} = 3$ converts it to a rate with respect to $x$.",
+    null,
+    "This choice comes from computing $\\dfrac{d^2y/dt^2}{d^2x/dt^2} = \\dfrac{6}{2}$. The second derivative $\\dfrac{d^2y}{dx^2}$ is not a ratio of second $t$-derivatives; it is the $t$-derivative of $\\dfrac{dy}{dx}$ divided by $\\dfrac{dx}{dt}$.",
+    "This choice comes from computing $\\dfrac{d^2y/dt^2}{(dx/dt)^2} = \\dfrac{6}{9}$. That formula omits the term produced by the quotient rule when $\\dfrac{dy}{dx}$ is differentiated with respect to $t$."
+   ],
+   "hints": [
+    "First find $\\dfrac{dy}{dx}$ as a function of $t$. The second derivative $\\dfrac{d^2y}{dx^2}$ is the derivative of that function with respect to $x$, not with respect to $t$.",
+    "Use $\\dfrac{d^2y}{dx^2} = \\dfrac{\\dfrac{d}{dt}\\left(\\dfrac{dy}{dx}\\right)}{\\dfrac{dx}{dt}}$. Differentiating $\\dfrac{dy}{dx} = \\dfrac{3t^2}{2t + 1}$ with respect to $t$ requires the quotient rule."
+   ],
+   "solution": [
+    {
+     "text": "Find the first derivative as a function of $t$.",
+     "math": "\\frac{dx}{dt} = 2t + 1, \\qquad \\frac{dy}{dt} = 3t^2, \\qquad \\frac{dy}{dx} = \\frac{3t^2}{2t + 1}"
+    },
+    {
+     "text": "Differentiate $\\dfrac{dy}{dx}$ with respect to $t$ using the quotient rule.",
+     "math": "\\frac{d}{dt}\\left(\\frac{dy}{dx}\\right) = \\frac{6t(2t + 1) - 3t^2 \\cdot 2}{(2t + 1)^2} = \\frac{6t^2 + 6t}{(2t + 1)^2}"
+    },
+    {
+     "text": "The second derivative with respect to $x$ is this $t$-rate divided by $\\dfrac{dx}{dt}$, by the chain rule.",
+     "math": "\\frac{d^2y}{dx^2} = \\frac{\\dfrac{d}{dt}\\left(\\dfrac{dy}{dx}\\right)}{\\dfrac{dx}{dt}} = \\frac{6t^2 + 6t}{(2t + 1)^3}"
+    },
+    {
+     "text": "Evaluate at $t = 1$.",
+     "math": "\\left.\\frac{d^2y}{dx^2}\\right|_{t = 1} = \\frac{6 + 6}{3^3} = \\frac{12}{27} = \\frac{4}{9}"
+    }
+   ]
+  },
+  {
+   "id": "u9-q006",
+   "skillId": "u9-parametric-derivatives",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>The cycloid is the curve given by the parametric equations $x = t - \\sin t$ and $y = 1 - \\cos t$. Find the value of $\\dfrac{d^2y}{dx^2}$ at $t = \\dfrac{\\pi}{2}$. Give an exact integer.</p>",
+   "answer": -1,
+   "hints": [
+    "Start with $\\dfrac{dy}{dx} = \\dfrac{dy/dt}{dx/dt}$ as a function of $t$. Then $\\dfrac{d^2y}{dx^2}$ is the $t$-derivative of that quotient divided by $\\dfrac{dx}{dt}$ once more.",
+    "Differentiating the quotient with respect to $t$ requires the quotient rule. The numerator that results contains $\\cos^2 t$ and $\\sin^2 t$; the Pythagorean identity $\\sin^2 t + \\cos^2 t = 1$ collapses it to a much shorter expression before you evaluate.",
+    "Evaluate only after simplifying. At $t = \\dfrac{\\pi}{2}$, $\\sin t = 1$ and $\\cos t = 0$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate with respect to $t$ and form the first derivative.",
+     "math": "\\frac{dx}{dt} = 1 - \\cos t, \\qquad \\frac{dy}{dt} = \\sin t, \\qquad \\frac{dy}{dx} = \\frac{\\sin t}{1 - \\cos t}"
+    },
+    {
+     "text": "Differentiate $\\dfrac{dy}{dx}$ with respect to $t$ using the quotient rule. The derivative of the denominator $1 - \\cos t$ is $\\sin t$.",
+     "math": "\\frac{d}{dt}\\left(\\frac{dy}{dx}\\right) = \\frac{\\cos t\\,(1 - \\cos t) - \\sin t \\cdot \\sin t}{(1 - \\cos t)^2} = \\frac{\\cos t - \\cos^2 t - \\sin^2 t}{(1 - \\cos t)^2}"
+    },
+    {
+     "text": "Apply the Pythagorean identity $\\cos^2 t + \\sin^2 t = 1$ to the numerator, then cancel one factor of $1 - \\cos t$.",
+     "math": "\\frac{\\cos t - 1}{(1 - \\cos t)^2} = \\frac{-(1 - \\cos t)}{(1 - \\cos t)^2} = \\frac{-1}{1 - \\cos t}"
+    },
+    {
+     "text": "Divide by $\\dfrac{dx}{dt} = 1 - \\cos t$ to convert the $t$-rate into the second derivative with respect to $x$.",
+     "math": "\\frac{d^2y}{dx^2} = \\frac{-1}{1 - \\cos t} \\cdot \\frac{1}{1 - \\cos t} = \\frac{-1}{(1 - \\cos t)^2}"
+    },
+    {
+     "text": "Evaluate at $t = \\dfrac{\\pi}{2}$, where $\\cos t = 0$. The value is negative, so the cycloid is concave down there. This agrees with the curve itself: $y = 1 - \\cos t$ rises from $0$ at $t = 0$ to its maximum $2$ at $t = \\pi$ and returns to $0$ at $t = 2\\pi$, so the point at $t = \\pi/2$ lies on the rising side of an arch that bends downward.",
+     "math": "\\left.\\frac{d^2y}{dx^2}\\right|_{t = \\pi/2} = \\frac{-1}{(1 - 0)^2} = -1"
+    }
+   ]
+  },
+  {
+   "id": "u9-q007",
+   "skillId": "u9-parametric-derivatives",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>A curve is given by the parametric equations $x = 4 - t^2$ and $y = t^3 - 3t$. Which of the following gives the value of $\\dfrac{d^2y}{dx^2}$ at $t = 2$ and the concavity of the curve at the point corresponding to $t = 2$?</p>",
+   "choices": [
+    "$-\\dfrac{15}{8}$; concave down",
+    "$-6$; concave down",
+    "$\\dfrac{15}{32}$; concave up",
+    "$\\dfrac{3}{4}$; concave up"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from differentiating $\\dfrac{dy}{dx}$ with respect to $t$ and stopping there. That $t$-rate must be divided by $\\dfrac{dx}{dt} = -4$; because $\\dfrac{dx}{dt}$ is negative here, the division also changes the sign, so the concavity conclusion reverses.",
+    "This choice comes from computing $\\dfrac{d^2y/dt^2}{d^2x/dt^2} = \\dfrac{12}{-2}$. The second derivative $\\dfrac{d^2y}{dx^2}$ is not a ratio of second $t$-derivatives; it is the $t$-derivative of $\\dfrac{dy}{dx}$ divided by $\\dfrac{dx}{dt}$.",
+    null,
+    "This choice comes from computing $\\dfrac{d^2y/dt^2}{(dx/dt)^2} = \\dfrac{12}{16}$. That formula omits the term produced by the quotient rule when $\\dfrac{dy}{dx}$ is differentiated with respect to $t$; here the sign happens to agree but the value does not."
+   ],
+   "hints": [
+    "Find $\\dfrac{dy}{dx}$ as a function of $t$ first. Then $\\dfrac{d^2y}{dx^2}$ is the $t$-derivative of that function divided by $\\dfrac{dx}{dt}$. Concavity is decided by the sign of $\\dfrac{d^2y}{dx^2}$: positive means concave up, negative means concave down.",
+    "Here $\\dfrac{dx}{dt} = -2t$ is negative at $t = 2$. Dividing by a negative number changes the sign, so the sign of the $t$-derivative of $\\dfrac{dy}{dx}$ alone does not determine the concavity.",
+    "Writing $\\dfrac{dy}{dx} = -\\dfrac{3t}{2} + \\dfrac{3}{2t}$ before differentiating avoids the quotient rule."
+   ],
+   "solution": [
+    {
+     "text": "Find the first derivative as a function of $t$ and split it into two terms.",
+     "math": "\\frac{dx}{dt} = -2t, \\qquad \\frac{dy}{dt} = 3t^2 - 3, \\qquad \\frac{dy}{dx} = \\frac{3t^2 - 3}{-2t} = -\\frac{3t}{2} + \\frac{3}{2t}"
+    },
+    {
+     "text": "Differentiate $\\dfrac{dy}{dx}$ with respect to $t$.",
+     "math": "\\frac{d}{dt}\\left(\\frac{dy}{dx}\\right) = -\\frac{3}{2} - \\frac{3}{2t^2} = -\\frac{3t^2 + 3}{2t^2}"
+    },
+    {
+     "text": "Divide by $\\dfrac{dx}{dt}$ to obtain the second derivative with respect to $x$.",
+     "math": "\\frac{d^2y}{dx^2} = \\frac{-\\dfrac{3t^2 + 3}{2t^2}}{-2t} = \\frac{3t^2 + 3}{4t^3}"
+    },
+    {
+     "text": "Evaluate at $t = 2$.",
+     "math": "\\left.\\frac{d^2y}{dx^2}\\right|_{t = 2} = \\frac{3(4) + 3}{4(8)} = \\frac{15}{32}"
+    },
+    {
+     "text": "Since $\\dfrac{d^2y}{dx^2} = \\dfrac{15}{32} > 0$ at $t = 2$, the curve is concave up at the point $(x(2), y(2)) = (0, 2)$. The $t$-derivative of $\\dfrac{dy}{dx}$ was negative, $-\\dfrac{15}{8}$, but division by the negative rate $\\dfrac{dx}{dt} = -4$ makes the second derivative positive."
+    }
+   ]
+  },
+  {
+   "id": "u9-q008",
+   "skillId": "u9-parametric-arc-length",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A curve is given by the parametric equations $x = t^2 + 1$ and $y = 2t^3$ for $0 \\leq t \\leq 2$. Which of the following integrals gives the length of the curve?</p>",
+   "choices": [
+    "$\\displaystyle\\int_0^2 \\sqrt{1 + 9t^2}\\,dt$",
+    "$\\displaystyle\\int_0^2 \\sqrt{4t^2 + 36t^4}\\,dt$",
+    "$\\displaystyle\\int_0^2 \\left(2t + 6t^2\\right)dt$",
+    "$\\displaystyle\\int_0^2 \\sqrt{(t^2 + 1)^2 + 4t^6}\\,dt$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from using the Cartesian arc length formula $\\sqrt{1 + \\left(\\dfrac{dy}{dx}\\right)^2}$ with $\\dfrac{dy}{dx} = 3t$, while still integrating with respect to $t$. That formula pairs with $dx$, not $dt$. The parametric formula uses $\\left(\\dfrac{dx}{dt}\\right)^2 + \\left(\\dfrac{dy}{dt}\\right)^2$ under the root.",
+    null,
+    "This choice comes from adding $\\dfrac{dx}{dt}$ and $\\dfrac{dy}{dt}$ directly. Arc length comes from the Pythagorean theorem applied to a small displacement, so each rate is squared, the squares are added, and the square root is taken.",
+    "This choice comes from squaring the coordinate functions $x$ and $y$ themselves instead of their derivatives $\\dfrac{dx}{dt}$ and $\\dfrac{dy}{dt}$. The integrand $\\sqrt{x^2 + y^2}$ is the distance from the origin, not the speed along the curve."
+   ],
+   "hints": [
+    "Over a short time $dt$, the point moves by about $\\dfrac{dx}{dt}\\,dt$ horizontally and $\\dfrac{dy}{dt}\\,dt$ vertically. The length of that small displacement follows from the Pythagorean theorem.",
+    "The parametric arc length formula is $L = \\displaystyle\\int_a^b \\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}\\,dt$. Compute $\\dfrac{dx}{dt}$ and $\\dfrac{dy}{dt}$, square each, and add them under the root."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate with respect to $t$.",
+     "math": "\\frac{dx}{dt} = 2t, \\qquad \\frac{dy}{dt} = 6t^2"
+    },
+    {
+     "text": "The length of a parametric curve from $t = a$ to $t = b$ is the integral of the speed, which is the square root of the sum of the squared rates.",
+     "math": "L = \\int_a^b \\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}\\,dt"
+    },
+    {
+     "text": "Substitute the rates and the limits $t = 0$ to $t = 2$.",
+     "math": "L = \\int_0^2 \\sqrt{(2t)^2 + (6t^2)^2}\\,dt = \\int_0^2 \\sqrt{4t^2 + 36t^4}\\,dt"
+    },
+    {
+     "text": "The question asks only for the integral. For reference, the integrand factors as $2t\\sqrt{1 + 9t^2}$, and the substitution $u = 1 + 9t^2$ gives $L = \\dfrac{2}{27}\\left(37^{3/2} - 1\\right) \\approx 16.60$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q009",
+   "skillId": "u9-parametric-arc-length",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>A curve is given parametrically by $x = 3t + 1$ and $y = 4t - 2$ for $0 \\leq t \\leq 5$. Find the length of the curve. Give an exact integer.</p>",
+   "answer": 25,
+   "hints": [
+    "The arc length of a parametric curve from $t = a$ to $t = b$ is $\\displaystyle\\int_a^b \\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}\\,dt$. Start by computing $\\frac{dx}{dt}$ and $\\frac{dy}{dt}$.",
+    "Both derivatives are constants, so the integrand is a constant. The integral of a constant over an interval is that constant multiplied by the length of the interval.",
+    "Because the curve is a straight line segment, you can check the result with the distance formula between the endpoints $(1, -2)$ at $t = 0$ and $(16, 18)$ at $t = 5$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate with respect to $t$.",
+     "math": "\\frac{dx}{dt} = 3, \\qquad \\frac{dy}{dt} = 4"
+    },
+    {
+     "text": "Set up the arc length integral. The radicand is constant.",
+     "math": "L = \\int_0^5 \\sqrt{3^2 + 4^2}\\,dt = \\int_0^5 \\sqrt{25}\\,dt = \\int_0^5 5\\,dt"
+    },
+    {
+     "text": "The integral of the constant $5$ over an interval of length $5$ is $5 \\cdot 5$.",
+     "math": "L = 5 \\cdot (5 - 0) = 25"
+    },
+    {
+     "text": "Check: the curve is the line segment from $(1, -2)$ to $(16, 18)$, and the distance formula gives $\\sqrt{15^2 + 20^2} = \\sqrt{625} = 25$. The two methods agree, so the length is $25$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q010",
+   "skillId": "u9-parametric-arc-length",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>A curve is given parametrically by $x = t^2$ and $y = t^3$ for $0 \\leq t \\leq 1$. Find the length of the curve. Round to two decimal places.</p>",
+   "answer": 1.44,
+   "tolerance": 0.005,
+   "hints": [
+    "Compute $\\frac{dx}{dt}$ and $\\frac{dy}{dt}$, then write the arc length integrand $\\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}$. Both squared derivatives contain a factor of $t^2$.",
+    "Factor $t^2$ out of the radicand. Since $t \\geq 0$ on this interval, $\\sqrt{t^2} = t$, and the integrand becomes $t$ multiplied by the square root of a quadratic in $t$.",
+    "Use the substitution $u = 4 + 9t^2$, so that $du = 18t\\,dt$. The factor of $t$ outside the square root is absorbed by $du$. Change the limits of integration to values of $u$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate and form the radicand.",
+     "math": "\\frac{dx}{dt} = 2t, \\qquad \\frac{dy}{dt} = 3t^2, \\qquad \\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2 = 4t^2 + 9t^4"
+    },
+    {
+     "text": "Factor $t^2$ out of the radicand. On $0 \\leq t \\leq 1$, $t \\geq 0$, so $\\sqrt{t^2} = t$.",
+     "math": "L = \\int_0^1 \\sqrt{t^2(4 + 9t^2)}\\,dt = \\int_0^1 t\\sqrt{4 + 9t^2}\\,dt"
+    },
+    {
+     "text": "Substitute $u = 4 + 9t^2$, so $du = 18t\\,dt$ and $t\\,dt = \\frac{1}{18}\\,du$. When $t = 0$, $u = 4$; when $t = 1$, $u = 13$.",
+     "math": "L = \\frac{1}{18}\\int_4^{13} \\sqrt{u}\\,du = \\frac{1}{18}\\cdot\\frac{2}{3}\\Big[u^{3/2}\\Big]_4^{13} = \\frac{1}{27}\\left(13^{3/2} - 4^{3/2}\\right)"
+    },
+    {
+     "text": "Evaluate. $4^{3/2} = 8$ and $13^{3/2} = 13\\sqrt{13} \\approx 46.872$.",
+     "math": "L = \\frac{13\\sqrt{13} - 8}{27} \\approx \\frac{38.872}{27} \\approx 1.4397 \\approx 1.44"
+    }
+   ]
+  },
+  {
+   "id": "u9-q011",
+   "skillId": "u9-parametric-arc-length",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A curve is given parametrically by $x = e^t\\cos t$ and $y = e^t\\sin t$ for $0 \\leq t \\leq \\pi$. Which of the following is the exact length of the curve?</p>",
+   "choices": [
+    "$\\sqrt{2}\\,e^{\\pi}$",
+    "$e^{\\pi} - 1$",
+    "$2\\left(e^{\\pi} - 1\\right)$",
+    "$\\sqrt{2}\\left(e^{\\pi} - 1\\right)$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from evaluating the antiderivative $\\sqrt{2}\\,e^t$ only at the upper limit $t = \\pi$. The value at the lower limit, $\\sqrt{2}\\,e^0 = \\sqrt{2}$, must be subtracted.",
+    "This choice comes from dropping the factor $\\sqrt{2}$. The squared derivatives add to $2e^{2t}$, and the square root of $2e^{2t}$ is $\\sqrt{2}\\,e^t$, not $e^t$.",
+    "This choice comes from taking the square root of $e^{2t}$ but not of the coefficient $2$. The whole radicand $2e^{2t}$ is under the square root, so the coefficient becomes $\\sqrt{2}$, not $2$.",
+    null
+   ],
+   "hints": [
+    "Each coordinate is a product, so use the product rule for $\\frac{dx}{dt}$ and $\\frac{dy}{dt}$. Both derivatives have a common factor of $e^t$.",
+    "Square the two derivatives and add them. Expand $(\\cos t - \\sin t)^2 + (\\sin t + \\cos t)^2$; the cross terms cancel and the identity $\\sin^2 t + \\cos^2 t = 1$ collapses what remains to a constant.",
+    "After the radicand simplifies to a constant times $e^{2t}$, take the square root of the whole product, then integrate from $0$ to $\\pi$ and evaluate at both limits."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate with the product rule.",
+     "math": "\\frac{dx}{dt} = e^t\\cos t - e^t\\sin t = e^t(\\cos t - \\sin t), \\qquad \\frac{dy}{dt} = e^t\\sin t + e^t\\cos t = e^t(\\sin t + \\cos t)"
+    },
+    {
+     "text": "Square and add. The cross terms $-2\\sin t\\cos t$ and $+2\\sin t\\cos t$ cancel, and $\\sin^2 t + \\cos^2 t = 1$ appears twice.",
+     "math": "\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2 = e^{2t}\\left[(\\cos t - \\sin t)^2 + (\\sin t + \\cos t)^2\\right] = e^{2t}\\cdot 2 = 2e^{2t}"
+    },
+    {
+     "text": "Take the square root of the whole radicand. Since $e^t > 0$, $\\sqrt{2e^{2t}} = \\sqrt{2}\\,e^t$.",
+     "math": "L = \\int_0^{\\pi} \\sqrt{2}\\,e^t\\,dt"
+    },
+    {
+     "text": "Integrate and evaluate at both limits, remembering $e^0 = 1$.",
+     "math": "L = \\sqrt{2}\\Big[e^t\\Big]_0^{\\pi} = \\sqrt{2}\\left(e^{\\pi} - 1\\right)"
+    }
+   ]
+  },
+  {
+   "id": "u9-q012",
+   "skillId": "u9-parametric-arc-length",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A curve is given parametrically by $x = t^3 - 3t$ and $y = 3t^2$ for $0 \\leq t \\leq 2$. Find the length of the curve. Give an exact integer.</p>",
+   "answer": 14,
+   "hints": [
+    "Compute $\\frac{dx}{dt}$ and $\\frac{dy}{dt}$, square each one, and expand fully. Collect like powers of $t$ in the radicand before doing anything else.",
+    "The expanded radicand is a polynomial in $t$ with three terms. Factor out the common numerical factor and look for a perfect square trinomial of the form $(t^2 + c)^2$.",
+    "Once the radicand is written as $9(t^2 + 1)^2$, the square root is a polynomial, and the integral needs only the power rule. No calculator is required."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate.",
+     "math": "\\frac{dx}{dt} = 3t^2 - 3, \\qquad \\frac{dy}{dt} = 6t"
+    },
+    {
+     "text": "Square each derivative and add, expanding fully.",
+     "math": "(3t^2 - 3)^2 + (6t)^2 = 9t^4 - 18t^2 + 9 + 36t^2 = 9t^4 + 18t^2 + 9"
+    },
+    {
+     "text": "Factor out $9$ and recognize the perfect square trinomial: $t^4 + 2t^2 + 1 = (t^2 + 1)^2$. Since $t^2 + 1 > 0$, the square root is $3(t^2 + 1)$ with no absolute value needed.",
+     "math": "\\sqrt{9t^4 + 18t^2 + 9} = \\sqrt{9(t^2 + 1)^2} = 3(t^2 + 1)"
+    },
+    {
+     "text": "Integrate the polynomial from $0$ to $2$.",
+     "math": "L = \\int_0^2 3(t^2 + 1)\\,dt = 3\\left[\\frac{t^3}{3} + t\\right]_0^2 = 3\\left(\\frac{8}{3} + 2\\right) = 8 + 6 = 14"
+    }
+   ]
+  },
+  {
+   "id": "u9-q013",
+   "skillId": "u9-vector-valued-functions",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>The position of a particle moving in the plane is given by the vector-valued function $\\vec{r}(t) = \\left\\langle t^3 - 2t,\\ e^{2t}\\right\\rangle$. Which of the following is the velocity vector $\\vec{v}(t)$?</p>",
+   "choices": [
+    "$\\left\\langle 3t^2 - 2,\\ e^{2t}\\right\\rangle$",
+    "$\\left\\langle 3t^2 - 2,\\ 2e^{2t}\\right\\rangle$",
+    "$\\left\\langle 3t^2 + 2,\\ 2e^{2t}\\right\\rangle$",
+    "$\\left\\langle \\dfrac{t^4}{4} - t^2,\\ \\dfrac{e^{2t}}{2}\\right\\rangle$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from omitting the chain rule factor in the second component. The derivative of $e^{2t}$ is $e^{2t}$ multiplied by the derivative of the exponent $2t$, which is $2$.",
+    null,
+    "This choice comes from a sign error on the derivative of $-2t$. The derivative of $-2t$ is $-2$, so the first component is $3t^2 - 2$.",
+    "This choice comes from integrating each component instead of differentiating. Velocity is the derivative of position, not its antiderivative."
+   ],
+   "hints": [
+    "The velocity vector is the derivative of the position vector. A vector-valued function is differentiated one component at a time.",
+    "Differentiate $t^3 - 2t$ with the power rule. Differentiate $e^{2t}$ with the chain rule, since the exponent is $2t$ rather than $t$."
+   ],
+   "solution": [
+    {
+     "text": "Velocity is the derivative of position, taken component by component.",
+     "math": "\\vec{v}(t) = \\vec{r}\\,'(t) = \\left\\langle \\frac{d}{dt}\\left(t^3 - 2t\\right),\\ \\frac{d}{dt}\\left(e^{2t}\\right)\\right\\rangle"
+    },
+    {
+     "text": "Apply the power rule to the first component and the chain rule to the second. The derivative of the exponent $2t$ is $2$, which multiplies $e^{2t}$.",
+     "math": "\\vec{v}(t) = \\left\\langle 3t^2 - 2,\\ 2e^{2t}\\right\\rangle"
+    }
+   ]
+  },
+  {
+   "id": "u9-q014",
+   "skillId": "u9-vector-valued-functions",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>The position of a particle moving in the plane is given by $\\vec{r}(t) = \\left\\langle 4t^3 - t^2,\\ \\ln(t + 1)\\right\\rangle$ for $t \\geq 0$. Find the $x$-component of the acceleration vector at $t = 1$. Give an exact integer.</p>",
+   "answer": 22,
+   "hints": [
+    "Acceleration is the second derivative of position, computed one component at a time. Only the first component, $x(t) = 4t^3 - t^2$, is needed for this question.",
+    "Differentiate $x(t)$ twice with the power rule, then substitute $t = 1$ into the second derivative."
+   ],
+   "solution": [
+    {
+     "text": "The $x$-component of acceleration is the second derivative of the $x$-component of position, $x(t) = 4t^3 - t^2$. The second component $\\ln(t + 1)$ does not affect the $x$-component."
+    },
+    {
+     "text": "Differentiate once to get the $x$-component of velocity, then again to get the $x$-component of acceleration.",
+     "math": "x'(t) = 12t^2 - 2t, \\qquad x''(t) = 24t - 2"
+    },
+    {
+     "text": "Substitute $t = 1$.",
+     "math": "x''(1) = 24(1) - 2 = 22"
+    }
+   ]
+  },
+  {
+   "id": "u9-q015",
+   "skillId": "u9-vector-valued-functions",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A particle moves in the plane with velocity vector $\\vec{v}(t) = \\left\\langle 2t,\\ 3t^2 - 1\\right\\rangle$. At time $t = 1$ the particle is at the point $(3, 2)$. What is the position of the particle at time $t = 2$?</p>",
+   "choices": [
+    "$(7, 13)$",
+    "$(4, 6)$",
+    "$(6, 8)$",
+    "$(7, 8)$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from adding the velocity vector $\\vec{v}(2) = \\langle 4, 11\\rangle$ to the initial position. Velocity at one instant does not give the change in position over an interval; the change in position is the integral of velocity from $t = 1$ to $t = 2$.",
+    "This choice comes from taking both constants of integration as $0$, which ignores the given position at $t = 1$. The antiderivatives $t^2$ and $t^3 - t$ evaluated at $t = 2$ give $(4, 6)$, but the constants must be chosen so the position at $t = 1$ is $(3, 2)$.",
+    null,
+    "This choice comes from adding the initial position to the integral of velocity from $t = 0$ to $t = 2$ instead of from $t = 1$ to $t = 2$. The given position is at $t = 1$, so the integral must start at $t = 1$."
+   ],
+   "hints": [
+    "Position is an antiderivative of velocity, one component at a time. Each component gets its own constant of integration.",
+    "Use the given position at $t = 1$ to find each constant. Equivalently, add the integral of each velocity component from $t = 1$ to $t = 2$ to the corresponding coordinate of the starting point.",
+    "For the $x$-coordinate: $x(2) = 3 + \\displaystyle\\int_1^2 2t\\,dt$. Set up the $y$-coordinate the same way with $3t^2 - 1$."
+   ],
+   "solution": [
+    {
+     "text": "The position at $t = 2$ equals the position at $t = 1$ plus the integral of velocity from $t = 1$ to $t = 2$, applied to each component.",
+     "math": "x(2) = 3 + \\int_1^2 2t\\,dt, \\qquad y(2) = 2 + \\int_1^2 \\left(3t^2 - 1\\right)dt"
+    },
+    {
+     "text": "Evaluate the $x$-integral.",
+     "math": "x(2) = 3 + \\Big[t^2\\Big]_1^2 = 3 + (4 - 1) = 6"
+    },
+    {
+     "text": "Evaluate the $y$-integral.",
+     "math": "y(2) = 2 + \\Big[t^3 - t\\Big]_1^2 = 2 + \\big((8 - 2) - (1 - 1)\\big) = 2 + 6 = 8"
+    },
+    {
+     "text": "Check with the antiderivative form: $x(t) = t^2 + C_1$ with $x(1) = 3$ gives $C_1 = 2$, so $x(2) = 6$; $y(t) = t^3 - t + C_2$ with $y(1) = 2$ gives $C_2 = 2$, so $y(2) = 8 - 2 + 2 = 8$. The position at $t = 2$ is $(6, 8)$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q016",
+   "skillId": "u9-vector-valued-functions",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>A drone moves in the plane with velocity, in meters per second, given by $\\vec{v}(t) = \\left\\langle \\dfrac{2t}{t^2 + 1},\\ 6\\sqrt{t}\\right\\rangle$ for $t \\geq 0$ seconds. At time $t = 0$ the drone is at the point $(1, 0)$, in meters. Find the $x$-coordinate of the drone's position, in meters, at time $t = 2$. Round to two decimal places.</p>",
+   "answer": 2.61,
+   "tolerance": 0.005,
+   "hints": [
+    "The $x$-coordinate at $t = 2$ equals the $x$-coordinate at $t = 0$ plus the integral of the $x$-component of velocity from $t = 0$ to $t = 2$. Only the first component of $\\vec{v}(t)$ is needed.",
+    "For $\\displaystyle\\int_0^2 \\frac{2t}{t^2 + 1}\\,dt$, substitute $u = t^2 + 1$. Then $du = 2t\\,dt$, which is exactly the numerator, and the integrand becomes $\\frac{1}{u}$. Change the limits to values of $u$.",
+    "After evaluating the integral as a natural logarithm, add the initial $x$-coordinate, $1$, before rounding."
+   ],
+   "solution": [
+    {
+     "text": "Position is the initial position plus the accumulated velocity. For the $x$-coordinate, in meters,",
+     "math": "x(2) = x(0) + \\int_0^2 \\frac{2t}{t^2 + 1}\\,dt = 1 + \\int_0^2 \\frac{2t}{t^2 + 1}\\,dt"
+    },
+    {
+     "text": "Substitute $u = t^2 + 1$, so $du = 2t\\,dt$. When $t = 0$, $u = 1$; when $t = 2$, $u = 5$.",
+     "math": "\\int_0^2 \\frac{2t}{t^2 + 1}\\,dt = \\int_1^5 \\frac{1}{u}\\,du = \\Big[\\ln u\\Big]_1^5 = \\ln 5 - \\ln 1 = \\ln 5"
+    },
+    {
+     "text": "Add the initial $x$-coordinate and round. Since $\\ln 5 \\approx 1.6094$,",
+     "math": "x(2) = 1 + \\ln 5 \\approx 2.6094 \\approx 2.61"
+    },
+    {
+     "text": "The drone's $x$-coordinate at $t = 2$ seconds is approximately $2.61$ meters."
+    }
+   ]
+  },
+  {
+   "id": "u9-q017",
+   "skillId": "u9-vector-valued-functions",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>A particle moves in the plane with acceleration $\\vec{a}(t) = \\langle 6t,\\ 2\\rangle$ for $t \\geq 0$. Its velocity at time $t = 0$ is $\\vec{v}(0) = \\langle 1,\\ -3\\rangle$ and its position at time $t = 0$ is $\\vec{r}(0) = \\langle 0,\\ 2\\rangle$. What is the position of the particle at time $t = 1$?</p>",
+   "choices": [
+    "$(1,\\ 3)$",
+    "$(4,\\ -1)$",
+    "$(2,\\ 0)$",
+    "$(2,\\ -3)$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from integrating the acceleration without adding the initial velocity, so the velocity used is $\\langle 3t^2,\\ 2t\\rangle$ and the position becomes $\\langle t^3,\\ t^2 + 2\\rangle$. Each integration introduces a constant of integration, and the given value $\\vec{v}(0) = \\langle 1, -3\\rangle$ fixes the constants for the velocity.",
+    "This choice comes from stopping after one integration. The vector $\\langle 4,\\ -1\\rangle$ is the velocity $\\vec{v}(1)$, not the position. Position requires a second integration, of the velocity.",
+    null,
+    "This choice comes from integrating the velocity without adding the initial position, so the position used is $\\langle t^3 + t,\\ t^2 - 3t\\rangle$. The given value $\\vec{r}(0) = \\langle 0, 2\\rangle$ fixes the constants for the position; the $y$-component needs the added $2$."
+   ],
+   "hints": [
+    "Position comes from acceleration by two integrations, one for each component. Each integration produces a constant of integration, and you have one initial condition for each.",
+    "First integrate each component of $\\vec{a}(t)$ and use $\\vec{v}(0) = \\langle 1, -3\\rangle$ to find the two constants. That gives $\\vec{v}(t)$. Then integrate each component of $\\vec{v}(t)$ and use $\\vec{r}(0) = \\langle 0, 2\\rangle$.",
+    "After you have $\\vec{r}(t)$ with all four constants fixed, substitute $t = 1$ into both components."
+   ],
+   "solution": [
+    {
+     "text": "Integrate each component of the acceleration. The constants of integration are $C_1$ and $C_2$.",
+     "math": "\\vec{v}(t) = \\left\\langle \\int 6t\\,dt,\\ \\int 2\\,dt \\right\\rangle = \\langle 3t^2 + C_1,\\ 2t + C_2\\rangle"
+    },
+    {
+     "text": "Use the initial velocity $\\vec{v}(0) = \\langle 1, -3\\rangle$. At $t = 0$ the components are $C_1$ and $C_2$, so $C_1 = 1$ and $C_2 = -3$.",
+     "math": "\\vec{v}(t) = \\langle 3t^2 + 1,\\ 2t - 3\\rangle"
+    },
+    {
+     "text": "Integrate each component of the velocity, with new constants $D_1$ and $D_2$.",
+     "math": "\\vec{r}(t) = \\langle t^3 + t + D_1,\\ t^2 - 3t + D_2\\rangle"
+    },
+    {
+     "text": "Use the initial position $\\vec{r}(0) = \\langle 0, 2\\rangle$. At $t = 0$ the components are $D_1$ and $D_2$, so $D_1 = 0$ and $D_2 = 2$.",
+     "math": "\\vec{r}(t) = \\langle t^3 + t,\\ t^2 - 3t + 2\\rangle"
+    },
+    {
+     "text": "Substitute $t = 1$.",
+     "math": "\\vec{r}(1) = \\langle 1 + 1,\\ 1 - 3 + 2\\rangle = \\langle 2,\\ 0\\rangle"
+    },
+    {
+     "text": "The particle is at the point $(2, 0)$ when $t = 1$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q018",
+   "skillId": "u9-vector-motion",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A particle moves in the plane with position $x(t) = t^3$ and $y(t) = 3t^2$. What is the speed of the particle at time $t = 1$?</p>",
+   "choices": [
+    "$3\\sqrt{5}$",
+    "$\\sqrt{10}$",
+    "$9$",
+    "$45$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from using the position coordinates in place of the velocity components: $\\sqrt{x(1)^2 + y(1)^2} = \\sqrt{1 + 9}$. Speed is the magnitude of the velocity vector, so it uses $x'(1)$ and $y'(1)$.",
+    "This choice comes from adding the velocity components, $3 + 6$, without squaring them or taking a square root. Speed is $\\sqrt{(x')^2 + (y')^2}$, the length of the velocity vector, not the sum of its components.",
+    "This choice comes from omitting the square root. The value $45$ is $(x')^2 + (y')^2 = 9 + 36$, which is the square of the speed."
+   ],
+   "hints": [
+    "Speed is the magnitude, meaning the length, of the velocity vector $\\langle x'(t), y'(t)\\rangle$. Start by differentiating each coordinate.",
+    "Evaluate $x'(1)$ and $y'(1)$, then apply the formula $\\text{speed} = \\sqrt{(x'(1))^2 + (y'(1))^2}$ and simplify the square root."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate to get the components of velocity.",
+     "math": "x'(t) = 3t^2, \\qquad y'(t) = 6t"
+    },
+    {
+     "text": "Evaluate at $t = 1$.",
+     "math": "x'(1) = 3, \\qquad y'(1) = 6"
+    },
+    {
+     "text": "Speed is the magnitude of the velocity vector $\\langle 3, 6\\rangle$.",
+     "math": "\\text{speed} = \\sqrt{3^2 + 6^2} = \\sqrt{9 + 36} = \\sqrt{45}"
+    },
+    {
+     "text": "Simplify the radical using $45 = 9 \\cdot 5$.",
+     "math": "\\sqrt{45} = \\sqrt{9}\\sqrt{5} = 3\\sqrt{5}"
+    }
+   ]
+  },
+  {
+   "id": "u9-q019",
+   "skillId": "u9-vector-motion",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>A particle moves in the plane. Its position at time $t$ seconds is $x(t) = 4t$ meters and $y(t) = t^2 - 3$ meters. Find the speed of the particle, in meters per second, at time $t = 2$. Round to two decimal places.</p>",
+   "answer": 5.66,
+   "tolerance": 0.005,
+   "hints": [
+    "Speed is the length of the velocity vector $\\langle x'(t), y'(t)\\rangle$. It is computed from the derivatives of the coordinates, not from the coordinates $x(2)$ and $y(2)$ themselves.",
+    "Differentiate: $x'(t)$ is a constant and $y'(t)$ is a multiple of $t$. Evaluate both at $t = 2$, square them, add, and take the square root.",
+    "Because position is in meters and time in seconds, each velocity component and the speed are in meters per second. Give the decimal value of the square root rounded to two places."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate with respect to $t$.",
+     "math": "x'(t) = 4, \\qquad y'(t) = 2t"
+    },
+    {
+     "text": "Evaluate at $t = 2$ seconds. The velocity vector is $\\langle 4, 4\\rangle$ meters per second.",
+     "math": "x'(2) = 4, \\qquad y'(2) = 2(2) = 4"
+    },
+    {
+     "text": "Speed is the magnitude of the velocity vector.",
+     "math": "\\text{speed} = \\sqrt{4^2 + 4^2} = \\sqrt{32} = 4\\sqrt{2}"
+    },
+    {
+     "text": "Convert to a decimal and round to two places. The speed at $t = 2$ is approximately $5.66$ meters per second.",
+     "math": "4\\sqrt{2} \\approx 5.657 \\approx 5.66"
+    }
+   ]
+  },
+  {
+   "id": "u9-q020",
+   "skillId": "u9-vector-motion",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A particle moves in the plane with position $x(t) = t^2 - 4t$ and $y(t) = t^3 - 3t$ for $t \\geq 0$. On which interval of $t$ is the particle moving to the left and upward at the same time?</p>",
+   "choices": [
+    "$0 < t < 1$",
+    "$t > 2$",
+    "$0 < t < 2$",
+    "$1 < t < 2$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from using $\\dfrac{dy}{dt} < 0$ for upward motion. On $0 < t < 1$ the particle moves to the left and downward, because $y'(t) = 3t^2 - 3$ is negative there. Upward motion requires $\\dfrac{dy}{dt} > 0$.",
+    "This choice comes from using $\\dfrac{dx}{dt} > 0$ for leftward motion. For $t > 2$ the particle moves to the right and upward, because $x'(t) = 2t - 4$ is positive there. Leftward motion requires $\\dfrac{dx}{dt} < 0$.",
+    "This choice comes from applying only the horizontal condition $\\dfrac{dx}{dt} < 0$, which holds on $0 < t < 2$. The vertical condition $\\dfrac{dy}{dt} > 0$ must also hold, and it fails on $0 < t < 1$.",
+    null
+   ],
+   "hints": [
+    "Moving to the left means the $x$-coordinate is decreasing, so $\\dfrac{dx}{dt} < 0$. Moving upward means the $y$-coordinate is increasing, so $\\dfrac{dy}{dt} > 0$. Both conditions must hold at the same time.",
+    "Compute $x'(t)$ and $y'(t)$. Solve $x'(t) < 0$ for $t$ and solve $y'(t) > 0$ for $t \\geq 0$ separately, then take the values of $t$ that satisfy both inequalities."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate.",
+     "math": "x'(t) = 2t - 4, \\qquad y'(t) = 3t^2 - 3 = 3(t - 1)(t + 1)"
+    },
+    {
+     "text": "The particle moves to the left when $x'(t) < 0$.",
+     "math": "2t - 4 < 0 \\iff t < 2"
+    },
+    {
+     "text": "The particle moves upward when $y'(t) > 0$. For $t \\geq 0$ the factor $t + 1$ is positive, so the sign of $y'(t)$ is the sign of $t - 1$.",
+     "math": "3(t - 1)(t + 1) > 0 \\iff t > 1 \\quad (t \\geq 0)"
+    },
+    {
+     "text": "Both conditions hold exactly when $t > 1$ and $t < 2$. On the interval $1 < t < 2$ the particle moves to the left and upward at the same time."
+    }
+   ]
+  },
+  {
+   "id": "u9-q021",
+   "skillId": "u9-vector-motion",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>A robot moves in the plane. Its position at time $t$ seconds is $x(t) = t^2$ meters and $y(t) = \\dfrac{t^3}{3} - t$ meters. Find the total distance, in meters, that the robot travels from $t = 0$ to $t = 3$. Give an exact integer.</p>",
+   "answer": 12,
+   "hints": [
+    "Total distance traveled is the integral of speed: $\\displaystyle\\int_0^3 \\sqrt{(x'(t))^2 + (y'(t))^2}\\,dt$. Begin by finding $x'(t)$ and $y'(t)$.",
+    "Expand $(x')^2 + (y')^2$ as a polynomial in $t$ and collect like terms. The result is a perfect square, so the square root simplifies to a polynomial with no radical.",
+    "Once the integrand is a polynomial, integrate term by term from $0$ to $3$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each coordinate.",
+     "math": "x'(t) = 2t, \\qquad y'(t) = t^2 - 1"
+    },
+    {
+     "text": "Form the sum of squares of the velocity components and expand.",
+     "math": "(2t)^2 + (t^2 - 1)^2 = 4t^2 + t^4 - 2t^2 + 1 = t^4 + 2t^2 + 1 = (t^2 + 1)^2"
+    },
+    {
+     "text": "Because $t^2 + 1 > 0$, the speed is the polynomial $t^2 + 1$ with no radical.",
+     "math": "\\text{speed} = \\sqrt{(t^2 + 1)^2} = t^2 + 1"
+    },
+    {
+     "text": "Total distance is the integral of speed from $t = 0$ to $t = 3$.",
+     "math": "\\int_0^3 (t^2 + 1)\\,dt = \\left[\\frac{t^3}{3} + t\\right]_0^3 = 9 + 3 = 12"
+    },
+    {
+     "text": "The robot travels $12$ meters. This is not the same as the magnitude of the displacement. The robot starts at $(0, 0)$ and ends at $(9, 6)$, so the straight-line distance between start and end is $\\sqrt{81 + 36} = \\sqrt{117} \\approx 10.82$ meters, which is smaller because the path is curved."
+    }
+   ]
+  },
+  {
+   "id": "u9-q022",
+   "skillId": "u9-vector-motion",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A particle moves in the plane. Its velocity components, in meters per second, are given at selected times $t$ in seconds in the table.</p><table><thead><tr><th>$t$ (seconds)</th><th>$0$</th><th>$2$</th><th>$4$</th></tr></thead><tbody><tr><td>$\\dfrac{dx}{dt}$ (meters per second)</td><td>$3$</td><td>$0$</td><td>$-6$</td></tr><tr><td>$\\dfrac{dy}{dt}$ (meters per second)</td><td>$4$</td><td>$5$</td><td>$8$</td></tr></tbody></table><p>Use a trapezoidal sum with the two subintervals indicated by the table to approximate the total distance, in meters, traveled by the particle from $t = 0$ to $t = 4$. Give an exact integer.</p>",
+   "answer": 25,
+   "hints": [
+    "Total distance traveled is $\\displaystyle\\int_0^4 \\sqrt{\\left(\\frac{dx}{dt}\\right)^2 + \\left(\\frac{dy}{dt}\\right)^2}\\,dt$, the integral of speed. The table gives velocity components, so the first step is to compute the speed at each of the three times.",
+    "The trapezoidal sum is applied to the three speed values, not to each velocity component separately. Distance is the integral of speed, and speed is not a linear function of the components.",
+    "Each subinterval has width $2$. On each one, multiply the average of the two endpoint speeds by the width, then add the two results."
+   ],
+   "solution": [
+    {
+     "text": "Speed is the magnitude of the velocity vector. Compute it at each time in the table.",
+     "math": "\\begin{aligned} t = 0 &: \\sqrt{3^2 + 4^2} = \\sqrt{25} = 5 \\\\ t = 2 &: \\sqrt{0^2 + 5^2} = \\sqrt{25} = 5 \\\\ t = 4 &: \\sqrt{(-6)^2 + 8^2} = \\sqrt{100} = 10 \\end{aligned}"
+    },
+    {
+     "text": "Total distance traveled from $t = 0$ to $t = 4$ is the integral of speed over that interval. The two subintervals $[0, 2]$ and $[2, 4]$ each have width $2$."
+    },
+    {
+     "text": "Form one trapezoid per subinterval, using the average of the endpoint speeds times the width.",
+     "math": "T = \\frac{5 + 5}{2}\\cdot 2 + \\frac{5 + 10}{2}\\cdot 2 = 10 + 15 = 25"
+    },
+    {
+     "text": "The trapezoidal approximation to the total distance traveled is $25$ meters. The speed at $t = 2$ is $5$ even though $\\dfrac{dx}{dt} = 0$ there, because the vertical component still contributes to the speed."
+    }
+   ]
+  },
+  {
+   "id": "u9-q023",
+   "skillId": "u9-vector-motion",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>A particle moves in the plane with position $x(t) = t^3$ and $y(t) = 6t - t^2$. Is the speed of the particle increasing or decreasing at time $t = 1$? Choose the statement with the correct conclusion and the correct justification.</p>",
+   "choices": [
+    "Decreasing, because the $y$-component of $\\vec{a}(1)$ is negative.",
+    "Increasing, because $\\vec{v}(1)\\cdot\\vec{a}(1) = \\langle 3, 4\\rangle\\cdot\\langle 6, -2\\rangle = 10 > 0$.",
+    "Increasing, because both components of $\\vec{v}(1)$ are positive.",
+    "Decreasing, because the $y$-component of velocity, $6 - 2t$, is decreasing at $t = 1$."
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from using one component of the acceleration in place of the dot product $\\vec{v}\\cdot\\vec{a}$. A negative $y$-component of acceleration does not by itself determine whether speed decreases; the sign of the whole dot product $3 \\cdot 6 + 4 \\cdot (-2) = 10$ does, and it is positive.",
+    null,
+    "This choice comes from using the direction of motion in place of the change in speed. Positive velocity components mean the particle moves to the right and upward; they say nothing about whether the speed is growing. Whether speed increases depends on the sign of $\\vec{v}\\cdot\\vec{a}$.",
+    "This choice comes from treating a decreasing velocity component as a decreasing speed. The $y$-component $6 - 2t$ does decrease, but the $x$-component $3t^2$ increases faster, and the net effect on speed is measured by $\\vec{v}\\cdot\\vec{a}$, which is positive at $t = 1$."
+   ],
+   "hints": [
+    "Speed is $|\\vec{v}(t)|$, a single scalar. Whether it is increasing depends on the sign of its derivative, not on the sign of any one component of velocity or acceleration.",
+    "For motion in the plane, $\\dfrac{d}{dt}|\\vec{v}| = \\dfrac{\\vec{v}\\cdot\\vec{a}}{|\\vec{v}|}$ when $|\\vec{v}| \\neq 0$. So the speed is increasing exactly when $\\vec{v}\\cdot\\vec{a} > 0$ and decreasing exactly when $\\vec{v}\\cdot\\vec{a} < 0$.",
+    "Compute $\\vec{v}(t) = \\langle x'(t), y'(t)\\rangle$ and $\\vec{a}(t) = \\langle x''(t), y''(t)\\rangle$, evaluate both at $t = 1$, and take their dot product."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate to find velocity and acceleration.",
+     "math": "\\vec{v}(t) = \\langle 3t^2,\\ 6 - 2t\\rangle, \\qquad \\vec{a}(t) = \\langle 6t,\\ -2\\rangle"
+    },
+    {
+     "text": "Evaluate at $t = 1$.",
+     "math": "\\vec{v}(1) = \\langle 3, 4\\rangle, \\qquad \\vec{a}(1) = \\langle 6, -2\\rangle"
+    },
+    {
+     "text": "Speed is $|\\vec{v}| = \\sqrt{(x')^2 + (y')^2}$. Differentiating this with the chain rule gives a formula whose sign is the sign of the dot product of velocity and acceleration.",
+     "math": "\\frac{d}{dt}|\\vec{v}| = \\frac{x'x'' + y'y''}{\\sqrt{(x')^2 + (y')^2}} = \\frac{\\vec{v}\\cdot\\vec{a}}{|\\vec{v}|}"
+    },
+    {
+     "text": "Compute the dot product at $t = 1$.",
+     "math": "\\vec{v}(1)\\cdot\\vec{a}(1) = 3 \\cdot 6 + 4 \\cdot (-2) = 18 - 8 = 10"
+    },
+    {
+     "text": "Because $\\vec{v}(1)\\cdot\\vec{a}(1) = 10 > 0$ and $|\\vec{v}(1)| = 5 > 0$, the derivative of the speed at $t = 1$ is $\\dfrac{10}{5} = 2 > 0$. The speed is increasing at $t = 1$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q024",
+   "skillId": "u9-polar-derivatives",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Convert the polar point $(r, \\theta) = \\left(4,\\ \\dfrac{2\\pi}{3}\\right)$ to Cartesian coordinates $(x, y)$.</p>",
+   "choices": [
+    "$(2\\sqrt{3},\\ -2)$",
+    "$(2,\\ 2\\sqrt{3})$",
+    "$(-2,\\ 2\\sqrt{3})$",
+    "$(-2,\\ -2\\sqrt{3})$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from swapping the conversion formulas, using $x = r\\sin\\theta$ and $y = r\\cos\\theta$. The correct formulas are $x = r\\cos\\theta$ and $y = r\\sin\\theta$.",
+    "This choice comes from taking $\\cos\\dfrac{2\\pi}{3}$ as $+\\dfrac{1}{2}$. The angle $\\dfrac{2\\pi}{3}$ lies in the second quadrant, where cosine is negative, so $\\cos\\dfrac{2\\pi}{3} = -\\dfrac{1}{2}$.",
+    null,
+    "This choice comes from placing the angle $\\dfrac{2\\pi}{3}$ in the third quadrant and taking $\\sin\\dfrac{2\\pi}{3}$ as negative. Since $\\dfrac{\\pi}{2} < \\dfrac{2\\pi}{3} < \\pi$, the angle is in the second quadrant, where sine is positive."
+   ],
+   "hints": [
+    "The conversion formulas are $x = r\\cos\\theta$ and $y = r\\sin\\theta$. Start by locating the angle $\\dfrac{2\\pi}{3}$ on the unit circle to determine the signs of its cosine and sine.",
+    "The angle $\\dfrac{2\\pi}{3}$ is $120^\\circ$, in the second quadrant, with reference angle $\\dfrac{\\pi}{3}$. Use the exact values $\\cos\\dfrac{\\pi}{3} = \\dfrac{1}{2}$ and $\\sin\\dfrac{\\pi}{3} = \\dfrac{\\sqrt{3}}{2}$ with the correct signs, then multiply each by $r = 4$."
+   ],
+   "solution": [
+    {
+     "text": "The angle $\\dfrac{2\\pi}{3}$ satisfies $\\dfrac{\\pi}{2} < \\dfrac{2\\pi}{3} < \\pi$, so it lies in the second quadrant. There, cosine is negative and sine is positive. The reference angle is $\\pi - \\dfrac{2\\pi}{3} = \\dfrac{\\pi}{3}$.",
+     "math": "\\cos\\frac{2\\pi}{3} = -\\frac{1}{2}, \\qquad \\sin\\frac{2\\pi}{3} = \\frac{\\sqrt{3}}{2}"
+    },
+    {
+     "text": "Apply $x = r\\cos\\theta$ with $r = 4$.",
+     "math": "x = 4\\cos\\frac{2\\pi}{3} = 4\\left(-\\frac{1}{2}\\right) = -2"
+    },
+    {
+     "text": "Apply $y = r\\sin\\theta$ with $r = 4$.",
+     "math": "y = 4\\sin\\frac{2\\pi}{3} = 4\\cdot\\frac{\\sqrt{3}}{2} = 2\\sqrt{3}"
+    },
+    {
+     "text": "The Cartesian coordinates are $(-2,\\ 2\\sqrt{3})$. As a check, $x^2 + y^2 = 4 + 12 = 16 = r^2$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q025",
+   "skillId": "u9-polar-derivatives",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>Consider the polar curve $r = 3 + 2\\cos\\theta$. Find $\\dfrac{dr}{d\\theta}$ at $\\theta = \\dfrac{\\pi}{2}$. Give an exact integer.</p>",
+   "answer": -2,
+   "hints": [
+    "In polar coordinates, $r$ is given as a function of $\\theta$. The quantity $\\frac{dr}{d\\theta}$ is the ordinary derivative of that function; no conversion to $x$ and $y$ is needed.",
+    "Differentiate $3 + 2\\cos\\theta$ term by term. The derivative of $\\cos\\theta$ is $-\\sin\\theta$. Then substitute $\\theta = \\frac{\\pi}{2}$."
+   ],
+   "solution": [
+    {
+     "text": "The polar equation gives $r$ as a function of $\\theta$. Differentiate with respect to $\\theta$; the constant $3$ contributes $0$, and the derivative of $\\cos\\theta$ is $-\\sin\\theta$.",
+     "math": "\\frac{dr}{d\\theta} = -2\\sin\\theta"
+    },
+    {
+     "text": "Substitute $\\theta = \\frac{\\pi}{2}$, where $\\sin\\frac{\\pi}{2} = 1$.",
+     "math": "\\left.\\frac{dr}{d\\theta}\\right|_{\\theta = \\pi/2} = -2(1) = -2"
+    },
+    {
+     "text": "Interpretation. At $\\theta = \\frac{\\pi}{2}$ the value of $r$ is $3 + 2\\cos\\frac{\\pi}{2} = 3$, which is positive, so $r$ equals the distance from the origin to the point on the curve. Because $\\frac{dr}{d\\theta} = -2 < 0$, that distance is decreasing as $\\theta$ increases through $\\frac{\\pi}{2}$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q026",
+   "skillId": "u9-polar-derivatives",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the polar curve $r = 1 + 2\\sin\\theta$ on the interval $\\dfrac{\\pi}{2} < \\theta < \\pi$. As $\\theta$ increases through this interval, which of the following correctly describes the distance from the origin to the point on the curve, together with a correct reason?</p>",
+   "choices": [
+    "Increasing, because $r > 0$ on the interval",
+    "Increasing, because $\\dfrac{dr}{d\\theta} = -2\\cos\\theta > 0$ on the interval",
+    "Decreasing, because $\\dfrac{dr}{d\\theta} = 2\\cos\\theta < 0$ on the interval and $r > 0$ there",
+    "Increasing, because $\\dfrac{dy}{d\\theta} > 0$ on the interval"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from using the sign of $r$ in place of the sign of $\\frac{dr}{d\\theta}$. A positive $r$ means the point is at a positive distance from the origin; whether that distance is increasing or decreasing is decided by the sign of $\\frac{dr}{d\\theta}$, which is $2\\cos\\theta < 0$ on the interval.",
+    "This choice comes from a sign slip in differentiating $\\sin\\theta$. The derivative of $\\sin\\theta$ is $\\cos\\theta$, not $-\\cos\\theta$, so $\\frac{dr}{d\\theta} = 2\\cos\\theta$, which is negative for $\\frac{\\pi}{2} < \\theta < \\pi$.",
+    null,
+    "This choice comes from treating the vertical coordinate $y$ as the distance from the origin. The distance from the origin is $|r|$, and its rate of change is governed by $\\frac{dr}{d\\theta}$. In addition, $\\frac{dy}{d\\theta} = \\cos\\theta\\,(1 + 4\\sin\\theta)$ is negative on this interval, because $\\cos\\theta < 0$ and $1 + 4\\sin\\theta > 0$ there."
+   ],
+   "hints": [
+    "On this interval $r$ is positive, so the distance from the origin equals $r$ itself. The task is therefore to decide whether $r$ increases or decreases as $\\theta$ increases.",
+    "Compute $\\frac{dr}{d\\theta}$ and determine its sign for $\\frac{\\pi}{2} < \\theta < \\pi$. As a check, compare the values of $r$ at the two ends of the interval."
+   ],
+   "solution": [
+    {
+     "text": "Check the sign of $r$ on the interval. For $\\frac{\\pi}{2} < \\theta < \\pi$, $\\sin\\theta$ is between $0$ and $1$, so $r = 1 + 2\\sin\\theta$ is between $1$ and $3$. Since $r > 0$, the distance from the origin to the point equals $r$."
+    },
+    {
+     "text": "Differentiate $r$ with respect to $\\theta$.",
+     "math": "\\frac{dr}{d\\theta} = 2\\cos\\theta"
+    },
+    {
+     "text": "For $\\frac{\\pi}{2} < \\theta < \\pi$, $\\cos\\theta < 0$, so $\\frac{dr}{d\\theta} < 0$. A negative derivative means $r$ is decreasing on the interval."
+    },
+    {
+     "text": "Confirm with the endpoint values: at $\\theta = \\frac{\\pi}{2}$, $r = 1 + 2(1) = 3$; at $\\theta = \\pi$, $r = 1 + 2(0) = 1$. The distance from the origin decreases from $3$ to $1$, so the correct statement is that the distance is decreasing because $\\frac{dr}{d\\theta} = 2\\cos\\theta < 0$ and $r > 0$ on the interval."
+    }
+   ]
+  },
+  {
+   "id": "u9-q027",
+   "skillId": "u9-polar-derivatives",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the polar curve $r = 2\\sin\\theta$. Find $\\dfrac{dy}{dx}$ at $\\theta = \\dfrac{\\pi}{6}$. Give the exact value.</p>",
+   "choices": [
+    "$\\dfrac{\\sqrt{3}}{3}$",
+    "$\\sqrt{3}$",
+    "$-\\sqrt{3}$",
+    "$\\dfrac{\\sqrt{3}}{2}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from inverting the ratio, computing $\\frac{dx/d\\theta}{dy/d\\theta}$ instead of $\\frac{dy/d\\theta}{dx/d\\theta}$. With $\\frac{dy}{d\\theta} = \\sqrt{3}$ and $\\frac{dx}{d\\theta} = 1$ at $\\theta = \\frac{\\pi}{6}$, the inverted ratio is $\\frac{1}{\\sqrt{3}} = \\frac{\\sqrt{3}}{3}$.",
+    null,
+    "This choice comes from a sign slip in $\\frac{dx}{d\\theta}$. Differentiating $x = \\sin 2\\theta$ gives $2\\cos 2\\theta$, which equals $+1$ at $\\theta = \\frac{\\pi}{6}$; using $-1$ instead produces the slope $-\\sqrt{3}$.",
+    "This choice comes from dropping the chain rule factor when differentiating $y = 2\\sin^2\\theta$. Writing $\\frac{dy}{d\\theta} = 2\\sin\\theta\\cos\\theta$ instead of $4\\sin\\theta\\cos\\theta$ gives $\\frac{dy}{d\\theta} = \\frac{\\sqrt{3}}{2}$ at $\\theta = \\frac{\\pi}{6}$, and dividing by $\\frac{dx}{d\\theta} = 1$ leaves $\\frac{\\sqrt{3}}{2}$."
+   ],
+   "hints": [
+    "A polar curve is a parametric curve with parameter $\\theta$: $x = r\\cos\\theta$ and $y = r\\sin\\theta$. Substitute $r = 2\\sin\\theta$ to write $x$ and $y$ as functions of $\\theta$ alone.",
+    "Then $\\frac{dy}{dx} = \\frac{dy/d\\theta}{dx/d\\theta}$. The identities $2\\sin\\theta\\cos\\theta = \\sin 2\\theta$ and $\\cos^2\\theta - \\sin^2\\theta = \\cos 2\\theta$ shorten the derivatives.",
+    "Evaluate $\\frac{dy}{d\\theta}$ and $\\frac{dx}{d\\theta}$ separately at $\\theta = \\frac{\\pi}{6}$, then divide. At $\\theta = \\frac{\\pi}{6}$, the doubled angle is $2\\theta = \\frac{\\pi}{3}$."
+   ],
+   "solution": [
+    {
+     "text": "Write the curve parametrically with parameter $\\theta$.",
+     "math": "x = r\\cos\\theta = 2\\sin\\theta\\cos\\theta = \\sin 2\\theta, \\qquad y = r\\sin\\theta = 2\\sin^2\\theta"
+    },
+    {
+     "text": "Differentiate each coordinate with respect to $\\theta$. For $y$, the chain rule gives a factor $2$ from the square and a factor $\\cos\\theta$ from the inside function.",
+     "math": "\\frac{dx}{d\\theta} = 2\\cos 2\\theta, \\qquad \\frac{dy}{d\\theta} = 4\\sin\\theta\\cos\\theta = 2\\sin 2\\theta"
+    },
+    {
+     "text": "Evaluate at $\\theta = \\frac{\\pi}{6}$, where $2\\theta = \\frac{\\pi}{3}$.",
+     "math": "\\frac{dx}{d\\theta} = 2\\cos\\frac{\\pi}{3} = 1, \\qquad \\frac{dy}{d\\theta} = 2\\sin\\frac{\\pi}{3} = \\sqrt{3}"
+    },
+    {
+     "text": "Divide.",
+     "math": "\\frac{dy}{dx} = \\frac{dy/d\\theta}{dx/d\\theta} = \\frac{\\sqrt{3}}{1} = \\sqrt{3}"
+    }
+   ]
+  },
+  {
+   "id": "u9-q028",
+   "skillId": "u9-polar-derivatives",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Consider the spiral $r = \\theta$ for $\\theta \\geq 0$. Find the slope of the line tangent to the curve at the point where $\\theta = \\dfrac{\\pi}{2}$. Round to two decimal places.</p>",
+   "answer": -0.64,
+   "tolerance": 0.005,
+   "hints": [
+    "Convert to parametric form: $x = r\\cos\\theta = \\theta\\cos\\theta$ and $y = r\\sin\\theta = \\theta\\sin\\theta$. Each coordinate is a product of two functions of $\\theta$.",
+    "Apply the product rule to each coordinate to get $\\frac{dx}{d\\theta}$ and $\\frac{dy}{d\\theta}$. The slope is $\\frac{dy}{dx} = \\frac{dy/d\\theta}{dx/d\\theta}$.",
+    "At $\\theta = \\frac{\\pi}{2}$, $\\cos\\theta = 0$ and $\\sin\\theta = 1$, so several terms vanish. Keep the factor $\\theta = \\frac{\\pi}{2}$ in the terms that remain."
+   ],
+   "solution": [
+    {
+     "text": "Write the curve parametrically.",
+     "math": "x = \\theta\\cos\\theta, \\qquad y = \\theta\\sin\\theta"
+    },
+    {
+     "text": "Differentiate with the product rule.",
+     "math": "\\frac{dx}{d\\theta} = \\cos\\theta - \\theta\\sin\\theta, \\qquad \\frac{dy}{d\\theta} = \\sin\\theta + \\theta\\cos\\theta"
+    },
+    {
+     "text": "Evaluate at $\\theta = \\frac{\\pi}{2}$, using $\\cos\\frac{\\pi}{2} = 0$ and $\\sin\\frac{\\pi}{2} = 1$.",
+     "math": "\\frac{dx}{d\\theta} = 0 - \\frac{\\pi}{2}(1) = -\\frac{\\pi}{2}, \\qquad \\frac{dy}{d\\theta} = 1 + \\frac{\\pi}{2}(0) = 1"
+    },
+    {
+     "text": "Divide and round.",
+     "math": "\\frac{dy}{dx} = \\frac{1}{-\\pi/2} = -\\frac{2}{\\pi} \\approx -0.6366 \\approx -0.64"
+    }
+   ]
+  },
+  {
+   "id": "u9-q029",
+   "skillId": "u9-polar-derivatives",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Consider the polar curve $r = 2\\cos\\theta$ for $0 \\leq \\theta < \\pi$, which traces a circle exactly once. At which values of $\\theta$ in this interval is the line tangent to the curve horizontal?</p>",
+   "choices": [
+    "$\\theta = 0$ and $\\theta = \\dfrac{\\pi}{2}$",
+    "$\\theta = \\dfrac{\\pi}{4}$ only",
+    "$\\theta = 0$ only",
+    "$\\theta = \\dfrac{\\pi}{4}$ and $\\theta = \\dfrac{3\\pi}{4}$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from solving $\\frac{dx}{d\\theta} = 0$ instead of $\\frac{dy}{d\\theta} = 0$. Since $\\frac{dx}{d\\theta} = -2\\sin 2\\theta$, it is $0$ at $\\theta = 0$ and $\\theta = \\frac{\\pi}{2}$. Those are the points where the tangent line is vertical; at $\\theta = \\frac{\\pi}{2}$ the curve passes through the pole with a vertical tangent.",
+    "This choice comes from dropping the second solution of $\\cos 2\\theta = 0$ on the interval. With $0 \\leq \\theta < \\pi$, the doubled angle satisfies $0 \\leq 2\\theta < 2\\pi$, and $\\cos 2\\theta = 0$ at both $2\\theta = \\frac{\\pi}{2}$ and $2\\theta = \\frac{3\\pi}{2}$.",
+    "This choice comes from treating $\\frac{dr}{d\\theta} = 0$ as the condition for a horizontal tangent. The equation $\\frac{dr}{d\\theta} = -2\\sin\\theta = 0$ gives $\\theta = 0$, but $\\frac{dr}{d\\theta} = 0$ only means the distance from the origin is momentarily not changing. A horizontal tangent requires $\\frac{dy}{d\\theta} = 0$ with $\\frac{dx}{d\\theta} \\neq 0$; at $\\theta = 0$ the value of $\\frac{dx}{d\\theta}$ is $0$ while $\\frac{dy}{d\\theta} = 2$, so the tangent there is vertical.",
+    null
+   ],
+   "hints": [
+    "A horizontal tangent line has slope $0$. For a curve with parameter $\\theta$, that happens where $\\frac{dy}{d\\theta} = 0$ and $\\frac{dx}{d\\theta} \\neq 0$. The condition involves $y$, not $r$.",
+    "Write $y = r\\sin\\theta = 2\\cos\\theta\\sin\\theta$ and simplify with the double-angle identity $2\\sin\\theta\\cos\\theta = \\sin 2\\theta$ before differentiating.",
+    "Solve $\\frac{dy}{d\\theta} = 0$ for every $\\theta$ with $0 \\leq \\theta < \\pi$; the doubled angle $2\\theta$ covers a full turn. Then confirm $\\frac{dx}{d\\theta} \\neq 0$ at each solution."
+   ],
+   "solution": [
+    {
+     "text": "Write the curve parametrically and simplify with double-angle identities.",
+     "math": "x = 2\\cos^2\\theta = 1 + \\cos 2\\theta, \\qquad y = 2\\cos\\theta\\sin\\theta = \\sin 2\\theta"
+    },
+    {
+     "text": "Differentiate each coordinate with respect to $\\theta$.",
+     "math": "\\frac{dx}{d\\theta} = -2\\sin 2\\theta, \\qquad \\frac{dy}{d\\theta} = 2\\cos 2\\theta"
+    },
+    {
+     "text": "Set $\\frac{dy}{d\\theta} = 0$. For $0 \\leq \\theta < \\pi$, the doubled angle satisfies $0 \\leq 2\\theta < 2\\pi$, and $\\cos 2\\theta = 0$ there at $2\\theta = \\frac{\\pi}{2}$ and $2\\theta = \\frac{3\\pi}{2}$.",
+     "math": "\\theta = \\frac{\\pi}{4} \\quad\\text{or}\\quad \\theta = \\frac{3\\pi}{4}"
+    },
+    {
+     "text": "Confirm that $\\frac{dx}{d\\theta} \\neq 0$ at each candidate, so the slope $\\frac{dy/d\\theta}{dx/d\\theta}$ is $0$ rather than undefined.",
+     "math": "\\left.\\frac{dx}{d\\theta}\\right|_{\\theta = \\pi/4} = -2\\sin\\frac{\\pi}{2} = -2, \\qquad \\left.\\frac{dx}{d\\theta}\\right|_{\\theta = 3\\pi/4} = -2\\sin\\frac{3\\pi}{2} = 2"
+    },
+    {
+     "text": "The tangent line is horizontal at $\\theta = \\frac{\\pi}{4}$ and $\\theta = \\frac{3\\pi}{4}$. These are the points $(1, 1)$ and $(1, -1)$, the top and bottom of the circle of radius $1$ centered at $(1, 0)$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q030",
+   "skillId": "u9-polar-area",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Which of the following integrals gives the area of the region enclosed by the cardioid $r = 2 + 2\\cos\\theta$?</p>",
+   "choices": [
+    "$\\dfrac{1}{2}\\displaystyle\\int_0^{2\\pi} (2 + 2\\cos\\theta)^2\\,d\\theta$",
+    "$\\displaystyle\\int_0^{2\\pi} (2 + 2\\cos\\theta)^2\\,d\\theta$",
+    "$\\dfrac{1}{2}\\displaystyle\\int_0^{2\\pi} (2 + 2\\cos\\theta)\\,d\\theta$",
+    "$\\dfrac{1}{2}\\displaystyle\\int_0^{\\pi} (2 + 2\\cos\\theta)^2\\,d\\theta$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from omitting the factor $\\frac{1}{2}$ in the polar area formula. The formula comes from adding thin circular sectors of area $\\frac{1}{2} r^2\\,d\\theta$; without the $\\frac{1}{2}$, the integral gives twice the area.",
+    "This choice comes from integrating $r$ instead of $r^2$. The area of a circular sector of radius $r$ and angle $d\\theta$ is $\\frac{1}{2} r^2\\,d\\theta$, so the integrand must be the square of $r$.",
+    "This choice comes from integrating over $0 \\leq \\theta \\leq \\pi$ only, which traces the upper half of the cardioid. That gives half of the enclosed area. Either integrate over the full range $0 \\leq \\theta \\leq 2\\pi$, or double the integral over $0 \\leq \\theta \\leq \\pi$ by symmetry."
+   ],
+   "hints": [
+    "The area enclosed by a polar curve $r = f(\\theta)$ for $\\alpha \\leq \\theta \\leq \\beta$ is $\\frac{1}{2}\\int_\\alpha^\\beta f(\\theta)^2\\,d\\theta$. Two things to compare across the options: the factor in front, and the power of $r$ in the integrand.",
+    "For the limits, determine which range of $\\theta$ traces the whole cardioid exactly once. Since $r = 2 + 2\\cos\\theta \\geq 0$ for every $\\theta$, the full curve is traced as $\\theta$ goes from $0$ to $2\\pi$."
+   ],
+   "solution": [
+    {
+     "text": "The polar area formula adds thin circular sectors. A sector with radius $r$ and angle $d\\theta$ has area $\\frac{1}{2} r^2\\,d\\theta$, so the area enclosed by $r = f(\\theta)$ on $\\alpha \\leq \\theta \\leq \\beta$ is",
+     "math": "A = \\frac{1}{2}\\int_\\alpha^\\beta f(\\theta)^2\\,d\\theta"
+    },
+    {
+     "text": "Since $\\cos\\theta \\geq -1$, the value $r = 2 + 2\\cos\\theta$ is never negative, and the curve is traced exactly once as $\\theta$ runs from $0$ to $2\\pi$. So the limits are $0$ and $2\\pi$."
+    },
+    {
+     "text": "Substitute $f(\\theta) = 2 + 2\\cos\\theta$ with those limits.",
+     "math": "A = \\frac{1}{2}\\int_0^{2\\pi} (2 + 2\\cos\\theta)^2\\,d\\theta"
+    },
+    {
+     "text": "For reference, evaluating this integral (expand the square, then use $\\cos^2\\theta = \\frac{1 + \\cos 2\\theta}{2}$) gives $A = 6\\pi$. The question asks only for the integral that produces this area."
+    }
+   ]
+  },
+  {
+   "id": "u9-q031",
+   "skillId": "u9-polar-area",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>Let $R$ be the region bounded by the polar curve $r = \\sqrt{\\theta}$ for $0 \\leq \\theta \\leq \\pi$ and the ray $\\theta = \\pi$. Find the area of $R$. Round to two decimal places.</p>",
+   "answer": 2.47,
+   "tolerance": 0.005,
+   "hints": [
+    "Use the polar area formula $A = \\frac{1}{2}\\int_\\alpha^\\beta r^2\\,d\\theta$ with $\\alpha = 0$ and $\\beta = \\pi$. The curve starts at the origin when $\\theta = 0$, and the ray $\\theta = \\pi$ closes the region.",
+    "Squaring $r = \\sqrt{\\theta}$ gives $r^2 = \\theta$, so the integrand is a polynomial in $\\theta$. Integrate, then evaluate at the limits."
+   ],
+   "solution": [
+    {
+     "text": "The region is swept out as $\\theta$ increases from $0$ to $\\pi$. Apply the polar area formula.",
+     "math": "A = \\frac{1}{2}\\int_0^{\\pi} \\left(\\sqrt{\\theta}\\right)^2\\,d\\theta = \\frac{1}{2}\\int_0^{\\pi} \\theta\\,d\\theta"
+    },
+    {
+     "text": "Integrate the polynomial and evaluate at the limits.",
+     "math": "A = \\frac{1}{2}\\left[\\frac{\\theta^2}{2}\\right]_0^{\\pi} = \\frac{1}{2}\\cdot\\frac{\\pi^2}{2} = \\frac{\\pi^2}{4}"
+    },
+    {
+     "text": "Round to two decimal places.",
+     "math": "A = \\frac{\\pi^2}{4} \\approx 2.4674 \\approx 2.47"
+    }
+   ]
+  },
+  {
+   "id": "u9-q032",
+   "skillId": "u9-polar-area",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the rose curve $r = 4\\sin(2\\theta)$. Find the exact area of one petal of the rose.</p>",
+   "choices": [
+    "$4\\pi$",
+    "$\\pi$",
+    "$2\\pi$",
+    "$8\\pi$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from using the limits $0$ to $\\pi$, over which $r = 4\\sin(2\\theta)$ is first positive and then negative. That range traces two petals, so the integral gives twice the area of one petal.",
+    "This choice comes from using the limits $0$ to $\\frac{\\pi}{4}$, stopping at the angle where $r$ is largest. That covers only half of one petal; the petal continues until $r$ returns to $0$ at $\\theta = \\frac{\\pi}{2}$.",
+    null,
+    "This choice comes from using the limits $0$ to $2\\pi$, which traces all four petals of the rose. The integral over the full turn gives the total area of the rose, four times the area of one petal."
+   ],
+   "hints": [
+    "One petal begins and ends at the pole, where $r = 0$. Find two consecutive values of $\\theta$ at which $4\\sin(2\\theta) = 0$; the petal is traced as $\\theta$ runs between them.",
+    "With those limits, use $A = \\frac{1}{2}\\int r^2\\,d\\theta$. The integrand $16\\sin^2(2\\theta)$ can be rewritten with the identity $\\sin^2 u = \\frac{1 - \\cos 2u}{2}$.",
+    "After the identity, the integrand is $8 - 8\\cos(4\\theta)$. The cosine term integrates to a multiple of $\\sin(4\\theta)$, which is $0$ at both limits."
+   ],
+   "solution": [
+    {
+     "text": "Find the limits for one petal. $r = 4\\sin(2\\theta) = 0$ when $2\\theta = 0, \\pi, 2\\pi, \\ldots$, so two consecutive zeros are $\\theta = 0$ and $\\theta = \\frac{\\pi}{2}$. Between them $r > 0$, and the petal is traced exactly once."
+    },
+    {
+     "text": "Apply the polar area formula on $0 \\leq \\theta \\leq \\frac{\\pi}{2}$.",
+     "math": "A = \\frac{1}{2}\\int_0^{\\pi/2} \\big(4\\sin(2\\theta)\\big)^2\\,d\\theta = 8\\int_0^{\\pi/2} \\sin^2(2\\theta)\\,d\\theta"
+    },
+    {
+     "text": "Rewrite the integrand with the identity $\\sin^2 u = \\frac{1 - \\cos 2u}{2}$, taking $u = 2\\theta$.",
+     "math": "A = 8\\int_0^{\\pi/2} \\frac{1 - \\cos(4\\theta)}{2}\\,d\\theta = 4\\int_0^{\\pi/2} \\big(1 - \\cos(4\\theta)\\big)\\,d\\theta"
+    },
+    {
+     "text": "Integrate and evaluate. Since $\\sin(2\\pi) = 0$ and $\\sin 0 = 0$, the cosine term contributes nothing.",
+     "math": "A = 4\\left[\\theta - \\frac{\\sin(4\\theta)}{4}\\right]_0^{\\pi/2} = 4\\left(\\frac{\\pi}{2} - 0\\right) = 2\\pi"
+    }
+   ]
+  },
+  {
+   "id": "u9-q033",
+   "skillId": "u9-polar-area",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The polar curve $r = 6\\cos\\theta$ is a circle. Which integral gives the area of the region enclosed by this circle?</p>",
+   "choices": [
+    "$\\dfrac{1}{2}\\displaystyle\\int_0^{2\\pi} 36\\cos^2\\theta\\,d\\theta$",
+    "$\\dfrac{1}{2}\\displaystyle\\int_0^{\\pi} 6\\cos\\theta\\,d\\theta$",
+    "$\\dfrac{1}{2}\\displaystyle\\int_0^{\\pi} 36\\cos^2\\theta\\,d\\theta$",
+    "$\\dfrac{1}{2}\\displaystyle\\int_0^{\\pi/2} 36\\cos^2\\theta\\,d\\theta$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from using the full interval $0 \\leq \\theta \\leq 2\\pi$. The circle $r = 6\\cos\\theta$ is traced completely once as $\\theta$ runs from $0$ to $\\pi$; on $\\pi \\leq \\theta \\leq 2\\pi$ the same circle is traced a second time, so this integral equals $18\\pi$, twice the area.",
+    "This choice comes from integrating $r$ instead of $r^2$. The polar area formula is $\\frac{1}{2}\\int r^2\\,d\\theta$, so the integrand must be $(6\\cos\\theta)^2 = 36\\cos^2\\theta$. As written, this integral equals $0$.",
+    null,
+    "This choice comes from stopping at $\\theta = \\pi/2$, where $r$ first reaches $0$. That interval covers only the upper half of the circle. On $\\pi/2 \\leq \\theta \\leq \\pi$, $r$ is negative and the lower half is traced. This integral equals $9\\pi/2$, half the area."
+   ],
+   "hints": [
+    "The polar area formula is $A = \\frac{1}{2}\\int_\\alpha^\\beta r^2\\,d\\theta$, where $\\alpha$ and $\\beta$ are chosen so that the curve is traced exactly once. Start by squaring $r$.",
+    "Find the $\\theta$-interval on which $r = 6\\cos\\theta$ traces the circle exactly once. Check the values of $r$ at $\\theta = 0$, $\\theta = \\pi/2$, and $\\theta = \\pi$, and note that the polar point $(r, \\theta) = (-6, \\pi)$ is the same point as $(6, 0)$."
+   ],
+   "solution": [
+    {
+     "text": "In polar coordinates, the area enclosed by $r = f(\\theta)$ on $\\alpha \\leq \\theta \\leq \\beta$ is $A = \\frac{1}{2}\\int_\\alpha^\\beta r^2\\,d\\theta$, provided the curve is traced exactly once on that interval. Here $r^2 = 36\\cos^2\\theta$."
+    },
+    {
+     "text": "Track the curve. At $\\theta = 0$, $r = 6$, which is the point $(6, 0)$. As $\\theta$ increases to $\\pi/2$, $r$ decreases to $0$; this traces the upper half of the circle. On $\\pi/2 \\leq \\theta \\leq \\pi$, $r$ is negative, so each point is plotted on the opposite side of the pole; this traces the lower half and ends at $(r, \\theta) = (-6, \\pi)$, which is the point $(6, 0)$ again. The full circle is traced exactly once on $0 \\leq \\theta \\leq \\pi$.",
+     "math": "A = \\frac{1}{2}\\int_0^{\\pi} 36\\cos^2\\theta\\,d\\theta"
+    },
+    {
+     "text": "As a check, evaluate the integral using $\\cos^2\\theta = \\frac{1 + \\cos 2\\theta}{2}$.",
+     "math": "A = 18\\int_0^{\\pi} \\frac{1 + \\cos 2\\theta}{2}\\,d\\theta = 9\\left[\\theta + \\frac{\\sin 2\\theta}{2}\\right]_0^{\\pi} = 9\\pi"
+    },
+    {
+     "text": "The curve $r = 6\\cos\\theta$ is the circle $(x - 3)^2 + y^2 = 9$ of radius $3$, whose area is $9\\pi$. The integral over $0 \\leq \\theta \\leq \\pi$ agrees with this value."
+    }
+   ]
+  },
+  {
+   "id": "u9-q034",
+   "skillId": "u9-polar-area",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>The polar curve $r = 1 - 2\\cos\\theta$ is a limaçon with an inner loop. Find the area of the region enclosed by the inner loop. Round to two decimal places.</p>",
+   "answer": 0.54,
+   "tolerance": 0.005,
+   "hints": [
+    "The inner loop begins and ends at the pole, where $r = 0$. Solve $1 - 2\\cos\\theta = 0$ to find the two values of $\\theta$ that bound the loop.",
+    "Between those two angles, $r$ is negative. The area formula uses $r^2$, and $r^2$ is the same whether $r$ is positive or negative, so $A = \\frac{1}{2}\\int r^2\\,d\\theta$ over that interval still gives the area of the loop.",
+    "Expand $(1 - 2\\cos\\theta)^2$ and replace $\\cos^2\\theta$ with $\\frac{1 + \\cos 2\\theta}{2}$ before integrating."
+   ],
+   "solution": [
+    {
+     "text": "Find where the curve passes through the pole.",
+     "math": "1 - 2\\cos\\theta = 0 \\implies \\cos\\theta = \\tfrac{1}{2} \\implies \\theta = -\\tfrac{\\pi}{3} \\text{ or } \\theta = \\tfrac{\\pi}{3}"
+    },
+    {
+     "text": "For $-\\pi/3 < \\theta < \\pi/3$, $\\cos\\theta > 1/2$, so $r < 0$. A negative $r$ plots each point on the opposite side of the pole, and this is what produces the small inner loop. The loop is traced exactly once on $-\\pi/3 \\leq \\theta \\leq \\pi/3$. Because $r^2 = (1 - 2\\cos\\theta)^2$ does not depend on the sign of $r$, the area formula applies directly.",
+     "math": "A = \\frac{1}{2}\\int_{-\\pi/3}^{\\pi/3} (1 - 2\\cos\\theta)^2\\,d\\theta"
+    },
+    {
+     "text": "The integrand is an even function of $\\theta$, so integrate over $0 \\leq \\theta \\leq \\pi/3$ and double, which cancels the factor $\\frac{1}{2}$. Expand the square and use $\\cos^2\\theta = \\frac{1 + \\cos 2\\theta}{2}$.",
+     "math": "A = \\int_0^{\\pi/3} \\left(1 - 4\\cos\\theta + 4\\cos^2\\theta\\right)d\\theta = \\int_0^{\\pi/3} \\left(3 - 4\\cos\\theta + 2\\cos 2\\theta\\right)d\\theta"
+    },
+    {
+     "text": "Integrate term by term and evaluate, using $\\sin(\\pi/3) = \\frac{\\sqrt{3}}{2}$ and $\\sin(2\\pi/3) = \\frac{\\sqrt{3}}{2}$.",
+     "math": "A = \\Big[3\\theta - 4\\sin\\theta + \\sin 2\\theta\\Big]_0^{\\pi/3} = \\pi - 4\\cdot\\frac{\\sqrt{3}}{2} + \\frac{\\sqrt{3}}{2} = \\pi - \\frac{3\\sqrt{3}}{2}"
+    },
+    {
+     "text": "Rounded to two decimal places, $A = \\pi - \\frac{3\\sqrt{3}}{2} \\approx 0.54$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q035",
+   "skillId": "u9-polar-area",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>The polar curve $r = 2\\cos(3\\theta)$ is a rose with three petals. Find the exact total area enclosed by all three petals.</p>",
+   "choices": [
+    "$\\pi$",
+    "$2\\pi$",
+    "$\\dfrac{\\pi}{3}$",
+    "$\\dfrac{2\\pi}{3}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from integrating $\\frac{1}{2}\\int_0^{2\\pi} 4\\cos^2(3\\theta)\\,d\\theta$. A three-petal rose is traced completely as $\\theta$ runs from $0$ to $\\pi$; on $\\pi \\leq \\theta \\leq 2\\pi$ each petal is traced a second time, so this integral counts every petal twice.",
+    "This choice comes from computing the area of one petal, $\\frac{1}{2}\\int_{-\\pi/6}^{\\pi/6} 4\\cos^2(3\\theta)\\,d\\theta$, without multiplying by the number of petals.",
+    "This choice comes from doubling the area of one petal instead of tripling it. Doubling accounts for the two symmetric halves of a single petal, the halves on $-\\pi/6 \\leq \\theta \\leq 0$ and on $0 \\leq \\theta \\leq \\pi/6$, but the rose has three petals of equal area."
+   ],
+   "hints": [
+    "Find one full petal first. A petal starts and ends at the pole, so solve $2\\cos(3\\theta) = 0$ for the two values of $\\theta$ closest to $0$, one on each side.",
+    "Compute $\\frac{1}{2}\\int r^2\\,d\\theta$ over that one petal, using $\\cos^2 u = \\frac{1 + \\cos 2u}{2}$ with $u = 3\\theta$. The three petals are congruent, so multiply the result by $3$."
+   ],
+   "solution": [
+    {
+     "text": "Locate one petal. The curve passes through the pole where $\\cos(3\\theta) = 0$, that is, where $3\\theta = \\pm\\pi/2$, so $\\theta = \\pm\\pi/6$. On $-\\pi/6 \\leq \\theta \\leq \\pi/6$, $r \\geq 0$ and $r$ reaches its maximum value $2$ at $\\theta = 0$. This interval traces exactly one petal."
+    },
+    {
+     "text": "Apply the polar area formula to that petal, with $r^2 = 4\\cos^2(3\\theta)$ and $\\cos^2(3\\theta) = \\frac{1 + \\cos 6\\theta}{2}$.",
+     "math": "A_{\\text{petal}} = \\frac{1}{2}\\int_{-\\pi/6}^{\\pi/6} 4\\cos^2(3\\theta)\\,d\\theta = \\int_{-\\pi/6}^{\\pi/6} \\left(1 + \\cos 6\\theta\\right)d\\theta"
+    },
+    {
+     "text": "Integrate. The sine term is $0$ at both limits because $\\sin(\\pm\\pi) = 0$.",
+     "math": "A_{\\text{petal}} = \\left[\\theta + \\frac{\\sin 6\\theta}{6}\\right]_{-\\pi/6}^{\\pi/6} = \\frac{\\pi}{6} - \\left(-\\frac{\\pi}{6}\\right) = \\frac{\\pi}{3}"
+    },
+    {
+     "text": "For $r = a\\cos(n\\theta)$ with $n$ odd, the rose has $n$ congruent petals and the whole rose is traced once on $0 \\leq \\theta \\leq \\pi$. Multiply the area of one petal by three.",
+     "math": "A = 3\\cdot\\frac{\\pi}{3} = \\pi"
+    }
+   ]
+  },
+  {
+   "id": "u9-q036",
+   "skillId": "u9-polar-area-between",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find the exact area of the region that lies inside the circle $r = 3$ and outside the circle $r = 2$.</p>",
+   "choices": [
+    "$\\pi$",
+    "$9\\pi$",
+    "$13\\pi$",
+    "$5\\pi$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from squaring the difference of the radii, $(3 - 2)^2 = 1$, inside the integral. The area between two polar curves uses the difference of the squares, $r_{\\text{outer}}^2 - r_{\\text{inner}}^2 = 9 - 4$, not the square of the difference.",
+    "This choice comes from computing only the area inside $r = 3$, which is $\\frac{1}{2}\\int_0^{2\\pi} 9\\,d\\theta = 9\\pi$, without subtracting the area of the inner circle $r = 2$.",
+    "This choice comes from adding $r_{\\text{outer}}^2 + r_{\\text{inner}}^2 = 9 + 4$ instead of subtracting. The inner region must be removed, so the integrand is $9 - 4$.",
+    null
+   ],
+   "hints": [
+    "The region is a ring. Its area is the area inside the outer curve minus the area inside the inner curve. Both circles are centered at the pole, so the whole ring is covered as $\\theta$ runs from $0$ to $2\\pi$.",
+    "Use $A = \\frac{1}{2}\\int_0^{2\\pi} \\left(r_{\\text{outer}}^2 - r_{\\text{inner}}^2\\right)d\\theta$ with $r_{\\text{outer}} = 3$ and $r_{\\text{inner}} = 2$."
+   ],
+   "solution": [
+    {
+     "text": "For a region between two polar curves on $\\alpha \\leq \\theta \\leq \\beta$, with $r_{\\text{outer}}(\\theta) \\geq r_{\\text{inner}}(\\theta) \\geq 0$, the area is $A = \\frac{1}{2}\\int_\\alpha^\\beta \\left(r_{\\text{outer}}^2 - r_{\\text{inner}}^2\\right)d\\theta$. Both curves here are circles centered at the pole, so the outer curve is $r = 3$ and the inner curve is $r = 2$ for every $\\theta$ in $[0, 2\\pi]$."
+    },
+    {
+     "text": "Set up the integral and evaluate.",
+     "math": "A = \\frac{1}{2}\\int_0^{2\\pi} \\left(3^2 - 2^2\\right)d\\theta = \\frac{1}{2}\\int_0^{2\\pi} 5\\,d\\theta = \\frac{1}{2}\\cdot 5\\cdot 2\\pi = 5\\pi"
+    },
+    {
+     "text": "As a check, the ring is a disk of radius $3$ with a disk of radius $2$ removed, so its area is $9\\pi - 4\\pi = 5\\pi$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q037",
+   "skillId": "u9-polar-area-between",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Which integral gives the area of the region that lies inside the circle $r = 2\\sin\\theta$ and outside the circle $r = 1$?</p>",
+   "choices": [
+    "$\\dfrac{1}{2}\\displaystyle\\int_{\\pi/6}^{5\\pi/6} \\left(2\\sin\\theta - 1\\right)^2 d\\theta$",
+    "$\\dfrac{1}{2}\\displaystyle\\int_{\\pi/6}^{5\\pi/6} \\left(4\\sin^2\\theta - 1\\right)d\\theta$",
+    "$\\dfrac{1}{2}\\displaystyle\\int_{0}^{\\pi} \\left(4\\sin^2\\theta - 1\\right)d\\theta$",
+    "$\\dfrac{1}{2}\\displaystyle\\int_{\\pi/6}^{5\\pi/6} \\left(1 - 4\\sin^2\\theta\\right)d\\theta$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from squaring the difference of the two radii, $(2\\sin\\theta - 1)^2$. The area between two polar curves uses the difference of the squares, $r_{\\text{outer}}^2 - r_{\\text{inner}}^2 = (2\\sin\\theta)^2 - 1^2$, because each curve contributes its own sector area $\\frac{1}{2}r^2\\,d\\theta$.",
+    null,
+    "This choice comes from using the interval $0 \\leq \\theta \\leq \\pi$, on which the circle $r = 2\\sin\\theta$ is traced once. On $0 \\leq \\theta < \\pi/6$ and on $5\\pi/6 < \\theta \\leq \\pi$, the circle $r = 2\\sin\\theta$ lies inside $r = 1$, so the integrand $4\\sin^2\\theta - 1$ is negative there and the integral removes area that is not part of the region. The limits must be the intersection angles, where $2\\sin\\theta = 1$.",
+    "This choice comes from reversing the outer and inner curves. On $\\pi/6 \\leq \\theta \\leq 5\\pi/6$, $2\\sin\\theta \\geq 1$, so $r = 2\\sin\\theta$ is the outer curve and $r = 1$ is the inner curve. The integrand must be $4\\sin^2\\theta - 1$, which is nonnegative there. As written, the integral is negative."
+   ],
+   "hints": [
+    "First find where the two circles intersect by solving $2\\sin\\theta = 1$ for $\\theta$ in $[0, \\pi]$. Those two angles are the limits of integration.",
+    "Between the intersection angles, decide which curve is farther from the pole. Then use $A = \\frac{1}{2}\\int_\\alpha^\\beta \\left(r_{\\text{outer}}^2 - r_{\\text{inner}}^2\\right)d\\theta$. The integrand is the difference of the squares of the two radii."
+   ],
+   "solution": [
+    {
+     "text": "Find the intersection angles.",
+     "math": "2\\sin\\theta = 1 \\implies \\sin\\theta = \\tfrac{1}{2} \\implies \\theta = \\tfrac{\\pi}{6} \\text{ or } \\theta = \\tfrac{5\\pi}{6}"
+    },
+    {
+     "text": "For $\\pi/6 \\leq \\theta \\leq 5\\pi/6$, $\\sin\\theta \\geq 1/2$, so $2\\sin\\theta \\geq 1$. On this interval the ray at angle $\\theta$ enters the region at $r = 1$ (the inner curve) and leaves it at $r = 2\\sin\\theta$ (the outer curve). Outside this interval, $2\\sin\\theta < 1$ and the ray meets no part of the region."
+    },
+    {
+     "text": "Apply the formula for the area between two polar curves.",
+     "math": "A = \\frac{1}{2}\\int_{\\pi/6}^{5\\pi/6} \\left((2\\sin\\theta)^2 - 1^2\\right)d\\theta = \\frac{1}{2}\\int_{\\pi/6}^{5\\pi/6} \\left(4\\sin^2\\theta - 1\\right)d\\theta"
+    },
+    {
+     "text": "As a check, evaluating with $\\sin^2\\theta = \\frac{1 - \\cos 2\\theta}{2}$ gives $A = \\frac{1}{2}\\Big[\\theta - \\sin 2\\theta\\Big]_{\\pi/6}^{5\\pi/6} = \\frac{\\pi}{3} + \\frac{\\sqrt{3}}{2} \\approx 1.91$, a positive number smaller than the area $\\pi$ of the circle $r = 2\\sin\\theta$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q038",
+   "skillId": "u9-polar-area-between",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Find the area of the region that lies inside the cardioid $r = 1 + \\cos\\theta$ and outside the circle $r = 1$. Round to two decimal places.</p>",
+   "answer": 2.79,
+   "tolerance": 0.005,
+   "hints": [
+    "Find the intersection angles by solving $1 + \\cos\\theta = 1$. The region lies at the angles where the cardioid is farther from the pole than the circle, that is, where $1 + \\cos\\theta > 1$.",
+    "Use $A = \\frac{1}{2}\\int_\\alpha^\\beta \\left(r_{\\text{outer}}^2 - r_{\\text{inner}}^2\\right)d\\theta$ with $r_{\\text{outer}} = 1 + \\cos\\theta$ and $r_{\\text{inner}} = 1$. Expand $(1 + \\cos\\theta)^2$ before subtracting $1$, then replace $\\cos^2\\theta$ with $\\frac{1 + \\cos 2\\theta}{2}$."
+   ],
+   "solution": [
+    {
+     "text": "Find where the curves meet.",
+     "math": "1 + \\cos\\theta = 1 \\implies \\cos\\theta = 0 \\implies \\theta = -\\tfrac{\\pi}{2} \\text{ or } \\theta = \\tfrac{\\pi}{2}"
+    },
+    {
+     "text": "For $-\\pi/2 < \\theta < \\pi/2$, $\\cos\\theta > 0$, so $1 + \\cos\\theta > 1$: the cardioid is the outer curve and the circle is the inner curve. For the remaining angles the cardioid lies inside the circle and contributes nothing to the region.",
+     "math": "A = \\frac{1}{2}\\int_{-\\pi/2}^{\\pi/2} \\left((1 + \\cos\\theta)^2 - 1^2\\right)d\\theta"
+    },
+    {
+     "text": "The integrand is an even function of $\\theta$, so integrate from $0$ to $\\pi/2$ and double, which cancels the factor $\\frac{1}{2}$. Expand the square and apply the half-angle identity.",
+     "math": "A = \\int_0^{\\pi/2} \\left(1 + 2\\cos\\theta + \\cos^2\\theta - 1\\right)d\\theta = \\int_0^{\\pi/2} \\left(2\\cos\\theta + \\frac{1 + \\cos 2\\theta}{2}\\right)d\\theta"
+    },
+    {
+     "text": "Integrate and evaluate. At $\\theta = \\pi/2$, $\\sin\\theta = 1$ and $\\sin 2\\theta = 0$.",
+     "math": "A = \\left[2\\sin\\theta + \\frac{\\theta}{2} + \\frac{\\sin 2\\theta}{4}\\right]_0^{\\pi/2} = 2 + \\frac{\\pi}{4}"
+    },
+    {
+     "text": "Rounded to two decimal places, $A = 2 + \\frac{\\pi}{4} \\approx 2.79$."
+    }
+   ]
+  },
+  {
+   "id": "u9-q039",
+   "skillId": "u9-polar-area-between",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Find the area of the region that lies inside both the circle $r = 2$ and the circle $r = 4\\cos\\theta$. Round to two decimal places.</p>",
+   "answer": 4.91,
+   "tolerance": 0.005,
+   "hints": [
+    "Solve $4\\cos\\theta = 2$ to find the intersection angles. A region inside both curves is not a difference of two areas, so the formula $\\frac{1}{2}\\int \\left(r_{\\text{outer}}^2 - r_{\\text{inner}}^2\\right)d\\theta$ does not apply here.",
+    "On each ray from the pole, the region ends at whichever curve is closer to the pole. Determine which circle is closer for angles between $0$ and the intersection angle, and which is closer from the intersection angle up to $\\pi/2$.",
+    "Split the integral at the intersection angle, use $\\frac{1}{2}\\int r^2\\,d\\theta$ with the closer curve on each piece, and use symmetry about the polar axis to double the result for $\\theta \\geq 0$."
+   ],
+   "solution": [
+    {
+     "text": "Find the intersection angles.",
+     "math": "4\\cos\\theta = 2 \\implies \\cos\\theta = \\tfrac{1}{2} \\implies \\theta = \\pm\\tfrac{\\pi}{3}"
+    },
+    {
+     "text": "Describe the region by rays. The circle $r = 4\\cos\\theta$ has center $(2, 0)$ and radius $2$, and it is traced once for $-\\pi/2 \\leq \\theta \\leq \\pi/2$. A point is inside both circles when $r \\leq 2$ and $r \\leq 4\\cos\\theta$, so on the ray at angle $\\theta$ the region extends from the pole out to $r = \\min(2, 4\\cos\\theta)$. For $0 \\leq \\theta \\leq \\pi/3$, $4\\cos\\theta \\geq 2$, so the boundary is $r = 2$. For $\\pi/3 \\leq \\theta \\leq \\pi/2$, $4\\cos\\theta \\leq 2$, so the boundary is $r = 4\\cos\\theta$."
+    },
+    {
+     "text": "The region is symmetric about the polar axis, so compute the area for $0 \\leq \\theta \\leq \\pi/2$ and double it. Split the integral at $\\theta = \\pi/3$, where the boundary curve switches.",
+     "math": "A = 2\\left[\\frac{1}{2}\\int_0^{\\pi/3} 2^2\\,d\\theta + \\frac{1}{2}\\int_{\\pi/3}^{\\pi/2} (4\\cos\\theta)^2\\,d\\theta\\right] = \\int_0^{\\pi/3} 4\\,d\\theta + \\int_{\\pi/3}^{\\pi/2} 16\\cos^2\\theta\\,d\\theta"
+    },
+    {
+     "text": "Evaluate the first integral directly and the second with $\\cos^2\\theta = \\frac{1 + \\cos 2\\theta}{2}$, using $\\sin\\pi = 0$ and $\\sin(2\\pi/3) = \\frac{\\sqrt{3}}{2}$.",
+     "math": "A = \\frac{4\\pi}{3} + 8\\left[\\theta + \\frac{\\sin 2\\theta}{2}\\right]_{\\pi/3}^{\\pi/2} = \\frac{4\\pi}{3} + 8\\left[\\frac{\\pi}{2} - \\left(\\frac{\\pi}{3} + \\frac{\\sqrt{3}}{4}\\right)\\right]"
+    },
+    {
+     "text": "Simplify.",
+     "math": "A = \\frac{4\\pi}{3} + \\frac{4\\pi}{3} - 2\\sqrt{3} = \\frac{8\\pi}{3} - 2\\sqrt{3}"
+    },
+    {
+     "text": "Rounded to two decimal places, $A = \\frac{8\\pi}{3} - 2\\sqrt{3} \\approx 4.91$."
+    }
+   ]
+  }
+ ],
+ "masteryCheck": {
+  "questionCount": 8,
+  "passCount": 7
+ }
+}
