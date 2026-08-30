@@ -1,0 +1,91 @@
+# CLAUDE.md — Calc Coach
+
+Read this before changing anything. It is short on purpose.
+
+## What this is
+
+An adaptive, mastery-gated AP Calculus BC tutor built for **one specific
+learner: an autistic professional software developer**. Every design decision
+below exists for him. `README.md` has the full rationale; this file is the
+contract.
+
+## Non-negotiable design invariants
+
+Breaking any of these is a regression even if the code works:
+
+1. **Predictability.** One fixed layout; navigation never moves; every view
+   shows "You are here". All rules are stated completely *before* an activity
+   starts (question counts, pass marks, what happens after each answer).
+   Nothing auto-advances; nothing appears without a user action.
+2. **No sensory surprises.** No animation, no sound, no flashing, no
+   countdown timers (the optional timer counts up only). Motion happens only
+   when the learner drags a control.
+3. **Literal language.** No idioms, no sarcasm, no rhetorical questions, no
+   exclamation marks in teaching text, no emoji. Wrong answers are "Not yet."
+   in calm amber (never red) with the specific misconception and the full
+   worked solution. Phrasing is "this choice comes from ..." — never "you
+   forgot".
+4. **Progress is never taken away.** Units never re-lock. Review recommends,
+   never blocks. Failing a Mastery Check changes nothing.
+5. **Two-step answering.** Select or type, then an explicit "Check answer".
+   A stray click must never submit.
+6. **Zero dependencies.** No `npm install`, ever. Server = `node:http` only;
+   Anthropic API via built-in `fetch`; KaTeX is vendored in
+   `public/vendor/katex/`. This is what makes the app immune to Replit
+   `node_modules` corruption. Do not add packages.
+7. **The verified answer key is the only grader.** The AI tutor explains and
+   is instructed never to contradict the key; it must never grade, and no
+   generated math may enter the content files without independent
+   verification.
+
+## Architecture (all paths from repo root)
+
+| Piece | File |
+|---|---|
+| Server: static + progress API + tutor proxy | `server.js` |
+| Adaptive/mastery logic (pure, tested) | `public/engine.js` |
+| SPA: routing, views, persistence | `public/app.js` |
+| Interactive canvas explorers | `public/viz.js` |
+| Design system (calm, themeable, motion-free) | `public/styles.css` |
+| Curriculum data | `content/unit-NN.json`, `content/manifest.json` |
+| Content authoring contract | `content/schema.md` |
+| Content validator | `scripts/validate-content.mjs` |
+| Engine tests | `test/engine.test.mjs` |
+
+## Engine invariants (pinned by tests — change tests and README together)
+
+- Mastery per skill 0–100 via EWMA, α = 0.3; credit 1 clean-correct, 0.5
+  correct-with-hints, 0 wrong. Threshold 80 (≈5 clean answers from zero).
+- Score capped at 70 until a recent correct answer at difficulty ≥ 2
+  (placement seeding exempt).
+- Difficulty ladder 1–3 per skill: clean correct up; wrong or 2+ hints down.
+- Mastery Check: 8 questions, difficulty ≥ 2, round-robin across core
+  skills, 7 to pass, no hints, unlimited fresh retakes.
+- Placement seeds passed units' core skills at EWMA 0.85 and never lowers
+  anything.
+
+## Commands
+
+```bash
+node server.js       # run (PORT env respected; Replit's .replit does this)
+npm test             # 14 engine tests (node --test)
+npm run validate     # schema-validate all curriculum units
+```
+
+Run all three before pushing. CI (`.github/workflows/ci.yml`) runs syntax
+checks, the tests, and validation of every unit file present.
+
+## Working rules
+
+- Route params from `location.hash` are untrusted: the router allowlists
+  them (`^[a-z0-9-]{1,64}$`) and views re-derive ids from content objects.
+  Never interpolate hash-derived strings into `innerHTML`.
+- Content edits must keep `npm run validate` clean. Every multiple-choice
+  distractor needs a misconception note; hints never reveal the answer;
+  solutions are complete enough to follow when stuck.
+- If you change a question's answer, re-derive it yourself from scratch
+  first — the keys were independently verified and a "fix" that breaks a
+  correct key teaches wrong math.
+- Learner progress lives in `data/progress-*.json` (gitignored). Never
+  commit it; never reset it without explicit permission from Melody.
+- Branch, PR to `main`, merge when CI is green.
