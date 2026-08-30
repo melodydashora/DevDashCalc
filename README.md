@@ -100,10 +100,27 @@ Everything below is deterministic and visible to the learner in-app (Settings �
 
 Set `ANTHROPIC_API_KEY` in the environment (on Replit: **Tools → Secrets →
 add `ANTHROPIC_API_KEY`**) and a "Talk it through with the tutor" button
-appears on every answer's feedback panel. The tutor (Claude, `claude-opus-5`)
-diagnoses where the learner's specific answer diverged from the correct path
-and answers follow-up questions about the problem, in the same literal, calm
-style as the rest of the app.
+appears on every answer's feedback panel. The tutor (Claude, `claude-opus-5`
+by default) diagnoses where the learner's specific answer diverged from the
+correct path and answers follow-up questions about the problem, in the same
+literal, calm style as the rest of the app.
+
+**Providers and fallback.** The tutor talks to vendors through small adapters
+in `server.js` that all present the same call, using built-in `fetch` only.
+A provider joins the chain when its key is set; the first that answers wins,
+and any error or timeout moves to the next. A refusal is final and is not
+re-asked elsewhere.
+
+| Provider | Key | Model (override with env) |
+|---|---|---|
+| Anthropic (primary) | `ANTHROPIC_API_KEY` | `TUTOR_MODEL_ANTHROPIC`, default `claude-opus-5` |
+| OpenAI | `OPENAI_API_KEY` | `TUTOR_MODEL_OPENAI`, default `gpt-5` |
+| Google Gemini | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) | `TUTOR_MODEL_GEMINI`, default `gemini-2.5-pro` |
+
+`TUTOR_PROVIDERS="anthropic,openai,gemini"` reorders or limits the chain.
+`GET /api/tutor` reports the active chain. Whichever provider answers, the
+same system prompt and the same guardrails below apply, and the question
+content plus attempt counts described under "Private" are what it receives.
 
 Guardrails, by design:
 
