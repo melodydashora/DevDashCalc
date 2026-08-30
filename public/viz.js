@@ -188,15 +188,15 @@ EXPLORERS['limit-approach'] = {
         ['from the right', fmt(xr), fmt(f(xr))],
       ]);
       note.textContent = dist <= 0.005
-        ? 'Both sides agree to 3 decimal places. The limit is 2 — even though f(1) itself is undefined (the open dot).'
-        : 'Drag the slider toward 0 and watch both f(x) columns close in on the same number.';
+        ? 'The two f(x) values match to 3 decimal places. The limit is 2, even though f(1) itself is undefined (the open dot).'
+        : 'Drag the slider toward 0. Both f(x) values move toward 2.';
     };
     d.onInput(draw); draw();
   },
 };
 
 EXPLORERS['secant-tangent'] = {
-  title: 'Derivative explorer: secant lines becoming the tangent',
+  title: 'Derivative explorer: secant lines approaching the tangent',
   build(root) {
     const f = (x) => x * x, a = 1, fp = 2; // f'(1) = 2
     const canvas = el('canvas'); root.graph.appendChild(canvas);
@@ -214,8 +214,8 @@ EXPLORERS['secant-tangent'] = {
       plot.dot(a, f(a), plot.colors.warn); plot.dot(a + hv, f(a + hv), plot.colors.curve2);
       table.set([[fmt(hv, 3), fmt(f(a + hv) - f(a)), fmt(slope)]]);
       note.textContent = hv <= 0.01
-        ? `The secant slope is now ${fmt(slope)} — matching the tangent slope f′(1) = 2. That is the derivative: the limit of secant slopes as h → 0.`
-        : 'Drag h toward 0: the green secant line tilts into the dashed tangent line, and the slope column approaches 2.';
+        ? `The secant slope is now ${fmt(slope)}, close to the tangent slope f′(1) = 2. The derivative is the limit of the secant slopes as h → 0.`
+        : 'Drag h toward 0. The green secant line rotates toward the dashed tangent line, and the slope column approaches 2.';
     };
     h.onInput(draw); draw();
   },
@@ -267,8 +267,8 @@ EXPLORERS['linear-approx'] = {
       plot.seg(xv, f(xv), xv, L(xv), plot.colors.warn, 1.4, [3, 3]);
       table.set([[fmt(xv, 2), fmt(f(xv)), fmt(L(xv)), fmt(L(xv) - f(xv))]]);
       note.textContent = Math.abs(xv - a) < 0.75
-        ? 'Near x = 4 the error is tiny — that is local linearity.'
-        : '√x is concave down, so its tangent line sits above the curve: the linearization overestimates, and the error grows as you move away from x = 4.';
+        ? `Near x = 4 the error is small: here it is ${fmt(L(xv) - f(xv))}. This is local linearity: close to the point of tangency, the tangent line and the curve are nearly equal.`
+        : '√x is concave down, so its tangent line lies above the curve. The linearization overestimates √x, and the error increases as x moves away from 4.';
     };
     xs.onInput(draw); draw();
   },
@@ -294,14 +294,14 @@ EXPLORERS['curve-analysis'] = {
       table.set([[fmt(f(xv)), fmt(f1(xv)), fmt(f2(xv))]]);
       const inc = f1(xv) > 0 ? 'increasing (f′ > 0)' : f1(xv) < 0 ? 'decreasing (f′ < 0)' : 'at a critical point (f′ = 0)';
       const conc = f2(xv) > 0 ? 'concave up (f″ > 0)' : f2(xv) < 0 ? 'concave down (f″ < 0)' : 'at the inflection point (f″ = 0)';
-      note.textContent = `At x = ${fmt(xv, 2)}, f is ${inc} and ${conc}. The dashed green curve is f′ — watch its sign, not its height.`;
+      note.textContent = `At x = ${fmt(xv, 2)}, f is ${inc} and ${conc}. The dashed green curve is f′. The sign of f′ (above or below the x-axis) determines whether f is increasing or decreasing; its height does not.`;
     };
     xs.onInput(draw); draw();
   },
 };
 
 EXPLORERS['riemann-sum'] = {
-  title: 'Riemann sum explorer: rectangles converging on the exact area',
+  title: 'Riemann sum explorer: rectangle sums approaching the exact area',
   build(root) {
     const f = (x) => x * x, A = 0, B = 3, exact = 9; // ∫₀³ x² dx = 9
     const canvas = el('canvas'); root.graph.appendChild(canvas);
@@ -334,10 +334,10 @@ EXPLORERS['riemann-sum'] = {
       const labels = { left: 'Left sum', right: 'Right sum', mid: 'Midpoint sum', trap: 'Trapezoid sum' };
       table.set([[labels[m], String(nv), fmt(sum), '9', fmt(sum - exact)]]);
       note.textContent = m === 'left'
-        ? 'x² is increasing on [0, 3], so every left rectangle sits under the curve — the left sum underestimates. Raise n and watch the error shrink.'
+        ? 'x² is increasing on [0, 3], so every left rectangle lies below the curve. The left sum is less than the integral. Increasing n makes the error smaller.'
         : m === 'right'
-          ? 'x² is increasing on [0, 3], so every right rectangle pokes above the curve — the right sum overestimates. Raise n and watch the error shrink.'
-          : 'Raise n and watch the error column go to 0 — the definite integral is the limit of these sums.';
+          ? 'x² is increasing on [0, 3], so every right rectangle extends above the curve. The right sum is greater than the integral. Increasing n makes the error smaller.'
+          : 'Increasing n moves the error column toward 0. The definite integral is the limit of these sums as n increases.';
     };
     n.onInput(draw); draw();
   },
@@ -384,7 +384,7 @@ EXPLORERS['slope-field-euler'] = {
       for (const [sx, sy] of steps.slice(1)) plot.dot(sx, sy, plot.colors.warn, 3);
       if (i >= 7) rows.push(['…', '…', '…', '…']);
       table.set(rows);
-      note.textContent = `Solid orange: Euler’s method with h = ${hv.toFixed(2)} (follow the slope, step, re-read the slope, step again). Dashed blue: the exact solution y = x − 1 + e^(−x). At x = 3, Euler gives ${fmt(y)} vs exact ${fmt(exact(3))}. Smaller h hugs the true curve more closely.`;
+      note.textContent = `Solid orange: Euler’s method with h = ${hv.toFixed(2)}. Each step moves h to the right along the slope at the current point, then reads the slope at the new point. Dashed blue: the exact solution y = x − 1 + e^(−x). At x = 3, Euler gives ${fmt(y)}; the exact value is ${fmt(exact(3))}. A smaller h keeps the Euler polyline closer to the exact curve.`;
     };
     h.onInput(draw); draw();
   },
@@ -409,7 +409,7 @@ EXPLORERS['area-between'] = {
       const xv = xs.value();
       plot.rect(xv - 0.03, bot(xv), xv + 0.03, top(xv), plot.colors.warn, plot.colors.warn);
       table.set([[fmt(xv, 2), fmt(top(xv)), fmt(bot(xv)), fmt(top(xv) - bot(xv)), '4.5']]);
-      note.textContent = 'Slide the orange rectangle: its height is always top minus bottom at that x. The integral ∫ from −2 to 1 of (4 − x²) − (x + 2) dx adds up every one of these heights × dx, giving 4.5.';
+      note.textContent = 'The orange rectangle has height top minus bottom at the chosen x. The integral ∫ from −2 to 1 of (4 − x²) − (x + 2) dx sums these heights × dx across the interval; the result is 4.5.';
     };
     xs.onInput(draw); draw();
   },
@@ -437,7 +437,7 @@ EXPLORERS['parametric-motion'] = {
       plot.dot(x(t), y(t), plot.colors.warn, 5);
       const speed = Math.hypot(xp(t), yp(t));
       table.set([[`⟨${fmt(x(t), 2)}, ${fmt(y(t), 2)}⟩`, `⟨${fmt(xp(t), 2)}, ${fmt(yp(t), 2)}⟩`, fmt(speed)]]);
-      note.textContent = 'The orange arrow is the velocity vector ⟨x′(t), y′(t)⟩ — always tangent to the path. Speed is its length. Notice speed is largest where the ellipse is flattest (near the y-axis crossings) and smallest at the wide ends.';
+      note.textContent = 'The orange arrow is the velocity vector ⟨x′(t), y′(t)⟩. It is tangent to the path. Speed is the length of this vector. Speed is largest (3) at t = π/2 and 3π/2, where the path crosses the y-axis, and smallest (2) at t = 0 and π, where the path crosses the x-axis.';
     };
     ts.onInput(draw); draw();
   },
@@ -467,7 +467,7 @@ EXPLORERS['polar-area'] = {
       plot.seg(0, 0, r(th) * Math.cos(th), r(th) * Math.sin(th), plot.colors.warn, 2.2);
       plot.dot(r(th) * Math.cos(th), r(th) * Math.sin(th), plot.colors.warn, 4.5);
       table.set([[fmt(th, 2), fmt(r(th)), fmt(sweptArea(th)), `6π ≈ ${fmt(6 * PI)}`]]);
-      note.textContent = 'The orange ray has length r(θ). As θ sweeps, the shaded region grows by thin pie slices of area ½ r² dθ each — that is why polar area is ½∫r² dθ, not ∫r dθ. Note r shrinks to 0 at θ = π, where the ray reaches the cusp.';
+      note.textContent = 'The orange ray has length r(θ). As θ increases, the shaded region grows by a thin sector of area ½ r² dθ for each increment dθ. This is why polar area is ½∫r² dθ, not ∫r dθ. At θ = π, r = 0, so the ray has length 0; that point is the cusp of the cardioid.';
     };
     ths.onInput(draw); draw();
   },
@@ -497,8 +497,8 @@ EXPLORERS['series-partial-sums'] = {
       }
       table.set([[fmt(rv, 2), String(N), fmt(sums[N - 1]), limit === null ? 'no limit — |r| ≥ 1' : fmt(limit)]]);
       note.textContent = limit === null
-        ? '|r| ≥ 1: the terms rⁿ do not shrink to 0, so the partial sums never settle — the series diverges. (At r = 1 they climb forever; at r < −1 they swing wider and wider.)'
-        : 'Each bar is one more term added. With |r| < 1 the bars level off at the dashed line a/(1 − r) — convergence means the partial sums settle, not that the terms reach zero quickly.';
+        ? '|r| ≥ 1: the terms rⁿ do not approach 0, so the partial sums do not approach a limit. The series diverges. For r ≥ 1 the partial sums increase without bound; for r ≤ −1 they alternate in sign and do not approach a limit.'
+        : 'Each bar is a partial sum with one more term than the bar to its left. With |r| < 1 the bars approach the dashed line at a/(1 − r). Convergence means the partial sums approach a limit; it does not require the terms to reach 0 quickly.';
     };
     rs.onInput(draw); ns.onInput(draw); draw();
   },
@@ -532,7 +532,7 @@ EXPLORERS['taylor-series'] = {
       plot.curve((x) => taylor(x, d), plot.colors.warn, 2.2, [7, 4]);
       plot.dot(xv, f(xv), plot.colors.curve); plot.dot(xv, Math.max(-2.35, Math.min(2.35, taylor(xv, d))), plot.colors.warn);
       table.set([[String(d), fmt(taylor(xv, d)), fmt(f(xv)), fmt(Math.abs(taylor(xv, d) - f(xv)))]]);
-      note.textContent = `Degree ${d} uses ${Math.ceil(d / 2)} term${d > 1 ? 's' : ''} of x − x³/3! + x⁵/5! − … Each added term extends the region where the polynomial hugs sin x. Like successive refinement in code: more terms, wider radius of usefulness — and centered at 0, accuracy always decays as |x| grows.`;
+      note.textContent = `Degree ${d} uses ${Math.ceil(d / 2)} term${d > 1 ? 's' : ''} of x − x³/6 + x⁵/120 − …. Each added term widens the interval around 0 where the polynomial is close to sin x. For a fixed degree, the error increases as |x| increases, because the polynomial is centered at 0.`;
     };
     deg.onInput(draw); xe.onInput(draw); draw();
   },
