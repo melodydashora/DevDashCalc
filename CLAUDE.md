@@ -70,9 +70,9 @@ Breaking any of these is a regression even if the code works:
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # 14 engine tests (node --test)
+npm test             # 16 engine tests (node --test)
 npm run validate     # schema-validate all units, then render every math segment with KaTeX
-npm run lint         # language lint (no exclamation marks, shaming, idioms, emoji)
+npm run lint         # language lint of app text and every unit (no exclamation marks, shaming, idioms, emoji)
 ```
 
 Run all of them before pushing. CI (`.github/workflows/ci.yml`) runs syntax

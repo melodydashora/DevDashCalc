@@ -38,11 +38,16 @@ export function skillState(state, skillId) {
   return state.skills[skillId];
 }
 
-export function recordAnswer(state, { skillId, questionId, correct, hintsUsed, difficulty, now }) {
+// `choice` is the multiple-choice index the learner picked (omitted for
+// numeric questions). It never affects scoring; it is kept so repeated wrong
+// choices can be named later (see questionHistory / unitPatterns).
+export function recordAnswer(state, { skillId, questionId, correct, hintsUsed, difficulty, now, choice = null }) {
   const s = skillState(state, skillId);
   const credit = correct ? (hintsUsed > 0 ? 0.5 : 1) : 0;
   s.ewma = EWMA_ALPHA * credit + (1 - EWMA_ALPHA) * s.ewma;
-  s.events.push({ t: now, qid: questionId, correct, hintsUsed, difficulty });
+  const event = { t: now, qid: questionId, correct, hintsUsed, difficulty };
+  if (Number.isInteger(choice)) event.choice = choice;
+  s.events.push(event);
   if (s.events.length > EVENT_CAP) s.events.splice(0, s.events.length - EVENT_CAP);
   if (correct && hintsUsed === 0) s.difficulty = Math.min(3, s.difficulty + 1);
   else if (!correct || hintsUsed >= 2) s.difficulty = Math.max(1, s.difficulty - 1);
@@ -50,9 +55,60 @@ export function recordAnswer(state, { skillId, questionId, correct, hintsUsed, d
 
   const q = state.seenQuestions[questionId] || { last: 0, correctCount: 0, wrongCount: 0 };
   q.last = now;
-  if (correct) q.correctCount += 1; else q.wrongCount += 1;
+  if (correct) q.correctCount += 1;
+  else {
+    q.wrongCount += 1;
+    if (Number.isInteger(choice)) {
+      q.wrongChoices = q.wrongChoices || {};
+      q.wrongChoices[choice] = (q.wrongChoices[choice] || 0) + 1;
+    }
+  }
   state.seenQuestions[questionId] = q;
   return state;
+}
+
+// ------------------------------------------------------------ error patterns
+// Plain data about past attempts. Used to give the tutor concrete history and
+// to show the learner his own recurring errors. None of this feeds scoring.
+export function questionHistory(state, question) {
+  const seen = state.seenQuestions[question.id] || { correctCount: 0, wrongCount: 0, wrongChoices: {} };
+  const priorWrongChoices = Object.entries(seen.wrongChoices || {})
+    .map(([i, count]) => ({ index: Number(i), count, misconception: question.misconceptions?.[Number(i)] ?? null }))
+    .sort((a, b) => b.count - a.count || a.index - b.index);
+  return {
+    attempts: seen.correctCount + seen.wrongCount,
+    correctCount: seen.correctCount,
+    wrongCount: seen.wrongCount,
+    priorWrongChoices,
+  };
+}
+
+export function skillHistory(state, skillId) {
+  const s = state.skills[skillId];
+  const recent = s ? s.events.slice(-RECENT_WINDOW) : [];
+  return {
+    score: masteryScore(state, skillId),
+    difficulty: s?.difficulty || 1,
+    recentTotal: recent.length,
+    recentWrong: recent.filter((e) => !e.correct).length,
+    recentWithHints: recent.filter((e) => e.correct && e.hintsUsed > 0).length,
+  };
+}
+
+// Patterns worth showing on a unit page: the same wrong choice picked at least
+// twice on one question, and skills with 2+ wrong answers among the last few.
+export function unitPatterns(state, unit) {
+  const repeated = [];
+  for (const q of unit.questions) {
+    const h = questionHistory(state, q);
+    const choices = h.priorWrongChoices.filter((c) => c.count >= 2);
+    if (choices.length) repeated.push({ question: q, choices, wrongCount: h.wrongCount });
+  }
+  const skills = unit.skills
+    .map((skill) => ({ skill, ...skillHistory(state, skill.id) }))
+    .filter((x) => x.recentTotal >= 3 && x.recentWrong >= 2)
+    .sort((a, b) => b.recentWrong - a.recentWrong || a.score - b.score);
+  return { repeated, skills };
 }
 
 export function masteryScore(state, skillId) {

@@ -72,7 +72,104 @@ function readBody(req, limit = 2 * 1024 * 1024) {
 // verified solution as ground truth and the system prompt forbids
 // contradicting it. Only the question content and the learner's answer to it
 // are sent — no name, no progress data.
-const TUTOR_MODEL = 'claude-opus-5';
+// ---------------------------------------------------------------- providers
+// One adapter per vendor, all behind the same call: complete({ system,
+// messages }) -> { text } or { refusal: true }. Built-in fetch only. The tutor
+// tries the chain in order and answers from the first provider that works; a
+// provider is in the chain only when its key is set, and every model id comes
+// from the environment so nothing here is tied to one vendor or one model.
+//   ANTHROPIC_API_KEY                  TUTOR_MODEL_ANTHROPIC  (default claude-opus-5)
+//   OPENAI_API_KEY                     TUTOR_MODEL_OPENAI     (default gpt-5)
+//   GEMINI_API_KEY or GOOGLE_API_KEY   TUTOR_MODEL_GEMINI     (default gemini-2.5-pro)
+//   TUTOR_PROVIDERS="anthropic,openai,gemini" reorders or limits the chain.
+const PROVIDER_TIMEOUT_MS = 60_000;
+const MAX_TUTOR_TOKENS = 2000;
+
+class ProviderError extends Error {
+  constructor(provider, status, message) { super(`${provider} ${status}: ${message || 'unknown error'}`); this.status = status; }
+}
+
+async function postJson(url, headers, body, signal) {
+  const res = await fetch(url, { method: 'POST', signal, headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  let data = null;
+  try { data = await res.json(); } catch { data = null; }
+  return { res, data };
+}
+
+const ADAPTERS = {
+  anthropic: {
+    key: () => process.env.ANTHROPIC_API_KEY,
+    model: () => process.env.TUTOR_MODEL_ANTHROPIC || 'claude-opus-5',
+    async complete({ key, model, system, messages, signal }) {
+      const { res, data } = await postJson('https://api.anthropic.com/v1/messages',
+        { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        { model, max_tokens: MAX_TUTOR_TOKENS, system: [{ type: 'text', text: system, cache_control: { type: 'ephemeral' } }], messages }, signal);
+      if (!res.ok) throw new ProviderError('anthropic', res.status, data?.error?.message);
+      if (data?.stop_reason === 'refusal') return { refusal: true };
+      return { text: (data?.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim() };
+    },
+  },
+  openai: {
+    key: () => process.env.OPENAI_API_KEY,
+    model: () => process.env.TUTOR_MODEL_OPENAI || 'gpt-5',
+    async complete({ key, model, system, messages, signal }) {
+      const { res, data } = await postJson('https://api.openai.com/v1/chat/completions',
+        { authorization: `Bearer ${key}` },
+        { model, max_completion_tokens: MAX_TUTOR_TOKENS, messages: [{ role: 'system', content: system }, ...messages] }, signal);
+      if (!res.ok) throw new ProviderError('openai', res.status, data?.error?.message);
+      const choice = data?.choices?.[0];
+      if (choice?.finish_reason === 'content_filter') return { refusal: true };
+      return { text: String(choice?.message?.content || '').trim() };
+    },
+  },
+  gemini: {
+    key: () => process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
+    model: () => process.env.TUTOR_MODEL_GEMINI || 'gemini-2.5-pro',
+    async complete({ key, model, system, messages, signal }) {
+      const { res, data } = await postJson(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        { 'x-goog-api-key': key },
+        {
+          system_instruction: { parts: [{ text: system }] },
+          contents: messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })),
+          generationConfig: { maxOutputTokens: MAX_TUTOR_TOKENS },
+        }, signal);
+      if (!res.ok) throw new ProviderError('gemini', res.status, data?.error?.message);
+      if (data?.promptFeedback?.blockReason) return { refusal: true };
+      const cand = data?.candidates?.[0];
+      if (cand && ['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST'].includes(cand.finishReason)) return { refusal: true };
+      return { text: (cand?.content?.parts || []).map((p) => p.text || '').join('').trim() };
+    },
+  },
+};
+
+// Providers whose key is present, in the configured order.
+function providerChain() {
+  const order = (process.env.TUTOR_PROVIDERS || 'anthropic,openai,gemini')
+    .split(',').map((n) => n.trim().toLowerCase()).filter((n) => ADAPTERS[n]);
+  return order.filter((n) => Boolean(ADAPTERS[n].key()));
+}
+
+// First provider that answers wins. A refusal is final (it is not shopped to
+// another vendor); any error or empty answer moves to the next provider.
+async function completeWithFallback({ system, messages }) {
+  const failures = [];
+  for (const name of providerChain()) {
+    const adapter = ADAPTERS[name];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+    try {
+      const out = await adapter.complete({ key: adapter.key(), model: adapter.model(), system, messages, signal: controller.signal });
+      if (out.refusal) return { refusal: true, provider: name };
+      if (out.text) return { text: out.text, provider: name };
+      failures.push(`${name}: empty answer`);
+    } catch (e) {
+      failures.push(e instanceof ProviderError ? e.message : `${name}: ${e.name === 'AbortError' ? 'timed out' : e.message}`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  return { failures };
+}
 
 const TUTOR_SYSTEM = `You are the tutor inside Calc Coach, an AP Calculus BC study app. The learner is an autistic professional software developer. Follow these rules exactly.
 
@@ -91,17 +188,46 @@ Task:
 - When shown the learner's incorrect answer, first diagnose the specific step where their likely reasoning diverged from the correct path, based on the answer they actually gave. Name that step plainly, without blame language, then explain the correct step. Do not restate the entire solution; the app already shows it.
 - When shown a correct answer with a question, answer the question directly.
 - For follow-up questions, stay on this problem and its concept. If asked about something unrelated to calculus, say plainly that you only discuss calculus here, and invite a calculus question.
-- Feedback is information, never judgment. Say "this choice comes from ..." rather than "you made the mistake of ...".`;
+- Feedback is information, never judgment. Say "this choice comes from ..." rather than "you made the mistake of ...".
+- Learner history, when provided, is factual and describes attempts before this one. If the same wrong choice was picked before, say so plainly, name the specific error behind it (the stored misconception note is provided), and address that error first. Do not speculate beyond what the history states.`;
+
+// Turns the client's attempt counts into plain sentences. Every number is
+// re-validated here and misconception text is taken from the stored content,
+// never from the client.
+function historyLines(q, history, chosenIndex, correct) {
+  const lines = [];
+  const n = (v, max = 100000) => (Number.isInteger(v) && v >= 0 && v <= max ? v : null);
+  const label = (i) => 'ABCDE'[i];
+  const isMc = q.type === 'mc';
+  if (isMc && !correct && n(chosenIndex, 4) !== null && chosenIndex < q.choices.length && q.misconceptions?.[chosenIndex]) {
+    lines.push(`Stored misconception note for the learner's choice ${label(chosenIndex)}: ${q.misconceptions[chosenIndex]}`);
+  }
+  if (!history || typeof history !== 'object') return lines;
+  const attempts = n(history.attempts), wrong = n(history.wrongCount) ?? 0;
+  if (attempts === null || attempts === 0) {
+    lines.push('This was the learner\'s first attempt at this question.');
+  } else {
+    const picks = (Array.isArray(history.priorWrongChoices) ? history.priorWrongChoices : [])
+      .map((c) => ({ index: n(c?.index, 4), count: n(c?.count) }))
+      .filter((c) => isMc && c.index !== null && c.count && c.index < q.choices.length)
+      .map((c) => `${label(c.index)} (${c.count} time${c.count === 1 ? '' : 's'})`);
+    lines.push(`Learner history on this question before this attempt: ${attempts} attempt${attempts === 1 ? '' : 's'}, ${wrong} wrong${picks.length ? `; wrong choices picked before: ${picks.join(', ')}` : ''}.`);
+  }
+  const score = n(history.skillScore, 100), rt = n(history.recentTotal, 50), rw = n(history.recentWrong, 50) ?? 0, rh = n(history.recentWithHints, 50) ?? 0;
+  if (score !== null && rt) lines.push(`Learner history on this skill: mastery ${score} of 100; of the last ${rt} answer${rt === 1 ? '' : 's'} on it, ${rw} wrong and ${rh} correct only with hints.`);
+  return lines;
+}
 
 async function handleTutor(req, res, url) {
-  if (req.method === 'GET') return sendJson(res, 200, { available: Boolean(process.env.ANTHROPIC_API_KEY), model: TUTOR_MODEL });
+  const chain = providerChain();
+  // Reports availability and the vendor chain only; model ids never reach the browser.
+  if (req.method === 'GET') return sendJson(res, 200, { available: chain.length > 0, providers: chain });
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'use GET or POST' });
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) return sendJson(res, 200, { available: false });
+  if (!chain.length) return sendJson(res, 200, { available: false });
 
   let body;
   try { body = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: 'body must be valid JSON' }); }
-  const { unitId, questionId, learnerAnswer, correct, followUp, transcript } = body || {};
+  const { unitId, questionId, learnerAnswer, correct, followUp, transcript, chosenIndex, history } = body || {};
 
   // Ground the tutor in the verified content straight from disk.
   let unit;
@@ -121,7 +247,8 @@ async function handleTutor(req, res, url) {
     q.type === 'mc' ? `Choices: ${q.choices.map((c, i) => `${'ABCDE'[i]}. ${c}`).join('  ')}` : '',
     `Verified ${answerText}`,
     `Verified solution steps: ${q.solution.map((s, i) => `(${i + 1}) ${s.text}${s.math ? ` [${s.math}]` : ''}`).join(' ')}`,
-    `The learner answered: ${String(learnerAnswer ?? '(no answer)')} — this was ${correct ? 'correct' : 'not correct'}.`,
+    `The learner answered: ${String(learnerAnswer ?? '(no answer)').slice(0, 500)} — this was ${correct ? 'correct' : 'not correct'}.`,
+    ...historyLines(q, history, chosenIndex, Boolean(correct)),
   ].filter(Boolean).join('\n');
 
   // Rebuild the short per-question conversation; the client keeps it in memory.
@@ -137,41 +264,13 @@ async function handleTutor(req, res, url) {
   }
   if (followUp) messages.push({ role: 'user', content: String(followUp).slice(0, 4000) });
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 90_000);
-  try {
-    const apiRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: TUTOR_MODEL,
-        max_tokens: 2000,
-        system: [{ type: 'text', text: TUTOR_SYSTEM, cache_control: { type: 'ephemeral' } }],
-        messages,
-      }),
-    });
-    const data = await apiRes.json();
-    if (!apiRes.ok) {
-      console.error(`[calc-coach] tutor API error ${apiRes.status}:`, data?.error?.message || 'unknown');
-      return sendJson(res, 502, { error: 'The tutor service returned an error.' });
-    }
-    if (data.stop_reason === 'refusal') {
-      return sendJson(res, 200, { text: 'The tutor cannot answer that particular question. A question about this calculus problem will work.' });
-    }
-    const text = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-    if (!text) return sendJson(res, 502, { error: 'The tutor returned an empty answer.' });
-    return sendJson(res, 200, { text });
-  } catch (e) {
-    console.error('[calc-coach] tutor request failed:', e.message);
-    return sendJson(res, 502, { error: 'The tutor could not be reached.' });
-  } finally {
-    clearTimeout(timer);
+  const out = await completeWithFallback({ system: TUTOR_SYSTEM, messages });
+  if (out.refusal) {
+    return sendJson(res, 200, { text: 'The tutor cannot answer that particular question. A question about this calculus problem will work.' });
   }
+  if (out.text) return sendJson(res, 200, { text: out.text });
+  console.error('[calc-coach] tutor: every provider failed —', out.failures.join(' | '));
+  return sendJson(res, 502, { error: 'The tutor could not be reached.' });
 }
 
 const server = createServer(async (req, res) => {

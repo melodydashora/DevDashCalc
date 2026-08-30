@@ -63,6 +63,12 @@ Everything below is deterministic and visible to the learner in-app (Settings â†
 - **Spaced review.** A mastered skill untouched for 3+ days appears in Review.
   Review is explicitly recommended-not-required: falling behind on review
   never locks anything, because unpredictable regression would be punishing.
+- **Recurring-error tracking.** For multiple-choice questions the app counts
+  which wrong choice was picked. Each unit page has a fixed "Patterns in your
+  answers" section listing any choice picked twice or more on the same
+  question (with its misconception note) and any skill with several recent
+  wrong answers. These counts never affect scoring; they exist so the specific
+  error can be named and practiced.
 
 ## Design decisions for this learner
 
@@ -97,10 +103,28 @@ Everything below is deterministic and visible to the learner in-app (Settings â†
 
 Set `ANTHROPIC_API_KEY` in the environment (on Replit: **Tools â†’ Secrets â†’
 add `ANTHROPIC_API_KEY`**) and a "Talk it through with the tutor" button
-appears on every answer's feedback panel. The tutor (Claude, `claude-opus-5`)
-diagnoses where the learner's specific answer diverged from the correct path
-and answers follow-up questions about the problem, in the same literal, calm
-style as the rest of the app.
+appears on every answer's feedback panel. The tutor (Claude, `claude-opus-5`
+by default) diagnoses where the learner's specific answer diverged from the
+correct path and answers follow-up questions about the problem, in the same
+literal, calm style as the rest of the app.
+
+**Providers and fallback.** The tutor talks to vendors through small adapters
+in `server.js` that all present the same call, using built-in `fetch` only.
+A provider joins the chain when its key is set; the first that answers wins,
+and any error or timeout moves to the next. A refusal is final and is not
+re-asked elsewhere.
+
+| Provider | Key | Model (override with env) |
+|---|---|---|
+| Anthropic (primary) | `ANTHROPIC_API_KEY` | `TUTOR_MODEL_ANTHROPIC`, default `claude-opus-5` |
+| OpenAI | `OPENAI_API_KEY` | `TUTOR_MODEL_OPENAI`, default `gpt-5` |
+| Google Gemini | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) | `TUTOR_MODEL_GEMINI`, default `gemini-2.5-pro` |
+
+`TUTOR_PROVIDERS="anthropic,openai,gemini"` reorders or limits the chain.
+`GET /api/tutor` reports the active chain (vendor names only; model ids never
+reach the browser). Whichever provider answers, the
+same system prompt and the same guardrails below apply, and the question
+content plus attempt counts described under "Private" are what it receives.
 
 Guardrails, by design:
 
@@ -108,10 +132,15 @@ Guardrails, by design:
   answer and solution as ground truth; the tutor is instructed never to
   contradict them and never to invent a different final answer. Grading is
   always done by the app against the verified key â€” the tutor only explains.
-- **Private.** Only the question content and the learner's answer to that
-  question are sent. No name, no progress data, no history from other
-  questions. The follow-up conversation lives in memory and is discarded when
-  the learner moves on.
+- **Private.** Only the question content, the learner's answer to that
+  question, and plain counts of earlier attempts on that question and its
+  skill are sent (for example "2 attempts, 2 wrong; wrong choice B picked
+  twice"). No name, no other progress data. The follow-up conversation lives
+  in memory and is discarded when the learner moves on.
+- **Told the learner's history, factually.** The tutor receives the stored
+  misconception note for the choice actually picked, plus the attempt counts
+  above, so it can name a repeated error directly ("this choice comes from
+  ...") instead of guessing.
 - **Optional.** Without the key, the endpoint reports unavailable and the
   button never renders; the app is fully functional.
 - **Zero-dependency.** The server calls the Anthropic Messages API over raw
