@@ -169,6 +169,10 @@ export function pgQuery(cfg, sql, params = []) {
     const arm = (s) => {
       s.setTimeout(DB_TIMEOUT_MS, () => fail(new Error('database timed out')));
       s.on('error', (e) => fail(e));
+      // A clean FIN (server shutdown, proxy idle reaper, compute suspend)
+      // emits 'close' with no error — and closing also cancels the
+      // inactivity timer, so without this handler the promise would hang.
+      s.on('close', () => fail(new Error('database connection closed')));
       s.on('data', (chunk) => {
         buffer = Buffer.concat([buffer, chunk]);
         try { drain(); } catch (e) { fail(e); }
@@ -319,6 +323,18 @@ export async function dbSet(key, value) {
   await pgQuery(cfg,
     `INSERT INTO ${STORE_TABLE} (key, value, updated_at) VALUES ($1, $2, now())
      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+    [checkKey(key), JSON.stringify(value)]);
+}
+
+// Seeding an existing file into the database must never overwrite a value
+// the database already holds — the database copy may be newer than a file
+// restored by a redeploy.
+export async function dbSeed(key, value) {
+  const cfg = config();
+  await ensureTable(cfg);
+  await pgQuery(cfg,
+    `INSERT INTO ${STORE_TABLE} (key, value, updated_at) VALUES ($1, $2, now())
+     ON CONFLICT (key) DO NOTHING`,
     [checkKey(key), JSON.stringify(value)]);
 }
 

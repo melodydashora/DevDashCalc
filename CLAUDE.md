@@ -76,7 +76,7 @@ Breaking any of these is a regression even if the code works:
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # 16 engine + 29 Canvas-insights + 5 store tests (node --test)
+npm test             # 16 engine + 29 Canvas-insights + 6 store tests (node --test)
 npm run validate     # schema-validate all units, then render every math segment with KaTeX
 npm run lint         # language lint of app text and every unit (no exclamation marks, shaming, idioms, emoji)
 ```
@@ -105,8 +105,9 @@ file present.
   copy without explicit permission from Melody.
 - Canvas is read-only and display-only: the access token lives in a server
   memory session and, when the learner chooses Remember, in
-  `data/canvas-profile.json` (gitignored) — never in `S`, localStorage,
-  progress exports, logs, or any response body. Canvas data never touches
+  `data/canvas-profile.json` (gitignored) and the Postgres
+  `calc_coach_store` table — never in `S`, localStorage, progress exports,
+  logs, or any response body. Canvas data never touches
   engine scoring or unlocks. The AI assessment receives Canvas data only,
   never the token; the math tutor receives neither. Canvas is authoritative
   for grades — never recompute them. Problem-area thresholds are the named

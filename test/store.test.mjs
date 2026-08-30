@@ -50,6 +50,24 @@ test('scramProof reproduces the RFC 7677 SCRAM-SHA-256 test vector', () => {
   assert.equal(serverSignatureB64, '6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=', 'server signature matches the RFC');
 });
 
+test('a clean connection close rejects the query instead of hanging', async () => {
+  // A server shutdown or a proxy's idle reaper sends a FIN with no error
+  // event; the client must reject promptly, not wait out (or lose) the
+  // inactivity timer. Simulated with a real socket: answer the SSLRequest
+  // with N, swallow the startup message, then close cleanly.
+  const { createServer } = await import('node:net');
+  const srv = createServer((sock) => {
+    sock.once('data', () => {
+      sock.write('N');
+      sock.once('data', () => sock.end());
+    });
+  });
+  await new Promise((resolve) => srv.listen(0, '127.0.0.1', resolve));
+  const cfg = { host: '127.0.0.1', port: srv.address().port, user: 'u', password: '', database: 'd', sslmode: 'disable' };
+  await assert.rejects(S.pgQuery(cfg, 'SELECT 1'), /closed/, 'a clean FIN rejects with a closed-connection error');
+  srv.close();
+});
+
 test('hasDatabase reflects whether DATABASE_URL is set', () => {
   const original = process.env.DATABASE_URL;
   try {

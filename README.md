@@ -207,7 +207,8 @@ Safety and privacy, by design:
   saves it to `data/canvas-profile.json` (gitignored, file mode 0600) and,
   when `DATABASE_URL` is set, to the app's Postgres store — so the
   connection survives restarts and production redeploys alike; Disconnect
-  deletes every copy at once. The
+  deletes every copy at once, and the app says so plainly if the database
+  copy could not be removed on that attempt. The
   token never appears in the browser, progress files, exports, logs, or
   any response body, and is never sent to any AI provider.
 - **HTTPS only, public hosts only.** The URL validator rejects plain HTTP,
