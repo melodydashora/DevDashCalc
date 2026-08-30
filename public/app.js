@@ -3,6 +3,7 @@
 // data loading, routing, rendering, and persistence.
 
 import * as E from '/engine.js';
+import * as CI from '/canvas-insights.js';
 import { explorersFor, mountExplorer, explorerTitle } from '/viz.js';
 
 // ---------------------------------------------------------------- data & state
@@ -952,6 +953,488 @@ function viewSettings() {
   });
 }
 
+// ---------------------------------------------------------------- Canvas LMS
+// Optional read-only view of the learner's Canvas courses, reformatted into
+// a prioritized plan and a grade report by the pure rules in
+// canvas-insights.js. The access token is posted once to this app's server
+// and lives only in an expiring server-memory session; nothing Canvas-related
+// is kept in S, localStorage, or the progress export, so exporting Calc
+// Coach progress can never expose Canvas data. Course and assignment names
+// are external data and are shown as Canvas reports them.
+const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, note: '' };
+
+const canvasDateTime = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : null);
+
+async function canvasApi(path, options) {
+  const res = await fetch(path, options);
+  let data = null;
+  try { data = await res.json(); } catch { /* non-JSON body; status carries the meaning */ }
+  return { res, data };
+}
+
+async function canvasEnsureSession() {
+  if (CANVAS.checked) return;
+  try {
+    const { res, data } = await canvasApi('/api/canvas/session');
+    CANVAS.connected = Boolean(res.ok && data && data.connected);
+    CANVAS.user = CANVAS.connected ? data.user : null;
+    CANVAS.host = CANVAS.connected ? String(data.host || '') : '';
+    CANVAS.remembered = Boolean(CANVAS.connected && data.remembered);
+  } catch {
+    CANVAS.connected = false;
+  }
+  CANVAS.checked = true;
+}
+
+// Loads one consistent snapshot and computes the insights from it. Returns
+// true on success; on failure it stores a calm note in CANVAS.note.
+async function canvasLoadSnapshot() {
+  try {
+    const { res, data } = await canvasApi('/api/canvas/snapshot');
+    if (res.status === 401) {
+      CANVAS.connected = false; CANVAS.user = null; CANVAS.snapshot = null; CANVAS.insights = null;
+      CANVAS.note = data && data.reason === 'auth'
+        ? 'Canvas did not accept the stored token, so the connection was removed. Connect again with a current token.'
+        : 'The Canvas connection has ended. This happens after 8 hours or when the server restarts. Connect again to load current data.';
+      return false;
+    }
+    if (!res.ok) {
+      CANVAS.note = (data && data.error) || 'Canvas data could not be loaded this time. Your calculus progress is not affected. Select Refresh to try again.';
+      return false;
+    }
+    CANVAS.snapshot = data;
+    CANVAS.insights = CI.buildInsights(data, Date.now());
+    CANVAS.note = '';
+    return true;
+  } catch {
+    CANVAS.note = 'Canvas data could not be loaded this time. Your calculus progress is not affected. Select Refresh to try again.';
+    return false;
+  }
+}
+
+const canvasNoteHtml = () => (CANVAS.note ? `<p class="canvas-note">${esc(CANVAS.note)}</p>` : '');
+
+function canvasTabsHtml(active) {
+  const tab = (href, key, label) => `<a class="canvas-tab${active === key ? ' active' : ''}" href="${href}">${label}</a>`;
+  return `<nav class="canvas-tabs" aria-label="Canvas pages">${tab('#/canvas', 'overview', 'Overview')}${tab('#/canvas/plan', 'plan', 'The plan')}${tab('#/canvas/grades', 'grades', 'Grades')}${tab('#/canvas/assessment', 'assessment', 'Assessment')}</nav>`;
+}
+
+function canvasHeadHtml() {
+  const name = CANVAS.user && CANVAS.user.name ? CANVAS.user.name : 'Canvas learner';
+  const asOf = CANVAS.snapshot ? ` · Data as of ${esc(canvasDateTime(CANVAS.snapshot.fetchedAt) || CANVAS.snapshot.fetchedAt)}.` : '';
+  const remembered = CANVAS.remembered ? ' Connection remembered on this server.' : '';
+  return `<div class="canvas-head">
+    <p class="canvas-meta">Connected to ${esc(CANVAS.host)} as ${esc(name)}.${asOf}${remembered}</p>
+    <div class="btn-row">
+      <button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh Canvas data' : 'Load Canvas data'}</button>
+      <button type="button" class="quiet canvas-disconnect">Disconnect</button>
+    </div>
+  </div>`;
+}
+
+// Shared wiring for every connected Canvas page.
+function wireCanvasControls(root, rerender) {
+  const refresh = $('.canvas-refresh', root);
+  if (refresh) {
+    refresh.addEventListener('click', async () => {
+      refresh.disabled = true;
+      refresh.textContent = 'Loading Canvas data. This usually takes under a minute.';
+      const ok = await canvasLoadSnapshot();
+      announce(ok ? 'Canvas data loaded.' : 'Canvas data could not be loaded.');
+      rerender();
+    });
+  }
+  const disconnect = $('.canvas-disconnect', root);
+  if (disconnect) {
+    disconnect.addEventListener('click', async () => {
+      try { await canvasApi('/api/canvas/session', { method: 'DELETE' }); } catch { /* removing a session that is already gone is fine */ }
+      CANVAS.connected = false; CANVAS.user = null; CANVAS.host = ''; CANVAS.remembered = false;
+      CANVAS.snapshot = null; CANVAS.insights = null;
+      CANVAS.note = 'Canvas is disconnected. The token is out of server memory and the saved copy is deleted.';
+      announce('Canvas is disconnected.');
+      rerender();
+    });
+  }
+}
+
+function canvasConnectHtml() {
+  return `${canvasNoteHtml()}
+  <div class="card">
+    <p>Calc Coach can show your course data from Canvas, your school's learning system, reformatted into a prioritized plan and a grade report. This page is optional and separate from your calculus progress.</p>
+    <p><strong>Exactly how this connection works:</strong></p>
+    <ul class="rules-list">
+      <li>You enter your school's Canvas web address and a Canvas access token.</li>
+      <li>The token is sent only to this Calc Coach server. It is never stored in this browser and never added to your progress file or progress exports.</li>
+      <li>With Remember selected, the server saves the address and token in its own data folder so the connection survives restarts. Without it, the token stays only in server memory for up to 8 hours.</li>
+      <li>Calc Coach reads your active courses, assignments, submission status, scores, and module progress. It reads only; it never changes anything in Canvas.</li>
+      <li>Canvas data never changes your Calc Coach mastery scores and never unlocks anything.</li>
+      <li>The AI assessment page runs only when you select its button. It receives the Canvas data shown in this app, never the token. The math tutor is separate and never sees Canvas data.</li>
+      <li>Disconnect removes the token from server memory and deletes the saved copy at once. You can reconnect later with a new or existing token.</li>
+    </ul>
+    <p>To create a token in Canvas, open Account, then Settings, then select New Access Token. Your school decides whether personal tokens are allowed.</p>
+  </div>
+  <div class="card">
+    <form id="canvas-connect" class="canvas-form">
+      <label>Canvas web address
+        <input name="baseUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://yourschool.instructure.com" required>
+      </label>
+      <label>Access token
+        <input name="token" type="password" autocomplete="off" spellcheck="false" required>
+      </label>
+      <label class="canvas-remember"><input type="checkbox" name="remember" checked>
+        <span>Remember this connection on this server. The address and token are saved in the app's data folder on this machine and deleted when you disconnect.</span>
+      </label>
+      <div class="btn-row"><button type="submit">Connect and load my Canvas data</button></div>
+      <p class="canvas-meta canvas-connect-status"></p>
+    </form>
+  </div>`;
+}
+
+function wireCanvasConnect(root, rerender) {
+  const form = $('#canvas-connect', root);
+  if (!form) return;
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const status = $('.canvas-connect-status', form);
+    const button = $('button[type="submit"]', form);
+    const formData = new FormData(form);
+    const baseUrl = String(formData.get('baseUrl') || '').trim();
+    const token = String(formData.get('token') || '').trim();
+    const remember = formData.get('remember') !== null;
+    if (!baseUrl.startsWith('https://')) {
+      status.textContent = 'Enter the Canvas address starting with https://. Your calculus progress is not affected.';
+      return;
+    }
+    button.disabled = true;
+    status.textContent = 'Step 1 of 2: confirming the token with Canvas.';
+    try {
+      const { res, data } = await canvasApi('/api/canvas/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ baseUrl, token, remember }),
+      });
+      if (!res.ok) {
+        status.textContent = (data && data.error) || 'Canvas did not accept that address or token. Check both and try again. Your calculus progress is not affected.';
+        button.disabled = false;
+        return;
+      }
+      CANVAS.connected = true;
+      CANVAS.user = data.user || null;
+      CANVAS.host = String(data.host || '');
+      CANVAS.remembered = Boolean(data.remembered);
+      CANVAS.note = '';
+      status.textContent = 'Step 2 of 2: loading courses and assignments from Canvas. This usually takes under a minute.';
+      const ok = await canvasLoadSnapshot();
+      announce(ok ? 'Canvas data loaded.' : 'Canvas connected. The data load did not finish.');
+      rerender();
+    } catch {
+      status.textContent = 'Canvas could not be reached. Check the address and try again. Your calculus progress is not affected.';
+      button.disabled = false;
+    }
+  });
+}
+
+const canvasCountsLine = (ins) => {
+  const missing = ins.attention.missing.length;
+  const open = ins.plan.overdueOpen.length;
+  const upcoming = ins.plan.buckets.reduce((n, b) => n + b.items.length, 0);
+  return `${missing} marked missing in Canvas · ${open} past due and still open · ${upcoming} due in the next 5 days`;
+};
+
+function canvasItemHtml(item, attention) {
+  const side = [];
+  const due = canvasDateTime(item.dueAt);
+  side.push(due ? `Due ${esc(due)}` : 'No due date');
+  if (item.pointsPossible !== null) side.push(`${esc(String(item.pointsPossible))} points possible`);
+  if (item.attemptsRemaining !== null) {
+    side.push(item.attemptsRemaining === 1 ? '1 attempt remains' : `${item.attemptsRemaining} attempts remain`);
+  }
+  const tags = [];
+  if (item.missing) tags.push('<span class="tag">Marked missing in Canvas</span>');
+  if (item.late && item.submittedAt) tags.push('<span class="tag">Submitted late</span>');
+  if (item.isQuiz) tags.push('<span class="tag">Quiz</span>');
+  const link = item.htmlUrl ? ` <a href="${esc(item.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas (new tab)</a>` : '';
+  return `<div class="canvas-item${attention ? ' attention' : ''}">
+    <div><strong>${esc(item.name)}</strong><span class="canvas-meta">${esc(item.courseName)}</span></div>
+    <div class="canvas-item-side"><span class="canvas-meta">${side.join(' · ')}</span>${tags.join(' ')}${link}</div>
+  </div>`;
+}
+
+function canvasSectionHtml(heading, items, attention, emptyLine) {
+  if (!items.length) return emptyLine ? `<h3>${heading} (0)</h3><p class="canvas-meta">${emptyLine}</p>` : '';
+  return `<h3>${heading} (${items.length})</h3><div class="canvas-list">${items.map((i) => canvasItemHtml(i, attention)).join('')}</div>`;
+}
+
+// The Canvas pages share one shell: tabs, head, note, then content. `wire`
+// is an optional per-page hook that attaches that page's own handlers.
+function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
+  const v = mountView(`
+    <h1>Canvas</h1>
+    <div id="canvas-body"><p class="canvas-meta">Checking the Canvas connection.</p></div>
+  `, { breadcrumb: ['Home', ...breadcrumbTail], nav: 'canvas' });
+  const body = $('#canvas-body', v);
+  const rerender = () => { if ((location.hash || '').startsWith('#/canvas')) router(); };
+  (async () => {
+    await canvasEnsureSession();
+    if (!CANVAS.connected) {
+      body.innerHTML = canvasConnectHtml();
+      wireCanvasConnect(body, rerender);
+      CANVAS.note = '';
+      return;
+    }
+    if (!CANVAS.snapshot) {
+      body.innerHTML = `${canvasTabsHtml(activeTab)}${canvasHeadHtml()}${canvasNoteHtml()}
+        <p>Canvas data is loaded only when you ask for it. Select Load Canvas data above.</p>`;
+      wireCanvasControls(body, rerender);
+      CANVAS.note = '';
+      return;
+    }
+    body.innerHTML = `${canvasTabsHtml(activeTab)}${canvasHeadHtml()}${canvasNoteHtml()}${bodyBuilder()}`;
+    wireCanvasControls(body, rerender);
+    if (wire) wire(body);
+    CANVAS.note = '';
+    renderMath(body);
+  })();
+}
+
+function viewCanvas() {
+  canvasPage(() => {
+    const ins = CANVAS.insights;
+    const snap = CANVAS.snapshot;
+    const notes = [];
+    if (snap.coursesTruncated) notes.push('Canvas returned more active courses than could be loaded; the first 15 by name are shown.');
+    if (snap.missingSubmissionsError) notes.push(snap.missingSubmissionsError);
+    const courseRows = ins.perCourse.map((row) => {
+      const score = row.score === null ? 'No current score' : `Current score ${row.score}${row.grade ? ` (${esc(row.grade)})` : ''}`;
+      return `<a class="canvas-course" href="#/canvas/course/${esc(row.courseId)}">
+        <span><strong>${esc(row.courseName)}</strong><small>${esc(row.courseCode || 'Canvas course')}</small></span>
+        <span class="canvas-meta">${score} · ${row.submitted} of ${row.totalAssignments} submitted</span>
+      </a>`;
+    }).join('');
+    const stale = ins.staleCourses.length ? `<details class="explorer-details"><summary>Courses not shown (${ins.staleCourses.length})</summary>
+      <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; Calc Coach only hides them here.</p>
+      <ul>${ins.staleCourses.map((c) => `<li>${esc(c.name)}</li>`).join('')}</ul></div></details>` : '';
+    return `
+      <div class="card">
+        <h2>Right now</h2>
+        <p>${canvasCountsLine(ins)}.</p>
+        <p><a href="#/canvas/plan">Open the plan</a> for the full prioritized list, or <a href="#/canvas/grades">open Grades</a> for scores as Canvas reports them.</p>
+        ${notes.map((n) => `<p class="canvas-meta">${esc(n)}</p>`).join('')}
+      </div>
+      <div class="card">
+        <h2>Your courses (${ins.perCourse.length})</h2>
+        <p class="canvas-meta">Select a course for its modules, assignments, and statuses.</p>
+        <div class="canvas-list">${courseRows}</div>
+        ${stale}
+      </div>`;
+  }, ['Canvas'], 'overview');
+}
+
+function viewCanvasPlan() {
+  canvasPage(() => {
+    const ins = CANVAS.insights;
+    const bucketHeading = {
+      'within-4-hours': 'Due within 4 hours',
+      'within-12-hours': 'Due within 12 hours',
+      'within-24-hours': 'Due within 24 hours',
+      'within-3-days': 'Due within 3 days',
+      'within-5-days': 'Due within 5 days',
+    };
+    const buckets = ins.plan.buckets.map((b, i) => canvasSectionHtml(bucketHeading[b.id] || b.id, b.items, i < 3, '')).join('');
+    const gaps = ins.plan.moduleGaps.length ? `<h3>Module requirements not complete (${ins.plan.moduleGaps.length})</h3>
+      <div class="canvas-list">${ins.plan.moduleGaps.map((g) => `<div class="canvas-item">
+        <div><strong>${esc(g.courseName)}</strong></div>
+        <div class="canvas-item-side"><span class="canvas-meta">${g.requirementCompletedCount} of ${g.requirementCount} requirements complete</span></div>
+      </div>`).join('')}</div>` : '';
+    const closed = ins.plan.overdueClosed.length ? `<h3>Past due and closed in Canvas (${ins.plan.overdueClosed.length})</h3>
+      <p class="canvas-meta">Canvas no longer accepts a submission for these. The next step is to continue with the plan above. If you want more time, you can ask the teacher.</p>
+      <div class="canvas-list">${ins.plan.overdueClosed.map((i) => canvasItemHtml(i, false)).join('')}</div>
+      <details class="explorer-details"><summary>Text you can copy to request more time</summary>
+        <div class="explorer-body">
+          <p class="canvas-meta">Copy this into an email or a Canvas message and fill in the parts in brackets. Calc Coach never sends anything for you.</p>
+          <pre class="canvas-copy">Hello [teacher name],
+
+The assignment "[assignment name]" in [course name] is closed in Canvas and I was not able to submit it. I would like to ask for more time. Please let me know if it can be reopened so I can turn it in.
+
+Thank you,
+[your name]</pre>
+        </div>
+      </details>` : '';
+    const empty = !ins.plan.overdueOpen.length && !ins.plan.overdueClosed.length && !ins.plan.later.length
+      && !ins.plan.noDueDate.length && !ins.plan.moduleGaps.length
+      && ins.plan.buckets.every((b) => !b.items.length);
+    return `<div class="card">
+      <h2>The plan</h2>
+      <p class="canvas-meta">How this plan is built: unsubmitted work is grouped by due date. Work that is past due or marked missing comes first while Canvas still accepts a submission. Graded and submitted work leaves the plan. Courses whose dated work all ended more than ${CI.STALE_MONTHS} months ago are not shown. Canvas decides every status.</p>
+      ${empty ? '<p>Canvas lists nothing to plan right now. Unsubmitted work with a due date, work marked missing, and incomplete module requirements would appear here.</p>' : ''}
+      ${canvasSectionHtml('Past due, and Canvas still accepts a submission', ins.plan.overdueOpen, true, '')}
+      ${buckets}
+      ${canvasSectionHtml('Due later than 5 days from now', ins.plan.later, false, '')}
+      ${canvasSectionHtml('No due date', ins.plan.noDueDate, false, '')}
+      ${gaps}
+      ${closed}
+    </div>`;
+  }, ['Canvas', 'The plan'], 'plan');
+}
+
+function viewCanvasGrades() {
+  canvasPage(() => {
+    const ins = CANVAS.insights;
+    const snap = CANVAS.snapshot;
+    const staleIds = new Set(ins.staleCourses.map((c) => c.id));
+    const rows = ins.perCourse.map((row) => `<tr>
+      <td>${esc(row.courseName)}</td>
+      <td>${row.score === null ? 'No current score' : row.score}</td>
+      <td>${row.grade ? esc(row.grade) : '—'}</td>
+    </tr>`).join('');
+    const lowLine = ins.attention.courseAlerts.length
+      ? `<p class="canvas-note">Courses with a current score below ${CI.LOW_COURSE_SCORE}: ${ins.attention.courseAlerts.map((c) => `${esc(c.courseName)} (${c.score})`).join(', ')}.</p>`
+      : '';
+    const perCourse = snap.courses.filter((c) => !staleIds.has(c.id)).map((course) => {
+      const graded = course.assignments.filter((a) => a.submission && a.submission.workflowState === 'graded' && !a.submission.excused);
+      const groupById = new Map(course.assignmentGroups.map((g) => [g.id, g]));
+      const weightRows = course.applyGroupWeights && course.assignmentGroups.some((g) => g.groupWeight !== null)
+        ? `<p class="canvas-meta">Group weights: ${course.assignmentGroups.filter((g) => g.groupWeight !== null).map((g) => `${esc(g.name)} ${g.groupWeight} percent`).join(' · ')}.</p>`
+        : '';
+      const items = graded.map((a) => {
+        const sub = a.submission;
+        const low = sub.score !== null && a.pointsPossible !== null && a.pointsPossible > 0 && sub.score / a.pointsPossible < CI.LOW_SCORE_RATIO;
+        const scoreText = sub.score === null
+          ? 'Graded, no numeric score'
+          : `${sub.score} of ${a.pointsPossible === null ? 'unknown' : a.pointsPossible} points${sub.grade ? ` (${esc(sub.grade)})` : ''}`;
+        const group = groupById.get(a.groupId);
+        return `<div class="canvas-item${low ? ' attention' : ''}">
+          <div><strong>${esc(a.name)}</strong><span class="canvas-meta">${esc(group ? group.name : 'Assignments')}</span></div>
+          <div class="canvas-item-side"><span class="canvas-meta">${scoreText}</span>${sub.late ? '<span class="tag">Submitted late</span>' : ''}</div>
+        </div>`;
+      }).join('');
+      return `<details class="explorer-details"><summary>${esc(course.name)} — graded work (${graded.length})</summary>
+        <div class="explorer-body">${weightRows}${graded.length ? `<div class="canvas-list">${items}</div>` : '<p class="canvas-meta">Canvas reports no graded work in this course yet.</p>'}</div>
+      </details>`;
+    }).join('');
+    return `<div class="card">
+      <h2>Grades</h2>
+      <p class="canvas-meta">Scores and grades are shown exactly as Canvas reports them. Calc Coach does not recompute them, the same way the verified answer key is the only grader for practice questions. Graded work below ${Math.round(CI.LOW_SCORE_RATIO * 100)} percent of its points is marked in amber.</p>
+      <table class="simple"><thead><tr><th>Course</th><th>Current score</th><th>Grade</th></tr></thead><tbody>${rows}</tbody></table>
+      ${lowLine}
+      ${perCourse}
+    </div>`;
+  }, ['Canvas', 'Grades'], 'grades');
+}
+
+function viewCanvasAssessment() {
+  canvasPage(() => `<div class="card">
+      <h2>Assessment</h2>
+      <p class="canvas-meta">The assessment is written by the same AI service as the math tutor, from the Canvas data shown on The plan and Grades. It never receives your token. Canvas data is authoritative; where the assessment and Canvas disagree, Canvas is right.</p>
+      ${TUTOR.available ? `
+      <p>Selecting the button sends the loaded Canvas data to the AI service, which pulls a fresh copy from Canvas and writes an assessment here: the overall picture, what is going well, problem areas by course, and a suggested order of work. Nothing is saved and nothing runs on its own.</p>
+      <div class="btn-row"><button type="button" class="canvas-assess-btn">Ask for an assessment</button></div>
+      <p class="canvas-meta canvas-assess-status"></p>
+      <div class="canvas-assessment" hidden></div>`
+    : '<p>No AI service is configured on this server, so the assessment is unavailable. The plan and Grades pages work without it. To enable it, set an API key in Replit Secrets as described in the README.</p>'}
+    </div>`,
+  ['Canvas', 'Assessment'], 'assessment', (body) => {
+    const btn = $('.canvas-assess-btn', body);
+    if (!btn) return;
+    const status = $('.canvas-assess-status', body);
+    const out = $('.canvas-assessment', body);
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      status.textContent = 'Waiting for the assessment. This usually takes under a minute.';
+      try {
+        const { res, data } = await canvasApi('/api/canvas/assessment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        if (data && data.available === false) {
+          status.textContent = 'No AI service is configured on this server.';
+          return;
+        }
+        if (!res.ok || !data || !data.text) throw new Error((data && data.error) || `HTTP ${res.status}`);
+        out.hidden = false;
+        out.innerHTML = data.text.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
+        status.textContent = 'This assessment was generated just now from a fresh pull of your Canvas data.';
+        announce('Assessment ready.');
+      } catch (e) {
+        status.textContent = 'The assessment could not be created this time. Your progress is unaffected; you can try again.';
+        console.warn('Canvas assessment failed:', e);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+function viewCanvasCourse(courseId) {
+  canvasPage(() => {
+    // Canonical id comes from the snapshot object, never from the URL hash.
+    const course = CANVAS.snapshot.courses.find((c) => c.id === courseId);
+    if (!course) {
+      return `<div class="card"><p>That course was not in the last Canvas load. Choose a course from the <a href="#/canvas">Canvas overview</a>.</p></div>`;
+    }
+    const row = CANVAS.insights.perCourse.find((r) => r.courseId === course.id);
+    const p = course.moduleProgress;
+    const stats = `<div class="canvas-stats">
+      ${p && p.requirementCount > 0
+        ? `<div><strong>${p.requirementCompletedCount} of ${p.requirementCount}</strong><span>module requirements complete</span></div>`
+        : '<div><strong>—</strong><span>Canvas did not report module requirements</span></div>'}
+      <div><strong>${row ? row.submitted : 0} of ${course.assignments.length}</strong><span>assignments submitted</span></div>
+      <div><strong>${row ? row.missing : 0}</strong><span>marked missing in Canvas</span></div>
+    </div>`;
+    const modules = course.modules.length ? `<h3>Modules (${course.modules.length})</h3>
+      ${course.modules.map((m) => {
+        const items = Array.isArray(m.items) ? m.items : null;
+        const lines = items === null
+          ? '<p class="canvas-meta">Canvas did not return the items in this module.</p>'
+          : (items.length ? `<ul>${items.map((it) => {
+              const req = it.completionRequirement;
+              const state = req ? (req.completed ? 'requirement complete' : 'requirement not complete') : 'no completion requirement';
+              return `<li>${esc(it.title)} <span class="canvas-meta">(${esc(it.type)} · ${state})</span></li>`;
+            }).join('')}</ul>` : '<p class="canvas-meta">This module has no items.</p>');
+        return `<details class="explorer-details"><summary>${esc(m.name)}</summary><div class="explorer-body">${lines}</div></details>`;
+      }).join('')}` : '';
+    const sorted = [...course.assignments].sort((a, b) => {
+      const ta = a.dueAt === null ? null : Date.parse(a.dueAt);
+      const tb = b.dueAt === null ? null : Date.parse(b.dueAt);
+      if (ta !== tb) { if (ta === null) return 1; if (tb === null) return -1; return ta - tb; }
+      return a.name < b.name ? -1 : a.name > b.name ? 1 : a.id < b.id ? -1 : 1;
+    });
+    const assignmentRows = sorted.map((a) => {
+      const sub = a.submission;
+      const state = sub && sub.excused ? 'Excused'
+        : sub && sub.missing ? 'Marked missing'
+        : sub && sub.workflowState === 'graded' ? 'Graded'
+        : sub && sub.submittedAt ? 'Submitted'
+        : 'Not submitted';
+      const remaining = CI.attemptsRemaining(a);
+      const side = [];
+      const due = canvasDateTime(a.dueAt);
+      side.push(due ? `Due ${esc(due)}` : 'No due date');
+      side.push(sub && sub.score !== null
+        ? `${sub.score} of ${a.pointsPossible === null ? 'unknown' : a.pointsPossible} points`
+        : (a.pointsPossible === null ? 'No points value' : `${a.pointsPossible} points possible`));
+      if (remaining !== null) side.push(remaining === 1 ? '1 attempt remains' : `${remaining} attempts remain`);
+      const attention = Boolean(sub && sub.missing && !sub.excused);
+      return `<div class="canvas-item${attention ? ' attention' : ''}">
+        <div><strong>${esc(a.name)}</strong><span class="canvas-meta">${side.join(' · ')}</span></div>
+        <div class="canvas-item-side"><span class="tag">${state}</span>${sub && sub.late && sub.submittedAt ? '<span class="tag">Submitted late</span>' : ''}${a.isQuiz ? '<span class="tag">Quiz</span>' : ''}</div>
+      </div>`;
+    }).join('');
+    return `<div class="card">
+      <h2>${esc(course.name)}</h2>
+      <p class="canvas-meta">${esc(course.courseCode || 'Canvas course')}${course.term ? ` · ${esc(course.term)}` : ''}${course.score !== null ? ` · Current score ${course.score}${course.grade ? ` (${esc(course.grade)})` : ''}` : ' · No current score'}</p>
+      ${course.assignmentsError ? `<p class="canvas-note">${esc(course.assignmentsError)}</p>` : ''}
+      ${course.assignmentsTruncated ? '<p class="canvas-meta">Canvas returned more assignments than could be loaded; the list below is incomplete.</p>' : ''}
+      ${stats}
+      ${modules}
+      <h3>Assignments (${course.assignments.length})</h3>
+      <p class="canvas-meta">Statuses and scores are shown as Canvas reports them. Calc Coach does not infer a cause and does not change your learning path.</p>
+      <div class="canvas-list">${assignmentRows}</div>
+    </div>`;
+  }, ['Canvas', 'Course'], 'overview');
+}
+
 // ---------------------------------------------------------------- app plumbing
 function applySettings() {
   const s = S.settings;
@@ -980,6 +1463,11 @@ function router() {
   else if (route === 'mastery' && a) viewMastery(a);
   else if (route === 'diagnostic') viewDiagnostic();
   else if (route === 'review') viewReview();
+  else if (route === 'canvas' && a === 'plan') viewCanvasPlan();
+  else if (route === 'canvas' && a === 'grades') viewCanvasGrades();
+  else if (route === 'canvas' && a === 'assessment') viewCanvasAssessment();
+  else if (route === 'canvas' && a === 'course' && b) viewCanvasCourse(b);
+  else if (route === 'canvas') viewCanvas();
   else if (route === 'settings') viewSettings();
   else viewHome();
 }
