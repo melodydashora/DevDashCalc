@@ -1,0 +1,1952 @@
+{
+ "id": "unit-10",
+ "number": 10,
+ "title": "Infinite Sequences and Series",
+ "overview": "This unit defines an infinite series as the limit of its partial sums and builds the tests that decide whether a series converges: the geometric formula, the nth-term test, the integral test with p-series, direct and limit comparison, the alternating series test, and the ratio test, together with the distinction between absolute and conditional convergence. It then turns to approximation: Taylor polynomials built from derivative values, the alternating series and Lagrange error bounds that certify how close an approximation is, and power series with their radius and interval of convergence. The last lesson assembles the standard Maclaurin series for e^x, sin x, cos x, 1/(1 - x), ln(1 + x), and arctan x, and shows how substitution, multiplication, differentiation, and integration produce new series and evaluate limits and definite integrals. This unit is BC-only and carries 17 to 18 percent of the BC exam, including a free-response question almost every year. It uses improper integrals from Unit 6, limits from Unit 1, the derivative rules from Units 2 and 3, and the tangent-line approximation and L'Hospital's rule from Unit 4.",
+ "skills": [
+  {
+   "id": "u10-series-and-geometric",
+   "name": "Series, partial sums, telescoping sums, geometric series, and the nth-term test",
+   "core": true
+  },
+  {
+   "id": "u10-integral-and-p-series",
+   "name": "The integral test, the harmonic series, and p-series",
+   "core": true
+  },
+  {
+   "id": "u10-comparison-tests",
+   "name": "Direct comparison and limit comparison tests",
+   "core": true
+  },
+  {
+   "id": "u10-alternating-and-ratio",
+   "name": "Alternating series test, ratio test, and absolute versus conditional convergence",
+   "core": true
+  },
+  {
+   "id": "u10-error-bounds",
+   "name": "Alternating series error bound and Lagrange error bound",
+   "core": true
+  },
+  {
+   "id": "u10-taylor-polynomials",
+   "name": "Taylor polynomial approximations from derivative values",
+   "core": true
+  },
+  {
+   "id": "u10-interval-of-convergence",
+   "name": "Radius and interval of convergence of a power series",
+   "core": true
+  },
+  {
+   "id": "u10-taylor-series-and-manipulation",
+   "name": "Standard Maclaurin series and building new series by substitution, multiplication, differentiation, and integration",
+   "core": true
+  }
+ ],
+ "lessons": [
+  {
+   "id": "u10-l1",
+   "title": "Convergent series, geometric series, and the nth-term test",
+   "skillIds": [
+    "u10-series-and-geometric"
+   ],
+   "estMinutes": 22,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>sequence</strong> is an ordered list of numbers $a_1, a_2, a_3, \\dots$, one for each positive integer $n$, usually given by a formula such as $a_n = \\frac{1}{2^n}$. A sequence <strong>converges</strong> to $L$ if $\\lim_{n \\to \\infty} a_n = L$ exists and is finite, and diverges otherwise. A sequence is a list of terms; it is not a sum.</p><p>An <strong>infinite series</strong> is the expression $\\sum_{n=1}^{\\infty} a_n = a_1 + a_2 + a_3 + \\dots$, an instruction to add every term of a sequence. Infinitely many additions cannot be carried out directly, so the value of a series is defined through finite totals. The <strong>nth partial sum</strong> is the total of the first $n$ terms:</p><p>$$S_n = a_1 + a_2 + \\dots + a_n = \\sum_{k=1}^{n} a_k$$</p><p>The partial sums $S_1, S_2, S_3, \\dots$ form a new sequence. The series <strong>converges</strong> to the sum $S$ exactly when $\\lim_{n \\to \\infty} S_n = S$ exists and is finite, and then $\\sum_{n=1}^{\\infty} a_n = S$. If the limit is infinite or does not exist, the series <strong>diverges</strong> and has no sum. Every convergence statement in this unit is a statement about the limit of the sequence $S_n$.</p><p>A term can be recovered from consecutive partial sums, because $S_n$ and $S_{n-1}$ differ by exactly one term:</p><p>$$a_n = S_n - S_{n-1} \\text{ for } n \\ge 2, \\qquad a_1 = S_1$$</p><p>A common exam item gives a formula for $S_n$ and asks either for the sum of the series, which is $\\lim_{n \\to \\infty} S_n$, or for a specific term, which is a difference of two partial sums. The two requests have different answers, and the formula for $S_n$ is not the formula for $a_n$.</p><p>A <strong>telescoping series</strong> is one whose term can be written as a difference $a_n = b_n - b_{n+1}$. When the partial sum is written out, each $b_{n+1}$ subtracted in one term is added back in the next, so every interior piece cancels and only the first and last survive:</p><p>$$S_n = (b_1 - b_2) + (b_2 - b_3) + \\dots + (b_n - b_{n+1}) = b_1 - b_{n+1}$$</p><p>The sum of the series is then $\\lim_{n \\to \\infty} S_n = b_1 - \\lim_{n \\to \\infty} b_{n+1}$. The method is to write $S_n$ explicitly, cancel, and take the limit of the terms that remain. When the difference is $b_n - b_{n+2}$ instead, the cancellation skips one index, so two terms survive at the front, $b_1 + b_2$, and two at the back.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the sum of $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{1}{n(n+1)}$",
+     "steps": [
+      {
+       "text": "Split the term by partial fractions. Setting $\\frac{1}{n(n+1)} = \\frac{A}{n} + \\frac{B}{n+1}$ and clearing denominators gives $1 = A(n+1) + Bn$; substituting $n = 0$ gives $A = 1$, and substituting $n = -1$ gives $B = -1$.",
+       "math": "\\frac{1}{n(n+1)} = \\frac{1}{n} - \\frac{1}{n+1}"
+      },
+      {
+       "text": "Write out the nth partial sum. Each negative fraction cancels the positive fraction in the next term, leaving only the first positive piece and the last negative piece.",
+       "math": "S_n = \\left(1 - \\frac{1}{2}\\right) + \\left(\\frac{1}{2} - \\frac{1}{3}\\right) + \\dots + \\left(\\frac{1}{n} - \\frac{1}{n+1}\\right) = 1 - \\frac{1}{n+1}"
+      },
+      {
+       "text": "Check the closed form against a small case. Direct addition gives $S_2 = \\frac{1}{2} + \\frac{1}{6} = \\frac{2}{3}$, and the formula gives $1 - \\frac{1}{3} = \\frac{2}{3}$, so the cancellation was carried out correctly."
+      },
+      {
+       "text": "Take the limit of the partial sums. Since $\\frac{1}{n+1} \\to 0$, the sequence of partial sums converges, and the series converges to its limit.",
+       "math": "\\sum_{n=1}^{\\infty} \\frac{1}{n(n+1)} = \\lim_{n \\to \\infty}\\left(1 - \\frac{1}{n+1}\\right) = 1"
+      },
+      {
+       "text": "A complete justification reads: the series converges to $1$ because its sequence of partial sums $S_n = 1 - \\frac{1}{n+1}$ has limit $1$. Stating the limit of $S_n$, not the limit of the terms, is what establishes the sum."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q001",
+      "u10-q002"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>A <strong>geometric series</strong> is a series in which each term equals the previous term multiplied by a fixed number $r$, called the <strong>common ratio</strong>. With first term $a \\ne 0$ it is written</p><p>$$\\sum_{n=0}^{\\infty} a r^n = a + ar + ar^2 + ar^3 + \\dots$$</p><p>Its partial sums have a closed form. Multiply $S_n = a + ar + \\dots + ar^{n-1}$ by $r$ and subtract the result from $S_n$; every interior term cancels, leaving $S_n - rS_n = a - ar^n$. For $r \\ne 1$,</p><p>$$S_n = a\\,\\frac{1 - r^n}{1 - r}$$</p><p>If $|r| < 1$, then $r^n \\to 0$ as $n \\to \\infty$, so $S_n \\to \\frac{a}{1 - r}$. If $|r| \\ge 1$, then $r^n$ does not approach $0$ and $S_n$ has no finite limit. The complete statement is:</p><p>$$\\sum_{n=0}^{\\infty} a r^n = \\frac{a}{1 - r} \\quad \\text{when } |r| < 1, \\qquad \\text{and the series diverges when } |r| \\ge 1$$</p><p>In the formula, $a$ is the actual first term of the series as written, whatever the starting index. The series $\\sum_{n=2}^{\\infty} 5\\left(\\frac{1}{3}\\right)^n$ has first term $5 \\cdot \\frac{1}{9} = \\frac{5}{9}$, not $5$. A reliable procedure is to write out the first two terms, read $a$ from the first, and compute $r$ as the second divided by the first. A series such as $\\sum_{n=0}^{\\infty} \\frac{2^n}{3^{n+1}}$ must be rewritten as $\\sum_{n=0}^{\\infty} \\frac{1}{3}\\left(\\frac{2}{3}\\right)^n$ before $a = \\frac{1}{3}$ and $r = \\frac{2}{3}$ can be read.</p><p>A <strong>repeating decimal</strong> is a geometric series. For example, $0.\\overline{7} = \\frac{7}{10} + \\frac{7}{100} + \\frac{7}{1000} + \\dots$ has $a = \\frac{7}{10}$ and $r = \\frac{1}{10}$, so $0.\\overline{7} = \\frac{7/10}{1 - 1/10} = \\frac{7/10}{9/10} = \\frac{7}{9}$. A repeating block of $k$ digits gives $r = 10^{-k}$, and clearing fractions turns the denominator $1 - r$ into $9$, $99$, or $999$ according to the block length.</p><p>The <strong>nth-term test for divergence</strong> states: if $\\lim_{n \\to \\infty} a_n \\ne 0$, or if that limit does not exist, then $\\sum a_n$ diverges. The reason is that a convergent series has $a_n = S_n - S_{n-1} \\to S - S = 0$. The converse is false. If $\\lim_{n \\to \\infty} a_n = 0$, the test gives no conclusion; the series might converge or might diverge, and another test is needed. The most important example is the <strong>harmonic series</strong> $\\sum_{n=1}^{\\infty} \\frac{1}{n}$, whose terms approach $0$ but whose partial sums grow without bound, as the next lesson proves with the integral test.</p><p>A complete justification names the test and the limit: the series $\\sum \\frac{n}{2n+1}$ diverges by the nth-term test because $\\lim_{n \\to \\infty} \\frac{n}{2n+1} = \\frac{1}{2} \\ne 0$. The sentence \"the terms approach $0$, so the series converges\" is a false statement and earns no credit.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A series is a running total accumulated by a loop: <code>total += term(n)</code> for <code>n = 1, 2, 3, ...</code>. The value of <code>total</code> after the <code>n</code>th iteration is the partial sum $S_n$, and <code>term(n)</code> is $a_n$. Convergence of the series is a property of the sequence of values that <code>total</code> takes, not of the values <code>term(n)</code> returns. A telescoping series is a loop whose increments are differences <code>b(n) - b(n+1)</code>, so the total after <code>n</code> iterations is <code>b(1) - b(n+1)</code> by the same cancellation that collapses a chain of deltas to the last state minus the first.</p><p>Where the analogy holds: the identity $a_n = S_n - S_{n-1}$ says the increment is the difference of consecutive totals, exactly as in the loop. The nth-term test is the observation that a loop whose increments do not shrink to zero cannot converge: if <code>term(n)</code> stays near $\\frac{1}{2}$, then <code>total</code> moves by about $\\frac{1}{2}$ on every iteration and never approaches a fixed value.</p><p>Where it breaks: running the loop can never prove convergence, for two separate reasons. First, floating-point addition of a geometric tail stops changing once <code>term(n)</code> falls below the machine epsilon of <code>total</code>, so <code>total</code> reaches a fixed value after finitely many iterations for every series with shrinking terms, including divergent ones. Second, the harmonic series has increments that shrink to zero, and in exact arithmetic <code>total</code> eventually passes every bound, but so slowly that no feasible run shows it: reaching $100$ takes roughly $10^{43}$ iterations. Only an analytic argument about $S_n$, such as a closed form or a test from the next lessons, decides convergence.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the sum of $\\displaystyle\\sum_{n=2}^{\\infty} \\frac{5}{3^n}$",
+     "steps": [
+      {
+       "text": "Write out the first two terms to identify $a$ and $r$. The index starts at $n = 2$, so the first term is the $n = 2$ term, not $5$.",
+       "math": "a = \\frac{5}{3^2} = \\frac{5}{9}, \\qquad r = \\frac{5/27}{5/9} = \\frac{1}{3}"
+      },
+      {
+       "text": "Check the ratio condition. Since $|r| = \\frac{1}{3} < 1$, the series is a convergent geometric series and the formula $\\frac{a}{1 - r}$ applies."
+      },
+      {
+       "text": "Apply the formula with the actual first term.",
+       "math": "\\sum_{n=2}^{\\infty} \\frac{5}{3^n} = \\frac{5/9}{1 - 1/3} = \\frac{5/9}{2/3} = \\frac{5}{9} \\cdot \\frac{3}{2} = \\frac{5}{6}"
+      },
+      {
+       "text": "Confirm by a second route: the full series from $n = 0$ has sum $\\frac{5}{1 - 1/3} = \\frac{15}{2}$, and removing the $n = 0$ and $n = 1$ terms, $5 + \\frac{5}{3} = \\frac{20}{3}$, leaves the same value.",
+       "math": "\\frac{15}{2} - \\frac{20}{3} = \\frac{45}{6} - \\frac{40}{6} = \\frac{5}{6}"
+      },
+      {
+       "text": "The series converges to $\\frac{5}{6}$ because it is geometric with common ratio $r = \\frac{1}{3}$, and $|r| < 1$."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q003",
+      "u10-q004",
+      "u10-q005"
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q006"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u10-l2",
+   "title": "The integral test, p-series, and comparison tests",
+   "skillIds": [
+    "u10-integral-and-p-series",
+    "u10-comparison-tests"
+   ],
+   "estMinutes": 25,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>The <strong>integral test</strong> connects a series with positive terms to an improper integral of the kind studied in Unit 6. Let $f$ be a function that is <strong>positive</strong>, <strong>continuous</strong>, and <strong>decreasing</strong> on $[1, \\infty)$, and let $a_n = f(n)$ for every integer $n \\ge 1$. Then the series and the integral</p><p>$$\\sum_{n=1}^{\\infty} a_n \\qquad\\text{and}\\qquad \\int_1^{\\infty} f(x)\\,dx$$</p><p>either both converge or both diverge.</p><p>The reason is a comparison of rectangles with the area under a curve. Rectangles of width $1$ and heights $a_2, a_3, a_4, \\ldots$ fit below the graph of $f$ on $[1, \\infty)$, and rectangles of heights $a_1, a_2, a_3, \\ldots$ cover the graph, so</p><p>$$\\sum_{n=2}^{\\infty} a_n \\le \\int_1^{\\infty} f(x)\\,dx \\le \\sum_{n=1}^{\\infty} a_n$$</p><p>A finite integral keeps every partial sum below a fixed number, and an infinite integral forces the partial sums past every number.</p><p>The value of the integral is not the value of the sum. The inequalities above say only that the sum lies between the integral and the integral plus $a_1$. The integral test decides whether the series converges, and it never gives the sum.</p><p>The <strong>harmonic series</strong> is $\\sum_{n=1}^{\\infty} \\frac{1}{n}$. Its terms approach $0$, so the nth-term test from the previous lesson is inconclusive. With $f(x) = \\frac{1}{x}$, which is positive, continuous, and decreasing on $[1, \\infty)$,</p><p>$$\\int_1^{\\infty} \\frac{dx}{x} = \\lim_{b \\to \\infty} \\big[\\ln x\\big]_1^b = \\lim_{b \\to \\infty} \\ln b = \\infty$$</p><p>so the harmonic series diverges, even though its terms shrink to $0$.</p><p>A <strong>p-series</strong> is $\\sum_{n=1}^{\\infty} \\frac{1}{n^p}$ for a real constant $p$. For $p > 0$ and $p \\ne 1$, the same test uses $\\int_1^{\\infty} x^{-p}\\,dx = \\lim_{b \\to \\infty} \\frac{b^{1-p} - 1}{1 - p}$, which is finite exactly when $1 - p < 0$. For $p \\le 0$ the terms do not approach $0$. Combining the cases:</p><p>$$\\sum_{n=1}^{\\infty} \\frac{1}{n^p} \\text{ converges when } p > 1 \\text{ and diverges when } p \\le 1$$</p><p>Before citing the integral test on the exam, verify the three hypotheses in this order and write each one down.</p><ol><li>Positive: $f(x) > 0$ on $[1, \\infty)$, or on $[N, \\infty)$ for some starting index $N$.</li><li>Continuous: $f$ has no breaks on the interval; a denominator that is never zero is the usual reason.</li><li>Decreasing: show $f'(x) < 0$ on the interval, or state that the denominator grows while the numerator does not. Decreasing from some point onward is enough, because finitely many terms never change whether a series converges.</li></ol><p>Then evaluate the improper integral as a limit and state the conclusion about the series, not about the integral alone.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Use the integral test to decide whether $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{1}{n^2 + 1}$ converges",
+     "steps": [
+      {
+       "text": "Set $f(x) = \\frac{1}{x^2 + 1}$, so that $f(n) = a_n$. Verify the three hypotheses on $[1, \\infty)$. Positive: the numerator is $1$ and the denominator is at least $2$. Continuous: the denominator is never zero. Decreasing: the derivative is negative for every $x > 0$.",
+       "math": "f'(x) = \\frac{-2x}{(x^2 + 1)^2} < 0 \\quad \\text{for } x \\ge 1"
+      },
+      {
+       "text": "Write the improper integral as a limit and find an antiderivative from the Unit 6 library.",
+       "math": "\\int_1^{\\infty} \\frac{dx}{x^2 + 1} = \\lim_{b \\to \\infty} \\int_1^{b} \\frac{dx}{x^2 + 1} = \\lim_{b \\to \\infty} \\big[\\arctan x\\big]_1^{b}"
+      },
+      {
+       "text": "Evaluate the limit using $\\arctan b \\to \\frac{\\pi}{2}$ as $b \\to \\infty$ and $\\arctan 1 = \\frac{\\pi}{4}$.",
+       "math": "\\lim_{b \\to \\infty} \\left(\\arctan b - \\arctan 1\\right) = \\frac{\\pi}{2} - \\frac{\\pi}{4} = \\frac{\\pi}{4}"
+      },
+      {
+       "text": "The integral converges to $\\frac{\\pi}{4}$, so the series converges by the integral test. The sum of the series is not $\\frac{\\pi}{4}$. The rectangle inequalities place the sum between $\\frac{\\pi}{4}$ and $\\frac{\\pi}{4} + a_1 = \\frac{\\pi}{4} + \\frac{1}{2}$, and that is all the test says about its value."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q007",
+      "u10-q008",
+      "u10-q009"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The comparison tests decide whether a series with positive terms converges by comparing it to a series whose behavior is already known, usually a p-series or a geometric series.</p><p>The <strong>direct comparison test</strong> applies to two series with nonnegative terms.</p><ul><li>If $0 \\le a_n \\le b_n$ for every $n$ past some starting index and $\\sum b_n$ converges, then $\\sum a_n$ converges. The partial sums of $a_n$ stay below the finite sum of $b_n$.</li><li>If $a_n \\ge b_n \\ge 0$ for every $n$ past some starting index and $\\sum b_n$ diverges, then $\\sum a_n$ diverges. The partial sums of $a_n$ exceed every number.</li></ul><p>The other two directions prove nothing. A series below a divergent series may converge or diverge, and a series above a convergent series may converge or diverge. An inequality that points the wrong way is not evidence, and the exam checks the direction.</p><p>The <strong>limit comparison test</strong> applies when $a_n > 0$ and $b_n > 0$ for every $n$ and</p><p>$$\\lim_{n \\to \\infty} \\frac{a_n}{b_n} = L \\qquad\\text{with}\\qquad 0 < L < \\infty$$</p><p>Then $\\sum a_n$ and $\\sum b_n$ either both converge or both diverge. The limit says that for large $n$ the term $a_n$ is approximately $L \\cdot b_n$, and a positive constant factor never changes whether a series converges. If the limit is $0$ or $\\infty$, the test as stated is inconclusive; choose a different $b_n$.</p><p>To choose $b_n$, keep only the <strong>dominant term</strong> of the numerator and of the denominator, the term that grows fastest as $n \\to \\infty$, and drop coefficients. For $a_n = \\frac{3n^2 + 1}{n^4 + 2n}$ the dominant terms are $n^2$ and $n^4$, so $b_n = \\frac{n^2}{n^4} = \\frac{1}{n^2}$. For $a_n = \\frac{1}{2^n - n}$ the exponential dominates, so $b_n = \\frac{1}{2^n}$. Then compute the limit and confirm it is a positive finite number; it is $3$ in the first example and $1$ in the second.</p><p>A complete justification names the test, names the comparison series, and states why that series converges or diverges. The two templates are:</p><ul><li>Direct: for all $n \\ge 1$, $0 < a_n \\le \\frac{1}{n^2}$. The series $\\sum \\frac{1}{n^2}$ is a p-series with $p = 2 > 1$, so it converges. Therefore $\\sum a_n$ converges by the direct comparison test.</li><li>Limit: $\\lim_{n \\to \\infty} \\frac{a_n}{1/n} = 1$, which is positive and finite. The series $\\sum \\frac{1}{n}$ is the harmonic series, which diverges. Therefore $\\sum a_n$ diverges by the limit comparison test.</li></ul>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Direct comparison is bounding the cost of a loop by a loop you already understand. Suppose <code>total += cost(n)</code> runs for <code>n = 1, 2, 3, ...</code> without end, and you know a second loop <code>known += bound(n)</code> whose total is provably finite. If <code>0 &lt;= cost(n) &lt;= bound(n)</code> at every step, your running total stays below the known finite total, so it is finite too. This is a big-O upper bound with an explicit constant of $1$. Limit comparison is asymptotic equivalence up to a constant: $\\lim \\frac{a_n}{b_n} = L$ with $0 < L < \\infty$ says <code>cost(n)</code> and <code>bound(n)</code> belong to the same growth class, $a_n = \\Theta(b_n)$, so the two loops either both have a finite total or both do not.</p><p>Where the analogy holds: the direction rule is identical. An upper bound by something finite proves finiteness, and a lower bound by something infinite proves divergence. Choosing $b_n$ from the dominant terms is the same step as dropping lower-order terms when you write <code>O(n^2)</code> for <code>3n^2 + n</code>. The $\\Theta$ relation is symmetric and transitive, which is why limit comparison is convenient: one known series decides every series in its growth class.</p><p>Where it breaks: an upper bound by a divergent series proves nothing, in the same way that knowing an algorithm is <code>O(2^n)</code> does not make it slow. Big-O also discards constants and every finite prefix of the sequence, because it describes growth rate only; a series sum depends on every term, so $\\sum \\frac{1}{n^2}$ and $\\sum \\frac{3}{n^2}$ converge to different numbers even though comparison treats them as equivalent. Comparison tests decide convergence, never the value.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Decide whether $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{\\sqrt{n}}{n^2 + 1}$ converges",
+     "steps": [
+      {
+       "text": "The terms are positive for $n \\ge 1$. Choose the comparison series from the dominant terms: the numerator is $n^{1/2}$ and the denominator's dominant term is $n^2$.",
+       "math": "b_n = \\frac{n^{1/2}}{n^2} = \\frac{1}{n^{3/2}}"
+      },
+      {
+       "text": "Compute the limit of the ratio $\\frac{a_n}{b_n}$. Multiplying by $n^{3/2}$ cancels the root, and dividing numerator and denominator by $n^2$ evaluates the limit.",
+       "math": "\\lim_{n \\to \\infty} \\frac{a_n}{b_n} = \\lim_{n \\to \\infty} \\frac{\\sqrt{n}}{n^2 + 1} \\cdot \\frac{n^{3/2}}{1} = \\lim_{n \\to \\infty} \\frac{n^2}{n^2 + 1} = 1"
+      },
+      {
+       "text": "Classify the comparison series. $\\sum_{n=1}^{\\infty} \\frac{1}{n^{3/2}}$ is a p-series with $p = \\frac{3}{2} > 1$, so it converges."
+      },
+      {
+       "text": "The limit $1$ is positive and finite, so the two series behave the same way. Conclusion: $\\sum_{n=1}^{\\infty} \\frac{\\sqrt{n}}{n^2 + 1}$ converges by the limit comparison test with the convergent p-series $\\sum \\frac{1}{n^{3/2}}$."
+      },
+      {
+       "text": "Direct comparison also works here, because $\\frac{\\sqrt{n}}{n^2 + 1} < \\frac{\\sqrt{n}}{n^2} = \\frac{1}{n^{3/2}}$ for every $n \\ge 1$ and the inequality points the right way: the given series is below a convergent series. Either justification earns full credit."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q011",
+      "u10-q013",
+      "u10-q015"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u10-l3",
+   "title": "Alternating series, the ratio test, and absolute versus conditional convergence",
+   "skillIds": [
+    "u10-alternating-and-ratio"
+   ],
+   "estMinutes": 22,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>An <strong>alternating series</strong> is a series whose terms alternate in sign. The standard form is $\\sum_{n=1}^{\\infty} (-1)^n b_n$ or $\\sum_{n=1}^{\\infty} (-1)^{n+1} b_n$, where every $b_n$ is positive; $b_n$ is the absolute value of the $n$th term. The <strong>alternating harmonic series</strong> $\\sum_{n=1}^{\\infty} \\frac{(-1)^{n+1}}{n} = 1 - \\frac{1}{2} + \\frac{1}{3} - \\frac{1}{4} + \\cdots$ has $b_n = \\frac{1}{n}$.</p><p>The <strong>alternating series test</strong> states: if $b_n > 0$, if the sequence $b_n$ is eventually decreasing (there is an index $N$ with $b_{n+1} \\le b_n$ for every $n \\ge N$), and if $\\lim_{n \\to \\infty} b_n = 0$, then</p><p>$$\\sum_{n=1}^{\\infty} (-1)^n b_n \\text{ converges.}$$</p><p>The reason is that the partial sums move alternately up and down by decreasing amounts, so the odd-indexed partial sums and the even-indexed partial sums approach a single value from opposite sides.</p><p>Positivity of $b_n$ is part of writing the series in standard form; the other two hypotheses must be checked and written. A complete justification reads: $b_n = \\frac{1}{n}$ is positive and decreasing, and $\\lim_{n \\to \\infty} \\frac{1}{n} = 0$, so the series converges by the alternating series test. A justification that names the test without stating both hypotheses does not earn the reasoning point on a free-response item.</p><p>The two hypotheses fail in different ways. If $\\lim b_n \\neq 0$, then the terms $(-1)^n b_n$ do not approach $0$, and the series diverges by the nth-term test from the first lesson; this is a definite conclusion. If $\\lim b_n = 0$ but $b_n$ is not eventually decreasing, the alternating series test gives no conclusion: the series may converge or diverge, and another method is needed. The test is one-directional. It can prove convergence; it never proves divergence.</p><p>There are two standard ways to verify that $b_n$ is decreasing.</p><ul><li>Compare consecutive terms directly: show $b_{n+1} \\le b_n$, or equivalently $\\frac{b_{n+1}}{b_n} \\le 1$. For $b_n = \\frac{1}{\\sqrt{n}}$, the inequality $\\sqrt{n+1} > \\sqrt{n}$ gives $b_{n+1} < b_n$ directly.</li><li>Use a derivative: define $f(x)$ with $f(n) = b_n$ and show $f'(x) \\le 0$ for $x \\ge N$. For $b_n = \\frac{n}{n^2 + 1}$, the function $f(x) = \\frac{x}{x^2 + 1}$ has $f'(x) = \\frac{1 - x^2}{(x^2 + 1)^2}$, which is negative for $x > 1$, so $b_n$ is decreasing for $n \\ge 1$.</li></ul><p>The word eventually matters. Changing or removing a finite number of terms never changes whether a series converges, so a sequence that increases for a few terms and then decreases satisfies the hypothesis. The worked example below is of this kind.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Determine whether $\\sum_{n=2}^{\\infty} (-1)^n \\dfrac{\\ln n}{n}$ converges",
+     "steps": [
+      {
+       "text": "Identify $b_n = \\frac{\\ln n}{n}$. For $n \\ge 2$, $\\ln n > 0$, so $b_n > 0$ and the series is alternating. The two hypotheses to check are $\\lim_{n \\to \\infty} b_n = 0$ and that $b_n$ is eventually decreasing."
+      },
+      {
+       "text": "Check the limit. The sequence limit equals the function limit $\\lim_{x \\to \\infty} \\frac{\\ln x}{x}$, which has the indeterminate form $\\frac{\\infty}{\\infty}$, so L'Hospital's rule applies.",
+       "math": "\\lim_{x \\to \\infty} \\frac{\\ln x}{x} = \\lim_{x \\to \\infty} \\frac{1/x}{1} = \\lim_{x \\to \\infty} \\frac{1}{x} = 0"
+      },
+      {
+       "text": "Check decreasing with a derivative. Let $f(x) = \\frac{\\ln x}{x}$, so that $f(n) = b_n$, and apply the quotient rule.",
+       "math": "f'(x) = \\frac{\\frac{1}{x}\\cdot x - \\ln x \\cdot 1}{x^2} = \\frac{1 - \\ln x}{x^2}"
+      },
+      {
+       "text": "The denominator $x^2$ is positive, so the sign of $f'(x)$ is the sign of $1 - \\ln x$, which is negative exactly when $\\ln x > 1$, that is, when $x > e \\approx 2.718$. Therefore $b_n$ is decreasing for $n \\ge 3$. The first terms confirm this: $b_2 \\approx 0.347$, $b_3 \\approx 0.366$, $b_4 \\approx 0.347$, $b_5 \\approx 0.322$. The single increase from $b_2$ to $b_3$ is allowed because the hypothesis is eventually decreasing."
+      },
+      {
+       "text": "Conclude. $b_n = \\frac{\\ln n}{n}$ is positive, decreasing for $n \\ge 3$, and approaches $0$, so $\\sum_{n=2}^{\\infty} (-1)^n \\frac{\\ln n}{n}$ converges by the alternating series test. The series of absolute values $\\sum_{n=2}^{\\infty} \\frac{\\ln n}{n}$ diverges by direct comparison with the harmonic series, because $\\frac{\\ln n}{n} \\ge \\frac{1}{n}$ for $n \\ge 3$; the next section names this combination conditional convergence."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q016"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>A series $\\sum a_n$ <strong>converges absolutely</strong> if the series of absolute values $\\sum |a_n|$ converges. It <strong>converges conditionally</strong> if $\\sum a_n$ converges but $\\sum |a_n|$ diverges. The key theorem is that <strong>absolute convergence implies convergence</strong>: if $\\sum |a_n|$ converges, then $\\sum a_n$ converges. The converse is false. The alternating harmonic series $\\sum \\frac{(-1)^{n+1}}{n}$ converges by the alternating series test, but its series of absolute values is the harmonic series, which diverges, so it converges conditionally. The series $\\sum \\frac{(-1)^n}{n^2}$ converges absolutely, because $\\sum \\frac{1}{n^2}$ is a $p$-series with $p = 2 > 1$.</p><p>The <strong>ratio test</strong> uses the limiting ratio of consecutive terms. For a series $\\sum a_n$ with nonzero terms, let</p><p>$$L = \\lim_{n \\to \\infty} \\left| \\frac{a_{n+1}}{a_n} \\right|.$$</p><p>If $L < 1$, the series converges absolutely. If $L > 1$, or the ratio grows without bound, the series diverges. If $L = 1$, the test gives no conclusion, and another test is required. The first two cases hold because, for large $n$, the terms behave like a geometric series with ratio $L$.</p><p>The ratio test is most useful for factorials and exponentials, because consecutive terms of those cancel almost completely:</p><p>$$\\frac{(n+1)!}{n!} = n + 1, \\qquad \\frac{c^{n+1}}{c^n} = c, \\qquad \\frac{(n+1)^k}{n^k} \\to 1.$$</p><p>For $\\sum \\frac{3^n}{n!}$, the ratio is $\\frac{3^{n+1}}{(n+1)!} \\cdot \\frac{n!}{3^n} = \\frac{3}{n+1} \\to 0$, so $L = 0 < 1$ and the series converges absolutely. For a series whose terms are a rational function of $n$, or a $p$-series, the third limit forces $L = 1$. The ratio test never decides those, and the integral test or a comparison test decides them.</p><p>The decision procedure for classifying a series with mixed signs has two steps.</p><ol><li>Test $\\sum |a_n|$ with the ratio test, a $p$-series, a comparison test, or the integral test. If it converges, the series converges absolutely, and the classification is finished; the alternating series test is not needed.</li><li>If $\\sum |a_n|$ diverges, test $\\sum a_n$ itself. If $\\lim a_n \\neq 0$, it diverges by the nth-term test. If the series alternates and both hypotheses of the alternating series test hold, it converges conditionally.</li></ol><p>Divergence of $\\sum |a_n|$ never, by itself, proves divergence of $\\sum a_n$. A complete classification names the test used at each step. For $\\sum \\frac{(-1)^n n}{n^2 + 1}$: the series of absolute values diverges by limit comparison with $\\sum \\frac{1}{n}$; the original series converges by the alternating series test because $\\frac{n}{n^2 + 1}$ is decreasing for $n \\ge 1$ and approaches $0$; therefore the series converges conditionally. This classification is a standard multiple-choice item, and the ratio test returns in Lesson 5 as the tool that finds the radius of convergence of a power series.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>The ratio test measures the asymptotic growth factor between consecutive increments. Consider a recursive procedure whose call tree does <code>a[n]</code> units of work at depth <code>n</code>, with <code>a[n+1] / a[n]</code> approaching a branching ratio $L$. Total work is $\\sum a_n$. With $L < 1$ the levels shrink geometrically and the total is bounded by a constant multiple of the first level. With $L > 1$ the levels grow geometrically and the total is unbounded. With $L = 1$ a constant factor cannot decide, and the analysis needs a finer measure of how the per-level work decays. A $p$-series is exactly this boundary case: for $a_n = \\frac{1}{n^p}$ the ratio $\\left(\\frac{n}{n+1}\\right)^p$ tends to $1$ for every $p$, and only the exponent, read by the integral test, separates convergence from divergence.</p><p>Absolute versus conditional convergence is the difference between a sum that is safe to reorder and one that is not. An absolutely convergent series behaves like a finite sum: every reordering of its terms produces the same total. A conditionally convergent series does not. The Riemann rearrangement theorem states that its terms can be reordered to converge to any chosen real number, or to diverge. A parallel <code>reduce</code> that splits the alternating harmonic series across workers and combines partial results in a nondeterministic order is computing a rearrangement, and in exact arithmetic the answer depends on the schedule.</p><p>Where the analogy holds: the three-way split of the ratio test is the same dichotomy as the geometric cases in a recurrence analysis, and the reordering hazard is a theorem, not a metaphor. If the series of absolute values has a finite sum, every reduction order agrees on the total.</p><p>Where it breaks: the ratio test gives no conclusion at $L = 1$ even when another test proves convergence, so a result of $L = 1$ is not evidence either way. And floating-point summation of an alternating series suffers cancellation error that has no counterpart in the exact theory: adding terms of nearly equal magnitude and opposite sign loses relative precision, so computed partial sums of a convergent alternating series can drift from the true sum even though the mathematics says this order of these terms is safe.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q017",
+      "u10-q018",
+      "u10-q020"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u10-l4",
+   "title": "Taylor polynomials and error bounds",
+   "skillIds": [
+    "u10-taylor-polynomials",
+    "u10-error-bounds"
+   ],
+   "estMinutes": 28,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>The <strong>nth-degree Taylor polynomial</strong> of a function $f$ about $x = a$ is</p><p>$$P_n(x) = \\sum_{k=0}^{n} \\frac{f^{(k)}(a)}{k!}(x - a)^k = f(a) + f'(a)(x-a) + \\frac{f''(a)}{2!}(x-a)^2 + \\cdots + \\frac{f^{(n)}(a)}{n!}(x-a)^n$$</p><p>Here $f^{(k)}(a)$ is the $k$th derivative of $f$ evaluated at $a$, with $f^{(0)} = f$, and $k! = k(k-1)\\cdots 1$ with $0! = 1$. The point $a$ is the <strong>center</strong>. When $a = 0$ the polynomial is called the <strong>Maclaurin polynomial</strong> of degree $n$, and its terms are $\\frac{f^{(k)}(0)}{k!}x^k$.</p><p>$P_n$ is built so that $P_n(a) = f(a)$, $P_n'(a) = f'(a)$, and so on through $P_n^{(n)}(a) = f^{(n)}(a)$: the polynomial matches $f$ and its first $n$ derivatives at the center. The factorial makes this work. Differentiating $(x-a)^k$ exactly $k$ times produces the constant $k!$, which cancels the $k!$ in the denominator and leaves $f^{(k)}(a)$. Two consequences are used constantly. First, the coefficient of $(x-a)^k$ is $\\frac{f^{(k)}(a)}{k!}$, so when a polynomial is given, a derivative value is recovered by multiplying the coefficient by $k!$: a coefficient of $5$ on $(x-1)^2$ means $f''(1) = 5 \\cdot 2! = 10$. Second, $P_1(x) = f(a) + f'(a)(x-a)$ is the tangent line from Unit 4, so a Taylor polynomial is the tangent-line approximation extended to match higher derivatives.</p><p>The values $f^{(k)}(a)$ come from three sources. From a formula: differentiate $n$ times and substitute $a$. From a table: read them directly; the exam often gives $f(a)$, $f'(a)$, $f''(a)$, $f'''(a)$ and nothing else. From a differential equation such as $y' = xy$: differentiate the equation itself to get $y'' = y + xy'$ and substitute the initial condition. In every case, divide by $k!$ before writing the coefficient.</p><p>$P_n(x)$ approximates $f(x)$ well only for $x$ near $a$. The factor $(x-a)^k$ is small near the center and grows without bound away from it, so a $P_3$ that is accurate at $a + 0.1$ can be useless at $a + 10$. The standard AP forms are: write $P_n$ from a table or formula, use $P_n$ to approximate $f$ at a point near $a$, and read $f^{(k)}(a)$ from a given polynomial.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the third-degree Taylor polynomial for $f(x) = \\sqrt{x}$ about $x = 4$ and use it to approximate $\\sqrt{4.4}$",
+     "steps": [
+      {
+       "text": "Write $f(x) = x^{1/2}$ and differentiate three times with the power rule.",
+       "math": "f'(x) = \\tfrac{1}{2}x^{-1/2}, \\qquad f''(x) = -\\tfrac{1}{4}x^{-3/2}, \\qquad f'''(x) = \\tfrac{3}{8}x^{-5/2}"
+      },
+      {
+       "text": "Evaluate at the center $a = 4$, using $4^{1/2} = 2$, $4^{-1/2} = \\frac{1}{2}$, $4^{-3/2} = \\frac{1}{8}$, and $4^{-5/2} = \\frac{1}{32}$.",
+       "math": "f(4) = 2, \\qquad f'(4) = \\frac{1}{4}, \\qquad f''(4) = -\\frac{1}{32}, \\qquad f'''(4) = \\frac{3}{256}"
+      },
+      {
+       "text": "Divide each derivative value by $k!$: $\\frac{1}{4} \\div 1! = \\frac{1}{4}$, $-\\frac{1}{32} \\div 2! = -\\frac{1}{64}$, and $\\frac{3}{256} \\div 3! = \\frac{3}{1536} = \\frac{1}{512}$. Then write the polynomial in powers of $(x - 4)$.",
+       "math": "P_3(x) = 2 + \\frac{1}{4}(x-4) - \\frac{1}{64}(x-4)^2 + \\frac{1}{512}(x-4)^3"
+      },
+      {
+       "text": "Approximate $\\sqrt{4.4}$ by substituting $x = 4.4$, so $x - 4 = 0.4$.",
+       "math": "P_3(4.4) = 2 + \\frac{0.4}{4} - \\frac{0.16}{64} + \\frac{0.064}{512} = 2 + 0.1 - 0.0025 + 0.000125 = 2.097625"
+      },
+      {
+       "text": "Compare with the true value $\\sqrt{4.4} \\approx 2.097618$. The approximation is within $0.00001$, because $x - 4 = 0.4$ is small and each successive term is roughly ten times smaller than the one before it. The answer is $P_3(4.4) = 2.097625$."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q021",
+      "u10-q022",
+      "u10-q023"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>An approximation is useful only with a statement of how far it can be from the true value. The two theorems below give such statements. Each is an upper bound on the absolute error, not the error itself.</p><p><strong>Alternating series error bound.</strong> Suppose $\\sum_{n=1}^{\\infty} (-1)^{n+1} b_n$ satisfies the alternating series test from the previous lesson: $b_n > 0$, $b_{n+1} \\le b_n$ for all $n$, and $b_n \\to 0$. Let $S$ be the sum and $S_N$ the $N$th partial sum. Then</p><p>$$|S - S_N| \\le b_{N+1}$$</p><p>The error after $N$ terms is at most the absolute value of the first omitted term. The true sum also lies between $S_N$ and $S_{N+1}$. Justification template: the series alternates with terms decreasing in absolute value to $0$, so by the alternating series error bound $|S - S_4| \\le b_5$, followed by the number.</p><p><strong>Lagrange error bound.</strong> Let $P_n$ be the $n$th-degree Taylor polynomial of $f$ about $a$, and call $R_n(x) = f(x) - P_n(x)$ the <strong>remainder</strong>. If $|f^{(n+1)}(t)| \\le M$ for every $t$ between $a$ and $x$, then</p><p>$$|f(x) - P_n(x)| \\le \\frac{M}{(n+1)!}\\,|x - a|^{n+1}$$</p><p>The bound uses the derivative one order past the polynomial degree: a degree-$n$ polynomial is certified by $f^{(n+1)}$. The number $M$ is the maximum of $|f^{(n+1)}(t)|$ on the closed interval from $a$ to $x$. For $e^t$ and its constant multiples the maximum is at the right endpoint; for $\\sin t$ and $\\cos t$ and all of their derivatives, $M = 1$ always works; when the exam states that $|f^{(4)}(t)| \\le 6$ for all $t$ in the interval, that $6$ is $M$. The bound has the shape of the next Taylor term with $f^{(n+1)}(a)$ replaced by the worst case $M$.</p><p>One refinement matters. If the coefficient of $(x-a)^{n+1}$ is $0$, then $P_n$ and $P_{n+1}$ are the same polynomial, and the Lagrange bound may be applied with $n + 1$ in place of $n$, using $f^{(n+2)}$ and $|x-a|^{n+2}$. For $\\sin x$, $P_3(x) = x - \\frac{x^3}{6}$ equals $P_4(x)$, so the error is bounded by $\\frac{|x|^5}{5!}$, which is smaller than $\\frac{|x|^4}{4!}$ for $|x| < 5$. Both bounds are valid; the question usually asks for the smaller one.</p><p>Justification template: since $|f^{(4)}(t)| \\le M$ for all $t$ in $[a, x]$, the Lagrange error bound gives $|f(x) - P_3(x)| \\le \\frac{M}{4!}|x - a|^4$, followed by the number. State the derivative order, the value of $M$ with its reason, and the final value; the exam awards a point for each.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A Taylor polynomial is a truncated expansion, and the two error bounds are its worst-case error certificates. A numeric library ships each function with a contract of the form <code>exp(x)</code> is accurate to within 1 ulp (one unit in the last place of the floating-point result) on this input range. That contract is a guarantee derived from the algorithm, not an error someone observed by running tests. The alternating series bound is the simple contract: when the terms alternate in sign and shrink, the guarantee is one line, <code>abs(error) &lt;= abs(next_term)</code>. The Lagrange bound is the general contract. It needs a bound <code>M</code> on the next derivative over the interval, which plays the same role as a bound on the rate of change when you certify that a numeric routine cannot drift by more than <code>M * step</code> per step.</p><p>Where the analogy holds: both bounds are proved from properties of the true function, both are stated before any computation runs, and both are conservative on purpose. Taking $M$ at the worst point of the interval is the same discipline as sizing a buffer for the largest input rather than the typical one, and applying the tighter bound when $P_n = P_{n+1}$ is the same as tightening a contract after noticing that one term of the cost is identically zero.</p><p>Where it breaks: a certificate is a guarantee about the true function, not a measurement, and it is not a value you can test against by running the code. The actual error is usually much smaller than the bound, as the next worked example shows, so a loose bound is still a correct one. And there is no independent oracle: evaluating $e^{0.5}$ to check $P_3(0.5)$ would itself call a polynomial approximation, so the certificate is the only rigorous statement available about the distance to the true value.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Bound the error when $P_3(x) = 1 + x + \\dfrac{x^2}{2} + \\dfrac{x^3}{6}$ approximates $e^x$ on $[0, 1]$",
+     "steps": [
+      {
+       "text": "Identify the pieces of the Lagrange error bound: $f(x) = e^x$, the center is $a = 0$, the degree is $n = 3$, so the bound uses the fourth derivative, $f^{(4)}(t) = e^t$."
+      },
+      {
+       "text": "Find $M$. The function $e^t$ is increasing, so its maximum on $[0, 1]$ is at the right endpoint, $t = 1$.",
+       "math": "|f^{(4)}(t)| = e^t \\le e^1 = e \\quad \\text{for all } t \\in [0, 1], \\qquad M = e"
+      },
+      {
+       "text": "Apply the bound for any $x$ in $[0, 1]$, using $|x - 0|^4 \\le 1^4 = 1$.",
+       "math": "|e^x - P_3(x)| \\le \\frac{e}{4!}\\,|x|^4 \\le \\frac{e}{24} \\approx 0.1133"
+      },
+      {
+       "text": "For the single point $x = 0.5$, the interval between $a$ and $x$ is $[0, 0.5]$, so a smaller $M = e^{0.5}$ is valid, and $|x - a|^4 = (0.5)^4 = 0.0625$.",
+       "math": "|e^{0.5} - P_3(0.5)| \\le \\frac{e^{0.5}}{4!}(0.5)^4 \\approx \\frac{1.6487 \\cdot 0.0625}{24} \\approx 0.0043"
+      },
+      {
+       "text": "Compare with the actual error. $P_3(0.5) = 1 + 0.5 + 0.125 + 0.0208333 = 1.6458333$ and $e^{0.5} \\approx 1.6487213$, so the true error is about $0.0029$, below the certificate of $0.0043$. Justification: since $|f^{(4)}(t)| = e^t \\le e^{0.5}$ on $[0, 0.5]$, the Lagrange error bound guarantees $|e^{0.5} - P_3(0.5)| \\le \\frac{e^{0.5}(0.5)^4}{4!} \\approx 0.0043$."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q026",
+      "u10-q028",
+      "u10-q030"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u10-l5",
+   "title": "Power series and the interval of convergence",
+   "skillIds": [
+    "u10-interval-of-convergence"
+   ],
+   "estMinutes": 20,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>power series centered at $a$</strong> is a series of the form</p><p>$$\\sum_{n=0}^{\\infty} c_n (x - a)^n = c_0 + c_1 (x - a) + c_2 (x - a)^2 + \\cdots$$</p><p>where the <strong>coefficients</strong> $c_n$ are fixed numbers and $x$ is a variable. Each value of $x$ turns it into a numerical series that converges or diverges. The <strong>set of convergence</strong>, the set of all $x$ at which it converges, always has one of three shapes: the single point $x = a$; every real number; or an interval $|x - a| < R$ for some positive number $R$, together with zero, one, or both of the endpoints $a - R$ and $a + R$. The number $R$ is the <strong>radius of convergence</strong>, taken as $0$ in the first case and written $R = \\infty$ in the second. The full set, with the endpoints decided, is the <strong>interval of convergence</strong>.</p><p>The procedure has two stages. First, apply the ratio test from lesson 3 to the absolute value of the general term $u_n = c_n (x - a)^n$:</p><p>$$L = \\lim_{n \\to \\infty} \\left| \\frac{u_{n+1}}{u_n} \\right| = |x - a| \\cdot \\lim_{n \\to \\infty} \\left| \\frac{c_{n+1}}{c_n} \\right|$$</p><p>The series converges absolutely where $L < 1$ and diverges where $L > 1$. Solving $L < 1$ for $|x - a|$ produces $|x - a| < R$, which is where $R$ is read. If $L = 0$ for every $x$, then $R = \\infty$; if $L$ is infinite for every $x \\neq a$, then $R = 0$.</p><p>Second, at each endpoint the ratio test gives $L = 1$ and decides nothing. Substitute $x = a + R$ and $x = a - R$ separately. Each substitution gives a numerical series with no $x$ in it, which is tested with the tools of lessons 1 to 3: the nth-term test, the p-series result, a comparison test, or the alternating series test. The endpoints are independent; one can converge while the other diverges.</p><p>A factor such as $(2x - 1)^n$ changes both the center and the radius. Factor out the coefficient of $x$: $(2x - 1)^n = 2^n \\left(x - \\tfrac{1}{2}\\right)^n$, so the center is $\\tfrac{1}{2}$ and the $2^n$ enters the ratio test limit. Solve $L < 1$ for $\\left|x - \\tfrac{1}{2}\\right|$ to read $R$; a bound on $|2x - 1|$ equals $2R$, not the radius.</p><p>Some questions state only that a series centered at $a$ converges at a point $x_1$ and diverges at a point $x_2$. Convergence holds at every $x$ closer to $a$ than $R$ and fails at every $x$ farther than $R$, so $R \\ge |x_1 - a|$ and $R \\le |x_2 - a|$. A point strictly closer to $a$ than $x_1$ must converge; a point strictly farther than $x_2$ must diverge. A point at a distance between the two bounds is undetermined, and so is the point at exactly the distance $|x_1 - a|$ on the other side of $a$, because endpoints behave independently.</p><p>A complete justification names the ratio test, shows the limit and the inequality that gives $R$, then names the test used at each endpoint with its conclusion, and ends with the interval: square brackets for included endpoints, round brackets for excluded ones.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A power series is a function implementation whose valid input domain is the interval of convergence. Consider a routine <code>evalSeries(x, terms)</code> that sums the first <code>terms</code> coefficients times powers of <code>x - a</code>. Its result is meaningful only for inputs at which the infinite sum has a value, in the same way that a polynomial or lookup approximation of <code>exp</code> or <code>sin</code> is trusted only over the argument range it was fitted on. The ratio test is a static analysis that finds the open interior of that domain from the coefficient formula alone, without running the loop: it returns the condition $|x - a| < R$. The analysis reports undecided on the two boundary inputs, so those are the cases that need an explicit unit test each, one per endpoint, using a different tool from the analysis itself.</p><p>Where the analogy holds: the split between an interior established by one general argument and boundaries checked one at a time is exact. The two boundary checks are independent, and passing one says nothing about the other, in the same way that a routine which handles <code>INT_MAX</code> correctly may still fail on <code>INT_MIN</code>. Inputs outside the domain are not merely inaccurate; the partial sums have no limit at all, which corresponds to a loop that never settles rather than a wrong return value.</p><p>Where it breaks: a fitted approximation has roughly uniform error across its range, and a power series does not. Inside the interval the series converges for every input, yet the number of terms needed for a given accuracy grows without bound as the input approaches an endpoint, so a fixed-<code>terms</code> implementation is accurate only well inside the interval and degrades toward the edges. And convergence at an endpoint can be so slow that no program could sum the series to useful precision: the alternating harmonic series that appears at $x = -3$ in the next example needs on the order of a million terms for six correct decimal places. The ratio test certifies that a limit exists and says nothing about how fast the partial sums reach it.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the interval of convergence of $\\sum_{n=1}^{\\infty} \\dfrac{(x - 2)^n}{n \\cdot 5^n}$",
+     "steps": [
+      {
+       "text": "Let $u_n = \\dfrac{(x - 2)^n}{n \\cdot 5^n}$ and compute the ratio test limit of $|u_{n+1} / u_n|$. The factor $\\dfrac{n}{n + 1}$ has limit $1$, and the powers of $(x - 2)$ and of $5$ each cancel down to a single factor.",
+       "math": "L = \\lim_{n \\to \\infty} \\left| \\frac{(x - 2)^{n+1}}{(n + 1) \\cdot 5^{n+1}} \\cdot \\frac{n \\cdot 5^n}{(x - 2)^n} \\right| = \\lim_{n \\to \\infty} \\frac{n}{n + 1} \\cdot \\frac{|x - 2|}{5} = \\frac{|x - 2|}{5}"
+      },
+      {
+       "text": "Solve $L < 1$ for $|x - 2|$. The radius of convergence is $R = 5$, the center is $2$, and the series converges absolutely on the open interval $(-3, 7)$ and diverges for $|x - 2| > 5$.",
+       "math": "\\frac{|x - 2|}{5} < 1 \\iff |x - 2| < 5 \\iff -3 < x < 7"
+      },
+      {
+       "text": "Test the right endpoint $x = 7$. Substituting gives $(7 - 2)^n = 5^n$, which cancels the $5^n$ in the denominator, leaving the harmonic series. This is a p-series with $p = 1$, so it diverges, and $x = 7$ is excluded.",
+       "math": "\\sum_{n=1}^{\\infty} \\frac{5^n}{n \\cdot 5^n} = \\sum_{n=1}^{\\infty} \\frac{1}{n}"
+      },
+      {
+       "text": "Test the left endpoint $x = -3$. Substituting gives $(-3 - 2)^n = (-5)^n = (-1)^n 5^n$, so the series is the alternating harmonic series. Apply the alternating series test with $b_n = \\dfrac{1}{n}$: the terms are positive, $b_{n+1} \\le b_n$ for every $n$, and $\\lim_{n \\to \\infty} b_n = 0$. The series converges, and $x = -3$ is included.",
+       "math": "\\sum_{n=1}^{\\infty} \\frac{(-5)^n}{n \\cdot 5^n} = \\sum_{n=1}^{\\infty} \\frac{(-1)^n}{n}"
+      },
+      {
+       "text": "The interval of convergence is $[-3, 7)$. The justification in full: by the ratio test the series converges absolutely for $|x - 2| < 5$ and diverges for $|x - 2| > 5$; at $x = 7$ the series is the harmonic series, which diverges; at $x = -3$ the series is the alternating harmonic series, which converges by the alternating series test. Convergence at $x = -3$ is conditional, since the series of absolute values there is again the harmonic series.",
+       "math": "[-3, 7)"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q031",
+      "u10-q033",
+      "u10-q035"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u10-l6",
+   "title": "Taylor series and building new series from known ones",
+   "skillIds": [
+    "u10-taylor-series-and-manipulation"
+   ],
+   "estMinutes": 25,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>The <strong>Taylor series</strong> of a function $f$ about $x = a$ is the power series whose partial sums are the Taylor polynomials of the previous lesson:</p><p>$$\\sum_{n=0}^{\\infty} \\frac{f^{(n)}(a)}{n!}(x - a)^n = f(a) + f'(a)(x - a) + \\frac{f''(a)}{2!}(x - a)^2 + \\cdots$$</p><p>The <strong>Maclaurin series</strong> of $f$ is the Taylor series with center $a = 0$. For each of the six functions below, the series converges to $f(x)$ at every $x$ in the stated interval and diverges outside it. The interval comes from the ratio test followed by an endpoint check, as in the previous lesson.</p><p>The coefficients come from derivative values. For $f(x) = e^x$, every derivative is $e^x$, so $f^{(n)}(0) = 1$ for every $n$ and the coefficient of $x^n$ is $\\frac{1}{n!}$. For $f(x) = \\sin x$, the derivatives cycle through $\\sin x$, $\\cos x$, $-\\sin x$, $-\\cos x$, so the values at $0$ cycle through $0, 1, 0, -1$: the coefficients of the even powers are $0$ and the coefficients of the odd powers alternate in sign. The same computation for $\\cos x$ leaves only the even powers.</p><table><thead><tr><th>Function</th><th>First terms</th><th>General term</th><th>Converges for</th></tr></thead><tbody><tr><td>$e^x$</td><td>$1 + x + \\dfrac{x^2}{2!} + \\dfrac{x^3}{3!} + \\cdots$</td><td>$\\displaystyle\\sum_{n=0}^{\\infty} \\frac{x^n}{n!}$</td><td>all $x$</td></tr><tr><td>$\\sin x$</td><td>$x - \\dfrac{x^3}{3!} + \\dfrac{x^5}{5!} - \\cdots$</td><td>$\\displaystyle\\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n+1}}{(2n+1)!}$</td><td>all $x$</td></tr><tr><td>$\\cos x$</td><td>$1 - \\dfrac{x^2}{2!} + \\dfrac{x^4}{4!} - \\cdots$</td><td>$\\displaystyle\\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n}}{(2n)!}$</td><td>all $x$</td></tr><tr><td>$\\dfrac{1}{1 - x}$</td><td>$1 + x + x^2 + x^3 + \\cdots$</td><td>$\\displaystyle\\sum_{n=0}^{\\infty} x^n$</td><td>$|x| < 1$</td></tr><tr><td>$\\ln(1 + x)$</td><td>$x - \\dfrac{x^2}{2} + \\dfrac{x^3}{3} - \\cdots$</td><td>$\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^{n+1} x^n}{n}$</td><td>$-1 < x \\le 1$</td></tr><tr><td>$\\arctan x$</td><td>$x - \\dfrac{x^3}{3} + \\dfrac{x^5}{5} - \\cdots$</td><td>$\\displaystyle\\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n+1}}{2n+1}$</td><td>$|x| \\le 1$</td></tr></tbody></table><p>The last three rows do not contain factorials. The series for $\\frac{1}{1 - x}$ is the geometric series with ratio $x$ from the first lesson, and the next section derives $\\ln(1 + x)$ and $\\arctan x$ from it by integration.</p><p>Exam items ask for the first four nonzero terms and the general term, and each part is graded on its own. To produce terms from a general term, substitute $n = 0, 1, 2, 3$. To produce a general term from terms, decide three things separately: the sign pattern, written $(-1)^n$ when the $n = 0$ term is positive and $(-1)^{n+1}$ when the sum starts at $n = 1$ with a positive term; the exponent pattern, $2n$ for even powers only, $2n + 1$ for odd powers only, and $n$ for every power; and the denominator, which is the factorial of the exponent for $e^x$, $\\sin x$, and $\\cos x$, the exponent itself with no factorial for $\\ln(1 + x)$ and $\\arctan x$, and $1$ for the geometric series.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q036"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Four operations produce new series from the table without computing any derivatives. Each one keeps the equality between the function and its series at every $x$ inside the interval of convergence.</p><ol><li><strong>Substitution.</strong> Replace $x$ by the same expression in every term, in the general term, and in the interval. From $e^x$ with $x$ replaced by $-x^2$: $e^{-x^2} = \\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n}}{n!}$, valid for all $x$. From $\\frac{1}{1 - x}$ with $x$ replaced by $-3x$: $\\frac{1}{1 + 3x} = \\sum_{n=0}^{\\infty} (-1)^n 3^n x^n$, valid for $|-3x| < 1$, that is, $|x| < \\frac{1}{3}$.</li><li><strong>Multiplication by a power of $x$.</strong> Multiply every term, so every exponent shifts by the same amount and no coefficient changes: $x^2 \\sin x = \\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n+3}}{(2n+1)!} = x^3 - \\frac{x^5}{3!} + \\cdots$. The coefficient of $x^5$ here is the coefficient of $x^3$ in $\\sin x$.</li><li><strong>Term-by-term differentiation.</strong> Inside the interval, $\\frac{d}{dx} \\sum c_n x^n = \\sum n c_n x^{n-1}$. Differentiating $\\frac{1}{1 - x} = \\sum x^n$ gives $$\\frac{1}{(1 - x)^2} = \\sum_{n=1}^{\\infty} n x^{n-1} = 1 + 2x + 3x^2 + \\cdots, \\qquad |x| < 1.$$</li><li><strong>Term-by-term integration.</strong> Inside the interval, $\\int \\sum c_n x^n\\,dx = C + \\sum \\frac{c_n}{n+1} x^{n+1}$, and $C$ is fixed by the value of the function at the center. Substituting $-x$ into the geometric series gives $\\frac{1}{1 + x} = \\sum (-1)^n x^n$. Integrating gives $\\ln(1 + x) = C + \\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{n+1}}{n + 1}$, and $x = 0$ gives $\\ln 1 = 0 = C$. Replacing $n + 1$ by $n$ produces the table entry. The same route from $\\frac{1}{1 + x^2}$ produces $\\arctan x$.</li></ol><p>Differentiation and integration keep the radius of convergence, but behavior at an endpoint can change: $\\sum (-1)^n x^n$ diverges at $x = 1$, while its integral, the series for $\\ln(1 + x)$, converges there.</p><p>Two uses appear on the exam. First, a limit of the form $\\frac{0}{0}$. Replace each function by enough terms of its series, simplify, and divide by the lowest power of $x$ that remains. For $\\lim_{x \\to 0} \\frac{x - \\sin x}{x^3}$, write $x - \\sin x = \\frac{x^3}{3!} - \\frac{x^5}{5!} + \\cdots$, so the quotient is $\\frac{1}{6} - \\frac{x^2}{120} + \\cdots$. Every term after the first contains a positive power of $x$ and tends to $0$, so the limit is $\\frac{1}{6}$. Second, a definite integral of a function with no elementary antiderivative, that is, no antiderivative that can be written with the standard functions. Integrate the series term by term between the limits. When the resulting numbers alternate in sign and decrease to $0$, the alternating series error bound from the previous lesson certifies the approximation. For $\\int_0^1 \\cos(x^2)\\,dx$, the series $1 - \\frac{x^4}{2} + \\frac{x^8}{24} - \\cdots$ integrates to $1 - \\frac{1}{10} + \\frac{1}{216} - \\cdots$, so two terms give $0.9$ with error at most $\\frac{1}{216}$.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>The six standard series are a small library of primitives, and the four operations are composable transforms on a coefficient array <code>c</code>, where <code>c[n]</code> is the coefficient of $x^n$. Multiplication by $x^k$ is an array shift: <code>c[n]</code> moves to index <code>n + k</code>. Differentiation maps <code>c[n]</code> to <code>n * c[n]</code> at index <code>n - 1</code>. Integration maps <code>c[n]</code> to <code>c[n] / (n + 1)</code> at index <code>n + 1</code> and writes the constant into index <code>0</code>. Substituting $b x^m$ for $x$ sends <code>c[n]</code> to <code>c[n] * b ** n</code> at index <code>m * n</code>. This is how a computer algebra system represents a truncated power series, and it is why deriving the series for $e^{-x^2}$ by substitution is one pass over an array, while computing its tenth derivative at $0$ directly requires repeated product and chain rules. The exam form of the same fact: a coefficient times $n!$ recovers $f^{(n)}(0)$, so a series obtained by transforms answers a derivative-value question with no further differentiation.</p><p>Where the analogy holds: each transform is exact on the coefficients, the transforms compose in any order the algebra allows, and a coefficient read from the array after a shift or a differentiation is the true Taylor coefficient. Fixing the constant of integration by the value at the center is exactly writing <code>c[0]</code>.</p><p>Where it breaks: the transforms are valid only inside the interval of convergence, and endpoint behavior can change under integration or differentiation, so the interval must be recomputed rather than copied from the source series. A truncated array is not the function. Multiplying two arrays truncated at order $N$ produces coefficients above order $N$ that are missing cross terms and are silently wrong, and composing $f(g(x))$ requires the truncation order to be tracked through every step. The model is exact for the infinite series; a finite array is only an approximation of one.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the Maclaurin series for $F(x) = \\displaystyle\\int_0^x e^{-t^2}\\,dt$ and approximate $F(0.5)$ with a certified error",
+     "steps": [
+      {
+       "text": "The integrand has no elementary antiderivative, so start from the series for $e^t$ and substitute $-t^2$ for $t$. The series for $e^t$ converges for all $t$, so the result converges for all $t$.",
+       "math": "e^{-t^2} = \\sum_{n=0}^{\\infty} \\frac{(-t^2)^n}{n!} = \\sum_{n=0}^{\\infty} \\frac{(-1)^n t^{2n}}{n!} = 1 - t^2 + \\frac{t^4}{2} - \\frac{t^6}{6} + \\cdots"
+      },
+      {
+       "text": "Integrate term by term from $0$ to $x$. Each term $\\frac{(-1)^n t^{2n}}{n!}$ integrates to $\\frac{(-1)^n x^{2n+1}}{n!\\,(2n+1)}$, and the lower limit contributes $0$ to every term, so no constant is needed.",
+       "math": "F(x) = \\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n+1}}{n!\\,(2n+1)} = x - \\frac{x^3}{3} + \\frac{x^5}{10} - \\frac{x^7}{42} + \\cdots"
+      },
+      {
+       "text": "Substitute $x = 0.5$ and compute the first three terms.",
+       "math": "0.5, \\qquad -\\frac{(0.5)^3}{3} = -\\frac{0.125}{3} \\approx -0.041667, \\qquad \\frac{(0.5)^5}{10} = \\frac{0.03125}{10} = 0.003125"
+      },
+      {
+       "text": "Use the first two terms as the approximation.",
+       "math": "F(0.5) \\approx 0.5 - \\frac{0.125}{3} = \\frac{11}{24} \\approx 0.4583"
+      },
+      {
+       "text": "Certify the error. At $x = 0.5$ the terms alternate in sign, their absolute values $0.5, 0.041667, 0.003125, \\ldots$ decrease, and they tend to $0$, so the alternating series error bound applies: the error is at most the absolute value of the first omitted term, which is the third term.",
+       "math": "\\left| F(0.5) - \\frac{11}{24} \\right| \\le \\frac{(0.5)^5}{2! \\cdot 5} = 0.003125"
+      },
+      {
+       "text": "Conclusion: $F(0.5) \\approx 0.4583$, and the true value lies within $0.003125$ of this number, between $0.4552$ and $0.4615$, by the alternating series error bound."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u10-q037",
+      "u10-q039",
+      "u10-q040"
+     ]
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "u10-q001",
+   "skillId": "u10-series-and-geometric",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>The $n$th partial sum of the series $\\displaystyle\\sum_{n=1}^{\\infty} a_n$ is $S_n = \\dfrac{3n}{n+2}$ for every positive integer $n$. Find the sum of the series. Give an exact integer.</p>",
+   "answer": 3,
+   "hints": [
+    "The sum of a series is defined as the limit of its partial sums, $\\lim_{n \\to \\infty} S_n$, when that limit exists. The formula for $S_n$ is given, so no terms $a_n$ need to be computed.",
+    "The expression $\\dfrac{3n}{n+2}$ is a ratio of two polynomials of the same degree. Divide numerator and denominator by $n$, or compare leading coefficients, to find its limit as $n \\to \\infty$."
+   ],
+   "solution": [
+    {
+     "text": "The partial sum $S_n = a_1 + a_2 + \\dots + a_n$ is the total of the first $n$ terms. The sum of the series is defined as the limit of $S_n$ as $n$ grows without bound.",
+     "math": "\\sum_{n=1}^{\\infty} a_n = \\lim_{n \\to \\infty} S_n = \\lim_{n \\to \\infty} \\frac{3n}{n+2}"
+    },
+    {
+     "text": "Divide the numerator and the denominator by $n$. The term $\\dfrac{2}{n}$ approaches $0$.",
+     "math": "\\lim_{n \\to \\infty} \\frac{3n}{n+2} = \\lim_{n \\to \\infty} \\frac{3}{1 + \\frac{2}{n}} = \\frac{3}{1 + 0} = 3"
+    },
+    {
+     "text": "The sum of the series is $3$. For contrast, the first term of the series is $a_1 = S_1 = \\dfrac{3 \\cdot 1}{1 + 2} = 1$, and the second term is $a_2 = S_2 - S_1 = \\dfrac{6}{4} - 1 = \\dfrac{1}{2}$. A term $a_n$ is one addend; the partial sum $S_n$ is a running total of addends. The question asks for the limit of the running totals."
+    }
+   ]
+  },
+  {
+   "id": "u10-q002",
+   "skillId": "u10-series-and-geometric",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find the sum of the series $\\displaystyle\\sum_{n=1}^{\\infty} \\left(\\frac{1}{n} - \\frac{1}{n+2}\\right)$.</p>",
+   "choices": [
+    "$1$",
+    "$\\dfrac{1}{2}$",
+    "$0$",
+    "$\\dfrac{3}{2}$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from treating the series like $\\sum \\left(\\frac{1}{n} - \\frac{1}{n+1}\\right)$, in which only the first term $1$ survives the cancellation. Here the subtracted fraction is two positions ahead, so the two leading terms $1$ and $\\frac{1}{2}$ both survive.",
+    "This choice comes from keeping only the surviving $\\frac{1}{2}$ from the $n = 2$ term and dropping the surviving $1$ from the $n = 1$ term. Both positive fractions in the first two terms have no negative partner, so both remain.",
+    "This choice comes from assuming that every term cancels in a telescoping sum. Cancellation removes the pairs that match; the leading positive fractions that never find a matching negative partner remain in every partial sum and in the limit.",
+    null
+   ],
+   "hints": [
+    "This is a telescoping series: in the partial sum $S_N$, a negative fraction $-\\frac{1}{n+2}$ from one term cancels a positive fraction $\\frac{1}{k}$ from a later term when $k = n + 2$. Write out the first four or five terms of $S_N$ and the last two, and mark which fractions cancel.",
+    "After cancellation, $S_N$ contains the positive fractions that appear before the first cancellation partner and the negative fractions that appear after the last one. Take the limit of $S_N$ as $N \\to \\infty$."
+   ],
+   "solution": [
+    {
+     "text": "Write the partial sum $S_N$ as a list of the first $N$ terms.",
+     "math": "S_N = \\left(1 - \\tfrac{1}{3}\\right) + \\left(\\tfrac{1}{2} - \\tfrac{1}{4}\\right) + \\left(\\tfrac{1}{3} - \\tfrac{1}{5}\\right) + \\left(\\tfrac{1}{4} - \\tfrac{1}{6}\\right) + \\dots + \\left(\\tfrac{1}{N} - \\tfrac{1}{N+2}\\right)"
+    },
+    {
+     "text": "The negative fraction in each term cancels the positive fraction two terms later. The positive fractions $1$ and $\\frac{1}{2}$ have no earlier partner and survive; the negative fractions $-\\frac{1}{N+1}$ and $-\\frac{1}{N+2}$ have no later partner and survive.",
+     "math": "S_N = 1 + \\frac{1}{2} - \\frac{1}{N+1} - \\frac{1}{N+2}"
+    },
+    {
+     "text": "Take the limit as $N \\to \\infty$. The two negative fractions approach $0$.",
+     "math": "\\sum_{n=1}^{\\infty} \\left(\\frac{1}{n} - \\frac{1}{n+2}\\right) = \\lim_{N \\to \\infty} S_N = 1 + \\frac{1}{2} = \\frac{3}{2}"
+    }
+   ]
+  },
+  {
+   "id": "u10-q003",
+   "skillId": "u10-series-and-geometric",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find the sum of the geometric series $\\displaystyle\\sum_{n=0}^{\\infty} 3\\left(\\frac{1}{4}\\right)^n$.</p>",
+   "choices": [
+    "$4$",
+    "$12$",
+    "$\\dfrac{12}{5}$",
+    "$\\dfrac{4}{3}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from dividing the first term by $r$ instead of by $1 - r$, giving $\\dfrac{3}{1/4} = 12$. The sum of a convergent geometric series is $\\dfrac{a}{1 - r}$, and $1 - r = \\dfrac{3}{4}$ here.",
+    "This choice comes from dividing the first term by $1 + r$ instead of $1 - r$, giving $\\dfrac{3}{5/4} = \\dfrac{12}{5}$. The formula has a subtraction in the denominator because the partial sum $a(1 + r + \\dots + r^{N})$ collapses to $\\dfrac{a(1 - r^{N+1})}{1 - r}$.",
+    "This choice comes from dropping the factor $3$ and computing $\\dfrac{1}{1 - 1/4} = \\dfrac{4}{3}$, the sum of $\\sum \\left(\\frac{1}{4}\\right)^n$. The first term of this series is $a = 3 \\cdot \\left(\\frac{1}{4}\\right)^0 = 3$, and the whole sum is scaled by it."
+   ],
+   "hints": [
+    "A geometric series has the form $\\sum_{n=0}^{\\infty} a r^n$. Identify the first term $a$ (the value of the summand at $n = 0$) and the common ratio $r$ (the factor between consecutive terms).",
+    "When $|r| < 1$ the series converges and its sum is $\\dfrac{a}{1 - r}$. Substitute your values of $a$ and $r$ and simplify the fraction."
+   ],
+   "solution": [
+    {
+     "text": "The summand is $3 \\left(\\frac{1}{4}\\right)^n$, so the first term (at $n = 0$) is $a = 3$ and the common ratio is $r = \\dfrac{1}{4}$. Since $|r| = \\dfrac{1}{4} < 1$, the series converges."
+    },
+    {
+     "text": "Apply the geometric series sum formula.",
+     "math": "\\sum_{n=0}^{\\infty} 3\\left(\\frac{1}{4}\\right)^n = \\frac{a}{1 - r} = \\frac{3}{1 - \\frac{1}{4}} = \\frac{3}{\\frac{3}{4}} = 3 \\cdot \\frac{4}{3} = 4"
+    },
+    {
+     "text": "As a check, the first three terms are $3 + \\dfrac{3}{4} + \\dfrac{3}{16} = 3.9375$, and the remaining terms add $\\dfrac{3/64}{1 - 1/4} = \\dfrac{1}{16} = 0.0625$, for a total of $4$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q004",
+   "skillId": "u10-series-and-geometric",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The repeating decimal $0.\\overline{45} = 0.454545\\ldots$ equals the sum of the geometric series $\\dfrac{45}{100} + \\dfrac{45}{100^2} + \\dfrac{45}{100^3} + \\dots$. Sum the series to write $0.\\overline{45}$ as a fraction in lowest terms.</p>",
+   "choices": [
+    "$\\dfrac{9}{20}$",
+    "$\\dfrac{5}{11}$",
+    "$\\dfrac{1}{2}$",
+    "$\\dfrac{5}{111}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from keeping only the first term $\\dfrac{45}{100}$, which treats the decimal as if it terminated at $0.45$. The series has infinitely many terms, and their total exceeds the first term.",
+    null,
+    "This choice comes from using the denominator $100 - 10 = 90$ instead of $100 - 1 = 99$, giving $\\dfrac{45}{90}$. The denominator of $\\dfrac{a}{1 - r}$ is $1 - r = 1 - \\dfrac{1}{100} = \\dfrac{99}{100}$, so the block $45$ is divided by $99$.",
+    "This choice comes from using the denominator $999$, which belongs to a repeating block of three digits. The repeating block $45$ has two digits, so the ratio is $r = \\dfrac{1}{100}$ and the denominator is $99$."
+   ],
+   "hints": [
+    "Identify the first term $a$ and the common ratio $r$. Each term is the previous term divided by $100$ because the repeating block is two digits long.",
+    "Use $\\dfrac{a}{1 - r}$ with $a = \\dfrac{45}{100}$ and $r = \\dfrac{1}{100}$. Simplify the resulting fraction, then reduce it by the greatest common divisor of numerator and denominator."
+   ],
+   "solution": [
+    {
+     "text": "The series has first term $a = \\dfrac{45}{100}$ and common ratio $r = \\dfrac{1}{100}$, since each term is the previous one divided by $100$. Because $|r| < 1$, the series converges."
+    },
+    {
+     "text": "Apply the geometric series sum formula and simplify the complex fraction.",
+     "math": "0.\\overline{45} = \\frac{a}{1 - r} = \\frac{\\frac{45}{100}}{1 - \\frac{1}{100}} = \\frac{\\frac{45}{100}}{\\frac{99}{100}} = \\frac{45}{99}"
+    },
+    {
+     "text": "Reduce the fraction. The greatest common divisor of $45$ and $99$ is $9$.",
+     "math": "\\frac{45}{99} = \\frac{45 \\div 9}{99 \\div 9} = \\frac{5}{11}"
+    },
+    {
+     "text": "As a check, $5 \\div 11 = 0.4545\\ldots$, which matches the given decimal."
+    }
+   ]
+  },
+  {
+   "id": "u10-q005",
+   "skillId": "u10-series-and-geometric",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The $n$th-term test for divergence states that if $\\lim_{n \\to \\infty} a_n \\neq 0$ or the limit does not exist, then $\\sum a_n$ diverges. For which of the following series does the $n$th-term test show that the series diverges?</p>",
+   "choices": [
+    "$\\displaystyle\\sum_{n=1}^{\\infty} \\frac{1}{n}$",
+    "$\\displaystyle\\sum_{n=1}^{\\infty} \\frac{n+1}{n^2}$",
+    "$\\displaystyle\\sum_{n=1}^{\\infty} \\frac{n}{2n+1}$",
+    "$\\displaystyle\\sum_{n=1}^{\\infty} \\left(\\frac{1}{2}\\right)^n$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from knowing that the harmonic series diverges and attributing that fact to the $n$th-term test. Its terms $\\dfrac{1}{n}$ approach $0$, so the $n$th-term test is inconclusive for it; the divergence of the harmonic series is shown by the integral test or the $p$-series test, not by the $n$th-term test.",
+    "This choice comes from noticing that the series diverges and concluding that the $n$th-term test is the reason. The terms $\\dfrac{n+1}{n^2} = \\dfrac{1}{n} + \\dfrac{1}{n^2}$ approach $0$, so the $n$th-term test is inconclusive; this series diverges by comparison with the harmonic series.",
+    null,
+    "This choice comes from applying the test to a series whose terms approach $0$. Since $\\left(\\frac{1}{2}\\right)^n \\to 0$, the $n$th-term test is inconclusive, and this geometric series converges to $1$."
+   ],
+   "hints": [
+    "Compute $\\lim_{n \\to \\infty} a_n$ for each of the four series. The test applies only when that limit is nonzero or does not exist.",
+    "A limit of $0$ makes the test inconclusive; it does not mean the series converges. Three of the four series have terms that approach $0$. Find the one whose terms do not, by comparing leading coefficients in a ratio of polynomials of equal degree."
+   ],
+   "solution": [
+    {
+     "text": "The $n$th-term test gives a conclusion only when the terms fail to approach $0$. Compute the limit of the terms of each series.",
+     "math": "\\lim_{n \\to \\infty} \\frac{1}{n} = 0, \\qquad \\lim_{n \\to \\infty} \\frac{n+1}{n^2} = \\lim_{n \\to \\infty}\\left(\\frac{1}{n} + \\frac{1}{n^2}\\right) = 0, \\qquad \\lim_{n \\to \\infty} \\left(\\frac{1}{2}\\right)^n = 0"
+    },
+    {
+     "text": "For these three series the terms approach $0$, so the $n$th-term test is inconclusive. Two of them, $\\sum \\frac{1}{n}$ and $\\sum \\frac{n+1}{n^2}$, do diverge, but a different test is needed to show that; the third, $\\sum \\left(\\frac{1}{2}\\right)^n$, converges."
+    },
+    {
+     "text": "For the remaining series, the numerator and denominator have the same degree, so the limit is the ratio of the leading coefficients.",
+     "math": "\\lim_{n \\to \\infty} \\frac{n}{2n+1} = \\lim_{n \\to \\infty} \\frac{1}{2 + \\frac{1}{n}} = \\frac{1}{2} \\neq 0"
+    },
+    {
+     "text": "Because the terms of $\\sum \\frac{n}{2n+1}$ approach $\\dfrac{1}{2}$ rather than $0$, the $n$th-term test shows that this series diverges."
+    }
+   ]
+  },
+  {
+   "id": "u10-q006",
+   "skillId": "u10-series-and-geometric",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A ball is dropped from a height of $12$ feet. Each time it hits the ground, it rebounds to $\\dfrac{2}{3}$ of the height from which it fell. Treat the bouncing as continuing without end. Find the total vertical distance, in feet, that the ball travels. Give an exact integer.</p>",
+   "answer": 60,
+   "hints": [
+    "Separate the motion into the initial drop and the bounces. The initial drop is a single distance of $12$ feet. After the first bounce, each rise to a height $h$ is followed by a fall of the same height $h$, so every bounce contributes $2h$.",
+    "The rebound heights are $12 \\cdot \\frac{2}{3}$, $12 \\cdot \\left(\\frac{2}{3}\\right)^2$, $12 \\cdot \\left(\\frac{2}{3}\\right)^3, \\dots$. This is a geometric series whose first term is the first rebound height, not $12$. Sum it with $\\dfrac{a}{1 - r}$, double the result, and add the initial drop."
+   ],
+   "solution": [
+    {
+     "text": "The ball first falls $12$ feet. It then rises to $12 \\cdot \\frac{2}{3} = 8$ feet and falls $8$ feet, rises to $8 \\cdot \\frac{2}{3} = \\frac{16}{3}$ feet and falls $\\frac{16}{3}$ feet, and so on. The $k$th rebound height is $12\\left(\\frac{2}{3}\\right)^k$ for $k = 1, 2, 3, \\dots$"
+    },
+    {
+     "text": "The total distance is the initial drop plus twice the sum of all rebound heights, because each rebound height is traveled once going up and once coming down. The initial drop is not doubled: the ball does not rise to $12$ feet before falling, so $12$ is a single one-way distance and is not a term of the doubled series.",
+     "math": "D = 12 + 2\\sum_{k=1}^{\\infty} 12\\left(\\frac{2}{3}\\right)^k"
+    },
+    {
+     "text": "The series is geometric with first term $a = 12 \\cdot \\frac{2}{3} = 8$ (the first rebound height, at $k = 1$) and ratio $r = \\frac{2}{3}$. Since $|r| < 1$ it converges.",
+     "math": "\\sum_{k=1}^{\\infty} 12\\left(\\frac{2}{3}\\right)^k = \\frac{8}{1 - \\frac{2}{3}} = \\frac{8}{\\frac{1}{3}} = 24"
+    },
+    {
+     "text": "Combine the pieces.",
+     "math": "D = 12 + 2 \\cdot 24 = 60"
+    },
+    {
+     "text": "The ball travels a total vertical distance of $60$ feet."
+    }
+   ]
+  },
+  {
+   "id": "u10-q007",
+   "skillId": "u10-integral-and-p-series",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>For which of the following values of $p$ does the $p$-series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{1}{n^p}$ converge?</p>",
+   "choices": [
+    "$p = 1$",
+    "$p = \\dfrac{1}{2}$",
+    "$p = -1$",
+    "$p = \\dfrac{3}{2}$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from reading the boundary case $p = 1$ as convergent. The $p$-series test requires $p > 1$ strictly; at $p = 1$ the series is the harmonic series $\\sum \\frac{1}{n}$, which diverges.",
+    "This choice comes from the belief that any positive exponent $p$ makes the series converge. With $p = \\frac{1}{2}$ the terms $\\frac{1}{\\sqrt{n}}$ are larger than the terms $\\frac{1}{n}$ of the divergent harmonic series, so this series diverges as well.",
+    "This choice comes from a sign confusion in the exponent. With $p = -1$ the terms are $\\frac{1}{n^{-1}} = n$, which grow without bound, so the series diverges by the $n$th-term test.",
+    null
+   ],
+   "hints": [
+    "The $p$-series test states that $\\sum \\frac{1}{n^p}$ converges when $p$ lies on one side of a specific boundary value and diverges otherwise. Recall which side and whether the boundary itself converges.",
+    "The boundary is $p = 1$, the harmonic series, which diverges. Convergence requires $p$ strictly greater than that boundary. Exactly one of the four choices satisfies the condition."
+   ],
+   "solution": [
+    {
+     "text": "The $p$-series test states that $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{1}{n^p}$ converges if $p > 1$ and diverges if $p \\leq 1$. This follows from the integral test applied to $f(x) = x^{-p}$."
+    },
+    {
+     "text": "Check each choice against the condition $p > 1$. For $p = 1$, $p = \\frac{1}{2}$, and $p = -1$ the condition fails, so those series diverge. In particular, $p = 1$ gives the harmonic series, and $p = -1$ gives $\\sum n$, whose terms do not approach $0$."
+    },
+    {
+     "text": "For $p = \\frac{3}{2}$ the condition $p > 1$ holds, so the series converges.",
+     "math": "\\sum_{n=1}^{\\infty} \\frac{1}{n^{3/2}} \\text{ converges because } \\tfrac{3}{2} > 1"
+    }
+   ]
+  },
+  {
+   "id": "u10-q008",
+   "skillId": "u10-integral-and-p-series",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} n e^{-n^2}$ and let $f(x) = x e^{-x^2}$. Which of the following is a correct application of the integral test to this series?</p>",
+   "choices": [
+    "The series converges, and its sum equals $\\dfrac{1}{2e}$.",
+    "The series converges because $f$ is positive, continuous, and decreasing on $[1, \\infty)$ and $\\displaystyle\\int_1^{\\infty} x e^{-x^2}\\,dx = \\dfrac{1}{2e}$ is finite.",
+    "The series diverges because its terms are all positive.",
+    "The integral test does not apply because $f$ is not decreasing."
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from equating the sum of the series with the value of the improper integral. The integral test decides only whether the series converges; the sum and the integral are different numbers. Here the sum is about $0.405$, while the integral is $\\dfrac{1}{2e} \\approx 0.184$.",
+    null,
+    "This choice comes from treating positivity as a conclusion of the test. Positivity of the terms is one of the three hypotheses needed to apply the integral test; it says nothing by itself about convergence or divergence.",
+    "This choice comes from checking the sign of $f'(x) = e^{-x^2}(1 - 2x^2)$ only near $x = 0$, where $f$ is increasing. The integral test needs $f$ to be decreasing on $[1, \\infty)$, and $f'(x) < 0$ for every $x > \\dfrac{1}{\\sqrt{2}}$, so the hypothesis holds on the interval that matters."
+   ],
+   "hints": [
+    "The integral test has three hypotheses about $f$ on $[1, \\infty)$: positive, continuous, and decreasing. Check each one, using $f'(x)$ for the decreasing condition, before drawing any conclusion.",
+    "Evaluate the improper integral $\\int_1^{\\infty} x e^{-x^2}\\,dx$ with the substitution $u = -x^2$ (or $u = x^2$) and a limit for the upper bound. A finite value means the series converges; the value itself is not the sum of the series."
+   ],
+   "solution": [
+    {
+     "text": "Verify the hypotheses of the integral test for $f(x) = x e^{-x^2}$ on $[1, \\infty)$. The function is positive because $x > 0$ and $e^{-x^2} > 0$, and continuous because it is a product of continuous functions. For the decreasing condition, differentiate with the product rule.",
+     "math": "f'(x) = e^{-x^2} + x \\cdot (-2x) e^{-x^2} = e^{-x^2}(1 - 2x^2)"
+    },
+    {
+     "text": "For $x \\geq 1$, $1 - 2x^2 \\leq -1 < 0$ and $e^{-x^2} > 0$, so $f'(x) < 0$ and $f$ is decreasing on $[1, \\infty)$. All three hypotheses hold, so the integral test applies."
+    },
+    {
+     "text": "Evaluate the improper integral. Substitute $u = -x^2$, $du = -2x\\,dx$, so $x\\,dx = -\\frac{1}{2}\\,du$.",
+     "math": "\\int_1^{b} x e^{-x^2}\\,dx = \\left[-\\frac{1}{2} e^{-x^2}\\right]_1^{b} = -\\frac{1}{2}e^{-b^2} + \\frac{1}{2}e^{-1}"
+    },
+    {
+     "text": "Take the limit as $b \\to \\infty$. Since $e^{-b^2} \\to 0$, the integral converges.",
+     "math": "\\int_1^{\\infty} x e^{-x^2}\\,dx = \\lim_{b \\to \\infty}\\left(\\frac{1}{2e} - \\frac{1}{2}e^{-b^2}\\right) = \\frac{1}{2e}"
+    },
+    {
+     "text": "By the integral test, because $f$ is positive, continuous, and decreasing on $[1, \\infty)$ and $\\int_1^{\\infty} f(x)\\,dx$ is finite, the series $\\sum_{n=1}^{\\infty} n e^{-n^2}$ converges. The test does not give the sum; the value $\\dfrac{1}{2e}$ is the integral, not the sum. The first term alone, $e^{-1} \\approx 0.368$, already exceeds $\\dfrac{1}{2e} \\approx 0.184$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q009",
+   "skillId": "u10-integral-and-p-series",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{1}{\\sqrt[3]{n^4}}$. Which of the following statements is true, with a correct justification?</p>",
+   "choices": [
+    "The series diverges because it is a p-series with $p = \\dfrac{3}{4} \\le 1$.",
+    "The series converges because $\\displaystyle\\lim_{n \\to \\infty} \\frac{1}{\\sqrt[3]{n^4}} = 0$.",
+    "The series converges because it is a p-series with $p = \\dfrac{4}{3} > 1$.",
+    "The series diverges by the nth-term test."
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from inverting the exponent. The cube root of $n^4$ is $n^{4/3}$, so the term is $n^{-4/3}$ and $p = \\frac{4}{3}$, not $\\frac{3}{4}$. Reading $\\sqrt[3]{n^4}$ as $n^{3/4}$ turns a convergent series into a divergent one.",
+    "This choice comes from using the nth-term test in the wrong direction. Terms approaching $0$ is a necessary condition for convergence, not a sufficient one; the harmonic series $\\sum \\frac{1}{n}$ has terms approaching $0$ and still diverges. The conclusion here is correct, but the reason given does not prove it.",
+    null,
+    "This choice comes from applying the nth-term test when its hypothesis fails. The nth-term test proves divergence only when the terms do not approach $0$. Here $\\frac{1}{\\sqrt[3]{n^4}} = n^{-4/3} \\to 0$, so the test is inconclusive and says nothing about this series."
+   ],
+   "hints": [
+    "Rewrite the term using a fractional exponent. A cube root is the exponent $\\frac{1}{3}$, so $\\sqrt[3]{n^4} = n^{4/3}$.",
+    "A p-series $\\sum \\frac{1}{n^p}$ converges exactly when $p > 1$ and diverges when $p \\le 1$. Identify $p$ for this series and compare it to $1$."
+   ],
+   "solution": [
+    {
+     "text": "Rewrite the general term with a fractional exponent. The cube root is the power $\\frac{1}{3}$, so the cube root of $n^4$ is $n^{4/3}$.",
+     "math": "\\frac{1}{\\sqrt[3]{n^4}} = \\frac{1}{n^{4/3}}"
+    },
+    {
+     "text": "The series is a p-series $\\sum \\frac{1}{n^p}$ with $p = \\frac{4}{3}$. A p-series converges when $p > 1$ and diverges when $p \\le 1$; this follows from the integral test applied to $\\int_1^{\\infty} x^{-p}\\,dx$."
+    },
+    {
+     "text": "Since $\\frac{4}{3} > 1$, the series converges. The nth-term test does not decide this: the terms do approach $0$, which is necessary for convergence but never sufficient on its own."
+    }
+   ]
+  },
+  {
+   "id": "u10-q010",
+   "skillId": "u10-integral-and-p-series",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=2}^{\\infty} \\frac{1}{n(\\ln n)^p}$, where $p$ is a positive integer. Find the smallest positive integer $p$ for which the series converges. Give an exact integer.</p>",
+   "answer": 2,
+   "hints": [
+    "For $x \\ge 2$, the function $f(x) = \\dfrac{1}{x(\\ln x)^p}$ is positive, continuous, and decreasing, so the integral test applies: the series converges exactly when $\\displaystyle\\int_2^{\\infty} \\frac{dx}{x(\\ln x)^p}$ converges.",
+    "In the integral, substitute $u = \\ln x$, so $du = \\dfrac{1}{x}\\,dx$. The integral becomes $\\displaystyle\\int_{\\ln 2}^{\\infty} \\frac{du}{u^p}$, which is a p-type integral.",
+    "Test $p = 1$ separately. The antiderivative of $\\frac{1}{u}$ is $\\ln u$, and $\\ln(\\ln b)$ grows without bound as $b \\to \\infty$."
+   ],
+   "solution": [
+    {
+     "text": "Let $f(x) = \\dfrac{1}{x(\\ln x)^p}$ for $x \\ge 2$. For every positive integer $p$, $f$ is positive and continuous, and it is decreasing because both $x$ and $(\\ln x)^p$ increase. So the integral test applies: the series converges if and only if $\\displaystyle\\int_2^{\\infty} f(x)\\,dx$ converges."
+    },
+    {
+     "text": "Substitute $u = \\ln x$, so $du = \\dfrac{1}{x}\\,dx$. When $x = 2$, $u = \\ln 2$; when $x = b$, $u = \\ln b$.",
+     "math": "\\int_2^{b} \\frac{dx}{x(\\ln x)^p} = \\int_{\\ln 2}^{\\ln b} \\frac{du}{u^p}"
+    },
+    {
+     "text": "For $p = 1$ the antiderivative is $\\ln u$, and $\\ln(\\ln b) \\to \\infty$ as $b \\to \\infty$. The integral diverges, so the series with $p = 1$ diverges.",
+     "math": "\\int_{\\ln 2}^{\\ln b} \\frac{du}{u} = \\ln(\\ln b) - \\ln(\\ln 2) \\to \\infty"
+    },
+    {
+     "text": "For $p = 2$ the antiderivative is $-\\dfrac{1}{u}$, and $\\dfrac{1}{\\ln b} \\to 0$ as $b \\to \\infty$. The integral converges to the finite value $\\dfrac{1}{\\ln 2}$, so the series with $p = 2$ converges.",
+     "math": "\\int_{\\ln 2}^{\\ln b} \\frac{du}{u^2} = \\frac{1}{\\ln 2} - \\frac{1}{\\ln b} \\to \\frac{1}{\\ln 2}"
+    },
+    {
+     "text": "In general the integral converges exactly when $p > 1$, the same rule as for p-series. The smallest positive integer with $p > 1$ is $p = 2$.",
+     "math": "p = 2"
+    }
+   ]
+  },
+  {
+   "id": "u10-q011",
+   "skillId": "u10-comparison-tests",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{1}{n^2 + 3}$. Which of the following statements is true, with a correct justification?</p>",
+   "choices": [
+    "The series converges by direct comparison, because $0 < \\dfrac{1}{n^2 + 3} < \\dfrac{1}{n^2}$ for all $n \\ge 1$ and $\\displaystyle\\sum \\frac{1}{n^2}$ is a convergent p-series.",
+    "The series diverges by direct comparison, because $\\dfrac{1}{n^2 + 3} < \\dfrac{1}{n}$ for all $n \\ge 1$ and $\\displaystyle\\sum \\frac{1}{n}$ diverges.",
+    "The direct comparison test is inconclusive, because $\\dfrac{1}{n^2 + 3} < \\dfrac{1}{n^2}$ points in the wrong direction.",
+    "The series converges because $\\displaystyle\\lim_{n \\to \\infty} \\frac{1}{n^2 + 3} = 0$."
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from comparing with a larger series that diverges. The inequality $\\frac{1}{n^2+3} < \\frac{1}{n}$ is true, but being smaller than the terms of a divergent series proves nothing: a series with small terms can converge or diverge. The direct comparison test proves divergence only when the terms are larger than those of a divergent series.",
+    "This choice comes from reversing the direction rule of the direct comparison test. To prove convergence, the terms must be smaller than the terms of a convergent series, and $\\frac{1}{n^2+3} < \\frac{1}{n^2}$ is exactly that direction. The comparison is conclusive.",
+    "This choice comes from using the nth-term test in the wrong direction. Terms approaching $0$ is necessary for convergence but not sufficient; the harmonic series has terms approaching $0$ and diverges. The conclusion here is correct, but the reason given does not prove it."
+   ],
+   "hints": [
+    "Adding $3$ to the denominator makes each term smaller than the corresponding term of a series you already know. Identify that series.",
+    "The direct comparison test for positive terms: if $0 \\le a_n \\le b_n$ for all $n$ and $\\sum b_n$ converges, then $\\sum a_n$ converges. Choose $b_n$ as a p-series and state its value of $p$."
+   ],
+   "solution": [
+    {
+     "text": "Every term of the series is positive. Because $n^2 + 3 > n^2$ for every $n \\ge 1$, taking reciprocals reverses the inequality.",
+     "math": "0 < \\frac{1}{n^2 + 3} < \\frac{1}{n^2} \\quad \\text{for all } n \\ge 1"
+    },
+    {
+     "text": "The series $\\sum \\frac{1}{n^2}$ is a p-series with $p = 2 > 1$, so it converges."
+    },
+    {
+     "text": "By the direct comparison test, a series of positive terms that are each at most the terms of a convergent series also converges. Therefore $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{1}{n^2 + 3}$ converges."
+    }
+   ]
+  },
+  {
+   "id": "u10-q012",
+   "skillId": "u10-comparison-tests",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=2}^{\\infty} \\frac{\\ln n}{n}$. Which of the following statements is true, with a correct justification?</p>",
+   "choices": [
+    "The series converges by direct comparison, because $\\dfrac{\\ln n}{n} \\le \\dfrac{1}{n^2}$ for all $n \\ge 2$ and $\\displaystyle\\sum \\frac{1}{n^2}$ converges.",
+    "The series converges because $\\displaystyle\\lim_{n \\to \\infty} \\frac{\\ln n}{n} = 0$.",
+    "The series diverges by the nth-term test.",
+    "The series diverges by direct comparison, because $\\dfrac{\\ln n}{n} \\ge \\dfrac{1}{n}$ for all $n \\ge 3$ and $\\displaystyle\\sum \\frac{1}{n}$ diverges."
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from asserting an inequality that is false. The claim $\\frac{\\ln n}{n} \\le \\frac{1}{n^2}$ is equivalent to $n \\ln n \\le 1$, which fails for every $n \\ge 2$ (at $n = 2$, $2 \\ln 2 \\approx 1.39$). A comparison based on a false inequality proves nothing.",
+    "This choice comes from using the nth-term test in the wrong direction. The limit $\\frac{\\ln n}{n} \\to 0$ is true, but terms approaching $0$ is necessary for convergence, not sufficient. This series diverges.",
+    "This choice comes from applying the nth-term test when its hypothesis fails. The nth-term test proves divergence only when the terms do not approach $0$. Here $\\frac{\\ln n}{n} \\to 0$, so the test is inconclusive; the series does diverge, but for a different reason.",
+    null
+   ],
+   "hints": [
+    "Compare $\\ln n$ with the constant $1$. Since $\\ln e = 1$ and $e \\approx 2.718$, decide for which integers $n$ the inequality $\\ln n \\ge 1$ holds.",
+    "Once $\\ln n \\ge 1$, dividing by $n$ gives $\\frac{\\ln n}{n} \\ge \\frac{1}{n}$. The direct comparison test proves divergence when the terms are at least the terms of a divergent series. Name the divergent series you are comparing with."
+   ],
+   "solution": [
+    {
+     "text": "The natural logarithm is increasing and $\\ln e = 1$ with $e \\approx 2.718$. So for every integer $n \\ge 3$, $\\ln n \\ge \\ln 3 > 1$. Dividing by the positive number $n$ keeps the inequality.",
+     "math": "\\frac{\\ln n}{n} \\ge \\frac{1}{n} \\quad \\text{for all } n \\ge 3"
+    },
+    {
+     "text": "The series $\\sum \\frac{1}{n}$ is the harmonic series, a p-series with $p = 1$, and it diverges."
+    },
+    {
+     "text": "By the direct comparison test, a series of positive terms that are each at least the terms of a divergent series also diverges. The single term at $n = 2$ is a finite quantity and does not affect convergence. Therefore $\\displaystyle\\sum_{n=2}^{\\infty} \\frac{\\ln n}{n}$ diverges."
+    },
+    {
+     "text": "The nth-term test cannot be used here. The terms $\\frac{\\ln n}{n}$ do approach $0$, so that test is inconclusive; the comparison above is what settles the question."
+    }
+   ]
+  },
+  {
+   "id": "u10-q013",
+   "skillId": "u10-comparison-tests",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{3n^2 + 1}{n^4 + 2n}$ with terms $a_n = \\dfrac{3n^2 + 1}{n^4 + 2n}$. Which choice of comparison series $b_n$ makes the limit comparison test give a finite positive limit $\\displaystyle\\lim_{n \\to \\infty} \\frac{a_n}{b_n}$ and settles whether the series converges?</p>",
+   "choices": [
+    "$b_n = \\dfrac{1}{n^4}$; the limit is finite and positive, and the series converges.",
+    "$b_n = \\dfrac{1}{n^2}$; the limit is $3$, and the series converges.",
+    "$b_n = 3n^2$; the limit is finite and positive, and the series diverges.",
+    "$b_n = \\dfrac{1}{n}$; the limit is finite and positive, and the series diverges."
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from using only the denominator's degree. With $b_n = \\frac{1}{n^4}$ the ratio is $\\frac{a_n}{b_n} = \\frac{3n^6 + n^4}{n^4 + 2n}$, which grows without bound, so the limit is infinite and the test gives no conclusion. The comparison series must match the net degree, numerator minus denominator.",
+    null,
+    "This choice comes from using only the numerator. The terms $b_n = 3n^2$ do not approach $0$, so $\\sum b_n$ diverges by the nth-term test, and $\\frac{a_n}{b_n} = \\frac{3n^2+1}{3n^2(n^4+2n)} \\to 0$. A limit of $0$ with a divergent $\\sum b_n$ is inconclusive.",
+    "This choice comes from miscounting the degree difference as $1$ instead of $2$. With $b_n = \\frac{1}{n}$ the ratio is $\\frac{a_n}{b_n} = \\frac{3n^3 + n}{n^4 + 2n} \\to 0$. A limit of $0$ paired with a divergent comparison series is inconclusive, and in any case the series converges rather than diverges."
+   ],
+   "hints": [
+    "For large $n$, the numerator behaves like $3n^2$ and the denominator like $n^4$. The terms $a_n$ therefore behave like $\\frac{3n^2}{n^4}$. Simplify that ratio to find the matching power of $n$.",
+    "The limit comparison test: if $a_n, b_n > 0$ and $\\lim \\frac{a_n}{b_n} = L$ with $0 < L < \\infty$, then $\\sum a_n$ and $\\sum b_n$ both converge or both diverge. Compute the limit by dividing the numerator and denominator of $\\frac{a_n}{b_n}$ by the highest power of $n$."
+   ],
+   "solution": [
+    {
+     "text": "For large $n$ the dominant terms are $3n^2$ in the numerator and $n^4$ in the denominator, so $a_n$ behaves like $\\frac{3n^2}{n^4} = \\frac{3}{n^2}$. The constant $3$ does not affect convergence, so take $b_n = \\dfrac{1}{n^2}$."
+    },
+    {
+     "text": "Compute the limit of the ratio. Multiply by $n^2$, then divide the numerator and denominator by $n^4$.",
+     "math": "\\lim_{n \\to \\infty} \\frac{a_n}{b_n} = \\lim_{n \\to \\infty} \\frac{(3n^2 + 1)\\,n^2}{n^4 + 2n} = \\lim_{n \\to \\infty} \\frac{3 + \\frac{1}{n^2}}{1 + \\frac{2}{n^3}} = 3"
+    },
+    {
+     "text": "The limit $3$ is finite and positive, so by the limit comparison test $\\sum a_n$ and $\\sum b_n$ have the same behavior. Since $\\sum \\frac{1}{n^2}$ is a p-series with $p = 2 > 1$, it converges."
+    },
+    {
+     "text": "Therefore $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{3n^2 + 1}{n^4 + 2n}$ converges."
+    }
+   ]
+  },
+  {
+   "id": "u10-q014",
+   "skillId": "u10-comparison-tests",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Let $a_n = \\dfrac{4n^2 + n}{2n^4 + 3n}$ and $b_n = \\dfrac{1}{n^2}$. Compute $\\displaystyle\\lim_{n \\to \\infty} \\frac{a_n}{b_n}$. Give an exact integer.</p>",
+   "answer": 2,
+   "hints": [
+    "Dividing by $b_n = \\frac{1}{n^2}$ is the same as multiplying by $n^2$. Write $\\frac{a_n}{b_n}$ as a single fraction of polynomials in $n$.",
+    "To find the limit of a ratio of polynomials as $n \\to \\infty$, divide every term in the numerator and the denominator by the highest power of $n$ that appears, then let $n \\to \\infty$."
+   ],
+   "solution": [
+    {
+     "text": "Dividing by $b_n = \\frac{1}{n^2}$ multiplies by $n^2$.",
+     "math": "\\frac{a_n}{b_n} = \\frac{4n^2 + n}{2n^4 + 3n}\\cdot n^2 = \\frac{4n^4 + n^3}{2n^4 + 3n}"
+    },
+    {
+     "text": "Divide the numerator and the denominator by $n^4$, the highest power present.",
+     "math": "\\frac{4n^4 + n^3}{2n^4 + 3n} = \\frac{4 + \\frac{1}{n}}{2 + \\frac{3}{n^3}}"
+    },
+    {
+     "text": "As $n \\to \\infty$, the terms $\\frac{1}{n}$ and $\\frac{3}{n^3}$ approach $0$.",
+     "math": "\\lim_{n \\to \\infty} \\frac{a_n}{b_n} = \\frac{4}{2} = 2"
+    },
+    {
+     "text": "The limit $2$ is finite and positive, and all terms are positive, so the limit comparison test says $\\sum a_n$ and $\\sum b_n$ either both converge or both diverge. Since $\\sum \\frac{1}{n^2}$ is a p-series with $p = 2 > 1$, it converges, and therefore $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{4n^2 + n}{2n^4 + 3n}$ converges."
+    }
+   ]
+  },
+  {
+   "id": "u10-q015",
+   "skillId": "u10-comparison-tests",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} \\sin\\left(\\frac{1}{n}\\right)$. Which of the following statements is true, with a correct justification?</p>",
+   "choices": [
+    "The series converges because $\\displaystyle\\lim_{n \\to \\infty} \\sin\\left(\\frac{1}{n}\\right) = 0$.",
+    "The series converges by direct comparison, because $\\sin\\left(\\dfrac{1}{n}\\right) \\le \\dfrac{1}{n}$ for all $n \\ge 1$.",
+    "The series converges by the alternating series test, because the sine function alternates in sign.",
+    "The series diverges by limit comparison with $\\displaystyle\\sum \\frac{1}{n}$, because $\\displaystyle\\lim_{n \\to \\infty} \\frac{\\sin(1/n)}{1/n} = 1$ and the harmonic series diverges."
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from using the nth-term test in the wrong direction. Terms approaching $0$ is necessary for convergence but not sufficient. This series diverges.",
+    "This choice comes from bounding the terms above by the terms of a divergent series. The inequality $\\sin(1/n) \\le 1/n$ is true, but being smaller than the terms of the divergent harmonic series proves nothing. The direct comparison test proves convergence only with a convergent upper series.",
+    "This choice comes from treating $\\sin$ of a positive argument as alternating. For $n \\ge 1$, $\\frac{1}{n}$ lies in $(0, 1]$, an interval inside $(0, \\pi)$ where sine is positive. Every term is positive, so the series does not alternate and the alternating series test does not apply.",
+    null
+   ],
+   "hints": [
+    "For $n \\ge 1$ the argument $\\frac{1}{n}$ is in $(0, 1]$, where sine is positive, so the terms are positive and comparison tests apply. When $x$ is close to $0$, $\\sin x$ is close to $x$. Use that to choose a comparison series.",
+    "Use the limit comparison test with $b_n = \\frac{1}{n}$. The limit $\\lim_{n \\to \\infty} \\frac{\\sin(1/n)}{1/n}$ is the same as $\\lim_{x \\to 0^+} \\frac{\\sin x}{x}$ with $x = \\frac{1}{n}$, a standard limit."
+   ],
+   "solution": [
+    {
+     "text": "For $n \\ge 1$, $\\frac{1}{n} \\in (0, 1]$ and sine is positive on $(0, \\pi)$, so every term $a_n = \\sin\\left(\\frac{1}{n}\\right)$ is positive. The series does not alternate, and the limit comparison test is available."
+    },
+    {
+     "text": "Choose $b_n = \\frac{1}{n}$ because $\\sin x$ behaves like $x$ for $x$ near $0$. Substitute $x = \\frac{1}{n}$, which approaches $0^+$ as $n \\to \\infty$.",
+     "math": "\\lim_{n \\to \\infty} \\frac{a_n}{b_n} = \\lim_{n \\to \\infty} \\frac{\\sin(1/n)}{1/n} = \\lim_{x \\to 0^+} \\frac{\\sin x}{x} = 1"
+    },
+    {
+     "text": "The limit $1$ is finite and positive, so by the limit comparison test $\\sum \\sin\\left(\\frac{1}{n}\\right)$ and $\\sum \\frac{1}{n}$ have the same behavior. The harmonic series $\\sum \\frac{1}{n}$ diverges (a p-series with $p = 1$)."
+    },
+    {
+     "text": "Therefore $\\displaystyle\\sum_{n=1}^{\\infty} \\sin\\left(\\frac{1}{n}\\right)$ diverges. The fact that the terms approach $0$ does not prevent this; it only means the nth-term test is inconclusive."
+    }
+   ]
+  },
+  {
+   "id": "u10-q016",
+   "skillId": "u10-alternating-and-ratio",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^{n+1}}{\\sqrt{n}}$. Which of the following statements is true, with a correct justification?</p>",
+   "choices": [
+    "The series diverges because it is a p-series with $p = \\dfrac{1}{2} \\le 1$.",
+    "The series converges by the alternating series test, because $\\dfrac{1}{\\sqrt{n}}$ is decreasing and $\\displaystyle\\lim_{n \\to \\infty} \\frac{1}{\\sqrt{n}} = 0$.",
+    "The series converges absolutely, because $\\displaystyle\\sum \\frac{1}{\\sqrt{n}}$ converges.",
+    "The series diverges by the nth-term test."
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from ignoring the factor $(-1)^{n+1}$. The p-series rule applies to $\\sum \\frac{1}{n^p}$ with all positive terms. The series here alternates in sign, so it is not a p-series, and the alternating signs allow it to converge even though $p = \\frac{1}{2}$ would make the all-positive version diverge.",
+    null,
+    "This choice comes from treating the series of absolute values as convergent. The absolute values form $\\sum \\frac{1}{\\sqrt{n}}$, a p-series with $p = \\frac{1}{2} \\le 1$, which diverges. The series converges, but only conditionally, not absolutely.",
+    "This choice comes from applying the nth-term test when its hypothesis fails. The terms $\\frac{(-1)^{n+1}}{\\sqrt{n}}$ approach $0$ because $\\frac{1}{\\sqrt{n}} \\to 0$, so the test is inconclusive and does not prove divergence."
+   ],
+   "hints": [
+    "Write the term as $(-1)^{n+1} b_n$ with $b_n = \\frac{1}{\\sqrt{n}}$ positive. The signs alternate, so consider the alternating series test.",
+    "The alternating series test: if $b_n > 0$, $b_{n+1} \\le b_n$ for all $n$, and $\\lim b_n = 0$, then $\\sum (-1)^{n+1} b_n$ converges. Check both conditions for $b_n = \\frac{1}{\\sqrt{n}}$."
+   ],
+   "solution": [
+    {
+     "text": "Write the series as $\\sum (-1)^{n+1} b_n$ with $b_n = \\dfrac{1}{\\sqrt{n}}$. Each $b_n$ is positive and the factor $(-1)^{n+1}$ makes the signs alternate, so the alternating series test is the relevant test."
+    },
+    {
+     "text": "Check the two conditions. First, $b_n$ is decreasing because $\\sqrt{n+1} > \\sqrt{n}$, so $\\frac{1}{\\sqrt{n+1}} < \\frac{1}{\\sqrt{n}}$. Second, the limit is $0$.",
+     "math": "\\lim_{n \\to \\infty} \\frac{1}{\\sqrt{n}} = 0"
+    },
+    {
+     "text": "Both conditions hold, so by the alternating series test $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^{n+1}}{\\sqrt{n}}$ converges."
+    },
+    {
+     "text": "The convergence is conditional, not absolute: the series of absolute values is $\\sum \\frac{1}{\\sqrt{n}}$, a p-series with $p = \\frac{1}{2} \\le 1$, which diverges."
+    }
+   ]
+  },
+  {
+   "id": "u10-q017",
+   "skillId": "u10-alternating-and-ratio",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{n^3}{4^n}$, with general term $a_n = \\dfrac{n^3}{4^n}$. Apply the ratio test: compute $L = \\displaystyle\\lim_{n \\to \\infty} \\left|\\frac{a_{n+1}}{a_n}\\right|$. Give $L$ as an exact decimal.</p>",
+   "answer": 0.25,
+   "hints": [
+    "Write $a_{n+1}$ by replacing every $n$ in $a_n$ with $n + 1$: $a_{n+1} = \\dfrac{(n+1)^3}{4^{n+1}}$. Dividing by $a_n$ is the same as multiplying by its reciprocal, $\\dfrac{4^n}{n^3}$.",
+    "Group the powers of $4$ together and the cubes together. The quotient $\\dfrac{4^n}{4^{n+1}}$ is a constant, and $\\left(\\dfrac{n+1}{n}\\right)^3 = \\left(1 + \\dfrac{1}{n}\\right)^3$ has a limit you can evaluate directly.",
+    "After simplifying, $L$ is the constant factor times the limit of $\\left(1 + \\dfrac{1}{n}\\right)^3$. Compare $L$ with $1$ to draw the conclusion of the ratio test."
+   ],
+   "solution": [
+    {
+     "text": "The ratio test compares consecutive terms. For a series $\\sum a_n$, let $L = \\lim_{n \\to \\infty} \\left|\\frac{a_{n+1}}{a_n}\\right|$. If $L < 1$ the series converges absolutely; if $L > 1$ the series diverges; if $L = 1$ the test gives no information. Set up the ratio.",
+     "math": "\\left|\\frac{a_{n+1}}{a_n}\\right| = \\frac{(n+1)^3}{4^{n+1}} \\cdot \\frac{4^n}{n^3}"
+    },
+    {
+     "text": "Group the powers of $4$ and the cubes separately. Since $4^{n+1} = 4 \\cdot 4^n$, the powers of $4$ reduce to $\\frac{1}{4}$.",
+     "math": "\\frac{(n+1)^3}{4^{n+1}} \\cdot \\frac{4^n}{n^3} = \\frac{4^n}{4^{n+1}} \\cdot \\frac{(n+1)^3}{n^3} = \\frac{1}{4}\\left(\\frac{n+1}{n}\\right)^3"
+    },
+    {
+     "text": "Take the limit. The fraction $\\frac{n+1}{n} = 1 + \\frac{1}{n}$ approaches $1$, so its cube approaches $1$.",
+     "math": "L = \\lim_{n \\to \\infty} \\frac{1}{4}\\left(1 + \\frac{1}{n}\\right)^3 = \\frac{1}{4} \\cdot 1 = 0.25"
+    },
+    {
+     "text": "Because $L = 0.25 < 1$, the ratio test says the series $\\sum \\frac{n^3}{4^n}$ converges absolutely. The polynomial factor $n^3$ does not affect the limit; the exponential base $4$ in the denominator determines it."
+    }
+   ]
+  },
+  {
+   "id": "u10-q018",
+   "skillId": "u10-alternating-and-ratio",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^n n}{n^2 + 1}$. Which of the following statements is true?</p>",
+   "choices": [
+    "The series converges absolutely, by comparison of $\\dfrac{n}{n^2+1}$ with $\\dfrac{1}{n^2}$.",
+    "The series diverges, because $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{n}{n^2+1}$ diverges.",
+    "The series converges conditionally.",
+    "The series converges absolutely, by the ratio test."
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from comparing $\\frac{n}{n^2+1}$ with $\\frac{1}{n^2}$ instead of with $\\frac{1}{n}$. The inequality $\\frac{n}{n^2+1} \\leq \\frac{1}{n^2}$ is false for $n \\geq 2$ (at $n = 2$, $\\frac{2}{5} > \\frac{1}{4}$). Because the numerator has degree $1$ and the denominator has degree $2$, the terms behave like $\\frac{1}{n}$, and the series of absolute values diverges by limit comparison with the harmonic series.",
+    "This choice comes from concluding that the series diverges because its series of absolute values diverges. Divergence of $\\sum |a_n|$ rules out absolute convergence only. The alternating series itself can still converge, and here the alternating series test shows that it does.",
+    null,
+    "This choice comes from the ratio test. The limit of $\\left|\\frac{a_{n+1}}{a_n}\\right| = \\frac{(n+1)(n^2+1)}{n\\left((n+1)^2+1\\right)}$ is $1$, so the ratio test gives no information about this series. A ratio limit equal to $1$ never establishes convergence."
+   ],
+   "hints": [
+    "Absolute convergence means $\\sum |a_n|$ converges. Conditional convergence means $\\sum a_n$ converges but $\\sum |a_n|$ does not. Test the series of absolute values first, then the alternating series itself.",
+    "For $\\sum \\frac{n}{n^2+1}$, use the limit comparison test with $\\sum \\frac{1}{n}$: compute $\\lim_{n \\to \\infty} \\dfrac{n/(n^2+1)}{1/n}$ and recall what is known about the harmonic series.",
+    "For the alternating series test, let $b_n = \\frac{n}{n^2+1}$. Check that $b_n \\to 0$ and that $b_n$ is decreasing; the sign of the derivative of $g(x) = \\frac{x}{x^2+1}$ settles the decreasing condition."
+   ],
+   "solution": [
+    {
+     "text": "Let $b_n = \\frac{n}{n^2+1}$, so the series is $\\sum (-1)^n b_n$. First test the series of absolute values, $\\sum b_n$, by limit comparison with the harmonic series $\\sum \\frac{1}{n}$.",
+     "math": "\\lim_{n \\to \\infty} \\frac{b_n}{1/n} = \\lim_{n \\to \\infty} \\frac{n^2}{n^2+1} = 1"
+    },
+    {
+     "text": "The limit is a positive finite number and $\\sum \\frac{1}{n}$ diverges (it is the $p$-series with $p = 1$), so $\\sum b_n$ diverges by the limit comparison test. The series does not converge absolutely."
+    },
+    {
+     "text": "Now apply the alternating series test to $\\sum (-1)^n b_n$. The test requires $b_n > 0$, $b_n \\to 0$, and $b_n$ decreasing. The first two conditions hold: $b_n > 0$ for $n \\geq 1$, and $\\lim_{n \\to \\infty} \\frac{n}{n^2+1} = 0$ because the denominator has the larger degree."
+    },
+    {
+     "text": "For the decreasing condition, let $g(x) = \\frac{x}{x^2+1}$ and differentiate with the quotient rule. The derivative is negative for $x > 1$, so $b_n = g(n)$ is decreasing for $n \\geq 1$.",
+     "math": "g'(x) = \\frac{(x^2+1) - x \\cdot 2x}{(x^2+1)^2} = \\frac{1 - x^2}{(x^2+1)^2}"
+    },
+    {
+     "text": "All three conditions hold, so $\\sum (-1)^n b_n$ converges by the alternating series test. The series converges, but its series of absolute values diverges. Therefore the series converges conditionally."
+    }
+   ]
+  },
+  {
+   "id": "u10-q019",
+   "skillId": "u10-alternating-and-ratio",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Consider the series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-3)^n}{n \\cdot 2^n}$. Which of the following statements is true?</p>",
+   "choices": [
+    "The series diverges by the ratio test, because $L = \\dfrac{3}{2}$.",
+    "The series converges by the ratio test, because $L = \\dfrac{2}{3}$.",
+    "The series converges by the alternating series test.",
+    "The ratio test is inconclusive, because $L = 1$."
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from inverting the ratio, computing $\\left|\\frac{a_n}{a_{n+1}}\\right|$ instead of $\\left|\\frac{a_{n+1}}{a_n}\\right|$. The ratio test uses the later term divided by the earlier term. The factor $\\frac{3^{n+1}}{3^n} = 3$ belongs in the numerator and the factor $\\frac{2^{n+1}}{2^n} = 2$ belongs in the denominator, giving $L = \\frac{3}{2}$.",
+    "This choice comes from applying the alternating series test to a series whose terms do not satisfy its conditions. The test requires the absolute values $|a_n| = \\frac{3^n}{n \\cdot 2^n} = \\frac{(3/2)^n}{n}$ to decrease to $0$. Instead these values grow without bound, because the exponential $(3/2)^n$ outgrows the linear denominator $n$. The alternating series test cannot be applied, and the $n$th-term test shows divergence.",
+    "This choice comes from cancelling $3^{n+1}$ against $2^n$ as if they were powers of the same base, leaving only $\\frac{n}{n+1}$, whose limit is $1$. The bases $3$ and $2$ are different, so $\\frac{3^{n+1}}{3^n} = 3$ and $\\frac{2^n}{2^{n+1}} = \\frac{1}{2}$ survive as the constant factor $\\frac{3}{2}$."
+   ],
+   "hints": [
+    "Write $|a_n| = \\dfrac{3^n}{n \\cdot 2^n}$. A factor of $(-1)^n$ in the terms does not by itself make the alternating series test applicable; the test also needs the absolute values to decrease toward $0$.",
+    "Set up $\\left|\\dfrac{a_{n+1}}{a_n}\\right| = \\dfrac{3^{n+1}}{(n+1) \\cdot 2^{n+1}} \\cdot \\dfrac{n \\cdot 2^n}{3^n}$ and simplify the powers of $3$ and the powers of $2$ separately before taking the limit."
+   ],
+   "solution": [
+    {
+     "text": "Write the absolute value of the general term. Since $|(-3)^n| = 3^n$, the absolute value is $|a_n| = \\frac{3^n}{n \\cdot 2^n}$."
+    },
+    {
+     "text": "Apply the ratio test, using the later term divided by the earlier term. The powers of $3$ reduce to $3$ and the powers of $2$ reduce to $\\frac{1}{2}$.",
+     "math": "\\left|\\frac{a_{n+1}}{a_n}\\right| = \\frac{3^{n+1}}{(n+1)\\, 2^{n+1}} \\cdot \\frac{n\\, 2^n}{3^n} = \\frac{3}{2} \\cdot \\frac{n}{n+1}"
+    },
+    {
+     "text": "Take the limit. Since $\\frac{n}{n+1} \\to 1$, the limit is $L = \\frac{3}{2}$.",
+     "math": "L = \\lim_{n \\to \\infty} \\frac{3}{2} \\cdot \\frac{n}{n+1} = \\frac{3}{2}"
+    },
+    {
+     "text": "Because $L = \\frac{3}{2} > 1$, the series diverges by the ratio test. A second view confirms this: $|a_n| = \\frac{(3/2)^n}{n}$ grows without bound (for example, $|a_{20}| \\approx 166$), so the terms do not approach $0$ and the series also diverges by the $n$th-term test. The alternating series test does not apply, because its conditions require the absolute values to decrease to $0$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q020",
+   "skillId": "u10-alternating-and-ratio",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Consider the three series:</p><ul><li>I. $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^n}{n+1}$</li><li>II. $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^n n}{2n+1}$</li><li>III. $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^n}{n^2}$</li></ul><p>Which of the series converge?</p>",
+   "choices": [
+    "III only",
+    "I, II, and III",
+    "II and III only",
+    "I and III only"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from treating series I as divergent because its absolute values $\\frac{1}{n+1}$ form a divergent harmonic-type series. Divergence of the absolute values rules out absolute convergence only. Series I satisfies the alternating series test ($\\frac{1}{n+1}$ is positive, decreasing, and approaches $0$), so it converges conditionally.",
+    "This choice comes from applying the alternating series test to series II without checking that its terms approach $0$. The absolute values $\\frac{n}{2n+1}$ approach $\\frac{1}{2}$, not $0$, so series II diverges by the $n$th-term test. An alternating sign does not change the conclusion for a series whose terms do not approach $0$.",
+    "This choice comes from two separate errors: treating series I as divergent like the harmonic series, and applying the alternating series test to series II without checking that its terms approach $0$. Series I converges by the alternating series test, and series II diverges by the $n$th-term test because its terms approach $\\pm\\frac{1}{2}$.",
+    null
+   ],
+   "hints": [
+    "For each series, first apply the $n$th-term test: if the terms do not approach $0$, the series diverges, regardless of alternating signs.",
+    "For a series whose terms do approach $0$, apply the alternating series test: the absolute values must be positive, decreasing, and approach $0$. Separately, decide whether the convergence is absolute by testing the series of absolute values as a $p$-series."
+   ],
+   "solution": [
+    {
+     "text": "Series I: the absolute values $b_n = \\frac{1}{n+1}$ are positive, decreasing, and approach $0$. By the alternating series test, series I converges. Its series of absolute values, $\\sum \\frac{1}{n+1}$, is the harmonic series without its first term, which diverges, so the convergence is conditional. Series I converges."
+    },
+    {
+     "text": "Series II: the absolute values are $\\frac{n}{2n+1}$, a ratio of polynomials of equal degree with leading coefficients $1$ and $2$. So the terms approach $\\pm\\frac{1}{2}$, not $0$.",
+     "math": "\\lim_{n \\to \\infty} \\frac{n}{2n+1} = \\frac{1}{2} \\neq 0"
+    },
+    {
+     "text": "By the $n$th-term test, series II diverges. The alternating series test cannot be applied to series II, because one of its conditions, that the terms approach $0$, fails."
+    },
+    {
+     "text": "Series III: the series of absolute values $\\sum \\frac{1}{n^2}$ is a $p$-series with $p = 2 > 1$, which converges. So series III converges absolutely, and every absolutely convergent series converges."
+    },
+    {
+     "text": "Series I and III converge and series II diverges. The answer is I and III only."
+    }
+   ]
+  },
+  {
+   "id": "u10-q021",
+   "skillId": "u10-taylor-polynomials",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Let $f(x) = e^{2x}$. Find the second-degree Maclaurin polynomial $P_2(x)$ for $f$.</p>",
+   "choices": [
+    "$1 + 2x + 4x^2$",
+    "$1 + 2x + 2x^2$",
+    "$1 + 2x + x^2$",
+    "$1 + x + \\dfrac{x^2}{2}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from using $f''(0) = 4$ directly as the coefficient of $x^2$. The coefficient of $x^2$ in a Taylor polynomial is $\\frac{f''(0)}{2!}$, so the $4$ must be divided by $2$.",
+    null,
+    "This choice comes from a dropped chain-rule factor in the second derivative. Differentiating $f'(x) = 2e^{2x}$ produces another factor of $2$, so $f''(x) = 4e^{2x}$ and $f''(0) = 4$, not $2$. With $f''(0) = 4$, the coefficient of $x^2$ is $\\frac{4}{2} = 2$.",
+    "This choice comes from the Maclaurin polynomial for $e^x$, without the factor $2$ in the exponent. For $e^{2x}$, each derivative at $0$ gains a factor of $2$: $f'(0) = 2$ and $f''(0) = 4$."
+   ],
+   "hints": [
+    "A Maclaurin polynomial is a Taylor polynomial centered at $x = 0$: $P_2(x) = f(0) + f'(0)\\,x + \\dfrac{f''(0)}{2!}\\,x^2$. Compute $f(0)$, $f'(0)$, and $f''(0)$, keeping the chain-rule factor that comes from the exponent $2x$.",
+    "As a second route, substitute $u = 2x$ into the known Maclaurin series $e^u = 1 + u + \\dfrac{u^2}{2!} + \\dots$ and simplify $(2x)^2$."
+   ],
+   "solution": [
+    {
+     "text": "Compute the derivatives. Each derivative of $e^{2x}$ multiplies by the chain-rule factor $2$.",
+     "math": "f(x) = e^{2x}, \\qquad f'(x) = 2e^{2x}, \\qquad f''(x) = 4e^{2x}"
+    },
+    {
+     "text": "Evaluate at $x = 0$, where $e^{0} = 1$.",
+     "math": "f(0) = 1, \\qquad f'(0) = 2, \\qquad f''(0) = 4"
+    },
+    {
+     "text": "Assemble the second-degree Maclaurin polynomial, dividing the second derivative by $2!$.",
+     "math": "P_2(x) = f(0) + f'(0)\\,x + \\frac{f''(0)}{2!}\\,x^2 = 1 + 2x + \\frac{4}{2}x^2 = 1 + 2x + 2x^2"
+    },
+    {
+     "text": "Check by substitution: $e^u = 1 + u + \\frac{u^2}{2} + \\dots$ with $u = 2x$ gives $1 + 2x + \\frac{(2x)^2}{2} = 1 + 2x + 2x^2$, the same polynomial."
+    }
+   ]
+  },
+  {
+   "id": "u10-q022",
+   "skillId": "u10-taylor-polynomials",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Let $f$ be a function with derivatives of all orders. The values of $f$ and its first three derivatives at $x = 2$ are given in the table.</p><table><thead><tr><th>$f(2)$</th><th>$f'(2)$</th><th>$f''(2)$</th><th>$f'''(2)$</th></tr></thead><tbody><tr><td>$5$</td><td>$-3$</td><td>$8$</td><td>$12$</td></tr></tbody></table><p>Write the third-degree Taylor polynomial $P_3(x)$ for $f$ about $x = 2$, and use it to approximate $f(2.5)$. Give the exact decimal value of $P_3(2.5)$.</p>",
+   "answer": 4.75,
+   "hints": [
+    "The third-degree Taylor polynomial about $x = a$ is $P_3(x) = f(a) + f'(a)(x-a) + \\dfrac{f''(a)}{2!}(x-a)^2 + \\dfrac{f'''(a)}{3!}(x-a)^3$. Here $a = 2$, so every power is a power of $(x - 2)$.",
+    "Divide $f''(2)$ by $2! = 2$ and $f'''(2)$ by $3! = 6$ before writing the coefficients. Then substitute $x = 2.5$, so that $x - 2 = 0.5$."
+   ],
+   "solution": [
+    {
+     "text": "Write the general form of the third-degree Taylor polynomial about $x = 2$. The coefficient of $(x-2)^k$ is the $k$th derivative at $2$ divided by $k!$.",
+     "math": "P_3(x) = f(2) + f'(2)(x-2) + \\frac{f''(2)}{2!}(x-2)^2 + \\frac{f'''(2)}{3!}(x-2)^3"
+    },
+    {
+     "text": "Substitute the table values, dividing by the factorials $2! = 2$ and $3! = 6$.",
+     "math": "P_3(x) = 5 - 3(x-2) + \\frac{8}{2}(x-2)^2 + \\frac{12}{6}(x-2)^3 = 5 - 3(x-2) + 4(x-2)^2 + 2(x-2)^3"
+    },
+    {
+     "text": "Substitute $x = 2.5$, so that $x - 2 = 0.5$.",
+     "math": "P_3(2.5) = 5 - 3(0.5) + 4(0.5)^2 + 2(0.5)^3 = 5 - 1.5 + 1 + 0.25"
+    },
+    {
+     "text": "Add the terms. The Taylor polynomial gives the approximation $f(2.5) \\approx 4.75$.",
+     "math": "P_3(2.5) = 4.75"
+    }
+   ]
+  },
+  {
+   "id": "u10-q023",
+   "skillId": "u10-taylor-polynomials",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The third-degree Taylor polynomial for a function $f$ about $x = 1$ is</p><p>$$P_3(x) = 4 - 2(x-1) + 5(x-1)^2 - (x-1)^3.$$</p><p>Find $f'''(1)$.</p>",
+   "choices": [
+    "$-1$",
+    "$-3$",
+    "$-6$",
+    "$6$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from reading the coefficient of $(x-1)^3$ as $f'''(1)$ itself. The coefficient of $(x-1)^3$ in a Taylor polynomial is $\\frac{f'''(1)}{3!}$, so the coefficient must be multiplied by $3! = 6$ to recover $f'''(1)$.",
+    "This choice comes from multiplying the coefficient by $3$ instead of by $3! = 6$. The factorial $3! = 3 \\cdot 2 \\cdot 1 = 6$ appears because differentiating $(x-1)^3$ three times produces the product $3 \\cdot 2 \\cdot 1$.",
+    null,
+    "This choice comes from a sign slip on the coefficient. The term is $-(x-1)^3$, so its coefficient is $-1$, and $f'''(1) = 3! \\cdot (-1) = -6$."
+   ],
+   "hints": [
+    "In a Taylor polynomial about $x = 1$, the coefficient of $(x-1)^k$ is $\\dfrac{f^{(k)}(1)}{k!}$. Identify the coefficient of $(x-1)^3$ in $P_3$, including its sign.",
+    "Solve $\\dfrac{f'''(1)}{3!} = c$ for $f'''(1)$, where $c$ is the coefficient you identified. Recall that $3! = 6$."
+   ],
+   "solution": [
+    {
+     "text": "The general form of the third-degree Taylor polynomial about $x = 1$ places the $k$th derivative at $1$, divided by $k!$, as the coefficient of $(x-1)^k$.",
+     "math": "P_3(x) = f(1) + f'(1)(x-1) + \\frac{f''(1)}{2!}(x-1)^2 + \\frac{f'''(1)}{3!}(x-1)^3"
+    },
+    {
+     "text": "Match the $(x-1)^3$ terms. In the given polynomial the term is $-(x-1)^3$, so its coefficient is $-1$.",
+     "math": "\\frac{f'''(1)}{3!} = -1"
+    },
+    {
+     "text": "Multiply both sides by $3! = 6$.",
+     "math": "f'''(1) = 6 \\cdot (-1) = -6"
+    },
+    {
+     "text": "Check by differentiating $P_3$ directly. Three derivatives of $-(x-1)^3$ give $-3 \\cdot 2 \\cdot 1 = -6$, and the lower-degree terms become $0$ after three differentiations. Since $P_3$ matches $f$ through the third derivative at $x = 1$, $f'''(1) = P_3'''(1) = -6$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q024",
+   "skillId": "u10-taylor-polynomials",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find the third-degree Taylor polynomial $P_3(x)$ for $f(x) = \\ln x$ about $x = 1$.</p>",
+   "choices": [
+    "$(x-1) - \\dfrac{(x-1)^2}{2} + \\dfrac{(x-1)^3}{3}$",
+    "$(x-1) - (x-1)^2 + 2(x-1)^3$",
+    "$1 + (x-1) - \\dfrac{(x-1)^2}{2} + \\dfrac{(x-1)^3}{3}$",
+    "$(x-1) + \\dfrac{(x-1)^2}{2} + \\dfrac{(x-1)^3}{3}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from using the derivative values $f''(1) = -1$ and $f'''(1) = 2$ directly as coefficients, without dividing by $2!$ and $3!$. The coefficients are $\\frac{-1}{2!} = -\\frac{1}{2}$ and $\\frac{2}{3!} = \\frac{1}{3}$.",
+    "This choice comes from a constant term of $1$. The constant term of a Taylor polynomial about $x = 1$ is $f(1) = \\ln 1 = 0$, not $1$, so the polynomial has no constant term.",
+    "This choice comes from a sign slip on $f''(1)$. Since $f'(x) = x^{-1}$, the power rule gives $f''(x) = -x^{-2}$, so $f''(1) = -1$ and the coefficient of $(x-1)^2$ is $\\frac{-1}{2!} = -\\frac{1}{2}$."
+   ],
+   "hints": [
+    "Compute $f(1)$, $f'(1)$, $f''(1)$, and $f'''(1)$ for $f(x) = \\ln x$. Write $f'(x) = x^{-1}$ and use the power rule for the higher derivatives, tracking the sign at each step.",
+    "Assemble $P_3(x) = f(1) + f'(1)(x-1) + \\dfrac{f''(1)}{2!}(x-1)^2 + \\dfrac{f'''(1)}{3!}(x-1)^3$. Note that $\\ln 1 = 0$."
+   ],
+   "solution": [
+    {
+     "text": "Compute the first three derivatives of $f(x) = \\ln x$ using the power rule on $x^{-1}$.",
+     "math": "f(x) = \\ln x, \\qquad f'(x) = x^{-1}, \\qquad f''(x) = -x^{-2}, \\qquad f'''(x) = 2x^{-3}"
+    },
+    {
+     "text": "Evaluate at $x = 1$.",
+     "math": "f(1) = 0, \\qquad f'(1) = 1, \\qquad f''(1) = -1, \\qquad f'''(1) = 2"
+    },
+    {
+     "text": "Assemble the polynomial, dividing each derivative by the matching factorial.",
+     "math": "P_3(x) = 0 + 1 \\cdot (x-1) + \\frac{-1}{2!}(x-1)^2 + \\frac{2}{3!}(x-1)^3 = (x-1) - \\frac{(x-1)^2}{2} + \\frac{(x-1)^3}{3}"
+    },
+    {
+     "text": "Check with a nearby value. At $x = 1.1$, $P_3(1.1) = 0.1 - 0.005 + 0.000333\\ldots \\approx 0.09533$, while $\\ln 1.1 \\approx 0.09531$. The polynomial agrees with $\\ln x$ to four decimal places near $x = 1$, as expected for a third-degree Taylor polynomial."
+    }
+   ]
+  },
+  {
+   "id": "u10-q025",
+   "skillId": "u10-taylor-polynomials",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>The temperature $T(t)$, in degrees Celsius, of a cup of coffee at time $t$ minutes satisfies the differential equation $\\dfrac{dT}{dt} = -0.1(T - 20)$ with $T(0) = 90$. Find the second-degree Taylor polynomial $P_2(t)$ for $T$ about $t = 0$, and use it to approximate the temperature of the coffee at $t = 2$ minutes. Give your answer in degrees Celsius, rounded to one decimal place.</p>",
+   "answer": 77.4,
+   "tolerance": 0.05,
+   "hints": [
+    "The Taylor polynomial about $t = 0$ needs the three values $T(0)$, $T'(0)$, and $T''(0)$. The first is given. The differential equation gives $T'(0)$ directly when you substitute $T = 90$.",
+    "To get $T''$, differentiate both sides of the differential equation with respect to $t$: $\\dfrac{d^2T}{dt^2} = -0.1\\,\\dfrac{dT}{dt}$. Then substitute the value of $T'(0)$ you already found.",
+    "Assemble $P_2(t) = T(0) + T'(0)\\,t + \\dfrac{T''(0)}{2}\\,t^2$ and evaluate it at $t = 2$."
+   ],
+   "solution": [
+    {
+     "text": "The second-degree Taylor polynomial about $t = 0$ is built from the values $T(0)$, $T'(0)$, and $T''(0)$.",
+     "math": "P_2(t) = T(0) + T'(0)\\,t + \\frac{T''(0)}{2!}\\,t^2"
+    },
+    {
+     "text": "Substitute $T(0) = 90$ into the differential equation to find $T'(0)$, in degrees Celsius per minute.",
+     "math": "T'(0) = -0.1(90 - 20) = -7"
+    },
+    {
+     "text": "Differentiate both sides of the differential equation with respect to $t$. The right side is the constant $-0.1$ times $T$, so its derivative is $-0.1$ times $T'$. Then substitute $T'(0) = -7$.",
+     "math": "T''(t) = -0.1\\,T'(t), \\qquad T''(0) = -0.1(-7) = 0.7"
+    },
+    {
+     "text": "Assemble the polynomial.",
+     "math": "P_2(t) = 90 - 7t + \\frac{0.7}{2}\\,t^2 = 90 - 7t + 0.35t^2"
+    },
+    {
+     "text": "Evaluate at $t = 2$ minutes.",
+     "math": "P_2(2) = 90 - 14 + 1.4 = 77.4"
+    },
+    {
+     "text": "The approximate temperature of the coffee at $t = 2$ minutes is $77.4$ degrees Celsius. For reference, the exact solution of the differential equation is $T(t) = 20 + 70e^{-0.1t}$, which gives $T(2) \\approx 77.3$ degrees Celsius, so the polynomial is accurate to within about $0.1$ degree at this time."
+    }
+   ]
+  },
+  {
+   "id": "u10-q026",
+   "skillId": "u10-error-bounds",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>The alternating series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^{n+1}}{n^2}$ converges to a sum $S$. Let $S_4$ be the sum of its first four terms. Which of the following is the bound on the error $|S - S_4|$ given by the alternating series error bound?</p>",
+   "choices": [
+    "$\\dfrac{1}{16}$",
+    "$\\dfrac{1}{5}$",
+    "$\\dfrac{1}{25}$",
+    "$\\dfrac{1}{36}$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from using the last included term, $b_4 = \\dfrac{1}{4^2}$, as the bound. The alternating series error bound is the first omitted term, $b_5$, because that term is the size of the next correction the partial sum would receive.",
+    "This choice comes from using $\\dfrac{1}{n}$ instead of $\\dfrac{1}{n^2}$ for the term size. The terms of this series have absolute value $b_n = \\dfrac{1}{n^2}$, so the first omitted term is $\\dfrac{1}{5^2}$, not $\\dfrac{1}{5}$.",
+    null,
+    "This choice comes from an off-by-one in the other direction, using the sixth term $b_6 = \\dfrac{1}{6^2}$. After four terms, the first omitted term is the fifth term, $b_5 = \\dfrac{1}{5^2}$."
+   ],
+   "hints": [
+    "The alternating series error bound says: if $\\sum (-1)^{n+1} b_n$ satisfies the conditions of the alternating series test, then the error after $N$ terms is at most $b_{N+1}$, the absolute value of the first term left out.",
+    "Here $b_n = \\dfrac{1}{n^2}$ and $N = 4$. Identify $b_{N+1}$."
+   ],
+   "solution": [
+    {
+     "text": "Write the series as $\\sum (-1)^{n+1} b_n$ with $b_n = \\dfrac{1}{n^2}$. The sequence $b_n$ is positive, decreasing, and has limit $0$, so the alternating series test applies and the alternating series error bound is available."
+    },
+    {
+     "text": "The bound states that $|S - S_N| \\le b_{N+1}$: the error after $N$ terms is at most the absolute value of the first omitted term. Here $N = 4$.",
+     "math": "|S - S_4| \\le b_5 = \\frac{1}{5^2} = \\frac{1}{25}"
+    },
+    {
+     "text": "The error bound is $\\dfrac{1}{25} = 0.04$. The actual error is about $0.024$, which is smaller than the bound, as it must be."
+    }
+   ]
+  },
+  {
+   "id": "u10-q027",
+   "skillId": "u10-error-bounds",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The alternating series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(-1)^{n+1}}{n^3}$ converges to a sum $S$. Let $S_N$ be the sum of its first $N$ terms. Find the smallest value of $N$ for which the alternating series error bound guarantees that $|S - S_N| < 0.002$. Give an exact integer.</p>",
+   "answer": 7,
+   "hints": [
+    "The alternating series error bound gives $|S - S_N| \\le b_{N+1}$, where $b_n = \\dfrac{1}{n^3}$. You need the smallest $N$ that makes this bound less than $0.002$.",
+    "Solve $\\dfrac{1}{(N+1)^3} < 0.002$. Rewrite it as $(N+1)^3 > 500$ and test consecutive integer cubes to find the smallest value of $N + 1$ that satisfies it.",
+    "Once you know the smallest allowed value of $N + 1$, subtract $1$ to get $N$."
+   ],
+   "solution": [
+    {
+     "text": "With $b_n = \\dfrac{1}{n^3}$, the sequence $b_n$ is positive, decreasing, and tends to $0$, so the alternating series error bound applies.",
+     "math": "|S - S_N| \\le b_{N+1} = \\frac{1}{(N+1)^3}"
+    },
+    {
+     "text": "Require the bound to be less than $0.002$ and solve for $N + 1$.",
+     "math": "\\frac{1}{(N+1)^3} < 0.002 = \\frac{1}{500} \\quad\\Longleftrightarrow\\quad (N+1)^3 > 500"
+    },
+    {
+     "text": "Compare consecutive cubes: $7^3 = 343$ is not greater than $500$, and $8^3 = 512$ is. So the smallest allowed value of $N + 1$ is $8$."
+    },
+    {
+     "text": "Therefore $N = 7$. Check: $b_8 = \\dfrac{1}{512} \\approx 0.00195$, which is less than $0.002$, while $b_7 = \\dfrac{1}{343} \\approx 0.0029$ is not, so $N = 6$ does not meet the requirement.",
+     "math": "N = 7"
+    }
+   ]
+  },
+  {
+   "id": "u10-q028",
+   "skillId": "u10-error-bounds",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Let $P_2(x) = 1 + x + \\dfrac{x^2}{2}$ be the second-degree Maclaurin polynomial for $f(x) = e^x$. Which of the following is the Lagrange error bound for $|e^{0.5} - P_2(0.5)|$, using the maximum value of $|f'''|$ on the interval $[0, 0.5]$?</p>",
+   "choices": [
+    "$\\dfrac{e^{0.5}(0.5)^3}{3!}$",
+    "$\\dfrac{(0.5)^3}{3!}$",
+    "$\\dfrac{e^{0.5}(0.5)^2}{2!}$",
+    "$\\dfrac{e^{0.5}(0.5)^3}{3}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from bounding $f'''(x) = e^x$ by its value at the center $x = 0$, which is $1$, instead of by its maximum on $[0, 0.5]$. Because $e^x$ is increasing, the maximum on the interval is $e^{0.5}$. This value, about $0.0208$, is smaller than the true error, about $0.0237$, so it is not a valid bound.",
+    "This choice comes from using the polynomial degree $n = 2$ in place of $n + 1 = 3$. The Lagrange error bound for a degree-$n$ polynomial involves the $(n+1)$st derivative, the factor $|x - a|^{n+1}$, and $(n+1)!$.",
+    "This choice comes from dividing by $n + 1 = 3$ instead of by $(n+1)! = 3! = 6$. The denominator in the Lagrange error bound is the factorial $(n+1)!$."
+   ],
+   "hints": [
+    "The Lagrange error bound for a degree-$n$ Taylor polynomial about $a$ is $|f(x) - P_n(x)| \\le \\dfrac{M}{(n+1)!}|x - a|^{n+1}$, where $M$ is a number with $|f^{(n+1)}(t)| \\le M$ for every $t$ between $a$ and $x$.",
+    "Here $n = 2$, $a = 0$, $x = 0.5$, and $f'''(x) = e^x$. Find the largest value of $e^t$ for $t$ in $[0, 0.5]$ and use it as $M$."
+   ],
+   "solution": [
+    {
+     "text": "State the Lagrange error bound with $n = 2$ and $a = 0$. It uses the third derivative.",
+     "math": "|f(0.5) - P_2(0.5)| \\le \\frac{M}{3!}\\,|0.5 - 0|^3, \\qquad \\text{where } |f'''(t)| \\le M \\text{ on } [0, 0.5]"
+    },
+    {
+     "text": "Every derivative of $e^x$ is $e^x$, so $f'''(t) = e^t$. This is an increasing function, so its maximum on $[0, 0.5]$ occurs at the right endpoint.",
+     "math": "M = e^{0.5}"
+    },
+    {
+     "text": "Substitute $M$ into the bound.",
+     "math": "|e^{0.5} - P_2(0.5)| \\le \\frac{e^{0.5}(0.5)^3}{3!}"
+    },
+    {
+     "text": "Numerically the bound is about $0.0343$. The actual error is $e^{0.5} - 1.625 \\approx 0.0237$, which is below the bound."
+    }
+   ]
+  },
+  {
+   "id": "u10-q029",
+   "skillId": "u10-error-bounds",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>A function $f$ has derivatives of all orders, and $|f^{(4)}(x)| \\le 24$ for all $x$ in the interval $[1, 1.5]$. Let $P_3(x)$ be the third-degree Taylor polynomial for $f$ about $x = 1$. Use the Lagrange error bound to find the largest possible value of $|f(1.5) - P_3(1.5)|$. Give the exact decimal value.</p>",
+   "answer": 0.0625,
+   "hints": [
+    "The Lagrange error bound for $P_n$ about $a$ is $\\dfrac{M}{(n+1)!}|x - a|^{n+1}$, where $M$ bounds the $(n+1)$st derivative between $a$ and $x$. Identify $n$, $a$, $x$, and $M$ from the problem statement.",
+    "Here $n = 3$, so the bound uses $4!$ in the denominator and the fourth power of the distance $|1.5 - 1|$."
+   ],
+   "solution": [
+    {
+     "text": "Identify the ingredients: degree $n = 3$, center $a = 1$, evaluation point $x = 1.5$, and $M = 24$ bounds $|f^{(4)}|$ on $[1, 1.5]$.",
+     "math": "|f(1.5) - P_3(1.5)| \\le \\frac{M}{(n+1)!}\\,|x - a|^{n+1} = \\frac{24}{4!}\\,(0.5)^4"
+    },
+    {
+     "text": "Compute. Since $4! = 24$, the fraction equals $1$, and $(0.5)^4 = 0.0625$.",
+     "math": "\\frac{24}{24}\\,(0.5)^4 = 0.0625"
+    },
+    {
+     "text": "The Lagrange error bound is $0.0625$. This means the approximation $P_3(1.5)$ is guaranteed to be within $0.0625$ of the true value $f(1.5)$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q030",
+   "skillId": "u10-error-bounds",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>The polynomial $P_3(x) = x - \\dfrac{x^3}{6}$ is the third-degree Maclaurin polynomial for $\\sin x$. Every derivative of $\\sin x$ is bounded by $1$ in absolute value. Which of the following is the smallest bound on $|\\sin(0.5) - P_3(0.5)|$ that the Lagrange error bound guarantees?</p>",
+   "choices": [
+    "$\\dfrac{(0.5)^3}{3!}$",
+    "$\\dfrac{(0.5)^4}{4!}$",
+    "$\\dfrac{(0.5)^5}{5}$",
+    "$\\dfrac{(0.5)^5}{5!}$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from using the polynomial degree $n = 3$ for the derivative order, the power, and the factorial. The Lagrange error bound for $P_n$ uses $n + 1$ in all three places.",
+    "This choice comes from stopping at the degree-3 remainder, $\\dfrac{M}{4!}(0.5)^4$ with $M = 1$. This is a valid bound but not the smallest one. The $x^4$ coefficient of the Maclaurin series for $\\sin x$ is $0$ because $\\sin^{(4)}(0) = \\sin 0 = 0$, so $P_3$ is also the fourth-degree polynomial $P_4$, and the degree-4 remainder gives a bound that is $10$ times smaller.",
+    "This choice comes from dividing by $n + 1 = 5$ instead of by $(n+1)! = 5! = 120$. The Lagrange error bound has a factorial in the denominator.",
+    null
+   ],
+   "hints": [
+    "Compare $P_3(x) = x - \\dfrac{x^3}{6}$ with the Maclaurin series for $\\sin x$, which is $x - \\dfrac{x^3}{3!} + \\dfrac{x^5}{5!} - \\cdots$. Which higher degree does $P_3$ also equal, given that the series has no $x^4$ term?",
+    "If the same polynomial is also $P_4$, the Lagrange error bound can be applied with $n = 4$, which uses the fifth derivative, the fifth power of $|x - 0|$, and the factorial of $5$. Use $M = 1$."
+   ],
+   "solution": [
+    {
+     "text": "The Maclaurin series for $\\sin x$ contains only odd powers: $\\sin x = x - \\dfrac{x^3}{3!} + \\dfrac{x^5}{5!} - \\cdots$. The coefficient of $x^4$ is $\\dfrac{\\sin^{(4)}(0)}{4!} = \\dfrac{\\sin 0}{4!} = 0$. So the fourth-degree Maclaurin polynomial $P_4$ has exactly the same terms as $P_3$.",
+     "math": "P_4(x) = P_3(x) = x - \\frac{x^3}{6}"
+    },
+    {
+     "text": "Apply the Lagrange error bound with $n = 4$, which uses the fifth derivative. Every derivative of $\\sin x$ is $\\pm\\sin x$ or $\\pm\\cos x$, so $M = 1$ is a valid bound on any interval.",
+     "math": "|\\sin(0.5) - P_4(0.5)| \\le \\frac{1}{5!}\\,(0.5)^5"
+    },
+    {
+     "text": "Because $P_4(0.5) = P_3(0.5)$, this same number bounds the error of $P_3$.",
+     "math": "|\\sin(0.5) - P_3(0.5)| \\le \\frac{(0.5)^5}{5!} \\approx 0.00026"
+    },
+    {
+     "text": "Using $n = 3$ instead gives the bound $\\dfrac{(0.5)^4}{4!} \\approx 0.0026$, which is also true but ten times larger. The actual error is about $0.000259$, slightly under the smaller bound."
+    }
+   ]
+  },
+  {
+   "id": "u10-q031",
+   "skillId": "u10-interval-of-convergence",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>What is the radius of convergence of the power series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(x - 3)^n}{n \\cdot 2^n}$?</p>",
+   "choices": [
+    "$\\dfrac{1}{2}$",
+    "$2$",
+    "$3$",
+    "$5$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from inverting the result of the ratio test. The ratio test gives $\\dfrac{|x - 3|}{2} < 1$, which is $|x - 3| < 2$. The radius is the number $R$ in $|x - 3| < R$, which is $2$, not the factor $\\dfrac{1}{2}$ that multiplies $|x - 3|$ in the limit.",
+    null,
+    "This choice comes from reporting the center of the series. The series is centered at $x = 3$; the radius is the distance from the center to either edge of the interval of convergence, which is $2$.",
+    "This choice comes from reporting the right endpoint $3 + 2 = 5$ of the interval of convergence instead of the radius. The radius is the half-width of the interval, $2$."
+   ],
+   "hints": [
+    "Apply the ratio test to the absolute values of the terms: compute $\\lim_{n \\to \\infty} \\left|\\dfrac{a_{n+1}}{a_n}\\right|$ where $a_n = \\dfrac{(x - 3)^n}{n \\cdot 2^n}$. The limit will be a constant multiple of $|x - 3|$.",
+    "The series converges when that limit is less than $1$. Rewrite the resulting inequality in the form $|x - 3| < R$; the number $R$ is the radius."
+   ],
+   "solution": [
+    {
+     "text": "Set $a_n = \\dfrac{(x - 3)^n}{n \\cdot 2^n}$ and form the ratio of consecutive terms in absolute value.",
+     "math": "\\left|\\frac{a_{n+1}}{a_n}\\right| = \\frac{|x - 3|^{n+1}}{(n+1)\\,2^{n+1}} \\cdot \\frac{n\\,2^n}{|x - 3|^n} = \\frac{n}{n+1} \\cdot \\frac{|x - 3|}{2}"
+    },
+    {
+     "text": "Take the limit as $n \\to \\infty$. The factor $\\dfrac{n}{n+1}$ approaches $1$.",
+     "math": "\\lim_{n \\to \\infty} \\left|\\frac{a_{n+1}}{a_n}\\right| = \\frac{|x - 3|}{2}"
+    },
+    {
+     "text": "By the ratio test, the series converges absolutely when this limit is less than $1$ and diverges when it is greater than $1$.",
+     "math": "\\frac{|x - 3|}{2} < 1 \\quad\\Longleftrightarrow\\quad |x - 3| < 2"
+    },
+    {
+     "text": "The radius of convergence is $R = 2$. The center is $3$, so the open interval of convergence is $(1, 5)$. The endpoints would need a separate check, but the radius does not depend on them."
+    }
+   ]
+  },
+  {
+   "id": "u10-q032",
+   "skillId": "u10-interval-of-convergence",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Find the radius of convergence of the power series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(2x - 1)^n}{n \\cdot 3^n}$. Give the exact decimal value.</p>",
+   "answer": 1.5,
+   "hints": [
+    "Apply the ratio test: the limit of $\\left|\\dfrac{a_{n+1}}{a_n}\\right|$ will be a constant times $|2x - 1|$. The series converges when that limit is less than $1$.",
+    "The radius of convergence is defined by an inequality of the form $|x - c| < R$ in which the coefficient of $x$ is $1$. Factor the $2$ out of $|2x - 1|$ before reading $R$: $|2x - 1| = 2\\left|x - \\dfrac{1}{2}\\right|$."
+   ],
+   "solution": [
+    {
+     "text": "Set $a_n = \\dfrac{(2x - 1)^n}{n \\cdot 3^n}$ and apply the ratio test.",
+     "math": "\\lim_{n \\to \\infty}\\left|\\frac{a_{n+1}}{a_n}\\right| = \\lim_{n \\to \\infty} \\frac{n}{n+1} \\cdot \\frac{|2x - 1|}{3} = \\frac{|2x - 1|}{3}"
+    },
+    {
+     "text": "The series converges absolutely when the limit is less than $1$.",
+     "math": "\\frac{|2x - 1|}{3} < 1 \\quad\\Longleftrightarrow\\quad |2x - 1| < 3"
+    },
+    {
+     "text": "The number $3$ is not the radius, because the radius is measured from the center in the variable $x$ itself. Factor the $2$ out of $|2x - 1|$ to put the inequality in the form $|x - c| < R$.",
+     "math": "|2x - 1| = 2\\left|x - \\tfrac{1}{2}\\right| < 3 \\quad\\Longleftrightarrow\\quad \\left|x - \\tfrac{1}{2}\\right| < \\tfrac{3}{2}"
+    },
+    {
+     "text": "The center is $c = \\dfrac{1}{2}$ and the radius of convergence is $R = \\dfrac{3}{2} = 1.5$. As a check, the open interval of convergence is $(-1, 2)$, whose half-width is $1.5$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q033",
+   "skillId": "u10-interval-of-convergence",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find the interval of convergence of the power series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(x - 1)^n}{n \\cdot 2^n}$.</p>",
+   "choices": [
+    "$(-1, 3)$",
+    "$[-1, 3)$",
+    "$[-1, 3]$",
+    "$(-1, 3]$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from stopping after the ratio test and leaving both endpoints out without testing them. At an endpoint the ratio test limit equals $1$, which gives no information, so each endpoint must be substituted into the series and tested on its own. At $x = -1$ the series becomes the alternating harmonic series, which converges, so $-1$ belongs in the interval.",
+    null,
+    "This choice comes from including both endpoints without testing them. At $x = 3$ the series becomes $\\sum \\frac{1}{n}$, the harmonic series, which diverges, so $3$ is not in the interval.",
+    "This choice comes from swapping the two endpoint conclusions. At $x = 3$ the factor $(x - 1)^n = 2^n$ cancels the $2^n$ in the denominator and leaves the divergent harmonic series. At $x = -1$ the factor $(-2)^n$ leaves the convergent alternating harmonic series. The left endpoint is included and the right endpoint is excluded."
+   ],
+   "hints": [
+    "Use the ratio test to find the open interval on which the series converges absolutely. Then test each endpoint separately by substituting its value into the series; the ratio test gives no information at the endpoints.",
+    "At each endpoint the factor $(x - 1)^n$ becomes $2^n$ or $(-2)^n$, which cancels the $2^n$ in the denominator. Decide whether each remaining series is the harmonic series or the alternating harmonic series."
+   ],
+   "solution": [
+    {
+     "text": "Set $a_n = \\dfrac{(x - 1)^n}{n \\cdot 2^n}$ and apply the ratio test. The series converges absolutely when the limit is less than $1$.",
+     "math": "\\lim_{n \\to \\infty}\\left|\\frac{a_{n+1}}{a_n}\\right| = \\lim_{n \\to \\infty} \\frac{n}{n+1} \\cdot \\frac{|x - 1|}{2} = \\frac{|x - 1|}{2} < 1 \\quad\\Longleftrightarrow\\quad -1 < x < 3"
+    },
+    {
+     "text": "Test the right endpoint $x = 3$. The factor $(x - 1)^n$ becomes $2^n$, which cancels the $2^n$ in the denominator, leaving the harmonic series. This is a $p$-series with $p = 1$, so it diverges, and $x = 3$ is not in the interval.",
+     "math": "\\sum_{n=1}^{\\infty} \\frac{2^n}{n \\cdot 2^n} = \\sum_{n=1}^{\\infty} \\frac{1}{n}"
+    },
+    {
+     "text": "Test the left endpoint $x = -1$. The factor becomes $(-2)^n = (-1)^n 2^n$, leaving the alternating harmonic series. Its terms $b_n = \\dfrac{1}{n}$ are positive, decreasing, and approach $0$, so the series converges by the alternating series test, and $x = -1$ is in the interval.",
+     "math": "\\sum_{n=1}^{\\infty} \\frac{(-2)^n}{n \\cdot 2^n} = \\sum_{n=1}^{\\infty} \\frac{(-1)^n}{n}"
+    },
+    {
+     "text": "The interval of convergence includes the left endpoint and excludes the right endpoint.",
+     "math": "[-1, 3)"
+    }
+   ]
+  },
+  {
+   "id": "u10-q034",
+   "skillId": "u10-interval-of-convergence",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Consider the power series $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{(x + 2)^n}{n \\cdot 3^n}$. Find the smallest value of $x$ at which the series converges. Give an exact integer.</p>",
+   "answer": -5,
+   "hints": [
+    "Use the ratio test to find the center and the radius of convergence. The smallest candidate is the left endpoint, which is the center minus the radius, but whether the series converges there requires a separate test.",
+    "Substitute the left endpoint into the series. The factor $(x + 2)^n$ becomes $(-3)^n$, which cancels with $3^n$ and leaves a series you can test with the alternating series test."
+   ],
+   "solution": [
+    {
+     "text": "Set $a_n = \\dfrac{(x + 2)^n}{n \\cdot 3^n}$ and apply the ratio test. The series converges absolutely when the limit is less than $1$ and diverges when it is greater than $1$.",
+     "math": "\\lim_{n \\to \\infty}\\left|\\frac{a_{n+1}}{a_n}\\right| = \\lim_{n \\to \\infty} \\frac{n}{n+1} \\cdot \\frac{|x + 2|}{3} = \\frac{|x + 2|}{3} < 1 \\quad\\Longleftrightarrow\\quad -5 < x < 1"
+    },
+    {
+     "text": "The center is $-2$ and the radius is $R = 3$. For every $x < -5$ the limit is greater than $1$, so the series diverges there. The smallest possible value is therefore the left endpoint $x = -5$, provided the series converges at that point."
+    },
+    {
+     "text": "Substitute $x = -5$. The factor $(-3)^n = (-1)^n 3^n$ cancels the $3^n$ in the denominator.",
+     "math": "\\sum_{n=1}^{\\infty} \\frac{(-3)^n}{n \\cdot 3^n} = \\sum_{n=1}^{\\infty} \\frac{(-1)^n}{n}"
+    },
+    {
+     "text": "This is the alternating harmonic series. Its terms $b_n = \\dfrac{1}{n}$ are positive, decreasing, and approach $0$, so the series converges by the alternating series test. The left endpoint is included, and the smallest value of $x$ at which the series converges is $-5$. (At the right endpoint $x = 1$ the series is the harmonic series, which diverges, so the full interval of convergence is $[-5, 1)$.)"
+    }
+   ]
+  },
+  {
+   "id": "u10-q035",
+   "skillId": "u10-interval-of-convergence",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>A power series $\\displaystyle\\sum_{n=0}^{\\infty} c_n (x - 4)^n$ is centered at $x = 4$. The series converges at $x = 7$ and diverges at $x = -1$. Which of the following statements must be true?</p>",
+   "choices": [
+    "The series converges at $x = 8$.",
+    "The series diverges at $x = 0$.",
+    "The series converges at $x = 1$.",
+    "The series converges at $x = 2$."
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from treating the distance to the divergence point $x = -1$ as the radius. The point $x = 8$ is at distance $4$ from the center. The given facts only force $3 \\le R \\le 5$, and a distance of $4$ lies between these bounds, so convergence at $x = 8$ is not determined. For example, the series $\\sum \\frac{(-1)^n (x - 4)^n}{n \\cdot 3^n}$ converges at $x = 7$, diverges at $x = -1$, and diverges at $x = 8$.",
+    "This choice comes from treating the distance to the convergence point $x = 7$ as the radius. The point $x = 0$ is at distance $4$ from the center, and the radius could be as large as $5$, in which case the series converges at $x = 0$. For example, the geometric series $\\sum \\left(\\frac{x - 4}{5}\\right)^n$ converges at $x = 7$, diverges at $x = -1$, and converges at $x = 0$.",
+    "This choice comes from assuming that convergence at one point forces convergence at the point the same distance from the center on the other side. The point $x = 1$ is at distance exactly $3$, the same as $x = 7$. If the radius is exactly $3$, then $x = 7$ and $x = 1$ are the two endpoints, and a series can converge at one endpoint while diverging at the other. For example, $\\sum \\frac{(-1)^n (x - 4)^n}{n \\cdot 3^n}$ converges at $x = 7$ but diverges at $x = 1$.",
+    null
+   ],
+   "hints": [
+    "A power series centered at $c$ converges absolutely for every $x$ with $|x - c| < R$ and diverges for every $x$ with $|x - c| > R$, where $R$ is the radius of convergence. Translate each given fact into an inequality for $R$.",
+    "Compute the distance from the center $4$ to each of the points $8$, $0$, $1$, and $2$. A statement is forced only when that distance is strictly less than every allowed value of $R$ (forced convergence) or strictly greater than every allowed value of $R$ (forced divergence)."
+   ],
+   "solution": [
+    {
+     "text": "The series converges at $x = 7$, which is at distance $|7 - 4| = 3$ from the center. If the radius were less than $3$, the series would diverge at $x = 7$. So the radius satisfies $R \\ge 3$."
+    },
+    {
+     "text": "The series diverges at $x = -1$, which is at distance $|-1 - 4| = 5$ from the center. If the radius were greater than $5$, the series would converge at $x = -1$. So $R \\le 5$. Together the facts give $3 \\le R \\le 5$, and nothing more is known."
+    },
+    {
+     "text": "The point $x = 2$ is at distance $|2 - 4| = 2$ from the center. Since $2 < 3 \\le R$, this point lies strictly inside the interval of convergence for every allowed radius, so the series converges (absolutely) at $x = 2$. This statement must be true."
+    },
+    {
+     "text": "The other three statements are not forced. The points $x = 8$ and $x = 0$ are both at distance $4$, which lies between the bounds $3$ and $5$, so either behavior is possible. The point $x = 1$ is at distance exactly $3$; if $R = 3$ it is an endpoint, and convergence at the endpoint $x = 7$ does not determine the behavior at the endpoint $x = 1$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q036",
+   "skillId": "u10-taylor-series-and-manipulation",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Which of the following is the Maclaurin series for $e^{-x^2}$?</p>",
+   "choices": [
+    "$\\displaystyle\\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n}}{n!}$",
+    "$\\displaystyle\\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n}}{(2n)!}$",
+    "$\\displaystyle\\sum_{n=0}^{\\infty} \\frac{x^{2n}}{n!}$",
+    "$\\displaystyle\\sum_{n=0}^{\\infty} \\frac{(-1)^n x^n}{n!}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from using the factorial pattern of the cosine series. The series shown is the Maclaurin series for $\\cos x$, whose denominators are $(2n)!$ because only the even-order derivatives of cosine are nonzero at $0$. The exponential series has $n!$ in its denominators, and substituting $u = -x^2$ changes the powers of $x$ but not the factorials.",
+    "This choice comes from dropping the sign in the substitution. The series shown is the Maclaurin series for $e^{x^2}$, obtained by substituting $u = x^2$. For $e^{-x^2}$ the substitution is $u = -x^2$, and $u^n = (-x^2)^n = (-1)^n x^{2n}$ carries the alternating factor $(-1)^n$.",
+    "This choice comes from substituting $u = -x$ instead of $u = -x^2$. The series shown is the Maclaurin series for $e^{-x}$. Squaring the variable doubles every exponent, so the powers must be $x^{2n}$."
+   ],
+   "hints": [
+    "Start from the Maclaurin series for $e^u$, which is $\\sum_{n=0}^{\\infty} \\dfrac{u^n}{n!}$ and converges for every real $u$. Then substitute the expression that replaces $u$.",
+    "Replace $u$ with $-x^2$ and simplify $(-x^2)^n$. Track the sign and the exponent separately: the sign becomes a power of $-1$ and the exponent doubles."
+   ],
+   "solution": [
+    {
+     "text": "Recall the Maclaurin series for the exponential function, which converges for every real $u$.",
+     "math": "e^{u} = \\sum_{n=0}^{\\infty} \\frac{u^n}{n!} = 1 + u + \\frac{u^2}{2!} + \\frac{u^3}{3!} + \\dots"
+    },
+    {
+     "text": "Substitute $u = -x^2$. The power $(-x^2)^n$ separates into a sign factor and a power of $x$.",
+     "math": "(-x^2)^n = (-1)^n (x^2)^n = (-1)^n x^{2n}"
+    },
+    {
+     "text": "Write the resulting series. Because the exponential series converges for every $u$, this series converges for every real $x$.",
+     "math": "e^{-x^2} = \\sum_{n=0}^{\\infty} \\frac{(-1)^n x^{2n}}{n!} = 1 - x^2 + \\frac{x^4}{2} - \\frac{x^6}{6} + \\dots"
+    }
+   ]
+  },
+  {
+   "id": "u10-q037",
+   "skillId": "u10-taylor-series-and-manipulation",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>What is the coefficient of $x^5$ in the Maclaurin series for $x^2 \\sin x$?</p>",
+   "choices": [
+    "$\\dfrac{1}{6}$",
+    "$\\dfrac{1}{120}$",
+    "$-\\dfrac{1}{6}$",
+    "$-\\dfrac{1}{2}$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from a sign slip on the $x^3$ term of $\\sin x$. The sine series alternates: $\\sin x = x - \\dfrac{x^3}{3!} + \\dfrac{x^5}{5!} - \\dots$, so the $x^3$ term is negative, and multiplying by $x^2$ keeps that negative sign on the $x^5$ term of the product.",
+    "This choice comes from reading the $x^5$ coefficient of $\\sin x$ itself, without the shift caused by the factor $x^2$. Multiplying by $x^2$ raises every exponent by $2$, so the $x^5$ term of the product comes from the $x^3$ term of $\\sin x$, not from its $x^5$ term.",
+    null,
+    "This choice comes from using $2!$ instead of $3!$ in the denominator of the $x^3$ term of $\\sin x$. The coefficient of $x^3$ in the sine series is $-\\dfrac{1}{3!} = -\\dfrac{1}{6}$, and that coefficient is carried unchanged onto the $x^5$ term of the product."
+   ],
+   "hints": [
+    "Write out the first three nonzero terms of the Maclaurin series for $\\sin x$, then multiply each term by $x^2$. Multiplying by $x^2$ raises every exponent by $2$.",
+    "After the multiplication, find the term whose exponent is $5$. It comes from the term of $\\sin x$ whose exponent is $3$, so its coefficient equals the coefficient of $x^3$ in the sine series."
+   ],
+   "solution": [
+    {
+     "text": "Recall the Maclaurin series for $\\sin x$, which converges for every real $x$.",
+     "math": "\\sin x = x - \\frac{x^3}{3!} + \\frac{x^5}{5!} - \\dots = x - \\frac{x^3}{6} + \\frac{x^5}{120} - \\dots"
+    },
+    {
+     "text": "Multiply every term by $x^2$. Each exponent increases by $2$ and each coefficient is unchanged.",
+     "math": "x^2 \\sin x = x^3 - \\frac{x^5}{6} + \\frac{x^7}{120} - \\dots"
+    },
+    {
+     "text": "The $x^5$ term of the product is $-\\dfrac{x^5}{6}$, so the coefficient of $x^5$ is $-\\dfrac{1}{6}$. As a check, the coefficient of $x^5$ in a Maclaurin series equals $\\dfrac{f^{(5)}(0)}{5!}$, so this says $f^{(5)}(0) = -20$ for $f(x) = x^2 \\sin x$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q038",
+   "skillId": "u10-taylor-series-and-manipulation",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Use Maclaurin series to evaluate $\\displaystyle\\lim_{x \\to 0} \\frac{1 - \\cos(2x)}{x^2}$. Give an exact integer.</p>",
+   "answer": 2,
+   "hints": [
+    "Start from the Maclaurin series for $\\cos u$ and substitute $u = 2x$. Keep the first two nonzero terms after the constant $1$, and note that $(2x)^2 = 4x^2$ and $(2x)^4 = 16x^4$.",
+    "Subtract the series from $1$, then divide every term by $x^2$. Every term that still contains a positive power of $x$ approaches $0$ as $x \\to 0$, so the limit is the constant term that remains."
+   ],
+   "solution": [
+    {
+     "text": "Recall the Maclaurin series for cosine and substitute $u = 2x$.",
+     "math": "\\cos u = 1 - \\frac{u^2}{2!} + \\frac{u^4}{4!} - \\dots \\quad\\Longrightarrow\\quad \\cos(2x) = 1 - \\frac{4x^2}{2} + \\frac{16x^4}{24} - \\dots = 1 - 2x^2 + \\frac{2}{3}x^4 - \\dots"
+    },
+    {
+     "text": "Subtract from $1$. The constant terms cancel, which is what makes the original quotient an indeterminate form of type $\\dfrac{0}{0}$.",
+     "math": "1 - \\cos(2x) = 2x^2 - \\frac{2}{3}x^4 + \\dots"
+    },
+    {
+     "text": "Divide every term by $x^2$.",
+     "math": "\\frac{1 - \\cos(2x)}{x^2} = 2 - \\frac{2}{3}x^2 + \\dots"
+    },
+    {
+     "text": "As $x \\to 0$, every term containing a positive power of $x$ approaches $0$, leaving the constant term. The limit is $2$. As a check, at $x = 0.01$ the quotient equals $1.99993\\ldots$, which agrees with $2 - \\dfrac{2}{3}(0.01)^2$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q039",
+   "skillId": "u10-taylor-series-and-manipulation",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Use the first two nonzero terms of the Maclaurin series for $\\sin(x^2)$ to approximate $\\displaystyle\\int_0^1 \\sin(x^2)\\,dx$. Which of the following is the resulting approximation?</p>",
+   "choices": [
+    "$\\dfrac{1}{6}$",
+    "$\\dfrac{13}{42}$",
+    "$\\dfrac{5}{14}$",
+    "$\\dfrac{7}{24}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from subtracting the coefficient $\\dfrac{1}{6}$ without integrating the $x^6$ term. The second term of the series is $-\\dfrac{x^6}{6}$, and its integral from $0$ to $1$ is $-\\dfrac{1}{42}$, not $-\\dfrac{1}{6}$.",
+    null,
+    "This choice comes from a sign slip on the second term. The sine series alternates, so the $u^3$ term of $\\sin u$ is $-\\dfrac{u^3}{6}$, and after substituting $u = x^2$ the second term is $-\\dfrac{x^6}{6}$. Its integral is subtracted, giving $\\dfrac{1}{3} - \\dfrac{1}{42}$, not added.",
+    "This choice comes from substituting $x^2$ into the first term of the sine series only, leaving the second term as $-\\dfrac{x^3}{6}$. The substitution $u = x^2$ applies to every term, so $u^3 = x^6$ and the second term is $-\\dfrac{x^6}{6}$, whose integral from $0$ to $1$ is $\\dfrac{1}{42}$, not $\\dfrac{1}{24}$."
+   ],
+   "hints": [
+    "Start from $\\sin u = u - \\dfrac{u^3}{3!} + \\dots$ and substitute $u = x^2$ into every term. The exponents of $x$ become $2$ and $6$.",
+    "Integrate the two-term polynomial term by term from $0$ to $1$ using the power rule, then combine the two fractions over a common denominator."
+   ],
+   "solution": [
+    {
+     "text": "Substitute $u = x^2$ into the Maclaurin series for $\\sin u$. Every exponent doubles.",
+     "math": "\\sin(x^2) = x^2 - \\frac{x^6}{3!} + \\frac{x^{10}}{5!} - \\dots = x^2 - \\frac{x^6}{6} + \\frac{x^{10}}{120} - \\dots"
+    },
+    {
+     "text": "Keep the first two nonzero terms and integrate term by term from $0$ to $1$. The integrand $\\sin(x^2)$ has no elementary antiderivative, which is why the series approach is used.",
+     "math": "\\int_0^1 \\left(x^2 - \\frac{x^6}{6}\\right)dx = \\left[\\frac{x^3}{3} - \\frac{x^7}{42}\\right]_0^1 = \\frac{1}{3} - \\frac{1}{42}"
+    },
+    {
+     "text": "Combine over the common denominator $42$.",
+     "math": "\\frac{1}{3} - \\frac{1}{42} = \\frac{14}{42} - \\frac{1}{42} = \\frac{13}{42}"
+    },
+    {
+     "text": "The integrated series alternates with terms that decrease to $0$, so by the alternating series error bound the error of this approximation is at most the next integrated term, $\\int_0^1 \\dfrac{x^{10}}{120}\\,dx = \\dfrac{1}{1320}$, which is about $0.00076$. The approximation $\\dfrac{13}{42} \\approx 0.3095$ is within that bound of the true value $0.3103$."
+    }
+   ]
+  },
+  {
+   "id": "u10-q040",
+   "skillId": "u10-taylor-series-and-manipulation",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>For $|x| < 1$, the geometric series gives $\\dfrac{1}{1 - x} = \\displaystyle\\sum_{n=0}^{\\infty} x^n$. Differentiate this series term by term to find a power series for $\\dfrac{1}{(1 - x)^2}$, then use that series to evaluate $\\displaystyle\\sum_{n=1}^{\\infty} \\frac{n}{2^{n-1}}$ exactly. Give an exact integer.</p>",
+   "answer": 4,
+   "hints": [
+    "Differentiate both sides of $\\dfrac{1}{1 - x} = \\sum_{n=0}^{\\infty} x^n$. On the left use the chain rule; on the right differentiate each power $x^n$ separately. The $n = 0$ term is the constant $1$, whose derivative is $0$, so the differentiated series starts at $n = 1$.",
+    "Compare the general term $n x^{n-1}$ of the differentiated series with $\\dfrac{n}{2^{n-1}}$ to identify the value of $x$ to substitute. Confirm that this $x$ satisfies $|x| < 1$, then evaluate $\\dfrac{1}{(1 - x)^2}$ at it."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate both sides. On the left, write $\\dfrac{1}{1 - x} = (1 - x)^{-1}$ and use the chain rule. On the right, differentiate term by term; the derivative of the constant term $1$ is $0$, so the sum starts at $n = 1$.",
+     "math": "\\frac{d}{dx}(1 - x)^{-1} = (1 - x)^{-2}, \\qquad \\frac{d}{dx}\\sum_{n=0}^{\\infty} x^n = \\sum_{n=1}^{\\infty} n x^{n-1}"
+    },
+    {
+     "text": "Term-by-term differentiation of a power series keeps the same radius of convergence, so the new identity holds for $|x| < 1$.",
+     "math": "\\frac{1}{(1 - x)^2} = \\sum_{n=1}^{\\infty} n x^{n-1} = 1 + 2x + 3x^2 + 4x^3 + \\dots \\qquad (|x| < 1)"
+    },
+    {
+     "text": "Match the given series to this form. Since $\\dfrac{n}{2^{n-1}} = n \\left(\\dfrac{1}{2}\\right)^{n-1}$, the given series is the differentiated series at $x = \\dfrac{1}{2}$, and $\\left|\\dfrac{1}{2}\\right| < 1$, so the identity applies."
+    },
+    {
+     "text": "Evaluate the closed form at $x = \\dfrac{1}{2}$.",
+     "math": "\\sum_{n=1}^{\\infty} \\frac{n}{2^{n-1}} = \\frac{1}{\\left(1 - \\frac{1}{2}\\right)^2} = \\frac{1}{\\frac{1}{4}} = 4"
+    },
+    {
+     "text": "As a check, the first five partial sums are $1$, $2$, $2.75$, $3.25$, and $3.5625$, and they approach $4$."
+    }
+   ]
+  }
+ ],
+ "masteryCheck": {
+  "questionCount": 8,
+  "passCount": 7
+ }
+}

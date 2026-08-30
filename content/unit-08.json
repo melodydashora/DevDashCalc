@@ -1,0 +1,1912 @@
+{
+ "id": "unit-08",
+ "number": 8,
+ "title": "Applications of Integration",
+ "overview": "Unit 8 applies the definite integral to measurement problems: the average value of a function, motion along a line (displacement, total distance, and position), the accumulation of a quantity from its rate of change, area between curves, volumes of solids by cross sections, discs, and washers, and the arc length of a curve. These topics are 6 to 9 percent of the BC exam and appear every year in the free-response section, usually as a rate-in, rate-out problem or an area-and-volume problem. The area, volume, and arc length methods in this unit follow the same pattern: slice the quantity into thin pieces, write the size of one piece as a function times dx or dy, and integrate. The unit uses the antiderivative techniques from Unit 6 and the rate-of-change and motion ideas from Units 2 through 5.",
+ "skills": [
+  {
+   "id": "u8-average-value",
+   "name": "Average value of a function and the Mean Value Theorem for integrals",
+   "core": true
+  },
+  {
+   "id": "u8-motion-with-integrals",
+   "name": "Position, velocity, and acceleration with integrals: displacement, total distance, and position from an initial value",
+   "core": true
+  },
+  {
+   "id": "u8-accumulation-in-context",
+   "name": "Accumulation in applied contexts: rate in, rate out, amount at a time, and units",
+   "core": true
+  },
+  {
+   "id": "u8-area-between-curves",
+   "name": "Area between curves in x or in y, including regions where the curves cross",
+   "core": true
+  },
+  {
+   "id": "u8-cross-section-volumes",
+   "name": "Volumes of solids with known cross sections",
+   "core": true
+  },
+  {
+   "id": "u8-disc-washer-volumes",
+   "name": "Volumes of revolution by the disc and washer methods",
+   "core": true
+  },
+  {
+   "id": "u8-arc-length",
+   "name": "Arc length of a planar curve (BC)",
+   "core": true
+  }
+ ],
+ "lessons": [
+  {
+   "id": "u8-l1",
+   "title": "Average value of a function",
+   "skillIds": [
+    "u8-average-value"
+   ],
+   "estMinutes": 16,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>The <strong>average value</strong> of a continuous function $f$ on the closed interval $[a, b]$ is the number</p><p>$$f_{\\text{avg}} = \\frac{1}{b - a}\\int_a^b f(x)\\,dx$$</p><p>The formula comes from the ordinary mean of a list of numbers. Choose $n$ equally spaced sample points $x_1, x_2, \\ldots, x_n$ in $[a, b]$, so that the spacing is $\\Delta x = \\frac{b - a}{n}$. Because $\\frac{1}{n} = \\frac{\\Delta x}{b - a}$, the mean of the sample values is</p><p>$$\\frac{1}{n}\\sum_{i=1}^{n} f(x_i) = \\frac{1}{b - a}\\sum_{i=1}^{n} f(x_i)\\,\\Delta x$$</p><p>The sum on the right is a Riemann sum for $\\int_a^b f(x)\\,dx$. As $n$ grows, the Riemann sum approaches the integral, and the mean of the samples approaches $f_{\\text{avg}}$. The average value is the limit of the ordinary sample mean, not a new kind of average.</p><p>Units: $f_{\\text{avg}}$ has the same units as $f$. The integral has the units of $f$ times the units of $x$; dividing by $b - a$, which has the units of $x$, removes the extra factor. If $f$ is a velocity in meters per second and $x$ is time in seconds, the integral is in meters and $f_{\\text{avg}}$ is in meters per second.</p><p>Geometric meaning: multiplying both sides by $b - a$ gives $f_{\\text{avg}}\\,(b - a) = \\int_a^b f(x)\\,dx$. The left side is the area of a rectangle with base $[a, b]$ and height $f_{\\text{avg}}$. So $f_{\\text{avg}}$ is the height of the rectangle over $[a, b]$ whose area equals the signed area under $f$. Where $f$ lies above that height, the surplus area is exactly balanced by the deficit where $f$ lies below it.</p><p>When $f$ is given only by a table of values, estimate the integral with a trapezoidal sum (Unit 6) and then divide by $b - a$. For the table $t = 0, 3, 6$ with $f = 4, 10, 6$, the trapezoidal sum with two subintervals of width $3$ is $\\frac{3}{2}(4 + 10) + \\frac{3}{2}(10 + 6) = 21 + 24 = 45$, and the estimated average value on $[0, 6]$ is $\\frac{45}{6} = 7.5$. The division by the interval length is the step that turns an area into an average. Reporting the integral itself as the average is the most common error on this topic.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>The mean of an array is <code>values.reduce((s, v) => s + v, 0) / values.length</code>. That expression is the discrete version of the average value. Suppose <code>values[i]</code> holds a sample <code>f(a + i * dx)</code> taken at uniform spacing <code>dx</code> across $[a, b]$, so that <code>values.length * dx</code> equals <code>b - a</code>. Then <code>sum * dx</code> is a Riemann sum that approximates $\\int_a^b f(x)\\,dx$, and dividing it by <code>b - a</code> gives <code>sum * dx / (values.length * dx)</code>, which is the same number as <code>sum / values.length</code>. The average value formula is the array mean with the counting done in units of $x$ instead of in array indices.</p><p>Where the analogy holds: for uniformly spaced samples the two computations agree exactly, and the integral formula is the limit of the array mean as <code>dx</code> approaches $0$ and <code>values.length</code> grows without bound. Range checks transfer as well: the mean of an array lies between its minimum and maximum element, and $f_{\\text{avg}}$ lies between the minimum and maximum of $f$ on $[a, b]$.</p><p>Where it breaks: the analogy requires uniformly spaced samples in $x$. If the samples sit at non-uniform positions, the plain array mean is a weighted mean that gives densely sampled regions more weight than their share of the interval; the trapezoidal sum over a non-uniform table is the correct fix, because it weights each value by the width of the subintervals it touches. The integral formula is exact only in the limit, so any finite sample count is an approximation. And <code>(f(a) + f(b)) / 2</code> is a two-element array mean of the endpoint values; it is not the average value of $f$, and it is the trapezoidal estimate only when the table has exactly two rows.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the average value of $f(x) = x^2 + 1$ on $[1, 4]$",
+     "steps": [
+      {
+       "text": "Write the definition with $a = 1$ and $b = 4$. The interval length is $b - a = 3$.",
+       "math": "f_{\\text{avg}} = \\frac{1}{4 - 1}\\int_1^4 (x^2 + 1)\\,dx"
+      },
+      {
+       "text": "Find an antiderivative of the integrand with the power rule.",
+       "math": "\\int (x^2 + 1)\\,dx = \\frac{x^3}{3} + x + C"
+      },
+      {
+       "text": "Evaluate the definite integral by the Fundamental Theorem of Calculus, part 2: the antiderivative at the upper limit minus the antiderivative at the lower limit.",
+       "math": "\\left[\\frac{x^3}{3} + x\\right]_1^4 = \\left(\\frac{64}{3} + 4\\right) - \\left(\\frac{1}{3} + 1\\right) = \\frac{63}{3} + 3 = 24"
+      },
+      {
+       "text": "Divide the integral by the interval length. The average value is $8$.",
+       "math": "f_{\\text{avg}} = \\frac{1}{3}\\cdot 24 = 8"
+      },
+      {
+       "text": "Check: $f$ is increasing on $[1, 4]$, so its minimum is $f(1) = 2$ and its maximum is $f(4) = 17$, and $8$ lies between them. The rectangle of height $8$ over $[1, 4]$ has area $8 \\cdot 3 = 24$, equal to the integral, as the definition requires."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q001",
+      "u8-q002"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The <strong>Mean Value Theorem for integrals</strong> states: if $f$ is continuous on $[a, b]$, then there is at least one number $c$ in $[a, b]$ with</p><p>$$f(c) = \\frac{1}{b - a}\\int_a^b f(x)\\,dx = f_{\\text{avg}}$$</p><p>In words, a continuous function attains its average value somewhere on the interval. Continuity is the hypothesis that makes this true. The function equal to $0$ on $[0, 1)$ and equal to $2$ on $[1, 2]$ has average value $\\frac{0 + 2}{2} = 1$ on $[0, 2]$, and there is no $c$ with $f(c) = 1$.</p><p>This theorem is the Mean Value Theorem for derivatives (Unit 5) applied to the accumulation function $F(x) = \\int_a^x f(t)\\,dt$. By the Fundamental Theorem of Calculus, part 1, $F$ is differentiable with $F' = f$, so the derivative version gives a $c$ in $(a, b)$ with $F'(c) = \\frac{F(b) - F(a)}{b - a}$. The left side is $f(c)$, and the right side is $\\frac{1}{b - a}\\int_a^b f(x)\\,dx$ because $F(a) = 0$.</p><p>Procedure for finding $c$: compute $f_{\\text{avg}}$, then solve the equation $f(c) = f_{\\text{avg}}$ and keep only the solutions inside $[a, b]$. The equation may have several solutions; the theorem guarantees at least one. The answer is a value of $c$, an input to $f$, not the average value, which is an output of $f$.</p><p>Connection to rates. If $f$ is a rate of change, the net change theorem says $\\int_a^b f(x)\\,dx$ is the change in the accumulated quantity, so the average value of the rate on $[a, b]$ equals the average rate of change of the quantity over $[a, b]$. For velocity $v$ and position $s$,</p><p>$$\\frac{1}{b - a}\\int_a^b v(t)\\,dt = \\frac{s(b) - s(a)}{b - a}$$</p><p>which says that average velocity equals displacement divided by elapsed time. A standard exam item gives a table of a rate and asks for the average rate over the interval: compute a trapezoidal sum for the integral, divide by the interval length, and state the units of the rate. A complete answer names the method and carries units, in the form: by a trapezoidal sum, the average rate of flow over the interval is approximately $9$ liters per minute.</p><p>Averages over sub-intervals. The additivity property from Unit 6, $\\int_a^c f(x)\\,dx = \\int_a^b f(x)\\,dx + \\int_b^c f(x)\\,dx$, isolates the integral over a piece of the interval. If $\\int_1^6 f(x)\\,dx = 20$ and $\\int_1^4 f(x)\\,dx = 8$, then $\\int_4^6 f(x)\\,dx = 20 - 8 = 12$, and the average value of $f$ on $[4, 6]$ is $\\frac{12}{6 - 4} = 6$. The divisor is the length of the sub-interval being averaged over, here $6 - 4 = 2$; it is not the right endpoint $6$ and not the length of the original interval.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q003",
+      "u8-q004",
+      "u8-q005"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u8-l2",
+   "title": "Motion and accumulation: integrating a rate",
+   "skillIds": [
+    "u8-motion-with-integrals",
+    "u8-accumulation-in-context"
+   ],
+   "estMinutes": 32,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A particle moving along a line has a <strong>position</strong> $x(t)$, a <strong>velocity</strong> $v(t) = x'(t)$, and an <strong>acceleration</strong> $a(t) = v'(t)$. Unit 6 established that the integral of a derivative over an interval is the net change of the function. Applied to velocity, this gives the <strong>displacement</strong> on $[a, b]$, which is the change in position from time $a$ to time $b$:</p><p>$$x(b) - x(a) = \\int_a^b v(t)\\,dt$$</p><p>Displacement is a signed quantity. If the particle ends to the left of where it started, the displacement is negative.</p><p>The <strong>total distance traveled</strong> on $[a, b]$ counts every unit of movement as positive, in whichever direction it occurs:</p><p>$$\\text{total distance} = \\int_a^b |v(t)|\\,dt$$</p><p>Total distance is never negative, and it is at least as large as the absolute value of the displacement. To compute it without a calculator: solve $v(t) = 0$ to find where the velocity changes sign, integrate $v$ separately on each subinterval, make every piece positive, and add the pieces.</p><p>Position at a later time is the initial position plus the displacement, and velocity comes from acceleration in the same way:</p><p>$$x(b) = x(a) + \\int_a^b v(t)\\,dt, \\qquad v(b) = v(a) + \\int_a^b a(t)\\,dt$$</p><p>Units multiply. A velocity in meters per second integrated over seconds gives meters, and an acceleration in meters per second squared integrated over seconds gives meters per second.</p><p>When velocity is given only as a table of values, the displacement is estimated with a left Riemann sum, a right Riemann sum, or a trapezoidal sum over the table's subintervals. The trapezoidal sum on one subinterval of width $\\Delta t$ is $\\frac{1}{2}\\big(v(t_k) + v(t_{k+1})\\big)\\Delta t$. When every value in the table is positive, $|v(t_k)| = v(t_k)$ at each sampled point, so the same sum is also an estimate of the total distance. State which sum you used and, when the problem asks, its units.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Displacement, total distance, and final position for $v(t) = 2t - 6$",
+     "steps": [
+      {
+       "text": "A particle has velocity $v(t) = 2t - 6$ meters per second for $0 \\le t \\le 5$ and position $x(0) = 4$ meters. The displacement on $[0, 5]$ is the definite integral of $v$.",
+       "math": "\\int_0^5 (2t - 6)\\,dt = \\big[t^2 - 6t\\big]_0^5 = 25 - 30 = -5"
+      },
+      {
+       "text": "The displacement is $-5$ meters: at $t = 5$ the particle is $5$ meters to the left of its position at $t = 0$. For total distance, find where $v$ changes sign. Solving $2t - 6 = 0$ gives $t = 3$; for $t < 3$ the velocity is negative and for $t > 3$ it is positive, so the particle moves left on $[0, 3)$ and right on $(3, 5]$."
+      },
+      {
+       "text": "Integrate $v$ on each piece separately.",
+       "math": "\\int_0^3 (2t - 6)\\,dt = 9 - 18 = -9, \\qquad \\int_3^5 (2t - 6)\\,dt = (25 - 30) - (9 - 18) = 4"
+      },
+      {
+       "text": "Make each piece positive and add. The total distance traveled is $13$ meters.",
+       "math": "\\int_0^5 |2t - 6|\\,dt = |-9| + |4| = 13"
+      },
+      {
+       "text": "The final position is the initial position plus the displacement. As a check, the total distance $13$ is larger than the absolute displacement $5$, as it must be whenever the particle reverses direction.",
+       "math": "x(5) = x(0) + \\int_0^5 v(t)\\,dt = 4 + (-5) = -1 \\text{ meters}"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q006",
+      "u8-q007",
+      "u8-q008"
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Integrating a rate is an accumulator loop. Given a velocity function <code>v</code>, a time step <code>dt</code>, and an initial position, the statement <code>pos += v(t) * dt</code> executed once per step produces a running total, which is the prefix sum of the rate samples. Replacing the body with <code>dist += Math.abs(v(t)) * dt</code> gives total distance from the same samples. A bank ledger has the same shape: <code>balance = opening + sum(deposits) - sum(withdrawals)</code>, which is exactly $A(t) = A(0) + \\int_0^t \\big(I(s) - O(s)\\big)ds$ with deposits as the rate in and withdrawals as the rate out.</p><p>Where the analogy holds: the sign discipline is identical. A negative velocity sample decrements <code>pos</code> the way a withdrawal decrements <code>balance</code>, the running total can fall below its starting value, and whether the total is growing at a given instant is decided by the sign of the current net rate sample, not by the size of the total. The trapezoidal and Riemann sums in this lesson are this loop with the table's rows as the samples.</p><p>Where it breaks: the loop with a finite <code>dt</code> is Euler's method, the time-stepping scheme that treats the rate as constant across each step. Its result carries a truncation error that shrinks as <code>dt</code> shrinks, and the definite integral is the exact limit as <code>dt</code> approaches $0$, not one more approximation. Ledger entries are discrete events with exact timestamps, while the calculus model treats the flow as continuous, so the integral formula returns a real number such as $60.25$ even when the quantity is a count of people or cars. On the exam, report that real number; round it only when the problem asks for rounding.</p>"
+    },
+    {
+     "type": "concept",
+     "html": "<p>The same structure applies to any quantity. Let $Q(t)$ be an amount and let $r(t) = Q'(t)$ be its <strong>rate of change</strong>, measured in units of $Q$ per unit of $t$. The <strong>net change theorem</strong> (the Fundamental Theorem of Calculus, part 2, applied with $r$ continuous on $[a, b]$) states</p><p>$$\\int_a^b r(t)\\,dt = Q(b) - Q(a), \\qquad Q(t) = Q(0) + \\int_0^t r(s)\\,ds$$</p><p>The integral has the units of $Q$, because the units of $r$ (amount per time) are multiplied by the units of $dt$ (time). When an exam item asks for the meaning of $\\int_a^b r(t)\\,dt$, use this sentence template: the amount of (quantity), in (units), that (entered, accumulated, or was removed) between $t = a$ and $t = b$. All four parts are required: the quantity, its units, the verb that names what the rate measures, and the time interval.</p><p>Many problems give two rates. If a quantity enters at a <strong>rate in</strong> $I(t)$ and leaves at a <strong>rate out</strong> $O(t)$, the amount $A(t)$ satisfies</p><p>$$A'(t) = I(t) - O(t), \\qquad A(t) = A(0) + \\int_0^t \\big(I(s) - O(s)\\big)ds$$</p><p>$A$ is increasing where $I > O$ and decreasing where $I < O$. The value of $I$ alone says nothing about whether $A$ is increasing; only the sign of the net rate $I - O$ does. On a closed interval $[0, T]$ the amount is greatest either at a time where $I - O$ changes from positive to negative or at an endpoint. Each of these times is a candidate; compute $A$ at every candidate and compare the values. A time where $I$ itself is largest is not, by itself, a candidate.</p><p>When a rate is given as a table, estimate its integral with a left, right, midpoint, or trapezoidal sum over the table's subintervals, then add the initial amount. When one rate is a table and the other is a formula, integrate the formula exactly, estimate the table with a sum, and combine them:</p><p>$$A(T) \\approx A(0) + (\\text{sum for the tabled rate}) - \\int_0^T O(t)\\,dt$$</p><p>State which part is exact and which part is an estimate.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q009",
+      "u8-q011",
+      "u8-q012"
+     ]
+    },
+    {
+     "type": "worked-example",
+     "title": "Amount of water in a tank with inflow $24$ gallons per hour and outflow $\\tfrac{3}{8}t^2$ gallons per hour",
+     "steps": [
+      {
+       "text": "The tank holds $200$ gallons at $t = 0$. Water enters at $I(t) = 24$ gallons per hour and drains at $O(t) = \\tfrac{3}{8}t^2$ gallons per hour for $0 \\le t \\le 10$. Write the amount as the initial amount plus the integral of the net rate.",
+       "math": "A(t) = 200 + \\int_0^t \\left(24 - \\tfrac{3}{8}s^2\\right)ds = 200 + 24t - \\tfrac{1}{8}t^3"
+      },
+      {
+       "text": "Evaluate at $t = 4$. The amount at $t = 4$ hours is $288$ gallons.",
+       "math": "A(4) = 200 + 96 - \\tfrac{1}{8}(64) = 200 + 96 - 8 = 288"
+      },
+      {
+       "text": "The amount is greatest where the net rate $A'(t) = 24 - \\tfrac{3}{8}t^2$ changes from positive to negative, or at an endpoint. Set the net rate to zero.",
+       "math": "24 = \\tfrac{3}{8}t^2 \\implies t^2 = 64 \\implies t = 8"
+      },
+      {
+       "text": "For $0 \\le t < 8$ the net rate is positive, because $\\tfrac{3}{8}t^2 < 24$ there, and for $8 < t \\le 10$ it is negative. So $A$ increases up to $t = 8$ and decreases after, and $t = 8$ is a candidate for the maximum.",
+       "math": "A(8) = 200 + 192 - \\tfrac{1}{8}(512) = 200 + 192 - 64 = 328"
+      },
+      {
+       "text": "Compare with the endpoints.",
+       "math": "A(0) = 200, \\qquad A(10) = 200 + 240 - \\tfrac{1}{8}(1000) = 200 + 240 - 125 = 315"
+      },
+      {
+       "text": "The greatest amount is $328$ gallons, at $t = 8$ hours. Free-response justification: the amount is greatest at $t = 8$ because $A'(t) = 24 - \\tfrac{3}{8}t^2$ changes sign from positive to negative there, and $A(8) = 328$ gallons exceeds the endpoint values $A(0) = 200$ gallons and $A(10) = 315$ gallons."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q013",
+      "u8-q014",
+      "u8-q016"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u8-l3",
+   "title": "Area between curves",
+   "skillIds": [
+    "u8-area-between-curves"
+   ],
+   "estMinutes": 20,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>Let $f$ and $g$ be continuous on $[a, b]$ with $f(x) \\geq g(x)$ for every $x$ in $[a, b]$. The <strong>area between the curves</strong> $y = f(x)$ and $y = g(x)$ on $[a, b]$ is</p><p>$$A = \\int_a^b \\big(f(x) - g(x)\\big)\\,dx$$</p><p>The formula comes from slicing. A vertical slice at position $x$ runs from the lower curve up to the upper curve, so its height is $f(x) - g(x)$, the top value minus the bottom value. With width $dx$, the slice has area $\\big(f(x) - g(x)\\big)\\,dx$, and the integral adds the slices from $x = a$ to $x = b$. Every method in this unit repeats this pattern: write the size of one thin piece, then integrate.</p><p>The procedure has three steps.</p><ol><li>Find the limits. If no interval is given, the region is the one enclosed by the curves, and the limits are the $x$-coordinates of the intersection points, found by solving $f(x) = g(x)$.</li><li>Decide which curve is on top. Choose one $x$ strictly between the limits and evaluate both functions there; the larger value belongs to the top curve. Because the curves are continuous and do not cross between consecutive intersection points, one test point settles the order for the whole interval.</li><li>Integrate top minus bottom.</li></ol><p>Area is a positive quantity. Integrating bottom minus top gives the negative of the area, so a negative result is a signal that the order of subtraction is reversed. The formula does not depend on where the $x$-axis is: if both curves lie below the axis, $f(x) - g(x)$ is still the height of the slice, and negative function values need no separate handling.</p><p>The same steps apply to transcendental functions. For the region between $y = e^x$ and $y = e$ on $[0, 1]$, the test point $x = 0$ gives $e$ above $e^0 = 1$, so</p><p>$$A = \\int_0^1 \\big(e - e^x\\big)\\,dx = \\big[ex - e^x\\big]_0^1 = (e - e) - (0 - 1) = 1$$</p><p>For the region between $y = \\sin x$ and $y = \\cos x$ on $[\\pi/4, \\pi/2]$, the test point $x = \\pi/2$ gives $\\sin(\\pi/2) = 1$ above $\\cos(\\pi/2) = 0$, so</p><p>$$A = \\int_{\\pi/4}^{\\pi/2} (\\sin x - \\cos x)\\,dx = \\big[-\\cos x - \\sin x\\big]_{\\pi/4}^{\\pi/2} = (0 - 1) - \\left(-\\tfrac{\\sqrt{2}}{2} - \\tfrac{\\sqrt{2}}{2}\\right) = \\sqrt{2} - 1$$</p><p>On the exam, a complete setup states the limits, names which curve is on top, and writes the integrand as top minus bottom before evaluating. When a calculator is allowed, the intersection points may be found numerically and stored to full precision; only the final answer is rounded.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the area of the region bounded by $y = x^2 - 4$ and $y = 2 - x$",
+     "steps": [
+      {
+       "text": "No interval is given, so the region is enclosed by the two curves and the limits are the intersection points. Set the two expressions equal and solve.",
+       "math": "x^2 - 4 = 2 - x \\implies x^2 + x - 6 = 0 \\implies (x + 3)(x - 2) = 0 \\implies x = -3,\\ x = 2"
+      },
+      {
+       "text": "Test one point strictly between the limits. At $x = 0$ the line gives $2 - 0 = 2$ and the parabola gives $0 - 4 = -4$, so the line $y = 2 - x$ is the top curve on all of $[-3, 2]$. The integrand is top minus bottom.",
+       "math": "(2 - x) - (x^2 - 4) = 6 - x - x^2"
+      },
+      {
+       "text": "Set up the integral and find an antiderivative term by term with the power rule.",
+       "math": "A = \\int_{-3}^{2} \\big(6 - x - x^2\\big)\\,dx = \\left[\\,6x - \\frac{x^2}{2} - \\frac{x^3}{3}\\,\\right]_{-3}^{2}"
+      },
+      {
+       "text": "Evaluate the antiderivative at each limit separately.",
+       "math": "\\text{at } x = 2:\\ 12 - 2 - \\frac{8}{3} = \\frac{22}{3} \\qquad \\text{at } x = -3:\\ -18 - \\frac{9}{2} + 9 = -\\frac{27}{2}"
+      },
+      {
+       "text": "Subtract the lower-limit value from the upper-limit value. The result is positive, as an area must be, which confirms that the order of subtraction was correct.",
+       "math": "A = \\frac{22}{3} - \\left(-\\frac{27}{2}\\right) = \\frac{44}{6} + \\frac{81}{6} = \\frac{125}{6}"
+      },
+      {
+       "text": "The area of the region is $\\frac{125}{6}$ square units. Justification: on $[-3, 2]$ the line $y = 2 - x$ lies above the parabola $y = x^2 - 4$, so the area is the integral of the line minus the parabola over that interval."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q017",
+      "u8-q018",
+      "u8-q019"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Some regions are easier to slice horizontally. A horizontal slice at height $y$ runs from a left curve to a right curve, so its length is right minus left. When the boundaries are written as functions of $y$, $x = r(y)$ on the right and $x = l(y)$ on the left, with $r(y) \\geq l(y)$ for $c \\leq y \\leq d$, the area is</p><p>$$A = \\int_c^d \\big(r(y) - l(y)\\big)\\,dy$$</p><p>The limits $c$ and $d$ are $y$-values, found by solving $r(y) = l(y)$ when the region is enclosed. The test-point step is the same: evaluate both expressions at one $y$ between the limits; the larger value is the right curve. To convert a curve given as $y$ in terms of $x$, solve for $x$. A parabola $y = x^2$ becomes two branches, $x = \\sqrt{y}$ on the right and $x = -\\sqrt{y}$ on the left, and the region determines which branch is a boundary.</p><p>The rule for choosing the variable: use the variable whose slices cross the region with the same top and bottom curve (vertical slices) or the same right and left curve (horizontal slices) at every position. If a slice in one variable would meet different boundary curves at different positions, either split the region into pieces or switch to the other variable.</p><p>When two curves cross at a point strictly inside the interval, the top and bottom swap at the crossing, and a single top-minus-bottom integral is wrong on one side of it. Partition the interval at every crossing point, write one integral per piece with the order of subtraction chosen for that piece, and add the results. For $y = x$ and $y = x^2$ on $[0, 2]$, the curves cross at $x = 1$; the line is on top on $[0, 1]$ and the parabola is on top on $[1, 2]$:</p><p>$$A = \\int_0^1 (x - x^2)\\,dx + \\int_1^2 (x^2 - x)\\,dx = \\frac{1}{6} + \\frac{5}{6} = 1$$</p><p>The single integral $\\int_0^2 (x - x^2)\\,dx = -\\frac{2}{3}$ is the signed difference of the two pieces, and neither it nor its absolute value is the area.</p><p>A region bounded by three curves often needs two integrals in one variable but only one in the other. Let $R$ be the region bounded by $y = x^2$, $y = 2 - x$, and $y = 0$, with vertices $(0, 0)$, $(1, 1)$, and $(2, 0)$. Vertical slices have the parabola as the top curve for $0 \\leq x \\leq 1$ and the line as the top curve for $1 \\leq x \\leq 2$, with $y = 0$ as the bottom throughout, so two integrals are needed:</p><p>$$A = \\int_0^1 x^2\\,dx + \\int_1^2 (2 - x)\\,dx = \\frac{1}{3} + \\frac{1}{2} = \\frac{5}{6}$$</p><p>Horizontal slices run from the parabola branch $x = \\sqrt{y}$ on the left to the line $x = 2 - y$ on the right for every $y$ from $0$ to $1$, so one integral is enough:</p><p>$$A = \\int_0^1 \\big((2 - y) - \\sqrt{y}\\big)\\,dy = \\left[\\,2y - \\frac{y^2}{2} - \\frac{2}{3}y^{3/2}\\,\\right]_0^1 = 2 - \\frac{1}{2} - \\frac{2}{3} = \\frac{5}{6}$$</p><p>Both setups give the same value. On a free-response item, either is accepted when the limits, the integrand, and the variable of integration are consistent.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>The true height of a vertical slice is <code>Math.max(f(x), g(x)) - Math.min(f(x), g(x))</code>, which equals <code>Math.abs(f(x) - g(x))</code>. Integrating <code>f(x) - g(x)</code> without the <code>max</code> and <code>min</code> is summing signed differences: on any subinterval where <code>g</code> is on top, the terms are negative and subtract from the total instead of adding to it. That is signed-area cancellation, and it is why $\\int_0^2 (x - x^2)\\,dx$ returned $-\\frac{2}{3}$ for a region whose area is $1$.</p><p>Handling a crossing is like a sort key that changes partway through an array. If the comparator that decides which of two elements is larger flips at index <code>k</code>, a single pass with one comparator gives the wrong result on one side of <code>k</code>. The fix is to partition the array at every index where the comparator flips and apply the correct comparator within each partition. The crossing points are those indices; solving $f(x) = g(x)$ is the search for them, and one test point per partition is the check of which comparator applies there.</p><p>Where the analogy holds: the partition boundaries are exactly the roots of $f - g$; the order within a partition is constant because a continuous $f - g$ cannot change sign without passing through zero; and adding the per-partition integrals is the same reduction as concatenating per-partition sums. A numerical integrator that samples <code>Math.abs(f(x) - g(x))</code> at each point computes the area with no partitioning at all, because <code>abs</code> is applied pointwise.</p><p>Where it breaks: writing $\\int_a^b |f(x) - g(x)|\\,dx$ is correct in principle and is the exact definition of the area, but there is no antiderivative rule for an absolute value. By hand, the only way to evaluate it is to remove the absolute value piece by piece, which is the partition, so the split is mandatory rather than optional. The choice between vertical and horizontal slices also has no counterpart in the sorting analogy; it is a choice of which axis to iterate over, and a region that needs two loops in one orientation can need only one in the other.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q020",
+      "u8-q021",
+      "u8-q022"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u8-l4",
+   "title": "Volumes with known cross sections",
+   "skillIds": [
+    "u8-cross-section-volumes"
+   ],
+   "estMinutes": 18,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>solid with known cross sections</strong> is described by two pieces of information: a <strong>base region</strong> in the $xy$-plane, and the shape of every slice cut perpendicular to one axis. The slice at position $x$ is a flat figure whose area depends on $x$; call that area $A(x)$. A slab of thickness $dx$ at position $x$ has volume approximately $A(x)\\,dx$. Adding the slabs from $x = a$ to $x = b$ and taking the limit as the thickness approaches zero gives the volume:</p><p>$$V = \\int_a^b A(x)\\,dx$$</p><p>The formula requires $A$ to be continuous on $[a, b]$, which holds whenever the base is bounded by continuous curves. The construction is the one from Unit 6, with a slab volume $A(x)\\,dx$ in place of a strip area $f(x)\\,dx$.</p><p>The base region sets the width of each slice. When the base lies between a top curve and a bottom curve, the slice at $x$ has one side of length $s(x) = \\text{top}(x) - \\text{bottom}(x)$. That side lies in the base, and the cross section stands on it. The area depends on the shape:</p><ul><li>square with side $s$: $A = s^2$</li><li>rectangle with base $s$ and height $ks$: $A = k s^2$</li><li>isosceles right triangle with a leg of length $s$: $A = \\frac{1}{2} s^2$</li><li>equilateral triangle with side $s$: $A = \\frac{\\sqrt{3}}{4} s^2$</li><li>semicircle with diameter $s$: $A = \\frac{\\pi}{8} s^2$, which equals $\\frac{\\pi}{2} r^2$ with $r = \\frac{s}{2}$</li></ul><p>Each formula is a constant times $s^2$, so the volume is that constant times $\\int_a^b s(x)^2\\,dx$. No $\\pi$ appears unless the cross section is circular. A factor of $\\pi$ in an answer for square cross sections means the disc formula from the next lesson was used in place of $s^2$.</p><p>Slices can also be cut perpendicular to the $y$-axis. Then the thickness is $dy$, the limits are $y$-values, and the side is measured horizontally: $s(y) = \\text{right}(y) - \\text{left}(y)$, with both boundaries written as $x$ in terms of $y$. A base region symmetric about the $y$-axis has right boundary $x = g(y)$ and left boundary $x = -g(y)$, so its width is $2g(y)$, twice the positive $x$-value.</p><p>A complete answer states the side length as a function of the variable, the area function, the integral with its limits, and the value.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Volume by slicing is a reduce over slices. Take $n$ sample positions spaced <code>dx</code> apart across the base and compute <code>volume = xs.reduce((acc, x) => acc + area(width(x)) * dx, 0)</code>. Two functions appear inside the loop. <code>width(x)</code> is set by the base region: it returns <code>top(x) - bottom(x)</code>. <code>area(w)</code> is set by the cross-section shape and is a pure function of the width: <code>w * w</code> for a square, <code>Math.sqrt(3) / 4 * w * w</code> for an equilateral triangle, <code>Math.PI / 8 * w * w</code> for a semicircle on a diameter.</p><p>Where the analogy holds: changing the shape changes only <code>area</code>, and changing the base changes only <code>width</code>; the loop is never edited. That separation is exactly the structure of $V = \\int_a^b A(s(x))\\,dx$, and it is why every shape in this lesson reduces to a constant times $\\int s(x)^2\\,dx$. Reading a problem is deciding which two functions to pass in.</p><p>Where it breaks: the width must be measured perpendicular to the slicing direction. If the slices are perpendicular to the $y$-axis, the width function is <code>right(y) - left(y)</code>, and reusing the $x$-width function runs without error and silently computes the volume of a different solid. The loop with finite <code>dx</code> is also only an approximation, and its error depends on <code>n</code> and on where in each slab the sample is taken. The integral is the exact limit as <code>n</code> grows without bound, and it needs no choice of sample points.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Semicircular cross sections on a triangular base",
+     "steps": [
+      {
+       "text": "The base is the triangle bounded by $y = 6 - 2x$, the $x$-axis, and the $y$-axis. Its vertices are $(0, 0)$, $(3, 0)$, and $(0, 6)$. Cross sections perpendicular to the $x$-axis are semicircles with their diameter in the base. The vertical slice at $x$ runs from $y = 0$ up to $y = 6 - 2x$, so that segment is the diameter.",
+       "math": "s(x) = (6 - 2x) - 0 = 6 - 2x, \\qquad 0 \\le x \\le 3"
+      },
+      {
+       "text": "The radius is half the diameter, $r = 3 - x$, and the area of a semicircle is $\\frac{\\pi}{2} r^2$.",
+       "math": "A(x) = \\frac{\\pi}{2}(3 - x)^2"
+      },
+      {
+       "text": "Integrate the cross-section area over the $x$-interval of the base and move the constant outside.",
+       "math": "V = \\int_0^3 \\frac{\\pi}{2}(3 - x)^2\\,dx = \\frac{\\pi}{2}\\int_0^3 (3 - x)^2\\,dx"
+      },
+      {
+       "text": "An antiderivative of $(3 - x)^2$ is $-\\frac{(3 - x)^3}{3}$; differentiating it gives $-\\frac{3(3 - x)^2}{3}\\cdot(-1) = (3 - x)^2$, where the $-1$ is the chain rule factor from the inner function $3 - x$.",
+       "math": "\\int_0^3 (3 - x)^2\\,dx = \\left[-\\frac{(3 - x)^3}{3}\\right]_0^3 = 0 - \\left(-\\frac{27}{3}\\right) = 9"
+      },
+      {
+       "text": "Multiply by the constant. The volume is $\\frac{9\\pi}{2}$ cubic units, about $14.137$. The $\\pi$ is present because the cross sections are semicircles; the volume equals the integral of cross-section area because the solid is the limit of slabs of volume $A(x)\\,dx$.",
+       "math": "V = \\frac{\\pi}{2}\\cdot 9 = \\frac{9\\pi}{2}"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q023",
+      "u8-q024",
+      "u8-q025"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>When the cross sections are perpendicular to the $y$-axis, the procedure is the same with the roles of $x$ and $y$ exchanged. Rewrite each boundary as $x$ in terms of $y$, find the $y$-values where the region starts and ends, and measure the side of each slice horizontally as $s(y) = \\text{right}(y) - \\text{left}(y)$. The volume is $\\int_c^d A(y)\\,dy$ over those $y$-limits.</p><p>Take the region bounded by $y = x^2$ and $y = 4$. Solving $y = x^2$ for $x$ gives $x = \\sqrt{y}$ on the right and $x = -\\sqrt{y}$ on the left, and the region runs from $y = 0$ to $y = 4$. The width at height $y$ is therefore</p><p>$$s(y) = \\sqrt{y} - (-\\sqrt{y}) = 2\\sqrt{y}$$</p><p>Using only $\\sqrt{y}$ measures half of the slice and, for square cross sections, produces one quarter of the volume, because the area scales with the square of the side.</p><p>Slicing the same region perpendicular to the $x$-axis is a different solid. The vertical side at $x$ is $s(x) = 4 - x^2$ for $-2 \\le x \\le 2$, so square cross sections give $\\int_{-2}^{2} (4 - x^2)^2\\,dx = \\frac{512}{15}$. The problem statement always names the axis that the cross sections are perpendicular to, and that phrase decides the variable, the width function, and the limits.</p><p>When the base is given by <strong>tabulated data</strong>, the width $w(x)$ is known only at sample points, and the volume is estimated rather than computed exactly. The integrand is the cross-section area, so the estimate is a Riemann or trapezoidal sum applied to the area values, not to the widths. For squares with widths $w_0, w_1, \\ldots, w_n$ at equally spaced points with spacing $\\Delta x$, the trapezoidal estimate is</p><p>$$V \\approx \\frac{\\Delta x}{2}\\left(w_0^2 + 2w_1^2 + \\cdots + 2w_{n-1}^2 + w_n^2\\right)$$</p><p>For example, widths $1, 3, 2$ at $x = 0, 2, 4$ give areas $1, 9, 4$ and the estimate $\\frac{2}{2}(1 + 18 + 4) = 23$ cubic units. Squaring a trapezoidal estimate of $\\int w(x)\\,dx$ instead gives $(1 + 6 + 2)^2 = 81$, which is not an estimate of any volume, because the square of an integral is not the integral of the square. A complete answer names the sum used, shows each area term, and states cubic units.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q026",
+      "u8-q027"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u8-l5",
+   "title": "Disc and washer volumes",
+   "skillIds": [
+    "u8-disc-washer-volumes"
+   ],
+   "estMinutes": 24,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>solid of revolution</strong> is the three-dimensional solid produced when a flat region is rotated once around a line in its plane. That line is the <strong>axis of revolution</strong>. Slice the solid perpendicular to the axis. When the region touches the axis along the whole interval, each slice is a <strong>disc</strong>: a circle of radius $r$ and thickness $dx$ (or $dy$), with volume $\\pi r^2\\,dx$. Adding the slices with an integral gives the <strong>disc method</strong>:</p><p>$$V = \\pi\\int_a^b r^2\\,dx \\qquad \\text{or} \\qquad V = \\pi\\int_c^d r^2\\,dy$$</p><p>The <strong>radius</strong> $r$ is the distance from the axis of revolution to the curve that bounds the region, measured perpendicular to the axis. That one sentence determines every formula in this lesson.</p><ul><li>About the $x$-axis, region between $y = f(x)$ and the $x$-axis on $[a, b]$: $r = f(x)$, and $V = \\pi\\int_a^b [f(x)]^2\\,dx$.</li><li>About the $y$-axis: rewrite the boundary curve as $x = g(y)$, so $r = g(y)$, and integrate over the $y$-range $[c, d]$ of the region, $V = \\pi\\int_c^d [g(y)]^2\\,dy$.</li><li>About a horizontal line $y = k$: $r = |f(x) - k|$, integrate in $x$.</li><li>About a vertical line $x = h$: $r = |g(y) - h|$, integrate in $y$.</li></ul><p>The rule that decides the variable is: <strong>integrate in the variable that runs along the axis of revolution</strong>. A horizontal axis means the slices are stacked along $x$, so the integral is in $x$; a vertical axis means the integral is in $y$, and every boundary must be rewritten as $x$ in terms of $y$. Because the radius is squared, the absolute value has no effect on the integrand, but it is the reminder that $r$ is a distance and is never negative.</p><p>The factor $\\pi$ is part of the answer. On the non-calculator section, keep it exact, as in $\\frac{16\\pi}{15}$. Round to a decimal only when the prompt says so; on the calculator section, three decimal places is the standard. The usual AP forms are: compute a volume in exact form; select the integral that represents a volume without evaluating it; and set up an integral for a region whose intersection points come from a calculator. In each form, the graded parts are the limits, the radius, the square, and the factor $\\pi$.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Volume when the region between $y = x^2$ and $y = 1$ is revolved about the line $y = 1$",
+     "steps": [
+      {
+       "text": "Find where the curves meet: $x^2 = 1$ at $x = -1$ and $x = 1$. On $[-1, 1]$ the region lies between the parabola below and the line $y = 1$ above. The top edge of the region is the axis itself, so the region touches the axis and the disc method applies."
+      },
+      {
+       "text": "The axis is horizontal, so integrate in $x$. At each $x$ the radius is the distance from the axis $y = 1$ down to the parabola. On $[-1, 1]$ this distance is nonnegative.",
+       "math": "r = 1 - x^2"
+      },
+      {
+       "text": "Set up the disc integral and expand the square.",
+       "math": "V = \\pi\\int_{-1}^{1} (1 - x^2)^2\\,dx = \\pi\\int_{-1}^{1} \\left(1 - 2x^2 + x^4\\right)dx"
+      },
+      {
+       "text": "The integrand is an even function, so the integral over $[-1, 1]$ is twice the integral over $[0, 1]$. Evaluate with the power rule.",
+       "math": "V = 2\\pi\\int_0^1 \\left(1 - 2x^2 + x^4\\right)dx = 2\\pi\\left[x - \\frac{2x^3}{3} + \\frac{x^5}{5}\\right]_0^1 = 2\\pi\\left(1 - \\frac{2}{3} + \\frac{1}{5}\\right) = 2\\pi\\cdot\\frac{8}{15} = \\frac{16\\pi}{15}"
+      },
+      {
+       "text": "The volume is $\\frac{16\\pi}{15}$ cubic units, about $3.351$. The justification: each cross section perpendicular to the axis $y = 1$ is a disc of radius $1 - x^2$, and the volume is the integral of the cross-sectional area $\\pi(1 - x^2)^2$ over the interval $[-1, 1]$ the region occupies along the axis."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q028",
+      "u8-q029"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>When the region does not touch the axis of revolution, each slice is a disc with a circular hole that has the same center as the disc. Such a slice is a <strong>washer</strong>. Let $R$ be the <strong>outer radius</strong>, the distance from the axis to the curve farther from the axis, and let $r$ be the <strong>inner radius</strong>, the distance from the axis to the curve nearer the axis. The area of a washer is the area of the full disc minus the area of the hole, $\\pi R^2 - \\pi r^2$, so the <strong>washer method</strong> is</p><p>$$V = \\pi\\int_a^b \\left(R^2 - r^2\\right)dx \\qquad \\text{or} \\qquad V = \\pi\\int_c^d \\left(R^2 - r^2\\right)dy$$</p><p>Two algebraic facts prevent the most common errors. First, $(R - r)^2$ is not equal to $R^2 - r^2$. The integrand is a difference of two squares; squaring the gap between the curves gives a different and smaller number. Second, the order matters: with $R \\geq r$ the integrand is nonnegative, and reversing the two radii gives the negative of the volume. A negative result is the signal that the radii are swapped.</p><p>Assigning the radii for each axis:</p><ul><li>About the $x$-axis, region between $y = f(x)$ on top and $y = g(x)$ on the bottom with $g(x) \\geq 0$: $R = f(x)$ and $r = g(x)$.</li><li>About the horizontal line $y = k$ with the axis above the region, $k \\geq f(x) \\geq g(x)$: the bottom curve is farther from the axis, so $R = k - g(x)$ and $r = k - f(x)$. With the axis below the region, $f(x) \\geq g(x) \\geq k$: $R = f(x) - k$ and $r = g(x) - k$.</li><li>About the $y$-axis, region between the right curve $x = p(y)$ and the left curve $x = q(y)$ with $q(y) \\geq 0$: $R = p(y)$ and $r = q(y)$, integrated in $y$ over the $y$-range of the region.</li></ul><p>Before integrating, check that $R \\geq r$ on the whole interval. For the region between $y = x$ and $y = x^2$ on $[0, 1]$ revolved about $y = 2$: $R = 2 - x^2$, $r = 2 - x$, and $R - r = x - x^2 = x(1 - x)$, which is nonnegative on $[0, 1]$, so the assignment holds at every point of the interval. If $R - r$ changed sign inside the interval, the two curves would cross there, and the region would have to be split at the crossing with the radii reassigned on each piece.</p><p>The disc method is the washer method with $r = 0$. On the exam, an integral with correct limits, correct radii, and the factor $\\pi$ earns the setup points even when the evaluation is done on a calculator; a complete answer states the axis, names $R$ and $r$, and writes the integral before any arithmetic.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A washer is a disc minus its hole. Write <code>discArea = (radius) => Math.PI * radius * radius</code>. The washer integrand at each slice is then <code>discArea(R(x)) - discArea(r(x))</code>, and the volume is the integral of that function over the interval. The axis of revolution enters only through the radius functions, <code>r = (x) => Math.abs(f(x) - k)</code>. That is a coordinate translation applied before a distance is measured: move the origin to the axis, then compute the distance to the curve. The rest of the pipeline, squaring and integrating, never sees the axis directly.</p><p>Where the analogy holds: the composition is exact. Changing the axis changes only the radius functions, so a problem about $y = 4$ and a problem about the $x$-axis differ by one line of code. The check $R \\geq r$ is the assertion that the outer radius function dominates the inner one at every sample point, and <code>discArea(R) - discArea(r)</code> is the quantity a numeric routine would sum, with a Riemann sum standing in for the integral.</p><p>Where it breaks: <code>Math.PI * (R - r) ** 2</code> is a different function. It is the area of a disc whose radius is the gap between the curves, not the area of a washer, and the subtraction must happen after squaring. The translation picture also assumes the axis lies outside the region or along its edge. If the axis passes through the interior of the region, the signed distance <code>f(x) - k</code> changes sign inside the interval, the part of the region on one side of the axis sweeps through the same space as the part on the other side, and the formula double counts that space. The region must be split at the axis and each piece handled on its own.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q030",
+      "u8-q031"
+     ]
+    },
+    {
+     "type": "worked-example",
+     "title": "Volume when the region bounded by $y = x$, $y = 0$, and $x = 2$ is revolved about the line $y = -1$",
+     "steps": [
+      {
+       "text": "Identify the region: on $[0, 2]$ the top boundary is $y = x$ and the bottom boundary is $y = 0$, a triangle with vertices $(0, 0)$, $(2, 0)$, and $(2, 2)$. The axis $y = -1$ lies below the region and does not touch it, so each slice is a washer. The axis is horizontal, so integrate in $x$."
+      },
+      {
+       "text": "Assign the radii. The far curve is $y = x$, so the outer radius is the distance from $y = -1$ up to $y = x$. The near curve is $y = 0$, so the inner radius is the distance from $y = -1$ up to $y = 0$. Check: $R - r = x \\geq 0$ on $[0, 2]$.",
+       "math": "R = x - (-1) = x + 1, \\qquad r = 0 - (-1) = 1"
+      },
+      {
+       "text": "Set up the washer integral and simplify the integrand.",
+       "math": "V = \\pi\\int_0^2 \\left((x + 1)^2 - 1^2\\right)dx = \\pi\\int_0^2 \\left(x^2 + 2x\\right)dx"
+      },
+      {
+       "text": "Evaluate with the power rule.",
+       "math": "V = \\pi\\left[\\frac{x^3}{3} + x^2\\right]_0^2 = \\pi\\left(\\frac{8}{3} + 4\\right) = \\frac{20\\pi}{3}"
+      },
+      {
+       "text": "The volume is $\\frac{20\\pi}{3}$ cubic units, about $20.944$. A cross-check: the hole is a cylinder of radius $1$ and length $2$, volume $2\\pi$, and the full solid without the hole has volume $\\pi\\int_0^2 (x + 1)^2\\,dx = \\pi\\left[\\frac{(x + 1)^3}{3}\\right]_0^2 = \\frac{26\\pi}{3}$; the difference $\\frac{26\\pi}{3} - 2\\pi = \\frac{20\\pi}{3}$ agrees. The justification: each cross section perpendicular to the axis is a washer with outer radius $x + 1$ and inner radius $1$, and the volume is the integral of its area over $[0, 2]$."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q032",
+      "u8-q033"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u8-l6",
+   "title": "Arc length (BC)",
+   "skillIds": [
+    "u8-arc-length"
+   ],
+   "estMinutes": 16,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>The <strong>arc length</strong> of a curve is the distance measured along the curve itself, not the straight-line distance between its endpoints. A curve $y = f(x)$ on $[a, b]$ is <strong>smooth</strong> on that interval if $f'$ exists and is continuous there. Smoothness is the hypothesis of the arc length formula; it rules out corners and vertical tangents inside the interval.</p><p>The formula comes from the slicing pattern used throughout this unit. A small piece of the curve between $x$ and $x + dx$ is approximately a straight segment. That segment is the hypotenuse of a right triangle with horizontal leg $dx$ and vertical leg $dy = f'(x)\\,dx$, so by the Pythagorean theorem its length is</p><p>$$\\sqrt{dx^2 + dy^2} = \\sqrt{1 + \\left(\\frac{dy}{dx}\\right)^2}\\,dx = \\sqrt{1 + \\big(f'(x)\\big)^2}\\,dx$$</p><p>Adding the pieces and taking the limit gives a definite integral. If $f'$ is continuous on $[a, b]$, the arc length of $y = f(x)$ from $x = a$ to $x = b$ is</p><p>$$L = \\int_a^b \\sqrt{1 + \\big(f'(x)\\big)^2}\\,dx$$</p><p>When the curve is given as $x = g(y)$ for $c \\le y \\le d$ and $g'$ is continuous, the same derivation with the roles of the variables exchanged gives</p><p>$$L = \\int_c^d \\sqrt{1 + \\big(g'(y)\\big)^2}\\,dy$$</p><p>Most arc length integrals have no <strong>elementary antiderivative</strong>, that is, no antiderivative that can be written using the functions in the Unit 6 library (powers, exponentials, logarithms, trigonometric functions, their inverses) and finite combinations of them. The curve $y = \\sin x$ on $[0, \\pi]$ has $f'(x) = \\cos x$, so $L = \\int_0^{\\pi} \\sqrt{1 + \\cos^2 x}\\,dx$, and no elementary antiderivative of $\\sqrt{1 + \\cos^2 x}$ exists. On the exam this is expected: the complete response is the integral written out with correct limits, followed by a calculator value, here $L \\approx 3.820$. Write the integral before using the calculator, because the set-up is what earns the points.</p><p>The formula also runs in reverse. An integral of the form $\\int_a^b \\sqrt{1 + h(x)}\\,dx$ is the arc length of any curve whose derivative satisfies $\\big(f'(x)\\big)^2 = h(x)$. To identify the curve, take $f'(x) = \\sqrt{h(x)}$ (or its negative) and antidifferentiate. For example, $\\int_0^2 \\sqrt{1 + 4x^2}\\,dx$ has $h(x) = 4x^2$, so $f'(x) = 2x$ and the curve is $y = x^2$ on $[0, 2]$, up to an added constant that does not change the length.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Measuring a curve by sampling it is computing the length of a polyline. Given sample points <code>(x[i], y[i])</code>, the polyline length is <code>sum(Math.hypot(dx[i], dy[i]))</code>, where <code>dx[i] = x[i+1] - x[i]</code> and <code>dy[i] = y[i+1] - y[i]</code>. Factoring <code>dx[i]</code> out of each term rewrites the sum as <code>sum(Math.sqrt(1 + (dy[i]/dx[i])**2) * dx[i])</code>. That is a Riemann sum for the arc length integral: <code>dy[i]/dx[i]</code> is a difference quotient standing in for $f'(x)$, and <code>dx[i]</code> is the width of the slice. Refining the sample grid is the limit that turns the sum into $\\int_a^b \\sqrt{1 + (f'(x))^2}\\,dx$.</p><p>Where the analogy holds: for a smooth curve, the polyline length converges to the arc length as the spacing goes to zero, and the two expressions above are equal term by term whenever <code>dx[i]</code> is nonzero. A polyline of a few hundred points is a good numerical check on an arc length integral, and a calculator's numerical integrator is doing a refined version of the same summation.</p><p>Where it breaks: the difference quotient converges to $f'$ only where $f$ is differentiable. At a corner the polyline still has a length, but the integrand has no value there, so the $x$-form of the formula cannot be applied across the corner without splitting the interval at it. At a vertical tangent, <code>dx[i]</code> is zero, the division fails, and $f'$ is unbounded; the fix is to exchange the roles of the variables and use the $x = g(y)$ form, where the same slope is finite. The polyline also accumulates floating-point rounding error over many small <code>hypot</code> values, while the exact integral has no such error; a numerical integrator manages this with step-size control that a plain loop does not have.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the length of $y = x^{3/2}$ from $x = 0$ to $x = \\dfrac{4}{3}$",
+     "steps": [
+      {
+       "text": "Differentiate and form the quantity under the square root. The derivative is continuous on $[0, \\frac{4}{3}]$, so the curve is smooth and the $x$-form of the formula applies.",
+       "math": "f'(x) = \\tfrac{3}{2}x^{1/2}, \\qquad 1 + \\big(f'(x)\\big)^2 = 1 + \\tfrac{9}{4}x"
+      },
+      {
+       "text": "Write the arc length integral with the given limits.",
+       "math": "L = \\int_0^{4/3} \\sqrt{1 + \\tfrac{9}{4}x}\\,dx"
+      },
+      {
+       "text": "Substitute $u = 1 + \\frac{9}{4}x$, so $du = \\frac{9}{4}\\,dx$ and $dx = \\frac{4}{9}\\,du$. Convert the limits: $x = 0$ gives $u = 1$, and $x = \\frac{4}{3}$ gives $u = 1 + 3 = 4$.",
+       "math": "L = \\frac{4}{9}\\int_1^4 \\sqrt{u}\\,du"
+      },
+      {
+       "text": "Integrate with the power rule and evaluate, using $4^{3/2} = 8$.",
+       "math": "L = \\frac{4}{9}\\cdot\\Big[\\tfrac{2}{3}u^{3/2}\\Big]_1^4 = \\frac{4}{9}\\cdot\\frac{2}{3}(8 - 1) = \\frac{56}{27}"
+      },
+      {
+       "text": "The length is $\\frac{56}{27} \\approx 2.074$ units. As a check, the straight segment from $(0, 0)$ to $(\\frac{4}{3}, \\frac{8}{3\\sqrt{3}})$ has length about $2.03$, and the curve must be at least that long, which it is."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q034",
+      "u8-q035"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Two question patterns cover most exam items on arc length.</p><p><strong>Recognizing an arc length integrand.</strong> The prompt gives an integral of the form $\\int_a^b \\sqrt{1 + h(x)}\\,dx$ and asks which curve it measures. The added term is $\\big(f'(x)\\big)^2$, so $f'(x) = \\sqrt{h(x)}$ and $f$ is an antiderivative of that. For $\\int_1^4 \\sqrt{1 + \\frac{1}{4x}}\\,dx$, the added term is $\\frac{1}{4x}$, so $f'(x) = \\frac{1}{2\\sqrt{x}}$ and $f(x) = \\sqrt{x}$. Two checks detect the common errors: the added term must be the square of $f'$, not $f'$ itself, and it must be the square of the derivative, not of the function.</p><p><strong>Integrands that become perfect squares.</strong> Some curves are built so that $1 + (f')^2$ is a perfect square and the root disappears exactly. For $x = \\frac{y^3}{6} + \\frac{1}{2y}$, the derivative is $\\frac{dx}{dy} = \\frac{y^2}{2} - \\frac{1}{2y^2}$. Squaring gives $\\frac{y^4}{4} - \\frac{1}{2} + \\frac{1}{4y^4}$, and adding $1$ changes the sign of the middle term:</p><p>$$1 + \\left(\\frac{dx}{dy}\\right)^2 = \\frac{y^4}{4} + \\frac{1}{2} + \\frac{1}{4y^4} = \\left(\\frac{y^2}{2} + \\frac{1}{2y^2}\\right)^2$$</p><p>The square root is then $\\frac{y^2}{2} + \\frac{1}{2y^2}$, which is positive for $y > 0$, and the integral is a power-rule computation. The pattern to recognize is a derivative of the form $A - B$ with $2AB = \\frac{1}{2}$; its square has middle term $-\\frac{1}{2}$, and adding $1$ turns the whole expression into $(A + B)^2$.</p><p>Trigonometric identities give the same effect. For $y = \\ln(\\cos x)$ on $[0, \\frac{\\pi}{3}]$, $f'(x) = -\\tan x$, and the Pythagorean identity $1 + \\tan^2 x = \\sec^2 x$ gives $\\sqrt{1 + \\tan^2 x} = \\sec x$, which is positive on this interval. So</p><p>$$L = \\int_0^{\\pi/3} \\sec x\\,dx = \\Big[\\ln|\\sec x + \\tan x|\\Big]_0^{\\pi/3} = \\ln(2 + \\sqrt{3}) - \\ln 1 = \\ln(2 + \\sqrt{3})$$</p><p>The antiderivative $\\int \\sec x\\,dx = \\ln|\\sec x + \\tan x| + C$ is a library entry from Unit 6 and can be confirmed by differentiating. A complete response states the derivative, the simplified integrand with the identity or perfect square named, the antiderivative, and the evaluated value.</p><p>When $1 + (f')^2$ is not a perfect square and has no elementary antiderivative, the correct response is the set-up integral with its limits and a calculator value rounded to three decimal places. Searching for an algebraic antiderivative in that case uses time and earns no points.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u8-q036",
+      "u8-q037",
+      "u8-q038"
+     ]
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "u8-q001",
+   "skillId": "u8-average-value",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find the average value of $f(x) = 3x^2$ on the interval $[0, 2]$.</p>",
+   "choices": [
+    "$8$",
+    "$6$",
+    "$4$",
+    "$12$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from computing the integral $\\int_0^2 3x^2\\,dx = 8$ and reporting it without dividing by the length of the interval, which is $2$.",
+    "This choice comes from averaging the two endpoint values $f(0) = 0$ and $f(2) = 12$. The average value of a function is the integral divided by the interval length, not the mean of two sampled values.",
+    null,
+    "This choice comes from reporting $f(2) = 12$, the value at the right endpoint. The average value depends on every value of $f$ on the interval, through the integral."
+   ],
+   "hints": [
+    "The average value of a continuous function $f$ on $[a, b]$ is defined as $\\dfrac{1}{b - a}\\displaystyle\\int_a^b f(x)\\,dx$. Identify $a$, $b$, and $b - a$ first.",
+    "Compute $\\int_0^2 3x^2\\,dx$ with an antiderivative of $3x^2$, then divide the result by $2 - 0$."
+   ],
+   "solution": [
+    {
+     "text": "The average value of $f$ on $[a, b]$ is the integral of $f$ over the interval divided by the interval length. Here $a = 0$, $b = 2$, and $b - a = 2$.",
+     "math": "f_{\\text{avg}} = \\frac{1}{2 - 0}\\int_0^2 3x^2\\,dx"
+    },
+    {
+     "text": "An antiderivative of $3x^2$ is $x^3$. Evaluate it from $0$ to $2$.",
+     "math": "\\int_0^2 3x^2\\,dx = \\Big[x^3\\Big]_0^2 = 8 - 0 = 8"
+    },
+    {
+     "text": "Divide by the interval length.",
+     "math": "f_{\\text{avg}} = \\frac{8}{2} = 4"
+    }
+   ]
+  },
+  {
+   "id": "u8-q002",
+   "skillId": "u8-average-value",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>Find the average value of $g(x) = \\sqrt{x}$ on the interval $[0, 9]$. Give the exact value.</p>",
+   "answer": 2,
+   "hints": [
+    "The average value of $g$ on $[0, 9]$ is $\\dfrac{1}{9 - 0}\\displaystyle\\int_0^9 \\sqrt{x}\\,dx$. Write $\\sqrt{x}$ as $x^{1/2}$ before integrating.",
+    "Use the power rule for antiderivatives: an antiderivative of $x^{1/2}$ is $\\dfrac{2}{3}x^{3/2}$. Note that $9^{3/2} = (\\sqrt{9})^3 = 27$."
+   ],
+   "solution": [
+    {
+     "text": "Set up the average value with the interval length $9 - 0 = 9$.",
+     "math": "g_{\\text{avg}} = \\frac{1}{9}\\int_0^9 x^{1/2}\\,dx"
+    },
+    {
+     "text": "Integrate with the power rule. An antiderivative of $x^{1/2}$ is $\\frac{2}{3}x^{3/2}$, and $9^{3/2} = (\\sqrt{9})^3 = 3^3 = 27$.",
+     "math": "\\int_0^9 x^{1/2}\\,dx = \\Big[\\tfrac{2}{3}x^{3/2}\\Big]_0^9 = \\tfrac{2}{3}\\cdot 27 - 0 = 18"
+    },
+    {
+     "text": "Divide by the interval length.",
+     "math": "g_{\\text{avg}} = \\frac{18}{9} = 2"
+    }
+   ]
+  },
+  {
+   "id": "u8-q003",
+   "skillId": "u8-average-value",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Let $f(x) = x^2$ on the interval $[0, 3]$. The Mean Value Theorem for integrals guarantees a value $c$ in $[0, 3]$ such that $f(c)$ equals the average value of $f$ on $[0, 3]$. Find $c$.</p>",
+   "choices": [
+    "$c = \\sqrt{3}$",
+    "$c = 3$",
+    "$c = \\dfrac{3}{2}$",
+    "$c = \\dfrac{3\\sqrt{2}}{2}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from reporting the average value itself as $c$. The average value of $f$ on $[0, 3]$ is $3$, but $c$ is the input where $f(c)$ equals that average, so $c$ solves $c^2 = 3$.",
+    "This choice comes from taking the midpoint of the interval as $c$. The Mean Value Theorem for integrals does not place $c$ at the midpoint; $c$ is found by solving $f(c) = f_{\\text{avg}}$, and $f(3/2) = 9/4$, which is not the average value $3$.",
+    "This choice comes from dividing the integral $\\int_0^3 x^2\\,dx = 9$ by $2$ instead of by the interval length $3$, giving a supposed average of $\\frac{9}{2}$ and then $c = \\sqrt{9/2} = \\frac{3\\sqrt{2}}{2}$."
+   ],
+   "hints": [
+    "The Mean Value Theorem for integrals states that if $f$ is continuous on $[a, b]$, there is a $c$ in $[a, b]$ with $f(c) = \\dfrac{1}{b - a}\\displaystyle\\int_a^b f(x)\\,dx$. First compute the right side.",
+    "After finding the average value, set $c^2$ equal to it and solve for $c$, keeping only the solution that lies in $[0, 3]$."
+   ],
+   "solution": [
+    {
+     "text": "Compute the average value of $f(x) = x^2$ on $[0, 3]$. The interval length is $3$.",
+     "math": "f_{\\text{avg}} = \\frac{1}{3}\\int_0^3 x^2\\,dx = \\frac{1}{3}\\Big[\\tfrac{1}{3}x^3\\Big]_0^3 = \\frac{1}{3}\\cdot 9 = 3"
+    },
+    {
+     "text": "Since $f$ is continuous on $[0, 3]$, the Mean Value Theorem for integrals guarantees a $c$ in $[0, 3]$ with $f(c) = 3$. Solve that equation.",
+     "math": "c^2 = 3 \\quad\\Longrightarrow\\quad c = \\pm\\sqrt{3}"
+    },
+    {
+     "text": "Only the positive root lies in $[0, 3]$, because $\\sqrt{3} \\approx 1.732$. So $c = \\sqrt{3}$."
+    }
+   ]
+  },
+  {
+   "id": "u8-q004",
+   "skillId": "u8-average-value",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Water flows into a tank at a rate of $r(t)$ liters per minute, where $t$ is measured in minutes. Selected values of $r$ are given in the table.</p><table><thead><tr><th>$t$ (minutes)</th><th>$0$</th><th>$2$</th><th>$4$</th><th>$6$</th><th>$8$</th></tr></thead><tbody><tr><td>$r(t)$ (liters per minute)</td><td>$10$</td><td>$14$</td><td>$18$</td><td>$12$</td><td>$6$</td></tr></tbody></table><p>Use a trapezoidal sum with the four subintervals indicated by the table to approximate the average rate of flow, in liters per minute, over the interval $0 \\leq t \\leq 8$. Give the exact value of the approximation.</p>",
+   "answer": 13,
+   "hints": [
+    "The average rate of flow over $[0, 8]$ is $\\dfrac{1}{8}\\displaystyle\\int_0^8 r(t)\\,dt$. The integral is not available exactly from a table, so approximate it with the trapezoidal sum first.",
+    "Each subinterval has width $2$. On each one, the trapezoid area is the average of the two endpoint values of $r$ multiplied by $2$. Add the four areas, then divide the total by the interval length $8$."
+   ],
+   "solution": [
+    {
+     "text": "The quantity to find is the average value of $r$ on $[0, 8]$, which is the total volume that entered, $\\int_0^8 r(t)\\,dt$ liters, divided by the $8$ minutes.",
+     "math": "r_{\\text{avg}} = \\frac{1}{8}\\int_0^8 r(t)\\,dt"
+    },
+    {
+     "text": "Approximate the integral with one trapezoid per subinterval. Every subinterval has width $2$.",
+     "math": "T = \\frac{10 + 14}{2}\\cdot 2 + \\frac{14 + 18}{2}\\cdot 2 + \\frac{18 + 12}{2}\\cdot 2 + \\frac{12 + 6}{2}\\cdot 2"
+    },
+    {
+     "text": "Evaluate each term and add. The sum approximates the total number of liters that entered the tank during the $8$ minutes.",
+     "math": "T = 24 + 32 + 30 + 18 = 104"
+    },
+    {
+     "text": "Divide by the interval length to get the approximate average rate.",
+     "math": "r_{\\text{avg}} \\approx \\frac{104}{8} = 13 \\text{ liters per minute}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q005",
+   "skillId": "u8-average-value",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>The function $f$ is continuous on $[1, 6]$, with $\\displaystyle\\int_1^4 f(x)\\,dx = 12$ and $\\displaystyle\\int_1^6 f(x)\\,dx = 27$. Find the average value of $f$ on the interval $[4, 6]$.</p>",
+   "choices": [
+    "$15$",
+    "$5.4$",
+    "$2.5$",
+    "$7.5$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from computing $\\int_4^6 f(x)\\,dx = 27 - 12 = 15$ and reporting the integral without dividing by the length of $[4, 6]$, which is $2$.",
+    "This choice comes from dividing $27$ by $5$, which is the average value of $f$ on $[1, 6]$. The question asks for the average on $[4, 6]$, which uses only the integral over that interval.",
+    "This choice comes from dividing $\\int_4^6 f(x)\\,dx = 15$ by the right endpoint $6$ instead of by the interval length $6 - 4 = 2$.",
+    null
+   ],
+   "hints": [
+    "The average value on $[4, 6]$ is $\\dfrac{1}{6 - 4}\\displaystyle\\int_4^6 f(x)\\,dx$. The integral over $[4, 6]$ is not given directly, but it can be built from the two integrals that are given.",
+    "Use the additivity property of definite integrals: $\\displaystyle\\int_1^6 f(x)\\,dx = \\int_1^4 f(x)\\,dx + \\int_4^6 f(x)\\,dx$. Solve for the piece you need, then divide by $2$."
+   ],
+   "solution": [
+    {
+     "text": "By the additivity property of definite integrals over adjacent intervals, the integral over $[1, 6]$ splits at $x = 4$.",
+     "math": "\\int_1^6 f(x)\\,dx = \\int_1^4 f(x)\\,dx + \\int_4^6 f(x)\\,dx"
+    },
+    {
+     "text": "Substitute the given values and solve for the integral over $[4, 6]$.",
+     "math": "27 = 12 + \\int_4^6 f(x)\\,dx \\quad\\Longrightarrow\\quad \\int_4^6 f(x)\\,dx = 15"
+    },
+    {
+     "text": "The average value on $[4, 6]$ is that integral divided by the interval length $6 - 4 = 2$.",
+     "math": "f_{\\text{avg}} = \\frac{1}{2}\\cdot 15 = 7.5"
+    }
+   ]
+  },
+  {
+   "id": "u8-q006",
+   "skillId": "u8-motion-with-integrals",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A particle moves along a line with velocity $v(t) = 3t^2 - 12$ meters per second for $t \\geq 0$ seconds. Find the displacement of the particle, in meters, over the time interval $0 \\leq t \\leq 3$.</p>",
+   "choices": [
+    "$9$ meters",
+    "$-9$ meters",
+    "$23$ meters",
+    "$15$ meters"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from dropping the sign of the result. The integral $\\int_0^3 (3t^2 - 12)\\,dt$ is negative, and displacement keeps its sign because it records net change in position; a negative displacement means the particle ends to the left of where it started.",
+    null,
+    "This choice comes from computing total distance traveled instead of displacement. Total distance integrates $|v(t)|$, splitting at $t = 2$ where $v$ changes sign, and gives $16 + 7 = 23$ meters; displacement integrates $v(t)$ itself.",
+    "This choice comes from reporting $v(3) = 15$, the velocity at the end of the interval. Displacement is the integral of velocity over the interval, not the velocity at one instant."
+   ],
+   "hints": [
+    "Displacement is the net change in position, $x(3) - x(0)$. By the Fundamental Theorem of Calculus, this equals $\\displaystyle\\int_0^3 v(t)\\,dt$, with no absolute value.",
+    "Find an antiderivative of $3t^2 - 12$ and evaluate it at $t = 3$ and $t = 0$. Keep the sign of the result."
+   ],
+   "solution": [
+    {
+     "text": "Displacement over $[0, 3]$ is the definite integral of velocity over that interval. The integrand keeps its sign, so intervals where $v$ is negative subtract from the total.",
+     "math": "\\text{displacement} = \\int_0^3 (3t^2 - 12)\\,dt"
+    },
+    {
+     "text": "An antiderivative of $3t^2 - 12$ is $t^3 - 12t$. Evaluate it at the endpoints.",
+     "math": "\\Big[t^3 - 12t\\Big]_0^3 = (27 - 36) - (0 - 0) = -9"
+    },
+    {
+     "text": "The displacement is $-9$ meters. The particle ends $9$ meters to the left of its starting position, because $v$ is negative on $[0, 2)$ and positive on $(2, 3]$, and the negative part outweighs the positive part."
+    }
+   ]
+  },
+  {
+   "id": "u8-q007",
+   "skillId": "u8-motion-with-integrals",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>A particle moves along a line with velocity $v(t) = t^2 - 4t + 3$ feet per second for $0 \\leq t \\leq 4$ seconds. Find the total distance traveled by the particle, in feet, over the interval $0 \\leq t \\leq 4$. Give the exact value.</p>",
+   "answer": 4,
+   "hints": [
+    "Total distance is $\\displaystyle\\int_0^4 |v(t)|\\,dt$. To remove the absolute value, first find where $v(t) = 0$ by factoring $t^2 - 4t + 3$.",
+    "The velocity changes sign at each root inside $(0, 4)$. Split the integral at those times, integrate $v$ on each piece, and add the absolute values of the pieces.",
+    "An antiderivative of $t^2 - 4t + 3$ is $\\dfrac{t^3}{3} - 2t^2 + 3t$. Evaluate it at $t = 0$, $1$, $3$, and $4$ and take differences."
+   ],
+   "solution": [
+    {
+     "text": "Factor the velocity to find where it is zero.",
+     "math": "v(t) = t^2 - 4t + 3 = (t - 1)(t - 3)"
+    },
+    {
+     "text": "So $v = 0$ at $t = 1$ and $t = 3$. Testing a point in each piece: $v(0) = 3 > 0$, $v(2) = -1 < 0$, $v(4) = 3 > 0$. The particle moves in the positive direction on $[0, 1]$, in the negative direction on $[1, 3]$, and in the positive direction on $[3, 4]$."
+    },
+    {
+     "text": "Let $F(t) = \\dfrac{t^3}{3} - 2t^2 + 3t$, an antiderivative of $v$. Evaluate it at the four boundary times.",
+     "math": "F(0) = 0,\\quad F(1) = \\tfrac{1}{3} - 2 + 3 = \\tfrac{4}{3},\\quad F(3) = 9 - 18 + 9 = 0,\\quad F(4) = \\tfrac{64}{3} - 32 + 12 = \\tfrac{4}{3}"
+    },
+    {
+     "text": "Each piece of the displacement is a difference of $F$ values.",
+     "math": "\\int_0^1 v\\,dt = \\tfrac{4}{3},\\qquad \\int_1^3 v\\,dt = 0 - \\tfrac{4}{3} = -\\tfrac{4}{3},\\qquad \\int_3^4 v\\,dt = \\tfrac{4}{3} - 0 = \\tfrac{4}{3}"
+    },
+    {
+     "text": "Total distance adds the absolute values of the pieces.",
+     "math": "\\int_0^4 |v(t)|\\,dt = \\tfrac{4}{3} + \\tfrac{4}{3} + \\tfrac{4}{3} = 4 \\text{ feet}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q008",
+   "skillId": "u8-motion-with-integrals",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A particle moves along the $x$-axis with acceleration $a(t) = 6t$ meters per second squared for $t \\geq 0$ seconds. At time $t = 0$ its velocity is $v(0) = -3$ meters per second and its position is $x(0) = 2$ meters. Find the position $x(2)$, in meters.</p>",
+   "choices": [
+    "$4$ meters",
+    "$2$ meters",
+    "$10$ meters",
+    "$9$ meters"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from omitting the initial position. Integrating velocity gives $t^3 - 3t + C$, and the condition $x(0) = 2$ forces $C = 2$; leaving $C = 0$ gives $x(2) = 8 - 6 = 2$.",
+    "This choice comes from omitting the initial velocity. Integrating $a(t) = 6t$ gives $v(t) = 3t^2 + C$, and $v(0) = -3$ forces $C = -3$; with $C = 0$ the position becomes $t^3 + 2$, which gives $10$ at $t = 2$.",
+    "This choice comes from reporting the velocity $v(2) = 3(4) - 3 = 9$ meters per second instead of the position. Position requires a second integration, of $v$, together with the initial position."
+   ],
+   "hints": [
+    "Velocity is an antiderivative of acceleration, and position is an antiderivative of velocity. Each integration produces a constant that an initial condition determines.",
+    "First find $v(t) = \\displaystyle\\int 6t\\,dt$ and use $v(0) = -3$ to fix the constant. Then find $x(t) = \\displaystyle\\int v(t)\\,dt$ and use $x(0) = 2$ to fix the second constant. Finally evaluate $x(2)$."
+   ],
+   "solution": [
+    {
+     "text": "Integrate the acceleration to get the velocity, then use the initial velocity to find the constant.",
+     "math": "v(t) = \\int 6t\\,dt = 3t^2 + C_1, \\qquad v(0) = C_1 = -3 \\quad\\Longrightarrow\\quad v(t) = 3t^2 - 3"
+    },
+    {
+     "text": "Integrate the velocity to get the position, then use the initial position to find the second constant.",
+     "math": "x(t) = \\int (3t^2 - 3)\\,dt = t^3 - 3t + C_2, \\qquad x(0) = C_2 = 2 \\quad\\Longrightarrow\\quad x(t) = t^3 - 3t + 2"
+    },
+    {
+     "text": "Evaluate the position at $t = 2$.",
+     "math": "x(2) = 2^3 - 3(2) + 2 = 8 - 6 + 2 = 4 \\text{ meters}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q009",
+   "skillId": "u8-motion-with-integrals",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A runner moves along a straight path with velocity $v(t)$ meters per minute, where $t$ is measured in minutes. Selected values of $v$ are given in the table.</p><table><thead><tr><th>$t$ (minutes)</th><th>$0$</th><th>$2$</th><th>$4$</th><th>$6$</th><th>$8$</th></tr></thead><tbody><tr><td>$v(t)$ (meters per minute)</td><td>$0$</td><td>$150$</td><td>$200$</td><td>$180$</td><td>$100$</td></tr></tbody></table><p>Use a trapezoidal sum with the four subintervals indicated by the table to approximate the runner's displacement, in meters, from $t = 0$ to $t = 8$. All values of $v$ are non-negative, so this approximation is also an approximation of the total distance traveled. Which of the following is the approximation?</p>",
+   "choices": [
+    "$1060$ meters",
+    "$1260$ meters",
+    "$1160$ meters",
+    "$2320$ meters"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from a left Riemann sum, $2(0 + 150 + 200 + 180)$, which uses only the left endpoint value of each subinterval. A trapezoidal sum averages the two endpoint values on each subinterval.",
+    "This choice comes from a right Riemann sum, $2(150 + 200 + 180 + 100)$, which uses only the right endpoint value of each subinterval. A trapezoidal sum averages the two endpoint values on each subinterval.",
+    null,
+    "This choice comes from adding the two endpoint values on each subinterval without dividing by $2$. The area of a trapezoid uses the average of the two parallel sides, $\\frac{v(t_i) + v(t_{i+1})}{2}$, times the width."
+   ],
+   "hints": [
+    "Displacement from $t = 0$ to $t = 8$ is $\\int_0^8 v(t)\\,dt$. The table gives four subintervals of equal width $2$.",
+    "On each subinterval, the trapezoid area is $\\dfrac{v(\\text{left}) + v(\\text{right})}{2}$ multiplied by the width $2$. Compute the four areas and add them."
+   ],
+   "solution": [
+    {
+     "text": "Displacement is the definite integral of velocity. Because velocity is in meters per minute and time is in minutes, the integral is in meters.",
+     "math": "\\text{displacement} = \\int_0^8 v(t)\\,dt"
+    },
+    {
+     "text": "The four subintervals are $[0, 2]$, $[2, 4]$, $[4, 6]$, and $[6, 8]$, each of width $2$. On each one, form a trapezoid with the average of the endpoint values as its height.",
+     "math": "T = \\frac{0 + 150}{2}\\cdot 2 + \\frac{150 + 200}{2}\\cdot 2 + \\frac{200 + 180}{2}\\cdot 2 + \\frac{180 + 100}{2}\\cdot 2"
+    },
+    {
+     "text": "Evaluate each term and add.",
+     "math": "T = 150 + 350 + 380 + 280 = 1160"
+    },
+    {
+     "text": "The runner's displacement is approximately $1160$ meters. Since $v(t) \\geq 0$ at every listed time, the runner never reverses direction in the data, so $1160$ meters also approximates the total distance traveled."
+    }
+   ]
+  },
+  {
+   "id": "u8-q010",
+   "skillId": "u8-motion-with-integrals",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A particle moves along a horizontal line. Its acceleration at time $t$ seconds is $a(t) = 2t - 6$ meters per second squared, and its velocity at $t = 0$ is $v(0) = 5$ meters per second. Find the total distance, in meters, that the particle travels from $t = 0$ to $t = 3$. Round to two decimal places.</p>",
+   "answer": 7.67,
+   "tolerance": 0.005,
+   "hints": [
+    "Velocity is an antiderivative of acceleration. Integrate $a(t)$ and use $v(0) = 5$ to find the constant of integration.",
+    "Total distance is $\\int_0^3 |v(t)|\\,dt$, not $\\int_0^3 v(t)\\,dt$. Factor $v(t)$ to find where it changes sign inside $[0, 3]$.",
+    "Split the integral at the sign change. Integrate $v$ on the part where it is positive and $-v$ on the part where it is negative, then add the two results."
+   ],
+   "solution": [
+    {
+     "text": "Integrate the acceleration and use the initial velocity to find the constant.",
+     "math": "v(t) = \\int (2t - 6)\\,dt = t^2 - 6t + C, \\qquad v(0) = 5 \\Rightarrow C = 5"
+    },
+    {
+     "text": "Factor the velocity to locate sign changes.",
+     "math": "v(t) = t^2 - 6t + 5 = (t - 1)(t - 5)"
+    },
+    {
+     "text": "On $[0, 1)$ both factors are negative, so their product is positive and $v(t) > 0$ for $0 \\leq t < 1$. On $(1, 3]$ the factor $t - 1$ is positive and $t - 5$ is negative, so $v(t) < 0$. The particle reverses direction at $t = 1$."
+    },
+    {
+     "text": "Total distance is the integral of $|v|$, so split at $t = 1$. An antiderivative of $v$ is $F(t) = \\frac{t^3}{3} - 3t^2 + 5t$.",
+     "math": "\\int_0^1 v(t)\\,dt = F(1) - F(0) = \\frac{1}{3} - 3 + 5 = \\frac{7}{3}, \\qquad \\int_1^3 v(t)\\,dt = F(3) - F(1) = -3 - \\frac{7}{3} = -\\frac{16}{3}"
+    },
+    {
+     "text": "Add the absolute values of the two pieces.",
+     "math": "\\text{distance} = \\frac{7}{3} + \\frac{16}{3} = \\frac{23}{3} \\approx 7.67 \\text{ meters}"
+    },
+    {
+     "text": "For comparison, the displacement is $\\frac{7}{3} - \\frac{16}{3} = -3$ meters. The particle ends $3$ meters to the left of where it started, but it travels about $7.67$ meters in total."
+    }
+   ]
+  },
+  {
+   "id": "u8-q011",
+   "skillId": "u8-accumulation-in-context",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A tank contains $10$ liters of water at time $t = 0$. Water enters the tank at a rate of $R(t) = 6t$ liters per minute, where $t$ is measured in minutes. No water leaves the tank. How many liters of water are in the tank at $t = 4$ minutes?</p>",
+   "choices": [
+    "$58$ liters",
+    "$48$ liters",
+    "$24$ liters",
+    "$34$ liters"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from omitting the $10$ liters present at $t = 0$. The integral $\\int_0^4 R(t)\\,dt = 48$ is the amount added, and the amount in the tank is the initial amount plus the amount added.",
+    "This choice comes from evaluating the rate at $t = 4$, $R(4) = 24$ liters per minute, and treating it as an amount. A rate must be integrated over the time interval to give an amount.",
+    "This choice comes from adding the rate $R(4) = 24$ to the initial $10$ liters. The amount added over $[0, 4]$ is $\\int_0^4 R(t)\\,dt$, not the value of $R$ at the endpoint."
+   ],
+   "hints": [
+    "The amount of water in the tank at $t = 4$ equals the amount at $t = 0$ plus the total amount that entered between $t = 0$ and $t = 4$.",
+    "The total amount that entered is the integral of the rate: $\\int_0^4 6t\\,dt$. Compute it, then add the initial $10$ liters."
+   ],
+   "solution": [
+    {
+     "text": "Let $W(t)$ be the number of liters in the tank at time $t$. Because $R$ is the rate at which water enters and nothing leaves, $W'(t) = R(t)$, so the net change in $W$ over $[0, 4]$ is the integral of $R$.",
+     "math": "W(4) = W(0) + \\int_0^4 R(t)\\,dt = 10 + \\int_0^4 6t\\,dt"
+    },
+    {
+     "text": "Evaluate the integral.",
+     "math": "\\int_0^4 6t\\,dt = \\Big[3t^2\\Big]_0^4 = 48"
+    },
+    {
+     "text": "Add the initial amount. Liters per minute times minutes gives liters.",
+     "math": "W(4) = 10 + 48 = 58 \\text{ liters}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q012",
+   "skillId": "u8-accumulation-in-context",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Snow accumulates on a flat roof. Let $S(t)$ be the rate, in cubic feet per hour, at which the volume of snow on the roof increases at time $t$, where $t$ is measured in hours. Which of the following statements gives the meaning of $\\displaystyle\\int_2^5 S(t)\\,dt$, including units?</p>",
+   "choices": [
+    "The rate at which snow is accumulating at $t = 5$, in cubic feet per hour.",
+    "The average rate of snow accumulation from $t = 2$ to $t = 5$, in cubic feet per hour.",
+    "The change in the rate of snow accumulation from $t = 2$ to $t = 5$, in cubic feet per hour.",
+    "The volume of snow, in cubic feet, that accumulated on the roof from $t = 2$ to $t = 5$."
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from reading the integral as the value of the rate at the upper limit. The value $S(5)$ is a rate at one instant; the integral adds up the rate over the whole interval and gives an amount.",
+    "This choice comes from omitting the division by the interval length in the average value formula. The average rate over $[2, 5]$ is $\\frac{1}{5 - 2}\\int_2^5 S(t)\\,dt$; the integral alone is an amount, not a rate.",
+    "This choice comes from treating the integrand as a derivative of the rate. The integral of $S'$, not of $S$, would give $S(5) - S(2)$, the change in the rate. The integral of $S$ gives the change in the volume of snow.",
+    null
+   ],
+   "hints": [
+    "The integrand $S(t)$ is a rate of change of volume. Integrating a rate of change over an interval gives the net change of the underlying quantity over that interval.",
+    "Multiply the units of the integrand by the units of $dt$: cubic feet per hour times hours. That product tells you what kind of quantity the integral is."
+   ],
+   "solution": [
+    {
+     "text": "Let $V(t)$ be the volume of snow on the roof, in cubic feet, at time $t$. The statement that $S$ is the rate at which the volume increases means $V'(t) = S(t)$."
+    },
+    {
+     "text": "By the Fundamental Theorem of Calculus, the integral of a rate of change over an interval is the net change of the quantity over that interval.",
+     "math": "\\int_2^5 S(t)\\,dt = V(5) - V(2)"
+    },
+    {
+     "text": "The units confirm this. The integrand is in cubic feet per hour and $dt$ is in hours, so the integral is in cubic feet. The integral is the volume of snow, in cubic feet, that accumulated on the roof from $t = 2$ to $t = 5$ hours."
+    }
+   ]
+  },
+  {
+   "id": "u8-q013",
+   "skillId": "u8-accumulation-in-context",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>A tank holds $50$ liters of water at time $t = 0$. Water is pumped into the tank at a constant rate of $8$ liters per minute, and water drains out of the tank at a rate of $D(t) = \\dfrac{t^2}{2}$ liters per minute, where $t$ is measured in minutes. Find the number of liters of water in the tank at $t = 6$ minutes. Give the exact value.</p>",
+   "answer": 62,
+   "hints": [
+    "The amount in the tank at $t = 6$ is the initial amount, plus the total that entered over $[0, 6]$, minus the total that drained over $[0, 6]$.",
+    "The total that entered is $8 \\cdot 6$ because the inflow rate is constant. The total that drained is $\\int_0^6 \\frac{t^2}{2}\\,dt$."
+   ],
+   "solution": [
+    {
+     "text": "Let $W(t)$ be the number of liters in the tank at time $t$. The net rate of change of $W$ is the inflow rate minus the outflow rate.",
+     "math": "W'(t) = 8 - \\frac{t^2}{2}"
+    },
+    {
+     "text": "Integrate the net rate from $0$ to $6$ and add the initial amount.",
+     "math": "W(6) = 50 + \\int_0^6 \\left(8 - \\frac{t^2}{2}\\right) dt = 50 + 8 \\cdot 6 - \\int_0^6 \\frac{t^2}{2}\\,dt"
+    },
+    {
+     "text": "Evaluate the drain integral.",
+     "math": "\\int_0^6 \\frac{t^2}{2}\\,dt = \\left[\\frac{t^3}{6}\\right]_0^6 = \\frac{216}{6} = 36"
+    },
+    {
+     "text": "Combine. Each term is in liters because liters per minute times minutes gives liters.",
+     "math": "W(6) = 50 + 48 - 36 = 62 \\text{ liters}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q014",
+   "skillId": "u8-accumulation-in-context",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Water enters a reservoir at a rate of $E(t) = 20 + 2t$ liters per hour and leaves the reservoir at a rate of $L(t) = t^2$ liters per hour, where $t$ is measured in hours and $0 \\leq t \\leq 8$. At time $t = 5$ hours, is the amount of water in the reservoir increasing or decreasing, and at what rate?</p>",
+   "choices": [
+    "Decreasing at $5$ liters per hour",
+    "Increasing at $5$ liters per hour",
+    "Increasing at $30$ liters per hour",
+    "Increasing at $55$ liters per hour"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from computing $L(5) - E(5)$, the out-rate minus the in-rate, which reverses the sign. The rate of change of the amount is in-rate minus out-rate, $E(5) - L(5) = 30 - 25 = 5$, which is positive.",
+    null,
+    "This choice comes from using the in-rate $E(5) = 30$ alone and ignoring the water leaving. The amount changes at the net rate $E(5) - L(5)$.",
+    "This choice comes from adding the two rates, $E(5) + L(5) = 30 + 25$. Water leaving reduces the amount, so the out-rate is subtracted, not added."
+   ],
+   "hints": [
+    "Let $W(t)$ be the amount of water in the reservoir. Its rate of change is the rate in minus the rate out: $W'(t) = E(t) - L(t)$.",
+    "Evaluate $E(5)$ and $L(5)$ separately, then subtract. The sign of the result tells you whether $W$ is increasing or decreasing at $t = 5$."
+   ],
+   "solution": [
+    {
+     "text": "Let $W(t)$ be the number of liters in the reservoir at time $t$. Water entering increases $W$ and water leaving decreases it, so the rate of change of $W$ is the net rate.",
+     "math": "W'(t) = E(t) - L(t) = 20 + 2t - t^2"
+    },
+    {
+     "text": "Evaluate at $t = 5$.",
+     "math": "W'(5) = E(5) - L(5) = (20 + 10) - 25 = 30 - 25 = 5"
+    },
+    {
+     "text": "Because $W'(5) = 5 > 0$, the amount of water in the reservoir is increasing at $t = 5$ hours, at a rate of $5$ liters per hour."
+    }
+   ]
+  },
+  {
+   "id": "u8-q015",
+   "skillId": "u8-accumulation-in-context",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>People enter a stadium at a rate of $r(t)$ people per minute, where $t$ is measured in minutes. Selected values of $r$ are given in the table.</p><table><thead><tr><th>$t$ (minutes)</th><th>$0$</th><th>$10$</th><th>$20$</th><th>$30$</th><th>$40$</th></tr></thead><tbody><tr><td>$r(t)$ (people per minute)</td><td>$20$</td><td>$50$</td><td>$80$</td><td>$60$</td><td>$30$</td></tr></tbody></table><p>There are $500$ people inside the stadium at $t = 0$. During the same $40$ minutes, people leave the stadium at a constant rate of $15$ people per minute. Use a left Riemann sum with the four subintervals indicated by the table to estimate the number of people who entered from $t = 0$ to $t = 40$, and use that estimate to find the estimated number of people inside the stadium at $t = 40$. Give an exact integer.</p>",
+   "answer": 2000,
+   "hints": [
+    "The number inside at $t = 40$ equals the number inside at $t = 0$, plus the number who entered over $[0, 40]$, minus the number who left over $[0, 40]$.",
+    "The number who entered is $\\int_0^{40} r(t)\\,dt$. A left Riemann sum with width $10$ uses the values of $r$ at $t = 0, 10, 20, 30$ as heights.",
+    "The number who left is the constant rate times the elapsed time, $15 \\cdot 40$. Subtract it from the sum of the initial count and the entry estimate."
+   ],
+   "solution": [
+    {
+     "text": "Let $P(t)$ be the number of people inside the stadium at time $t$. The number inside at $t = 40$ is the initial count plus the total who entered minus the total who left.",
+     "math": "P(40) = 500 + \\int_0^{40} r(t)\\,dt - \\int_0^{40} 15\\,dt"
+    },
+    {
+     "text": "Estimate the entry integral with a left Riemann sum. The four subintervals each have width $10$, and the left endpoint values are $r(0), r(10), r(20), r(30)$.",
+     "math": "\\int_0^{40} r(t)\\,dt \\approx 10\\,(20 + 50 + 80 + 60) = 10 \\cdot 210 = 2100"
+    },
+    {
+     "text": "The number who left is the constant rate times the elapsed time.",
+     "math": "\\int_0^{40} 15\\,dt = 15 \\cdot 40 = 600"
+    },
+    {
+     "text": "Combine the three pieces. People per minute times minutes gives people.",
+     "math": "P(40) \\approx 500 + 2100 - 600 = 2000"
+    },
+    {
+     "text": "The estimated number of people inside the stadium at $t = 40$ minutes is $2000$."
+    }
+   ]
+  },
+  {
+   "id": "u8-q016",
+   "skillId": "u8-accumulation-in-context",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Water enters a tank at a rate of $r(t)$ liters per minute, where $t$ is measured in minutes and $0 \\leq t \\leq 14$. The rate $r$ is piecewise linear: it rises linearly from $r(0) = 0$ to $r(4) = 8$, stays constant at $8$ from $t = 4$ to $t = 10$, then falls linearly from $r(10) = 8$ to $r(14) = 0$. The tank holds $20$ liters at $t = 0$ and drains at a constant rate of $3$ liters per minute for all $t$ in $[0, 14]$. Let $A(t)$ be the number of liters in the tank at time $t$. At what time $t$ is $A(t)$ greatest on $[0, 14]$?</p>",
+   "choices": [
+    "$t = 12.5$ minutes, because $A'(t) = r(t) - 3$ changes sign from positive to negative there, and $A(12.5)$ exceeds $A(0)$ and $A(14)$",
+    "$t = 10$ minutes, because the inflow rate $r(t)$ begins to decrease there",
+    "$t = 14$ minutes, because water is entering the tank on the whole interval, so $A$ increases up to the right endpoint",
+    "$t = 1.5$ minutes, because $A'(t) = r(t) - 3$ equals zero there"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from confusing the maximum of the rate $r$ with the maximum of the amount $A$. At $t = 10$ the inflow is still $8$ liters per minute, more than the $3$ liters per minute draining, so $A'(10) = 5 > 0$ and $A$ is still increasing.",
+    "This choice comes from assuming $A$ increases as long as $r(t) > 0$. The amount increases only while the net rate $r(t) - 3$ is positive. After $t = 12.5$, $r(t) < 3$, so $A$ decreases on $(12.5, 14]$ and $A(14) = 58$ is less than $A(12.5) = 60.25$.",
+    "This choice comes from stopping at the first zero of $A'$ without checking the sign change. At $t = 1.5$, $A'$ changes from negative to positive, so $A$ has a relative minimum there, not a maximum."
+   ],
+   "hints": [
+    "The amount $A(t)$ changes at the net rate $A'(t) = r(t) - 3$. Write $r(t)$ as a formula on each of the three pieces, then find every $t$ where $r(t) = 3$.",
+    "Determine the sign of $A'(t) = r(t) - 3$ on each interval between the zeros. A maximum of $A$ occurs where $A'$ changes from positive to negative.",
+    "On a closed interval, compare the value of $A$ at that interior candidate with the values at the endpoints $t = 0$ and $t = 14$. Use areas under $r$ (triangles and a rectangle) to compute the amounts."
+   ],
+   "solution": [
+    {
+     "text": "Write the inflow rate on each piece. The first piece is a line through $(0, 0)$ and $(4, 8)$, so its slope is $2$. The third piece is a line through $(10, 8)$ and $(14, 0)$, so its slope is $-2$.",
+     "math": "r(t) = \\begin{cases} 2t & 0 \\leq t \\leq 4 \\\\ 8 & 4 < t \\leq 10 \\\\ 28 - 2t & 10 < t \\leq 14 \\end{cases}"
+    },
+    {
+     "text": "The amount changes at the net rate. Set it equal to zero to find the critical points: $2t = 3$ gives $t = 1.5$, and $28 - 2t = 3$ gives $t = 12.5$. On the middle piece $A'(t) = 8 - 3 = 5$, never zero.",
+     "math": "A'(t) = r(t) - 3"
+    },
+    {
+     "text": "Check signs. On $[0, 1.5)$, $r(t) < 3$, so $A' < 0$. On $(1.5, 12.5)$, $r(t) > 3$, so $A' > 0$. On $(12.5, 14]$, $r(t) < 3$, so $A' < 0$. By the First Derivative Test, $A$ has a relative minimum at $t = 1.5$ and a relative maximum at $t = 12.5$."
+    },
+    {
+     "text": "Because the interval is closed, compare the candidate with the endpoints. The total inflow over $[0, 14]$ is the area under $r$: a triangle of area $\\frac{1}{2}(4)(8) = 16$, a rectangle of area $6 \\cdot 8 = 48$, and a triangle of area $\\frac{1}{2}(4)(8) = 16$. The inflow over $[10, 12.5]$ is $\\int_{10}^{12.5} (28 - 2t)\\,dt = 13.75$.",
+     "math": "A(0) = 20, \\qquad A(12.5) = 20 + (16 + 48 + 13.75) - 3(12.5) = 60.25, \\qquad A(14) = 20 + (16 + 48 + 16) - 3(14) = 58"
+    },
+    {
+     "text": "The largest of these values is $A(12.5) = 60.25$ liters. The amount of water in the tank is greatest at $t = 12.5$ minutes, where the net rate $A'(t) = r(t) - 3$ changes from positive to negative and the value exceeds both endpoint values."
+    }
+   ]
+  },
+  {
+   "id": "u8-q017",
+   "skillId": "u8-area-between-curves",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find the area of the region bounded by the line $y = 2x$ and the parabola $y = x^2$.</p>",
+   "choices": [
+    "$\\dfrac{20}{3}$",
+    "$\\dfrac{8}{3}$",
+    "$\\dfrac{4}{3}$",
+    "$-\\dfrac{4}{3}$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from adding the area under the line, $\\int_0^2 2x\\,dx = 4$, to the area under the parabola, $\\int_0^2 x^2\\,dx = \\frac{8}{3}$. The region between two curves has area equal to the difference of those two integrals, not their sum.",
+    "This choice comes from integrating only $x^2$ from $0$ to $2$, which is the area under the parabola alone. The region is bounded above by the line, so the integrand must be the top curve minus the bottom curve, $2x - x^2$.",
+    null,
+    "This choice comes from integrating bottom minus top, $x^2 - 2x$. On $[0, 2]$ the line $y = 2x$ lies above the parabola, so the integrand must be $2x - x^2$ for the area to be positive."
+   ],
+   "hints": [
+    "First find where the two curves intersect by solving $2x = x^2$. The two solutions are the limits of integration.",
+    "Between the intersections, decide which curve is on top by testing one value, for example $x = 1$. Then integrate top minus bottom from the smaller intersection to the larger one."
+   ],
+   "solution": [
+    {
+     "text": "Find the intersections by setting the two expressions for $y$ equal.",
+     "math": "2x = x^2 \\quad\\Longrightarrow\\quad x^2 - 2x = 0 \\quad\\Longrightarrow\\quad x(x - 2) = 0 \\quad\\Longrightarrow\\quad x = 0 \\text{ or } x = 2"
+    },
+    {
+     "text": "Decide which curve is on top on $[0, 2]$. At $x = 1$, the line gives $y = 2$ and the parabola gives $y = 1$, so the line $y = 2x$ is on top."
+    },
+    {
+     "text": "The area is the integral of top minus bottom over $[0, 2]$.",
+     "math": "A = \\int_0^2 \\left(2x - x^2\\right)dx = \\left[x^2 - \\frac{x^3}{3}\\right]_0^2 = \\left(4 - \\frac{8}{3}\\right) - 0 = \\frac{4}{3}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q018",
+   "skillId": "u8-area-between-curves",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Find the area of the region between the curve $y = e^x$ and the horizontal line $y = 1$ for $0 \\leq x \\leq 2$. Round to two decimal places.</p>",
+   "answer": 4.39,
+   "tolerance": 0.005,
+   "hints": [
+    "The two curves meet at $x = 0$, because $e^0 = 1$. For $x > 0$, decide which of $e^x$ and $1$ is larger.",
+    "Because $e^x \\geq 1$ on $[0, 2]$, the area is $\\int_0^2 \\left(e^x - 1\\right)dx$. An antiderivative of $e^x - 1$ is $e^x - x$; evaluate it at $2$ and at $0$ and subtract."
+   ],
+   "solution": [
+    {
+     "text": "The curves intersect where $e^x = 1$, that is, at $x = 0$. For $x > 0$, $e^x > 1$, so on $[0, 2]$ the curve $y = e^x$ is on top and the line $y = 1$ is on the bottom."
+    },
+    {
+     "text": "Set up the area as the integral of top minus bottom over the given interval.",
+     "math": "A = \\int_0^2 \\left(e^x - 1\\right)dx"
+    },
+    {
+     "text": "An antiderivative of $e^x - 1$ is $e^x - x$. Evaluate at the limits.",
+     "math": "A = \\left[e^x - x\\right]_0^2 = \\left(e^2 - 2\\right) - \\left(e^0 - 0\\right) = e^2 - 2 - 1 = e^2 - 3"
+    },
+    {
+     "text": "Convert to a decimal. Since $e^2 \\approx 7.389$, the area is $e^2 - 3 \\approx 4.389$, which rounds to $4.39$.",
+     "math": "A = e^2 - 3 \\approx 4.39"
+    }
+   ]
+  },
+  {
+   "id": "u8-q019",
+   "skillId": "u8-area-between-curves",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find the area of the region between $y = \\cos x$ and $y = \\sin x$ for $0 \\leq x \\leq \\dfrac{\\pi}{4}$. Give the exact value.</p>",
+   "choices": [
+    "$\\sqrt{2} - 1$",
+    "$1 - \\sqrt{2}$",
+    "$1$",
+    "$\\sqrt{2}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from integrating $\\sin x - \\cos x$, which is bottom minus top on this interval. For $0 \\leq x < \\frac{\\pi}{4}$, $\\cos x > \\sin x$, so the integrand must be $\\cos x - \\sin x$. A negative result is a sign that the order was reversed, because an area is never negative.",
+    "This choice comes from writing the antiderivative of $-\\sin x$ as $-\\cos x$, so that the antiderivative of $\\cos x - \\sin x$ becomes $\\sin x - \\cos x$. Evaluating that expression from $0$ to $\\frac{\\pi}{4}$ gives $0 - (-1) = 1$. The derivative of $\\cos x$ is $-\\sin x$, so the antiderivative of $-\\sin x$ is $+\\cos x$.",
+    "This choice comes from evaluating the antiderivative $\\sin x + \\cos x$ only at the upper limit $\\frac{\\pi}{4}$, which gives $\\sqrt{2}$. The Fundamental Theorem requires subtracting the value at the lower limit, $\\sin 0 + \\cos 0 = 1$."
+   ],
+   "hints": [
+    "On $[0, \\frac{\\pi}{4}]$, compare $\\cos x$ and $\\sin x$ at $x = 0$ to decide which curve is on top. The two curves meet exactly at $x = \\frac{\\pi}{4}$, so the order does not change inside the interval.",
+    "Integrate top minus bottom. The antiderivative of $\\cos x$ is $\\sin x$, and the antiderivative of $-\\sin x$ is $+\\cos x$. Evaluate the antiderivative at both limits and subtract; recall that $\\sin\\frac{\\pi}{4} = \\cos\\frac{\\pi}{4} = \\frac{\\sqrt{2}}{2}$."
+   ],
+   "solution": [
+    {
+     "text": "At $x = 0$, $\\cos 0 = 1$ and $\\sin 0 = 0$, so $\\cos x$ is on top. The curves meet where $\\cos x = \\sin x$, which on this interval happens only at $x = \\frac{\\pi}{4}$. So $\\cos x \\geq \\sin x$ on the whole interval."
+    },
+    {
+     "text": "Set up the area as top minus bottom and find an antiderivative. The antiderivative of $\\cos x$ is $\\sin x$; the antiderivative of $-\\sin x$ is $\\cos x$, because $\\frac{d}{dx}\\cos x = -\\sin x$.",
+     "math": "A = \\int_0^{\\pi/4} \\left(\\cos x - \\sin x\\right)dx = \\Big[\\sin x + \\cos x\\Big]_0^{\\pi/4}"
+    },
+    {
+     "text": "Evaluate at the upper limit and at the lower limit, then subtract.",
+     "math": "A = \\left(\\frac{\\sqrt{2}}{2} + \\frac{\\sqrt{2}}{2}\\right) - \\left(0 + 1\\right) = \\sqrt{2} - 1"
+    }
+   ]
+  },
+  {
+   "id": "u8-q020",
+   "skillId": "u8-area-between-curves",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find the area of the region bounded by the parabola $x = y^2$ and the line $x = y + 2$ by integrating with respect to $y$.</p>",
+   "choices": [
+    "$-\\dfrac{9}{2}$",
+    "$\\dfrac{9}{2}$",
+    "$\\dfrac{16}{3}$",
+    "$\\dfrac{10}{3}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from integrating left minus right, $y^2 - (y + 2)$. Between $y = -1$ and $y = 2$ the line $x = y + 2$ is to the right of the parabola $x = y^2$, so the integrand must be $(y + 2) - y^2$. A negative result signals the reversed order.",
+    null,
+    "This choice comes from integrating in $x$ with the single integrand $\\sqrt{x} - (x - 2)$ from $0$ to $4$. That setup uses only the upper branch $y = \\sqrt{x}$ of the parabola and describes a different region; the bounded region also uses the lower branch $y = -\\sqrt{x}$, which is why integrating in $y$ is the simpler choice here.",
+    "This choice comes from integrating from $y = 0$ to $y = 2$, omitting the part of the region below the $x$-axis. Solving $y^2 = y + 2$ gives two intersections, $y = -1$ and $y = 2$, and the region extends over the whole interval $[-1, 2]$."
+   ],
+   "hints": [
+    "Both curves are given as $x$ in terms of $y$, so treat $y$ as the variable of integration. Find where they intersect by solving $y^2 = y + 2$; expect two solutions, one negative and one positive.",
+    "For a $y$-integral, the integrand is the right curve minus the left curve. Test $y = 0$: the line gives $x = 2$ and the parabola gives $x = 0$, so the line is on the right. Integrate $(y + 2) - y^2$ between the two intersection values of $y$."
+   ],
+   "solution": [
+    {
+     "text": "Find the intersections by setting the two expressions for $x$ equal.",
+     "math": "y^2 = y + 2 \\quad\\Longrightarrow\\quad y^2 - y - 2 = 0 \\quad\\Longrightarrow\\quad (y - 2)(y + 1) = 0 \\quad\\Longrightarrow\\quad y = -1 \\text{ or } y = 2"
+    },
+    {
+     "text": "Decide which curve is on the right for $-1 \\leq y \\leq 2$. At $y = 0$ the line gives $x = 2$ and the parabola gives $x = 0$, so the line $x = y + 2$ is the right boundary and the parabola $x = y^2$ is the left boundary."
+    },
+    {
+     "text": "The area is the integral of right minus left with respect to $y$.",
+     "math": "A = \\int_{-1}^{2} \\left(y + 2 - y^2\\right)dy = \\left[\\frac{y^2}{2} + 2y - \\frac{y^3}{3}\\right]_{-1}^{2}"
+    },
+    {
+     "text": "Evaluate at $y = 2$ and at $y = -1$, then subtract.",
+     "math": "A = \\left(2 + 4 - \\frac{8}{3}\\right) - \\left(\\frac{1}{2} - 2 + \\frac{1}{3}\\right) = \\frac{10}{3} - \\left(-\\frac{7}{6}\\right) = \\frac{20}{6} + \\frac{7}{6} = \\frac{27}{6} = \\frac{9}{2}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q021",
+   "skillId": "u8-area-between-curves",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Find the total area of the region enclosed by the curves $y = x^3$ and $y = 4x$ for $-2 \\leq x \\leq 2$. Give the exact value.</p>",
+   "answer": 8,
+   "tolerance": 0.001,
+   "hints": [
+    "Solve $x^3 = 4x$ to find every intersection. There are three, and one of them lies strictly inside the interval $[-2, 2]$, so the curves change order there.",
+    "Split the integral at the interior intersection. On each piece, test one value of $x$ to decide which curve is on top, and integrate top minus bottom. A single integral of $x^3 - 4x$ from $-2$ to $2$ gives $0$ because the two signed pieces cancel, so it does not give the area.",
+    "By symmetry, both curves are odd functions, so the two pieces have equal area. Compute one piece and double it, or compute both and add."
+   ],
+   "solution": [
+    {
+     "text": "Find the intersections.",
+     "math": "x^3 = 4x \\quad\\Longrightarrow\\quad x^3 - 4x = 0 \\quad\\Longrightarrow\\quad x(x - 2)(x + 2) = 0 \\quad\\Longrightarrow\\quad x = -2,\\ 0,\\ 2"
+    },
+    {
+     "text": "Decide the order on each piece. At $x = -1$, $x^3 = -1$ and $4x = -4$, so $y = x^3$ is on top on $[-2, 0]$. At $x = 1$, $x^3 = 1$ and $4x = 4$, so $y = 4x$ is on top on $[0, 2]$."
+    },
+    {
+     "text": "Integrate top minus bottom on $[-2, 0]$.",
+     "math": "A_1 = \\int_{-2}^{0} \\left(x^3 - 4x\\right)dx = \\left[\\frac{x^4}{4} - 2x^2\\right]_{-2}^{0} = 0 - \\left(4 - 8\\right) = 4"
+    },
+    {
+     "text": "Integrate top minus bottom on $[0, 2]$.",
+     "math": "A_2 = \\int_{0}^{2} \\left(4x - x^3\\right)dx = \\left[2x^2 - \\frac{x^4}{4}\\right]_{0}^{2} = \\left(8 - 4\\right) - 0 = 4"
+    },
+    {
+     "text": "Add the two pieces. The single integral $\\int_{-2}^{2}\\left(x^3 - 4x\\right)dx$ equals $0$ because the integrand is odd, which is why the split is necessary.",
+     "math": "A = A_1 + A_2 = 4 + 4 = 8"
+    }
+   ]
+  },
+  {
+   "id": "u8-q022",
+   "skillId": "u8-area-between-curves",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Let $R$ be the region in the first quadrant bounded by the parabola $y = x^2$, the line $y = 2 - x$, and the $x$-axis $y = 0$. The vertices of $R$ are $(0, 0)$, $(1, 1)$, and $(2, 0)$. Which single integral gives the area of $R$?</p>",
+   "choices": [
+    "$\\displaystyle\\int_0^1 \\left(2 - x - x^2\\right)dx$",
+    "$\\displaystyle\\int_0^2 \\left(2 - x - x^2\\right)dx$",
+    "$\\displaystyle\\int_0^1 \\left(\\sqrt{y} - (2 - y)\\right)dy$",
+    "$\\displaystyle\\int_0^1 \\left(2 - y - \\sqrt{y}\\right)dy$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from integrating line minus parabola over $[0, 1]$. That integral, with value $\\frac{7}{6}$, measures the region between the two curves above $[0, 1]$, whose lower boundary is the parabola and not the $x$-axis. The region $R$ lies below both curves and above $y = 0$.",
+    "This choice comes from using the correct $x$-range $[0, 2]$ but the same integrand $2 - x - x^2$ on all of it. On $[1, 2]$ the parabola is not a boundary of $R$; the lower boundary there is $y = 0$. An $x$-integral for $R$ requires two integrals, $\\int_0^1 x^2\\,dx + \\int_1^2 (2 - x)\\,dx$, with the top curve changing at $x = 1$.",
+    "This choice comes from reversing right and left. For $0 \\leq y \\leq 1$, the right boundary of $R$ is the line $x = 2 - y$ and the left boundary is the parabola $x = \\sqrt{y}$, so the integrand must be $(2 - y) - \\sqrt{y}$. This integral evaluates to $-\\frac{5}{6}$, and a negative result signals the reversed order.",
+    null
+   ],
+   "hints": [
+    "Describe the three boundaries in words: the parabola rises from $(0, 0)$ to $(1, 1)$, the line falls from $(1, 1)$ to $(2, 0)$, and the $x$-axis closes the bottom from $(2, 0)$ back to $(0, 0)$. The top boundary changes at $x = 1$, so a single $x$-integral cannot describe $R$.",
+    "Integrate with respect to $y$. Solve each boundary for $x$: the parabola becomes $x = \\sqrt{y}$ and the line becomes $x = 2 - y$. For every $y$ in $[0, 1]$, the region runs from the parabola on the left to the line on the right, so the integrand is right minus left."
+   ],
+   "solution": [
+    {
+     "text": "Describe $R$. Its top boundary is the parabola $y = x^2$ for $0 \\leq x \\leq 1$ and the line $y = 2 - x$ for $1 \\leq x \\leq 2$; its bottom boundary is $y = 0$. Because the top boundary changes at $x = 1$, an $x$-integral needs two pieces: $\\int_0^1 x^2\\,dx + \\int_1^2 (2 - x)\\,dx = \\frac{1}{3} + \\frac{1}{2} = \\frac{5}{6}$."
+    },
+    {
+     "text": "To use one integral, integrate with respect to $y$. Solve the boundaries for $x$ in the first quadrant: $y = x^2$ gives $x = \\sqrt{y}$, and $y = 2 - x$ gives $x = 2 - y$. The region spans $0 \\leq y \\leq 1$, the $y$-range of the vertices."
+    },
+    {
+     "text": "For each $y$ in $[0, 1]$, the left boundary is $x = \\sqrt{y}$ and the right boundary is $x = 2 - y$; for example, at $y = \\frac{1}{4}$ these are $x = \\frac{1}{2}$ and $x = \\frac{7}{4}$. The area is the integral of right minus left.",
+     "math": "A = \\int_0^1 \\left(2 - y - \\sqrt{y}\\right)dy"
+    },
+    {
+     "text": "Evaluating confirms that this single integral matches the two-piece $x$-integral.",
+     "math": "A = \\left[2y - \\frac{y^2}{2} - \\frac{2}{3}y^{3/2}\\right]_0^1 = 2 - \\frac{1}{2} - \\frac{2}{3} = \\frac{5}{6}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q023",
+   "skillId": "u8-cross-section-volumes",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>The base of a solid is the region bounded by the curve $y = \\sqrt{x}$, the $x$-axis, and the vertical line $x = 4$. Every cross section of the solid perpendicular to the $x$-axis is a square with one side in the base. Find the volume of the solid.</p>",
+   "choices": [
+    "$8\\pi$",
+    "$8$",
+    "$\\dfrac{16}{3}$",
+    "$4$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from inserting a factor of $\\pi$, as in the disc method for a solid of revolution. The cross sections here are squares, not discs, and the area of a square of side $s$ is $s^2$ with no $\\pi$.",
+    null,
+    "This choice comes from integrating the side length $\\sqrt{x}$ instead of the cross-sectional area $\\left(\\sqrt{x}\\right)^2$. That integral, $\\int_0^4 \\sqrt{x}\\,dx = \\frac{16}{3}$, is the area of the base, not the volume of the solid.",
+    "This choice comes from using the area formula $\\frac{1}{2}s^2$, which belongs to a right isosceles triangle with legs $s$, instead of the square's area $s^2$. Halving the correct integrand halves the volume."
+   ],
+   "hints": [
+    "For a solid with known cross sections, the volume is $\\int_a^b A(x)\\,dx$, where $A(x)$ is the area of the cross section at position $x$. Start by finding the side length of the square at a given $x$.",
+    "At position $x$, the base runs from $y = 0$ up to $y = \\sqrt{x}$, so the side of the square is $s = \\sqrt{x}$. Square this to get $A(x)$, then integrate from $x = 0$ to $x = 4$."
+   ],
+   "solution": [
+    {
+     "text": "At a fixed $x$ between $0$ and $4$, the base extends from $y = 0$ to $y = \\sqrt{x}$. That segment is one side of the square cross section, so the side length is $s(x) = \\sqrt{x}$."
+    },
+    {
+     "text": "The area of the square cross section is the side squared.",
+     "math": "A(x) = s(x)^2 = \\left(\\sqrt{x}\\right)^2 = x"
+    },
+    {
+     "text": "Integrate the cross-sectional area over the base, from $x = 0$ to $x = 4$.",
+     "math": "V = \\int_0^4 A(x)\\,dx = \\int_0^4 x\\,dx = \\left[\\frac{x^2}{2}\\right]_0^4 = \\frac{16}{2} = 8"
+    }
+   ]
+  },
+  {
+   "id": "u8-q024",
+   "skillId": "u8-cross-section-volumes",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The base of a solid is the region bounded by the parabola $y = 4 - x^2$ and the $x$-axis. Every cross section of the solid perpendicular to the $x$-axis is a semicircle whose diameter lies in the base. Find the volume of the solid. Round to two decimal places.</p>",
+   "answer": 13.4,
+   "tolerance": 0.005,
+   "hints": [
+    "Find where the parabola meets the $x$-axis by solving $4 - x^2 = 0$; those two values are the limits of integration. At a position $x$ between them, the base segment from $y = 0$ to $y = 4 - x^2$ is the diameter of the semicircle.",
+    "A semicircle of radius $r$ has area $\\frac{1}{2}\\pi r^2$. The radius is half the diameter, so $r = \\frac{4 - x^2}{2}$. Substitute, simplify to $A(x) = \\frac{\\pi}{8}\\left(4 - x^2\\right)^2$, and integrate from $x = -2$ to $x = 2$.",
+    "Expand $\\left(4 - x^2\\right)^2 = 16 - 8x^2 + x^4$ before integrating. The integrand is even, so you may integrate from $0$ to $2$ and double the result."
+   ],
+   "solution": [
+    {
+     "text": "The parabola meets the $x$-axis where $4 - x^2 = 0$, at $x = -2$ and $x = 2$. For $-2 \\leq x \\leq 2$, the base segment at position $x$ has length $4 - x^2$, and this segment is the diameter of the semicircle."
+    },
+    {
+     "text": "The radius is half the diameter, and the area of a semicircle is half the area of a full circle.",
+     "math": "r(x) = \\frac{4 - x^2}{2}, \\qquad A(x) = \\frac{1}{2}\\pi r(x)^2 = \\frac{\\pi}{2}\\cdot\\frac{\\left(4 - x^2\\right)^2}{4} = \\frac{\\pi}{8}\\left(4 - x^2\\right)^2"
+    },
+    {
+     "text": "Set up the volume integral and expand the square.",
+     "math": "V = \\int_{-2}^{2} \\frac{\\pi}{8}\\left(4 - x^2\\right)^2 dx = \\frac{\\pi}{8}\\int_{-2}^{2}\\left(16 - 8x^2 + x^4\\right)dx"
+    },
+    {
+     "text": "The integrand is even, so integrate from $0$ to $2$ and double.",
+     "math": "\\int_{-2}^{2}\\left(16 - 8x^2 + x^4\\right)dx = 2\\left[16x - \\frac{8x^3}{3} + \\frac{x^5}{5}\\right]_0^2 = 2\\left(32 - \\frac{64}{3} + \\frac{32}{5}\\right) = 2\\cdot\\frac{256}{15} = \\frac{512}{15}"
+    },
+    {
+     "text": "Multiply by $\\frac{\\pi}{8}$ and convert to a decimal.",
+     "math": "V = \\frac{\\pi}{8}\\cdot\\frac{512}{15} = \\frac{64\\pi}{15} \\approx 13.40"
+    }
+   ]
+  },
+  {
+   "id": "u8-q025",
+   "skillId": "u8-cross-section-volumes",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The base of a solid is the triangle in the $xy$-plane bounded by the line $y = 2x$, the $x$-axis, and the line $x = 3$. Every cross section of the solid perpendicular to the $x$-axis is an equilateral triangle with one side lying in the base. Find the volume of the solid. Give the exact value.</p>",
+   "choices": [
+    "$18$",
+    "$9\\sqrt{3}$",
+    "$36\\sqrt{3}$",
+    "$18\\sqrt{3}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from using $\\frac{1}{2}s^2$ as the area of each cross section. That is the area of a right isosceles triangle with legs $s$. An equilateral triangle with side $s$ has height $\\frac{\\sqrt{3}}{2}s$, so its area is $\\frac{1}{2}\\cdot s \\cdot \\frac{\\sqrt{3}}{2}s = \\frac{\\sqrt{3}}{4}s^2$.",
+    null,
+    "This choice comes from using $\\sqrt{3}\\,s^2$ as the area of each cross section, omitting the factor $\\frac{1}{4}$. The area of an equilateral triangle with side $s$ is $\\frac{\\sqrt{3}}{4}s^2$, which is $4$ times smaller.",
+    "This choice comes from using $\\frac{\\sqrt{3}}{2}s^2$ as the area, that is, base times height without the factor $\\frac{1}{2}$ in the triangle area formula. The height is $\\frac{\\sqrt{3}}{2}s$ and the area is $\\frac{1}{2}\\cdot s\\cdot\\frac{\\sqrt{3}}{2}s = \\frac{\\sqrt{3}}{4}s^2$."
+   ],
+   "hints": [
+    "At a fixed value of $x$ between $0$ and $3$, the base runs from the $x$-axis up to the line $y = 2x$. The length of that segment is the side of the equilateral triangle at that $x$.",
+    "An equilateral triangle with side $s$ has area $\\frac{\\sqrt{3}}{4}s^2$. Write the area as a function of $x$, then integrate it from $x = 0$ to $x = 3$."
+   ],
+   "solution": [
+    {
+     "text": "At position $x$, with $0 \\leq x \\leq 3$, the base extends from $y = 0$ to $y = 2x$, so the side of the cross section is $s(x) = 2x$."
+    },
+    {
+     "text": "An equilateral triangle with side $s$ has height $\\frac{\\sqrt{3}}{2}s$ and area $\\frac{\\sqrt{3}}{4}s^2$. Substitute $s = 2x$.",
+     "math": "A(x) = \\frac{\\sqrt{3}}{4}(2x)^2 = \\sqrt{3}\\,x^2"
+    },
+    {
+     "text": "The volume is the integral of the cross-sectional area over the interval of $x$ covered by the base.",
+     "math": "V = \\int_0^3 \\sqrt{3}\\,x^2\\,dx = \\sqrt{3}\\left[\\frac{x^3}{3}\\right]_0^3 = \\sqrt{3}\\cdot\\frac{27}{3}"
+    },
+    {
+     "text": "The volume is $9\\sqrt{3}$ cubic units, approximately $15.59$.",
+     "math": "V = 9\\sqrt{3}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q026",
+   "skillId": "u8-cross-section-volumes",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>The base of a solid is the region in the $xy$-plane bounded by the parabola $y = x^2$ and the line $y = 4$. Every cross section of the solid perpendicular to the $y$-axis is a square with one side lying in the base. Find the volume of the solid.</p>",
+   "choices": [
+    "$16$",
+    "$8$",
+    "$\\dfrac{512}{15}$",
+    "$32$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from using $\\frac{1}{2}s^2$ as the area of each cross section, which is the area of a right isosceles triangle, not a square. A square with side $s$ has area $s^2$.",
+    "This choice comes from using $\\sqrt{y}$ as the side of the square. At height $y$, the base extends from $x = -\\sqrt{y}$ to $x = \\sqrt{y}$, so the full side is $2\\sqrt{y}$, not the half-width $\\sqrt{y}$.",
+    "This choice comes from slicing perpendicular to the $x$-axis with side $4 - x^2$ and integrating from $x = -2$ to $x = 2$. That describes a different solid. The problem states that the cross sections are perpendicular to the $y$-axis, so the slices are taken at fixed $y$ and the side is the width of the base at that height.",
+    null
+   ],
+   "hints": [
+    "The cross sections are perpendicular to the $y$-axis, so each slice sits at a fixed height $y$. Solve $y = x^2$ for $x$ to find where the base begins and ends at that height.",
+    "At height $y$, the base runs from $x = -\\sqrt{y}$ to $x = \\sqrt{y}$. The side of the square is the full width of that segment. Integrate the square's area with respect to $y$ from $y = 0$ to $y = 4$."
+   ],
+   "solution": [
+    {
+     "text": "The parabola $y = x^2$ meets the line $y = 4$ at $x = -2$ and $x = 2$. The region occupies heights $0 \\leq y \\leq 4$. Because the slices are perpendicular to the $y$-axis, integrate with respect to $y$."
+    },
+    {
+     "text": "At height $y$, solving $y = x^2$ gives $x = \\pm\\sqrt{y}$. The width of the base at that height is the side of the square.",
+     "math": "s(y) = \\sqrt{y} - (-\\sqrt{y}) = 2\\sqrt{y}"
+    },
+    {
+     "text": "The area of the square cross section is the side squared.",
+     "math": "A(y) = (2\\sqrt{y})^2 = 4y"
+    },
+    {
+     "text": "Integrate the area from $y = 0$ to $y = 4$.",
+     "math": "V = \\int_0^4 4y\\,dy = \\left[2y^2\\right]_0^4 = 2(16) - 0 = 32"
+    },
+    {
+     "text": "The volume of the solid is $32$ cubic units."
+    }
+   ]
+  },
+  {
+   "id": "u8-q027",
+   "skillId": "u8-cross-section-volumes",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A solid has a base that lies along the $x$-axis from $x = 0$ to $x = 4$, where $x$ is measured in centimeters. At each position $x$, the base has width $w(x)$ centimeters, measured perpendicular to the $x$-axis. Selected values of $w$ are given in the table.</p><table><thead><tr><th>$x$ (centimeters)</th><th>$0$</th><th>$1$</th><th>$2$</th><th>$3$</th><th>$4$</th></tr></thead><tbody><tr><td>$w(x)$ (centimeters)</td><td>$0$</td><td>$2$</td><td>$3$</td><td>$2$</td><td>$0$</td></tr></tbody></table><p>Every cross section of the solid perpendicular to the $x$-axis is a square whose side is $w(x)$. Use a trapezoidal sum with the four subintervals indicated by the table to estimate the volume of the solid, in cubic centimeters. Give the exact value of the estimate.</p>",
+   "answer": 17,
+   "tolerance": 0.001,
+   "hints": [
+    "The volume is $\\int_0^4 A(x)\\,dx$, where $A(x)$ is the area of the square cross section at position $x$. The table gives the side $w(x)$, so first compute $A(x) = w(x)^2$ at each listed value of $x$.",
+    "The trapezoidal sum applies to the areas, not to the widths. Squaring the widths before averaging gives a different number than averaging first and squaring after.",
+    "Each subinterval has width $1$. On each one, the trapezoid contributes $\\frac{A(x_{k}) + A(x_{k+1})}{2}\\cdot 1$. Add the four contributions."
+   ],
+   "solution": [
+    {
+     "text": "The area of a square cross section is the side squared, so $A(x) = w(x)^2$. The quantity to estimate is the integral of $A$ over $[0, 4]$, in cubic centimeters.",
+     "math": "V = \\int_0^4 w(x)^2\\,dx"
+    },
+    {
+     "text": "Compute the cross-sectional area at each value of $x$ in the table.",
+     "math": "A(0) = 0,\\quad A(1) = 4,\\quad A(2) = 9,\\quad A(3) = 4,\\quad A(4) = 0"
+    },
+    {
+     "text": "Form the trapezoidal sum with the four subintervals $[0,1]$, $[1,2]$, $[2,3]$, $[3,4]$, each of width $1$.",
+     "math": "T = \\frac{0 + 4}{2}\\cdot 1 + \\frac{4 + 9}{2}\\cdot 1 + \\frac{9 + 4}{2}\\cdot 1 + \\frac{4 + 0}{2}\\cdot 1"
+    },
+    {
+     "text": "Evaluate each term and add.",
+     "math": "T = 2 + 6.5 + 6.5 + 2 = 17"
+    },
+    {
+     "text": "The trapezoidal estimate of the volume is $17$ cubic centimeters. Because $w$ is in centimeters, $w^2$ is in square centimeters and the integral over a length in centimeters is in cubic centimeters."
+    }
+   ]
+  },
+  {
+   "id": "u8-q028",
+   "skillId": "u8-disc-washer-volumes",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>The region bounded by the curve $y = x^2$, the $x$-axis, and the line $x = 2$ is revolved about the $x$-axis. Find the volume of the resulting solid. Give the exact value.</p>",
+   "choices": [
+    "$\\dfrac{32\\pi}{5}$",
+    "$\\dfrac{8\\pi}{3}$",
+    "$\\dfrac{32}{5}$",
+    "$\\dfrac{16\\pi}{5}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from integrating $\\pi x^2$ instead of $\\pi (x^2)^2$. The disc method squares the radius. The radius here is $x^2$, so the integrand is $\\pi (x^2)^2 = \\pi x^4$.",
+    "This choice comes from omitting the factor $\\pi$. Each cross section is a disc of area $\\pi r^2$, and the $\\pi$ stays in the answer.",
+    "This choice comes from evaluating $2^5$ as $16$ when computing $\\frac{x^5}{5}$ at $x = 2$. The value of $2^5$ is $32$."
+   ],
+   "hints": [
+    "Revolving about the $x$-axis produces circular cross sections perpendicular to the $x$-axis. At position $x$, the radius of the disc is the distance from the axis to the curve, which is $y = x^2$.",
+    "The disc method gives $V = \\pi \\int_a^b r(x)^2\\,dx$. Substitute $r(x) = x^2$ and integrate from $x = 0$ to $x = 2$."
+   ],
+   "solution": [
+    {
+     "text": "The region lies between the $x$-axis and the curve $y = x^2$ for $0 \\leq x \\leq 2$. Each slice perpendicular to the $x$-axis revolves into a solid disc with radius $r(x) = x^2$."
+    },
+    {
+     "text": "Apply the disc method. The area of a disc with radius $r$ is $\\pi r^2$.",
+     "math": "V = \\pi\\int_0^2 (x^2)^2\\,dx = \\pi\\int_0^2 x^4\\,dx"
+    },
+    {
+     "text": "Integrate and evaluate.",
+     "math": "V = \\pi\\left[\\frac{x^5}{5}\\right]_0^2 = \\pi\\cdot\\frac{32}{5} = \\frac{32\\pi}{5}"
+    },
+    {
+     "text": "The volume is $\\frac{32\\pi}{5}$ cubic units, approximately $20.11$."
+    }
+   ]
+  },
+  {
+   "id": "u8-q029",
+   "skillId": "u8-disc-washer-volumes",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The region in the first quadrant bounded by the curve $y = x^2$, the line $y = 4$, and the $y$-axis is revolved about the $y$-axis. Find the volume of the resulting solid. Round to two decimal places.</p>",
+   "answer": 25.13,
+   "tolerance": 0.005,
+   "hints": [
+    "Revolving about the $y$-axis produces discs perpendicular to the $y$-axis, so integrate with respect to $y$. Solve $y = x^2$ for $x$ in terms of $y$, using the first-quadrant branch.",
+    "At height $y$, the radius of the disc is the horizontal distance from the $y$-axis to the curve, $r(y) = \\sqrt{y}$. Use $V = \\pi\\int_0^4 r(y)^2\\,dy$."
+   ],
+   "solution": [
+    {
+     "text": "The region occupies heights $0 \\leq y \\leq 4$. For $x \\geq 0$, the curve $y = x^2$ is $x = \\sqrt{y}$. Each slice perpendicular to the $y$-axis revolves into a solid disc of radius $r(y) = \\sqrt{y}$."
+    },
+    {
+     "text": "Apply the disc method with respect to $y$.",
+     "math": "V = \\pi\\int_0^4 (\\sqrt{y})^2\\,dy = \\pi\\int_0^4 y\\,dy"
+    },
+    {
+     "text": "Integrate and evaluate.",
+     "math": "V = \\pi\\left[\\frac{y^2}{2}\\right]_0^4 = \\pi\\cdot\\frac{16}{2} = 8\\pi"
+    },
+    {
+     "text": "Convert to a decimal. $8\\pi \\approx 25.1327$, which rounds to $25.13$ cubic units.",
+     "math": "V = 8\\pi \\approx 25.13"
+    }
+   ]
+  },
+  {
+   "id": "u8-q030",
+   "skillId": "u8-disc-washer-volumes",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The region bounded by the line $y = x$ and the parabola $y = x^2$ is revolved about the $x$-axis. Find the volume of the resulting solid. Give the exact value.</p>",
+   "choices": [
+    "$\\dfrac{\\pi}{30}$",
+    "$\\dfrac{2}{15}$",
+    "$\\dfrac{2\\pi}{15}$",
+    "$-\\dfrac{2\\pi}{15}$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from integrating $\\pi (x - x^2)^2$, the square of the difference of the radii. The washer method subtracts the squares: the integrand is $\\pi\\big(R^2 - r^2\\big) = \\pi\\big(x^2 - x^4\\big)$, and $(R - r)^2$ is not equal to $R^2 - r^2$.",
+    "This choice comes from omitting the factor $\\pi$. Each washer has area $\\pi R^2 - \\pi r^2$, and the $\\pi$ stays in the answer.",
+    null,
+    "This choice comes from reversing the outer and inner radii, integrating $\\pi\\big((x^2)^2 - x^2\\big)$. On $[0, 1]$ the line $y = x$ is above the parabola $y = x^2$, so the outer radius is $x$ and the inner radius is $x^2$. A volume is never negative."
+   ],
+   "hints": [
+    "Find where the two curves meet by solving $x = x^2$. Between those values, decide which curve is farther from the $x$-axis. Test a point such as $x = \\frac{1}{2}$.",
+    "The region does not touch the axis of revolution, so each slice becomes a washer, a disc with a hole. Use $V = \\pi\\int_a^b \\big(R(x)^2 - r(x)^2\\big)\\,dx$ with $R$ the outer radius and $r$ the inner radius."
+   ],
+   "solution": [
+    {
+     "text": "Solve $x = x^2$, that is, $x(x - 1) = 0$, so the curves meet at $x = 0$ and $x = 1$. At $x = \\frac{1}{2}$, the line gives $y = \\frac{1}{2}$ and the parabola gives $y = \\frac{1}{4}$, so on $[0, 1]$ the line is the upper curve."
+    },
+    {
+     "text": "Revolving about the $x$-axis, the outer radius is the distance from the axis to the upper curve and the inner radius is the distance to the lower curve.",
+     "math": "R(x) = x, \\qquad r(x) = x^2"
+    },
+    {
+     "text": "Apply the washer method.",
+     "math": "V = \\pi\\int_0^1 \\big(x^2 - (x^2)^2\\big)\\,dx = \\pi\\int_0^1 \\big(x^2 - x^4\\big)\\,dx"
+    },
+    {
+     "text": "Integrate and evaluate.",
+     "math": "V = \\pi\\left[\\frac{x^3}{3} - \\frac{x^5}{5}\\right]_0^1 = \\pi\\left(\\frac{1}{3} - \\frac{1}{5}\\right) = \\pi\\cdot\\frac{2}{15}"
+    },
+    {
+     "text": "The volume is $\\frac{2\\pi}{15}$ cubic units, approximately $0.42$."
+    }
+   ]
+  },
+  {
+   "id": "u8-q031",
+   "skillId": "u8-disc-washer-volumes",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The region bounded by the parabola $y = x^2$ and the line $y = 4$ is revolved about the line $y = 4$. Which of the following integrals gives the volume of the resulting solid?</p>",
+   "choices": [
+    "$\\pi\\displaystyle\\int_{-2}^{2} (x^2)^2\\,dx$",
+    "$\\pi\\displaystyle\\int_{-2}^{2} (4 - x^2)^2\\,dx$",
+    "$\\pi\\displaystyle\\int_{-2}^{2} \\big(16 - x^4\\big)\\,dx$",
+    "$\\pi\\displaystyle\\int_{0}^{4} y\\,dy$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from measuring the radius from the $x$-axis instead of from the axis of revolution $y = 4$. The radius of each disc is the distance from the line $y = 4$ to the point on the parabola, which is $4 - x^2$.",
+    null,
+    "This choice comes from treating the slice as a washer with outer radius $4$ and inner radius $x^2$, both measured from the $x$-axis. That integral gives the volume when the same region is revolved about the $x$-axis. About the line $y = 4$, the region touches the axis of revolution, so each slice is a solid disc with radius $4 - x^2$.",
+    "This choice comes from revolving about the $y$-axis with radius $x = \\sqrt{y}$. The axis of revolution here is the horizontal line $y = 4$, so the slices are perpendicular to the $x$-axis and the integral is with respect to $x$."
+   ],
+   "hints": [
+    "The axis of revolution is the horizontal line $y = 4$. Slices perpendicular to that axis are taken at fixed $x$, so the integral is with respect to $x$. Find the interval of $x$ by solving $x^2 = 4$.",
+    "At position $x$, the slice of the region runs from the parabola up to the line $y = 4$, and the line is the axis of revolution. The radius of the disc is the vertical distance between them. Write it and square it."
+   ],
+   "solution": [
+    {
+     "text": "The parabola $y = x^2$ meets the line $y = 4$ where $x^2 = 4$, at $x = -2$ and $x = 2$. Between those values the parabola lies below the line, so the region is $x^2 \\leq y \\leq 4$ for $-2 \\leq x \\leq 2$."
+    },
+    {
+     "text": "The axis of revolution $y = 4$ is the upper boundary of the region. Each vertical slice at position $x$ touches the axis, so it revolves into a solid disc. Its radius is the distance from the axis down to the parabola.",
+     "math": "r(x) = 4 - x^2"
+    },
+    {
+     "text": "Apply the disc method with respect to $x$ over $[-2, 2]$.",
+     "math": "V = \\pi\\int_{-2}^{2} (4 - x^2)^2\\,dx"
+    },
+    {
+     "text": "This integral evaluates to $\\frac{512\\pi}{15}$, approximately $107.23$ cubic units, but the question asks only for the integral that gives the volume."
+    }
+   ]
+  },
+  {
+   "id": "u8-q032",
+   "skillId": "u8-disc-washer-volumes",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>The region bounded by the line $y = x$ and the parabola $y = x^2$ is revolved about the line $y = 2$. Find the volume of the resulting solid. Round to two decimal places.</p>",
+   "answer": 1.68,
+   "tolerance": 0.005,
+   "hints": [
+    "The curves meet at $x = 0$ and $x = 1$, and on that interval the line $y = x$ lies above the parabola. Both curves lie below the axis of revolution $y = 2$, so each slice is a washer.",
+    "Radii are measured from the axis $y = 2$. The curve farther from the axis gives the outer radius and the curve closer to the axis gives the inner radius. Subtract each curve's $y$-value from $2$.",
+    "Use $V = \\pi\\int_0^1 \\big(R(x)^2 - r(x)^2\\big)\\,dx$ with $R(x) = 2 - x^2$ and $r(x) = 2 - x$. Expand both squares before integrating."
+   ],
+   "solution": [
+    {
+     "text": "Solve $x = x^2$ to find the intersections $x = 0$ and $x = 1$. On $[0, 1]$, the line $y = x$ is above the parabola $y = x^2$, and both are below the axis $y = 2$."
+    },
+    {
+     "text": "Measure the radii from the axis $y = 2$. The parabola is farther from the axis, so it gives the outer radius; the line is closer, so it gives the inner radius.",
+     "math": "R(x) = 2 - x^2, \\qquad r(x) = 2 - x"
+    },
+    {
+     "text": "Apply the washer method and expand the squares.",
+     "math": "V = \\pi\\int_0^1 \\big((2 - x^2)^2 - (2 - x)^2\\big)\\,dx = \\pi\\int_0^1 \\big(x^4 - 5x^2 + 4x\\big)\\,dx"
+    },
+    {
+     "text": "Integrate and evaluate.",
+     "math": "V = \\pi\\left[\\frac{x^5}{5} - \\frac{5x^3}{3} + 2x^2\\right]_0^1 = \\pi\\left(\\frac{1}{5} - \\frac{5}{3} + 2\\right) = \\pi\\cdot\\frac{3 - 25 + 30}{15} = \\frac{8\\pi}{15}"
+    },
+    {
+     "text": "Convert to a decimal. $\\frac{8\\pi}{15} \\approx 1.6755$, which rounds to $1.68$ cubic units.",
+     "math": "V = \\frac{8\\pi}{15} \\approx 1.68"
+    }
+   ]
+  },
+  {
+   "id": "u8-q033",
+   "skillId": "u8-disc-washer-volumes",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Let $R$ be the region in the first quadrant bounded by the graphs of $y = 2x$ and $y = x^2$. Find the volume of the solid generated when $R$ is revolved about the $y$-axis. Give the exact value.</p>",
+   "choices": [
+    "$\\dfrac{64\\pi}{15}$",
+    "$\\dfrac{8\\pi}{15}$",
+    "$\\dfrac{8\\pi}{3}$",
+    "$-\\dfrac{8\\pi}{3}$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from revolving the region about the $x$-axis instead of the $y$-axis: $\\pi\\displaystyle\\int_0^2 \\big((2x)^2 - (x^2)^2\\big)\\,dx = \\dfrac{64\\pi}{15}$. Revolution about the $y$-axis uses horizontal radii, written as functions of $y$, and integrates with respect to $y$.",
+    "This choice comes from squaring the difference of the radii instead of subtracting their squares: $\\pi\\displaystyle\\int_0^4 \\big(\\sqrt{y} - \\tfrac{y}{2}\\big)^2\\,dy = \\dfrac{8\\pi}{15}$. The area of a washer is $\\pi\\big(R^2 - r^2\\big)$, which is not equal to $\\pi(R - r)^2$.",
+    null,
+    "This choice comes from reversing the outer and inner radii, integrating $\\pi\\big((\\tfrac{y}{2})^2 - (\\sqrt{y})^2\\big)$. For $0 < y < 4$, the point $x = \\sqrt{y}$ on the parabola is farther from the $y$-axis than the point $x = \\tfrac{y}{2}$ on the line, so $\\sqrt{y}$ is the outer radius. A volume is never negative."
+   ],
+   "hints": [
+    "The axis of revolution is the $y$-axis, so each washer is horizontal and its radii are horizontal distances measured from the $y$-axis. Write both boundary curves as $x$ in terms of $y$, and find the interval of $y$-values that the region covers.",
+    "For a fixed $y$ with $0 < y < 4$, compare $x = \\sqrt{y}$ with $x = \\tfrac{y}{2}$ to decide which is the outer radius $R(y)$ and which is the inner radius $r(y)$. Then $V = \\pi\\displaystyle\\int_0^4 \\big(R(y)^2 - r(y)^2\\big)\\,dy$.",
+    "As a range check, the solid fits inside the cylinder of radius $2$ and height $4$ swept out by the segment from $(0, 4)$ to $(2, 4)$, whose volume is $\\pi \\cdot 2^2 \\cdot 4 = 16\\pi$. The answer must be positive and smaller than $16\\pi$."
+   ],
+   "solution": [
+    {
+     "text": "Find where the curves meet. Solving $2x = x^2$ gives $x = 0$ or $x = 2$, so the curves meet at $(0, 0)$ and $(2, 4)$. The region covers $0 \\leq y \\leq 4$."
+    },
+    {
+     "text": "Because the axis of revolution is the $y$-axis, solve each curve for $x$ in terms of $y$. The line gives $x = \\tfrac{y}{2}$ and the parabola gives $x = \\sqrt{y}$. At $y = 1$, $\\sqrt{1} = 1$ is larger than $\\tfrac{1}{2}$, so the parabola is the outer boundary: $R(y) = \\sqrt{y}$ and $r(y) = \\tfrac{y}{2}$."
+    },
+    {
+     "text": "Set up the washer integral with respect to $y$.",
+     "math": "V = \\pi\\int_0^4 \\Big(\\big(\\sqrt{y}\\big)^2 - \\Big(\\frac{y}{2}\\Big)^2\\Big)\\,dy = \\pi\\int_0^4 \\Big(y - \\frac{y^2}{4}\\Big)\\,dy"
+    },
+    {
+     "text": "Evaluate.",
+     "math": "V = \\pi\\Big[\\frac{y^2}{2} - \\frac{y^3}{12}\\Big]_0^4 = \\pi\\Big(8 - \\frac{64}{12}\\Big) = \\pi\\Big(8 - \\frac{16}{3}\\Big) = \\frac{8\\pi}{3}"
+    },
+    {
+     "text": "Independent check by the shell method, a method that is not required on the AP exam: a vertical strip of the region at position $x$, with height $2x - x^2$ and thickness $dx$, revolves about the $y$-axis into a thin cylindrical shell of radius $x$, and the volume of that shell is its circumference $2\\pi x$ times its height times its thickness. Integrating in $x$ gives the same value.",
+     "math": "V = 2\\pi\\int_0^2 x\\,(2x - x^2)\\,dx = 2\\pi\\Big[\\frac{2x^3}{3} - \\frac{x^4}{4}\\Big]_0^2 = 2\\pi\\Big(\\frac{16}{3} - 4\\Big) = \\frac{8\\pi}{3}"
+    }
+   ]
+  },
+  {
+   "id": "u8-q034",
+   "skillId": "u8-arc-length",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Which of the following integrals gives the length of the curve $y = x^3$ from $x = 0$ to $x = 1$?</p>",
+   "choices": [
+    "$\\displaystyle\\int_0^1 \\sqrt{1 + 9x^4}\\,dx$",
+    "$\\displaystyle\\int_0^1 \\sqrt{1 + x^6}\\,dx$",
+    "$\\displaystyle\\int_0^1 \\sqrt{1 + 3x^2}\\,dx$",
+    "$\\displaystyle\\int_0^1 \\big(1 + 9x^4\\big)\\,dx$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from squaring the function $y = x^3$ itself under the square root. The arc length formula uses the square of the derivative, $\\big(f'(x)\\big)^2 = (3x^2)^2 = 9x^4$, not the square of $f(x)$.",
+    "This choice comes from placing the derivative $f'(x) = 3x^2$ under the square root without squaring it. The formula is $\\sqrt{1 + \\big(f'(x)\\big)^2}$, and $(3x^2)^2 = 9x^4$.",
+    "This choice comes from omitting the square root. The expression $1 + 9x^4$ is the square of the length of a small piece of the curve per unit of $x$; the length itself is $\\sqrt{1 + 9x^4}$."
+   ],
+   "hints": [
+    "The length of the graph of $y = f(x)$ from $x = a$ to $x = b$ is $\\displaystyle\\int_a^b \\sqrt{1 + \\big(f'(x)\\big)^2}\\,dx$. Start by finding $f'(x)$.",
+    "Differentiate $x^3$, square the result, add $1$, and place the sum under a square root. The limits of integration are the given $x$-values."
+   ],
+   "solution": [
+    {
+     "text": "The arc length formula for a curve $y = f(x)$ on $[a, b]$ comes from the Pythagorean theorem applied to a small piece of the curve, $(ds)^2 = (dx)^2 + (dy)^2$, so that $ds = \\sqrt{1 + \\big(f'(x)\\big)^2}\\,dx$.",
+     "math": "L = \\int_a^b \\sqrt{1 + \\big(f'(x)\\big)^2}\\,dx"
+    },
+    {
+     "text": "Differentiate and square.",
+     "math": "f'(x) = 3x^2, \\qquad \\big(f'(x)\\big)^2 = 9x^4"
+    },
+    {
+     "text": "Substitute with $a = 0$ and $b = 1$.",
+     "math": "L = \\int_0^1 \\sqrt{1 + 9x^4}\\,dx"
+    },
+    {
+     "text": "This integrand has no elementary antiderivative. On the AP exam, a question of this kind asks only for the integral, or asks for its value from a calculator, which is approximately $1.548$."
+    }
+   ]
+  },
+  {
+   "id": "u8-q035",
+   "skillId": "u8-arc-length",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Find the length of the curve $y = \\dfrac{2}{3}x^{3/2}$ from $x = 0$ to $x = 3$. Round to two decimal places.</p>",
+   "answer": 4.67,
+   "tolerance": 0.005,
+   "hints": [
+    "Use $L = \\displaystyle\\int_0^3 \\sqrt{1 + \\big(f'(x)\\big)^2}\\,dx$. Differentiate $\\dfrac{2}{3}x^{3/2}$ with the power rule; the coefficient simplifies.",
+    "After squaring the derivative, the expression under the square root is a linear function of $x$. Integrate $(1 + x)^{1/2}$ with the power rule, or with the substitution $u = 1 + x$.",
+    "Evaluate the antiderivative at $x = 3$ and at $x = 0$. Note that $4^{3/2} = \\big(\\sqrt{4}\\big)^3 = 8$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate with the power rule. The factor $\\tfrac{3}{2}$ from the exponent cancels the coefficient $\\tfrac{2}{3}$.",
+     "math": "f'(x) = \\frac{2}{3}\\cdot\\frac{3}{2}x^{1/2} = \\sqrt{x}, \\qquad \\big(f'(x)\\big)^2 = x"
+    },
+    {
+     "text": "Set up the arc length integral.",
+     "math": "L = \\int_0^3 \\sqrt{1 + x}\\,dx"
+    },
+    {
+     "text": "Antidifferentiate $(1 + x)^{1/2}$. The inner derivative of $1 + x$ is $1$, so the power rule applies directly.",
+     "math": "L = \\Big[\\frac{2}{3}(1 + x)^{3/2}\\Big]_0^3 = \\frac{2}{3}\\big(4^{3/2} - 1^{3/2}\\big) = \\frac{2}{3}(8 - 1) = \\frac{14}{3}"
+    },
+    {
+     "text": "Round to two decimal places.",
+     "math": "L = \\frac{14}{3} \\approx 4.67"
+    }
+   ]
+  },
+  {
+   "id": "u8-q036",
+   "skillId": "u8-arc-length",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The integral $\\displaystyle\\int_1^4 \\sqrt{1 + \\frac{1}{4x}}\\,dx$ gives the length of the graph of which of the following functions on the interval $[1, 4]$?</p>",
+   "choices": [
+    "$y = 2\\sqrt{x}$",
+    "$y = \\dfrac{1}{4x}$",
+    "$y = \\dfrac{1}{4}\\ln x$",
+    "$y = \\sqrt{x}$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from taking $f'(x) = \\dfrac{1}{\\sqrt{x}}$, whose square is $\\dfrac{1}{x}$ rather than $\\dfrac{1}{4x}$; the factor $\\tfrac{1}{2}$ in $f'(x)$ is lost. The derivative of $2\\sqrt{x}$ is $\\dfrac{1}{\\sqrt{x}}$, so the arc length integrand for that curve would be $\\sqrt{1 + \\dfrac{1}{x}}$.",
+    "This choice comes from reading the term added to $1$ as the function $f(x)$ itself. In the arc length integrand, the term added to $1$ is $\\big(f'(x)\\big)^2$, the square of the derivative, not the function.",
+    "This choice comes from reading the added term $\\dfrac{1}{4x}$ as $f'(x)$ rather than as $\\big(f'(x)\\big)^2$, and then antidifferentiating it. The added term must first be square-rooted: $f'(x) = \\sqrt{\\dfrac{1}{4x}} = \\dfrac{1}{2\\sqrt{x}}$.",
+    null
+   ],
+   "hints": [
+    "Match the given integrand to the arc length formula $\\sqrt{1 + \\big(f'(x)\\big)^2}$. The term added to $1$ is the square of the derivative, so $\\big(f'(x)\\big)^2 = \\dfrac{1}{4x}$.",
+    "Take the square root to find $f'(x)$, then find a function whose derivative is that expression. To confirm, differentiate each choice and square the result."
+   ],
+   "solution": [
+    {
+     "text": "Compare the integrand with the arc length formula $\\sqrt{1 + \\big(f'(x)\\big)^2}$. The term added to $1$ must be the square of the derivative.",
+     "math": "\\big(f'(x)\\big)^2 = \\frac{1}{4x}"
+    },
+    {
+     "text": "Take the positive square root. The negative root $-\\dfrac{1}{2\\sqrt{x}}$ would lead to $f(x) = -\\sqrt{x}$, which is not among the choices; a curve and its reflection across the $x$-axis have the same length, so either sign gives a valid curve for this integral.",
+     "math": "f'(x) = \\frac{1}{\\sqrt{4x}} = \\frac{1}{2\\sqrt{x}}"
+    },
+    {
+     "text": "Find a function with this derivative. Since $\\dfrac{d}{dx}\\sqrt{x} = \\dfrac{1}{2\\sqrt{x}}$, the function $f(x) = \\sqrt{x}$ works. Adding a constant would not change the derivative, and among the choices only $y = \\sqrt{x}$ has this derivative."
+    },
+    {
+     "text": "Confirm by squaring: $\\Big(\\dfrac{1}{2\\sqrt{x}}\\Big)^2 = \\dfrac{1}{4x}$, which matches the given integrand. The integral gives the length of $y = \\sqrt{x}$ on $[1, 4]$."
+    }
+   ]
+  },
+  {
+   "id": "u8-q037",
+   "skillId": "u8-arc-length",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Find the length of the curve $y = \\ln(\\cos x)$ from $x = 0$ to $x = \\dfrac{\\pi}{3}$. Give the exact value.</p>",
+   "choices": [
+    "$\\sqrt{3}$",
+    "$\\ln\\big(2 + \\sqrt{3}\\big)$",
+    "$1 + \\sqrt{3}$",
+    "$\\ln 2$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from omitting the square root and integrating $1 + \\tan^2 x = \\sec^2 x$ directly: $\\displaystyle\\int_0^{\\pi/3} \\sec^2 x\\,dx = \\tan\\dfrac{\\pi}{3} = \\sqrt{3}$. The arc length integrand is $\\sqrt{\\sec^2 x} = \\sec x$.",
+    null,
+    "This choice comes from writing the antiderivative of $\\sec x$ as $\\sec x + \\tan x$ without the logarithm: $\\big[\\sec x + \\tan x\\big]_0^{\\pi/3} = (2 + \\sqrt{3}) - (1 + 0) = 1 + \\sqrt{3}$. The antiderivative of $\\sec x$ is $\\ln|\\sec x + \\tan x|$.",
+    "This choice comes from using the antiderivative of $\\tan x$, which is $\\ln|\\sec x|$, in place of the antiderivative of $\\sec x$: $\\big[\\ln|\\sec x|\\big]_0^{\\pi/3} = \\ln 2 - \\ln 1 = \\ln 2$."
+   ],
+   "hints": [
+    "Differentiate $\\ln(\\cos x)$ with the chain rule. The result simplifies to a single trigonometric function, up to sign.",
+    "Use the identity $1 + \\tan^2 x = \\sec^2 x$ to simplify $1 + \\big(f'(x)\\big)^2$ before taking the square root. On $\\big[0, \\tfrac{\\pi}{3}\\big]$, $\\cos x$ is positive, so $\\sec x$ is positive.",
+    "Recall $\\displaystyle\\int \\sec x\\,dx = \\ln|\\sec x + \\tan x| + C$. Evaluate at $x = \\dfrac{\\pi}{3}$ and at $x = 0$, using $\\sec\\dfrac{\\pi}{3} = 2$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate with the chain rule and square.",
+     "math": "f'(x) = \\frac{-\\sin x}{\\cos x} = -\\tan x, \\qquad \\big(f'(x)\\big)^2 = \\tan^2 x"
+    },
+    {
+     "text": "Simplify the integrand with the identity $1 + \\tan^2 x = \\sec^2 x$. On $\\big[0, \\tfrac{\\pi}{3}\\big]$, $\\cos x > 0$, so $\\sqrt{\\sec^2 x} = \\sec x$ with no absolute value needed.",
+     "math": "\\sqrt{1 + \\tan^2 x} = \\sqrt{\\sec^2 x} = \\sec x"
+    },
+    {
+     "text": "Set up and antidifferentiate. The antiderivative of $\\sec x$ is $\\ln|\\sec x + \\tan x|$.",
+     "math": "L = \\int_0^{\\pi/3} \\sec x\\,dx = \\Big[\\ln|\\sec x + \\tan x|\\Big]_0^{\\pi/3}"
+    },
+    {
+     "text": "Evaluate using $\\sec\\tfrac{\\pi}{3} = 2$, $\\tan\\tfrac{\\pi}{3} = \\sqrt{3}$, $\\sec 0 = 1$, and $\\tan 0 = 0$.",
+     "math": "L = \\ln\\big(2 + \\sqrt{3}\\big) - \\ln(1 + 0) = \\ln\\big(2 + \\sqrt{3}\\big) \\approx 1.317"
+    }
+   ]
+  },
+  {
+   "id": "u8-q038",
+   "skillId": "u8-arc-length",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Find the length of the curve $x = \\dfrac{y^3}{6} + \\dfrac{1}{2y}$ from $y = 1$ to $y = 2$. Round to two decimal places.</p>",
+   "answer": 1.42,
+   "tolerance": 0.005,
+   "hints": [
+    "The curve is given as $x$ in terms of $y$, so use $L = \\displaystyle\\int_1^2 \\sqrt{1 + \\Big(\\frac{dx}{dy}\\Big)^2}\\,dy$. Compute $\\dfrac{dx}{dy}$ first; write $\\dfrac{1}{2y}$ as $\\dfrac{1}{2}y^{-1}$ before differentiating.",
+    "After squaring $\\dfrac{dx}{dy}$ and adding $1$, the middle term changes sign and the whole expression becomes a perfect square. Compare $1 + \\Big(\\dfrac{y^2}{2} - \\dfrac{1}{2y^2}\\Big)^2$ with $\\Big(\\dfrac{y^2}{2} + \\dfrac{1}{2y^2}\\Big)^2$.",
+    "Once the square root is removed, integrate term by term from $y = 1$ to $y = 2$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate with respect to $y$.",
+     "math": "\\frac{dx}{dy} = \\frac{y^2}{2} - \\frac{1}{2y^2}"
+    },
+    {
+     "text": "Square, then add $1$. The cross term of the square is $-2\\cdot\\dfrac{y^2}{2}\\cdot\\dfrac{1}{2y^2} = -\\dfrac{1}{2}$, and adding $1$ turns it into $+\\dfrac{1}{2}$.",
+     "math": "1 + \\Big(\\frac{dx}{dy}\\Big)^2 = 1 + \\frac{y^4}{4} - \\frac{1}{2} + \\frac{1}{4y^4} = \\frac{y^4}{4} + \\frac{1}{2} + \\frac{1}{4y^4} = \\Big(\\frac{y^2}{2} + \\frac{1}{2y^2}\\Big)^2"
+    },
+    {
+     "text": "Take the square root. For $y > 0$ the expression $\\dfrac{y^2}{2} + \\dfrac{1}{2y^2}$ is positive, so no absolute value is needed.",
+     "math": "L = \\int_1^2 \\Big(\\frac{y^2}{2} + \\frac{1}{2y^2}\\Big)\\,dy"
+    },
+    {
+     "text": "Antidifferentiate term by term and evaluate.",
+     "math": "L = \\Big[\\frac{y^3}{6} - \\frac{1}{2y}\\Big]_1^2 = \\Big(\\frac{8}{6} - \\frac{1}{4}\\Big) - \\Big(\\frac{1}{6} - \\frac{1}{2}\\Big) = \\frac{13}{12} + \\frac{1}{3} = \\frac{17}{12}"
+    },
+    {
+     "text": "Round to two decimal places.",
+     "math": "L = \\frac{17}{12} \\approx 1.42"
+    }
+   ]
+  }
+ ],
+ "masteryCheck": {
+  "questionCount": 8,
+  "passCount": 7
+ }
+}

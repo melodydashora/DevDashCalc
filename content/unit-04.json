@@ -1,0 +1,1747 @@
+{
+ "id": "unit-04",
+ "number": 4,
+ "title": "Contextual Applications of Differentiation",
+ "overview": "This unit uses the derivative rules from Units 2 and 3 to answer questions about real quantities: what a derivative means when the variables carry units, how position, velocity, acceleration, and speed are related for an object moving on a line, how the rates of two linked quantities are related (related rates), how a tangent line approximates a function value near a point, and how L'Hospital's rule evaluates limits of the indeterminate forms 0/0 and infinity/infinity. These topics make up 4 to 7 percent of the BC exam, and they appear regularly in the free-response section as motion problems, table-based rate problems, and limit evaluations. The main new technique is differentiating a relation with respect to time, which is implicit differentiation from Unit 3 with time as the independent variable. Interpreting a derivative with correct units and stating a justification in a complete sentence are graded skills on the exam, so this unit practices the sentence as carefully as the computation.",
+ "skills": [
+  {
+   "id": "u4-derivative-in-context",
+   "name": "Interpreting a derivative as a rate of change with units",
+   "core": true
+  },
+  {
+   "id": "u4-rectilinear-motion",
+   "name": "Position, velocity, acceleration, and speed for motion on a line",
+   "core": true
+  },
+  {
+   "id": "u4-rates-other-contexts",
+   "name": "Rates of change in cost, population, and other applied contexts",
+   "core": false
+  },
+  {
+   "id": "u4-related-rates",
+   "name": "Related rates: differentiating a relation with respect to time",
+   "core": true
+  },
+  {
+   "id": "u4-linearization",
+   "name": "Tangent-line approximation, differentials, and error direction from concavity",
+   "core": true
+  },
+  {
+   "id": "u4-lhopital",
+   "name": "L'Hospital's rule for 0/0 and infinity/infinity limits",
+   "core": true
+  }
+ ],
+ "lessons": [
+  {
+   "id": "u4-l1",
+   "title": "Interpreting derivatives in context",
+   "skillIds": [
+    "u4-derivative-in-context",
+    "u4-rates-other-contexts"
+   ],
+   "estMinutes": 20,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>Suppose a function $f$ gives a quantity: $f(t)$ is the amount of that quantity when the input is $t$. The <strong>derivative</strong> $f'(a)$ is the instantaneous rate of change of the quantity with respect to the input at $t = a$. It is the limit of average rates over shorter and shorter intervals that start or end at $a$:</p><p>$$f'(a) = \\lim_{h \\to 0} \\frac{f(a+h) - f(a)}{h}$$</p><p>Units follow from this definition. If $f$ is measured in units U and the input in units T, then the numerator has units U, the denominator has units T, and $f'(a)$ has units U per T. A volume in liters as a function of time in minutes has a derivative in liters per minute. A cost in dollars as a function of mass in kilograms has a derivative in dollars per kilogram.</p><p>A <strong>complete interpretation sentence</strong> for $f'(a)$ has three parts, and the exam rubric checks for all three:</p><ol><li>the input value with its units, such as at $t = 5$ minutes;</li><li>the direction, read from the sign of $f'(a)$: positive means the quantity is increasing, negative means it is decreasing;</li><li>the rate, which is the magnitude $|f'(a)|$ with its units, such as at a rate of 30 liters per minute.</li></ol><p>Three quantities are easy to confuse, and exam items ask about them separately. $f(a)$ is the amount at $a$, in units U. $f'(a)$ is the rate at the single instant $a$, in U per T. $f(b) - f(a)$ is the <strong>net change</strong> over the interval $[a, b]$, in units U. A large $|f'(a)|$ means the quantity is changing quickly at that instant; it says nothing about whether the amount $f(a)$ is large.</p><p>When $f$ is given only by a table of values, the derivative cannot be computed exactly. A <strong>difference quotient</strong> between two table entries is the average rate of change over that interval, and it serves as an estimate of the instantaneous rate. At an interior table point $a$ with neighbors $a - h$ and $a + h$, the <strong>symmetric difference quotient</strong></p><p>$$f'(a) \\approx \\frac{f(a+h) - f(a-h)}{2h}$$</p><p>is the preferred estimate, because it uses data on both sides of $a$ and its error is typically smaller than that of either one-sided quotient. At an endpoint of the table only a one-sided quotient is available. A complete answer states the two table points used, shows the quotient, and attaches units to the result.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A metrics system keeps a counter and displays a rate. The counter <code>requests_total</code> is $f(t)$, the number of requests handled since startup. The dashboard panel <code>rate(requests_total[1m])</code> is an estimate of $f'(t)$, in requests per second. Reading the counter tells you how many so far; reading the rate panel tells you how fast at this moment. Units behave like a type system: dollars per kilogram and kilograms per dollar are different types even when their numbers look similar, and an interpretation sentence with the wrong units is a type error even when the number is right. Writing the units on every quantity is the same discipline as writing the type on every function signature.</p><p>Where the analogy holds: the counter is the amount and the rate is its derivative. A rising counter corresponds to a positive rate, a flat counter to a zero rate, and the difference between two counter readings is the net change over that window. The sign, magnitude, and units of $f'(t)$ map directly onto what the panel shows, and the distinction between the counter value and the rate value is exactly the distinction between $f(a)$ and $f'(a)$.</p><p>Where it breaks: <code>rate()</code> divides the change in the counter by a finite window length, so it is a difference quotient, not a derivative. The derivative is the limit as the window length goes to zero. The two agree only when the counter grows linearly inside the window; a burst of traffic in the last second is averaged away by a one-minute window, and no finite window recovers the instantaneous value exactly. A counter also never decreases, so its rate is never negative, while a general $f'(t)$ can have either sign.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find and interpret $V'(5)$ for $V(t) = 400 - 40t + t^2$ liters",
+     "steps": [
+      {
+       "text": "A tank drains so that the volume of water is $V(t) = 400 - 40t + t^2$ liters at time $t$ minutes, for $0 \\le t \\le 20$. Identify the units first: $V$ is in liters and $t$ is in minutes, so $V'(t)$ is in liters per minute."
+      },
+      {
+       "text": "Differentiate with the power rule.",
+       "math": "V'(t) = -40 + 2t"
+      },
+      {
+       "text": "Evaluate at $t = 5$.",
+       "math": "V'(5) = -40 + 2(5) = -30 \\ \\text{liters per minute}"
+      },
+      {
+       "text": "The sign is negative, so the volume is decreasing; the magnitude is $30$. The complete sentence is: at $t = 5$ minutes, the volume of water in the tank is decreasing at a rate of 30 liters per minute."
+      },
+      {
+       "text": "Contrast this with the other two quantities. The amount at $t = 5$ is $V(5) = 400 - 200 + 25 = 225$ liters. The net change over the first 5 minutes is $V(5) - V(0) = 225 - 400 = -175$ liters. All three numbers describe the same tank at or up to $t = 5$, and none of them can be substituted for another."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q001",
+      "u4-q002",
+      "u4-q003"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The derivative rules from Units 2 and 3, including the exponential rule and the chain rule, apply unchanged to any quantity that depends on another. Only the interpretation is new. Four contexts recur on the exam.</p><p><strong>Cost, revenue, and profit.</strong> If $C(x)$ is the cost in dollars to produce $x$ units, the <strong>marginal cost</strong> is $C'(x)$, in dollars per unit. It is the instantaneous rate at which cost grows with production, and it approximates the cost of producing one more unit after $x$ units have been produced. The exact cost of the next unit is $C(x+1) - C(x)$, a net change over an interval of length $1$; the marginal cost is the derivative at the left end of that interval, so the two are close but usually not equal. <strong>Marginal revenue</strong> $R'(x)$ and <strong>marginal profit</strong> $P'(x) = R'(x) - C'(x)$ are defined the same way. A sentence reads: at a production level of 200 items, the cost is increasing at a rate of 12 dollars per item.</p><p><strong>Population.</strong> If $P(t)$ is a population $t$ years after a reference date, then $P'(t)$ is in individuals per year. Population models are often exponential, $P(t) = P_0 e^{kt}$, and the chain rule gives</p><p>$$P'(t) = kP_0 e^{kt} = kP(t)$$</p><p>so the rate is proportional to the current population. The constant $k$ carries units of per year, which is what makes $kP(t)$ come out in individuals per year.</p><p><strong>Temperature.</strong> If $T(t)$ is a temperature in degrees Fahrenheit at time $t$ minutes, then $T'(t)$ is in degrees Fahrenheit per minute. A negative $T'(t)$ means the object is cooling at that instant.</p><p><strong>Geometry.</strong> The input need not be time. If $V(r) = \\frac{4}{3}\\pi r^3$ is the volume of a sphere in cubic centimeters with radius $r$ centimeters, then $V'(r) = 4\\pi r^2$ is in cubic centimeters per centimeter. It is the rate at which volume grows per unit increase in the radius, and it equals the surface area of the sphere. Lesson 3 of this unit differentiates relations like this one with respect to time.</p><p>In every context the procedure is the same: name the function and its units, differentiate, evaluate at the requested input, and write the three-part sentence. Responses on the exam lose credit more often for a missing unit or a missing direction than for an incorrect derivative.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Marginal cost at $x = 200$ for $C(x) = 500 + 8x + 0.01x^2$ dollars",
+     "steps": [
+      {
+       "text": "The cost to produce $x$ items is $C(x) = 500 + 8x + 0.01x^2$ dollars. Since $C$ is in dollars and $x$ counts items, the marginal cost $C'(x)$ is in dollars per item."
+      },
+      {
+       "text": "Differentiate term by term. The constant $500$ contributes nothing, because fixed costs do not change with production.",
+       "math": "C'(x) = 8 + 0.02x"
+      },
+      {
+       "text": "Evaluate at $x = 200$. The sentence is: at a production level of 200 items, the cost is increasing at a rate of 12 dollars per item.",
+       "math": "C'(200) = 8 + 0.02(200) = 12 \\ \\text{dollars per item}"
+      },
+      {
+       "text": "Compute the exact cost of the 201st item as a net change, using $201^2 - 200^2 = 40401 - 40000 = 401$.",
+       "math": "C(201) - C(200) = 8(201 - 200) + 0.01\\left(201^2 - 200^2\\right) = 8 + 4.01 = 12.01 \\ \\text{dollars}"
+      },
+      {
+       "text": "The marginal cost $12$ is the linear approximation of the exact cost $12.01$ of one more item. The gap of $0.01$ is the contribution of the quadratic term over an interval of length $1$; for this $C$ the identity $C(x+1) - C(x) = C'(x) + 0.01$ holds at every $x$, so the approximation is always $0.01$ dollars low. Lesson 4 of this unit studies this kind of approximation in general."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q006",
+      "u4-q007"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u4-l2",
+   "title": "Straight-line motion",
+   "skillIds": [
+    "u4-rectilinear-motion"
+   ],
+   "estMinutes": 20,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A particle moving on a number line has a <strong>position function</strong> $x(t)$, the signed coordinate of the particle at time $t$. The sign of $x(t)$ says which side of the origin the particle is on, and $|x(t)|$ is its distance from the origin. Position carries a length unit, such as meters, and $t$ carries a time unit, such as seconds. Some problems name the position $s(t)$; the rules are the same.</p><p><strong>Velocity</strong> is the derivative of position, and <strong>acceleration</strong> is the derivative of velocity:</p><p>$$v(t) = x'(t), \\qquad a(t) = v'(t) = x''(t)$$</p><p>The units follow the derivative. If $x$ is in meters and $t$ is in seconds, then $v$ is in meters per second and $a$ is in meters per second squared. Velocity is signed: its sign is the direction of motion, and its magnitude is treated separately in the second half of this lesson.</p><p>Three definitions are used in every exam question about direction.</p><ul><li>The particle is <strong>at rest</strong> at time $t$ when $v(t) = 0$.</li><li>The particle <strong>moves in the positive direction</strong> when $v(t) > 0$ and <strong>moves in the negative direction</strong> when $v(t) < 0$.</li><li>The particle <strong>changes direction</strong> at a time where $v$ changes sign. A zero of $v$ alone is not enough: $v(t) = (t - 2)^2$ is zero at $t = 2$ and positive on both sides, so the particle stops for an instant and continues the same way.</li></ul><p>The standard method is a sign chart for $v$: factor $v(t)$, mark its zeros, and test one value of $t$ in each interval between zeros. A complete justification names the sign change: the particle changes direction at $t = 2$ because $v(t)$ changes sign from positive to negative at $t = 2$.</p><p>The value $x(t)$ is the <strong>displacement</strong> from the origin at time $t$, and the displacement over an interval $[a, b]$ is the net change in position, $x(b) - x(a)$. The <strong>total distance traveled</strong> on $[a, b]$ is the sum of the distances covered on each one-directional segment of the motion. It is never less than $|x(b) - x(a)|$, and it is greater whenever the particle changes direction inside the interval. To compute it from a position function, locate every direction change in $(a, b)$, evaluate $x$ at $a$, at $b$, and at each direction change, and add the absolute differences between consecutive values. The integral tools that compute distance from a velocity function come in Unit 8; this lesson locates the direction changes.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Rest, direction changes, and acceleration for $x(t) = t^3 - 6t^2 + 9t + 1$ meters on $0 \\le t \\le 5$ seconds",
+     "steps": [
+      {
+       "text": "Differentiate the position to get the velocity, then factor it. The factored form makes the zeros and the sign chart readable.",
+       "math": "v(t) = x'(t) = 3t^2 - 12t + 9 = 3(t^2 - 4t + 3) = 3(t - 1)(t - 3)"
+      },
+      {
+       "text": "The particle is at rest where $v(t) = 0$, which is $t = 1$ and $t = 3$. Both times lie in $[0, 5]$, so both count.",
+       "math": "3(t - 1)(t - 3) = 0 \\implies t = 1 \\text{ or } t = 3"
+      },
+      {
+       "text": "Build the sign chart of $v$ by testing one value in each interval: $t = 0.5$ gives $3(-0.5)(-2.5) > 0$, $t = 2$ gives $3(1)(-1) < 0$, and $t = 4$ gives $3(3)(1) > 0$. The velocity changes sign at $t = 1$ (positive to negative) and at $t = 3$ (negative to positive), so the particle changes direction at both times.",
+       "math": "v > 0 \\text{ on } (0, 1), \\qquad v < 0 \\text{ on } (1, 3), \\qquad v > 0 \\text{ on } (3, 5)"
+      },
+      {
+       "text": "Differentiate the velocity to get the acceleration and evaluate it at the two rest times.",
+       "math": "a(t) = v'(t) = 6t - 12, \\qquad a(1) = -6, \\qquad a(3) = 6"
+      },
+      {
+       "text": "Answer with units and the justification. The particle is at rest at $t = 1$ and $t = 3$ seconds and changes direction at each of those times because $v(t)$ changes sign there. The acceleration is $a(1) = -6$ meters per second squared and $a(3) = 6$ meters per second squared. For comparison, the positions are $x(0) = 1$, $x(1) = 5$, $x(3) = 1$, and $x(5) = 21$, so the displacement over $[0, 5]$ is $x(5) - x(0) = 20$ meters while the total distance traveled is $|5 - 1| + |1 - 5| + |21 - 1| = 28$ meters."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q009",
+      "u4-q010"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p><strong>Speed</strong> is the magnitude of velocity, $|v(t)|$. Speed has the same units as velocity, is never negative, and carries no direction. A particle with velocity $-5$ meters per second and a particle with velocity $5$ meters per second have the same speed.</p><p>The <strong>speed test</strong> states: on an interval where $v$ and $a$ are both nonzero, the speed is increasing when $v$ and $a$ have the same sign and decreasing when they have opposite signs. The justification is a case split. If $v > 0$, then $|v| = v$ and its derivative is $a$, so speed increases exactly when $a > 0$. If $v < 0$, then $|v| = -v$ and its derivative is $-a$, so speed increases exactly when $a < 0$. In both cases, speed increases exactly when $v \\cdot a > 0$.</p><p>At an instant where $v = 0$ or $a = 0$ the test gives no conclusion, because the product $v \\cdot a$ is zero and has no sign. Answer such questions on the open intervals between the zeros, not at the zeros themselves.</p><p>The sign-chart method for speed has four steps. Find the zeros of $v$ and the zeros of $a$. Split the domain at all of those times. In each subinterval, record the sign of $v$ and the sign of $a$. The speed is increasing on the subintervals where the two signs match. A complete justification reads: the speed is increasing on $(1, 2)$ because $v(t) < 0$ and $a(t) < 0$ there, so the velocity and the acceleration have the same sign. At a single instant the same form applies: at $t = 4$ the speed is increasing because $v(4) = 3 > 0$ and $a(4) = 4 > 0$.</p><p>When a problem gives a <strong>table of velocity values</strong> at selected times, the formula for $v$ is unknown, and two tools substitute for it. First, approximate the acceleration at an interior time $c$ with a difference quotient over the nearest table interval that contains $c$:</p><p>$$a(c) \\approx \\frac{v(t_2) - v(t_1)}{t_2 - t_1}, \\qquad t_1 \\le c \\le t_2 \\text{ consecutive table times}$$</p><p>The units are the velocity units per time unit, and the subtraction runs later minus earlier. Second, the Intermediate Value Theorem locates direction changes. If $v$ is continuous on $[t_1, t_2]$ and the table entries $v(t_1)$ and $v(t_2)$ have opposite signs, then there is a time $c$ in $(t_1, t_2)$ with $v(c) = 0$, and because $v$ is positive at one end and negative at the other, the particle changes direction at least once on $(t_1, t_2)$. The written justification must state the continuity hypothesis and the two signs before naming the theorem.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A physics engine with a fixed timestep <code>dt</code> keeps three fields of state per body, <code>pos</code>, <code>vel</code>, and <code>acc</code>, and each frame updates each field from the next one: <code>vel += acc * dt; pos += vel * dt</code>. Read in the other direction, the logged velocity is the finite difference of position, <code>(pos[i] - pos[i-1]) / dt</code>, and the logged acceleration is the finite difference of velocity. Speed is <code>Math.abs(vel)</code>. The speeding-up test is the boolean <code>Math.sign(vel) === Math.sign(acc)</code>, and a direction change between two frames is detected when <code>Math.sign(vel[i])</code> differs from <code>Math.sign(vel[i-1])</code>.</p><p>Where the analogy holds: the ordering of the three fields is the calculus ordering, each one the derivative of the one before it, and the unit bookkeeping is identical, since multiplying by <code>dt</code> converts one level to the next. A table of velocity values on the exam is a frame log, and the difference quotient you compute for acceleration is the same <code>(vel[i] - vel[i-1]) / dt</code> the engine would compute. The boolean sign test for speed is exact rather than approximate, because the proof of the rule is that the derivative of $|v|$ equals $a$ when $v > 0$ and $-a$ when $v < 0$.</p><p>Where it breaks: the engine only samples at frame boundaries. If the particle changes direction and changes back between two frames, both logged velocities have the same sign and the direction change is invisible; finding it requires solving $v(t) = 0$ exactly on the continuous function, which the frame log cannot do. The finite-difference acceleration is the table approximation, not the exact $x''(t)$, and the two agree only when the velocity is linear on that interval. And a logged <code>vel</code> is almost never exactly <code>0</code> at a frame boundary, so the engine detects rest by a sign change between frames, while in calculus rest is an exact root of $v$ and a root without a sign change is not a direction change.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q011",
+      "u4-q012",
+      "u4-q014"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u4-l3",
+   "title": "Related rates",
+   "skillIds": [
+    "u4-related-rates"
+   ],
+   "estMinutes": 25,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>related-rates problem</strong> describes several quantities that all change with time $t$ and that satisfy one fixed relation at every instant: a geometric formula, the Pythagorean theorem, or an equation stated in the problem. Each quantity is a function of $t$, so each has a rate of change, written $\\frac{dx}{dt}$ for a quantity $x$. The problem gives some of the rates and asks for another rate at one specific instant.</p><p>The method is implicit differentiation from Unit 3 with $t$ as the independent variable. Every variable in the relation depends on $t$, so the chain rule attaches the factor $\\frac{dx}{dt}$ to every term that contains $x$. For example, differentiating $x^2 + y^2 = z^2$ with respect to $t$ gives</p><p>$$2x\\,\\frac{dx}{dt} + 2y\\,\\frac{dy}{dt} = 2z\\,\\frac{dz}{dt}$$</p><p>The five-step procedure is:</p><ol><li>Name every changing quantity with a variable and state its units. Sketch the situation if it is geometric.</li><li>Write the relation that holds among the variables at all times, not only at the instant in question.</li><li>Differentiate both sides of the relation with respect to $t$, applying the chain rule to every variable.</li><li>Substitute the known values and the known rates. This happens only after differentiating.</li><li>Solve for the unknown rate and attach its units, which are the units of the quantity divided by the units of time.</li></ol><p>The <strong>sign convention</strong> is: a rate is positive when its quantity is increasing and negative when its quantity is decreasing. If a distance $x$ is shrinking at 3 meters per second, then $\\frac{dx}{dt} = -3$ meters per second, and the negative sign is what gets substituted into the differentiated equation.</p><p>The most common error is substituting a momentary value for a variable before differentiating. If the relation is $V = \\frac{1}{3}\\pi r^2 h$ and $h = 4$ at the instant in question, replacing $h$ by $4$ before differentiating turns the changing height into a constant, removes the term containing $\\frac{dh}{dt}$, and produces a wrong rate. Values are substituted at step 4, never at step 2. The only quantities that may be replaced early are true constants, such as the fixed height and top radius of a tank that does not change shape.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A related-rates problem is forward-mode automatic differentiation over a small dependency graph. Each quantity is a node holding a <strong>dual number</strong>, a pair <code>(value, rate)</code> where <code>rate</code> is the derivative with respect to <code>t</code>. The relation is an invariant between nodes, and the given rates are the seed tangents on the input nodes. Differentiating the relation with respect to $t$ is one forward pass: the chain rule pushes each tangent along every edge, the way forward-mode autodiff attaches <code>d(x*x) = 2*x*dx</code> to each operation in a computation graph. Solving for the unknown rate is reading the tangent off the output node or, when the unknown is on an input, solving the single linear equation that the pass produced.</p><p>Where the analogy holds: the linearity of the rate equation, the chain-rule factor on every variable, and the rule that a true constant carries tangent zero all match. The similar-triangle substitution $r = h/2$ in the tank problem below is an edge from <code>h</code> to <code>r</code> with local derivative $\\frac{1}{2}$, and eliminating $r$ before differentiating is the same as fusing that edge into the graph.</p><p>Where it breaks: substituting a number for a variable before differentiating is inlining a constant before computing the tangent. The node's rate becomes zero, the edge out of it carries nothing, and the propagated result is wrong with no error raised. An autodiff framework fixes the evaluation order for you; in a related-rates problem you enforce it by hand, and the order (differentiate, then substitute) is the whole method. A second difference: autodiff evaluates at one point and returns numbers, while the differentiated relation is a symbolic equation valid at every instant, and it can be solved for any one of the rates, not only a designated output.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Water level rising in an inverted conical tank",
+     "steps": [
+      {
+       "text": "Name the quantities. Let $V$ be the volume of water in cubic meters, $h$ the depth of the water in meters, and $r$ the radius of the water surface in meters; all three are functions of time $t$ in minutes. Given: $\\frac{dV}{dt} = 2$ cubic meters per minute. Wanted: $\\frac{dh}{dt}$ when $h = 4$. The tank's top radius (5 m) and height (10 m) are constants."
+      },
+      {
+       "text": "Write the relation. The water forms a cone similar to the tank, so $\\frac{r}{h} = \\frac{5}{10}$, which gives $r = \\frac{h}{2}$ at every instant. Substitute this into the cone volume formula to obtain a relation between $V$ and $h$ only.",
+       "math": "V = \\frac{1}{3}\\pi r^2 h = \\frac{1}{3}\\pi\\left(\\frac{h}{2}\\right)^2 h = \\frac{\\pi h^3}{12}"
+      },
+      {
+       "text": "Differentiate both sides with respect to $t$. The chain rule attaches $\\frac{dh}{dt}$ to the derivative of $h^3$.",
+       "math": "\\frac{dV}{dt} = \\frac{\\pi}{12}\\cdot 3h^2\\,\\frac{dh}{dt} = \\frac{\\pi h^2}{4}\\,\\frac{dh}{dt}"
+      },
+      {
+       "text": "Substitute the known values now: $\\frac{dV}{dt} = 2$ and $h = 4$.",
+       "math": "2 = \\frac{\\pi (4)^2}{4}\\,\\frac{dh}{dt} = 4\\pi\\,\\frac{dh}{dt}"
+      },
+      {
+       "text": "Solve for the unknown rate and attach units. The water level is rising at $\\frac{1}{2\\pi} \\approx 0.16$ meters per minute when the depth is 4 meters. The rate is positive because the depth is increasing, which agrees with water flowing into the tank.",
+       "math": "\\frac{dh}{dt} = \\frac{2}{4\\pi} = \\frac{1}{2\\pi} \\approx 0.16"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q016",
+      "u4-q017",
+      "u4-q018"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Most exam problems use one of a few standard configurations. Recognizing the configuration supplies the relation at step 2.</p><ul><li><strong>Ladder or two moving objects.</strong> A ladder leaning on a wall, or two vehicles moving along perpendicular roads, form a right triangle. The relation is the Pythagorean theorem $x^2 + y^2 = z^2$, and differentiating and dividing by 2 gives $x\\,\\frac{dx}{dt} + y\\,\\frac{dy}{dt} = z\\,\\frac{dz}{dt}$. For a ladder, $z$ is the constant length, so $\\frac{dz}{dt} = 0$.</li><li><strong>Shadow from a lamppost.</strong> The lamppost, the person, and the ground form two similar right triangles. If the light has height $L$, the person has height $p$, the person stands at distance $x$ from the base, and the shadow has length $s$, then $\\frac{s}{x + s} = \\frac{p}{L}$. Both $L$ and $p$ are constants, so this rearranges to $s = kx$ for a constant $k$, and the tip of the shadow is at distance $x + s$ from the base. The rate of the shadow length and the rate of the shadow tip are different quantities.</li><li><strong>Angle of elevation.</strong> An observer at horizontal distance $x$ watches an object at height $y$. The relation is $\\tan\\theta = \\frac{y}{x}$. When $x$ is constant, differentiating gives $\\sec^2\\theta\\,\\frac{d\\theta}{dt} = \\frac{1}{x}\\,\\frac{dy}{dt}$, using $\\frac{d}{d\\theta}\\tan\\theta = \\sec^2\\theta$ from Unit 3. The angle is measured in radians.</li><li><strong>Circle or sphere.</strong> A ripple, a puddle, or a balloon uses $A = \\pi r^2$ or $V = \\frac{4}{3}\\pi r^3$, giving $\\frac{dA}{dt} = 2\\pi r\\,\\frac{dr}{dt}$ or $\\frac{dV}{dt} = 4\\pi r^2\\,\\frac{dr}{dt}$.</li></ul><p>The differentiated equation usually contains a value that the problem did not state directly. Compute it from the relation at the instant in question, before substituting. For a 10-foot ladder whose bottom is 6 feet from the wall, the top is at $y = \\sqrt{10^2 - 6^2} = 8$ feet. For an angle of elevation with $x = 200$ and $y = 200$, $\\tan\\theta = 1$, so $\\theta = \\frac{\\pi}{4}$ and $\\sec^2\\theta = 1 + \\tan^2\\theta = 2$.</p><p>The final answer is a complete sentence with a number, units, and a direction. A negative rate for a distance means the distance is shrinking, and the sentence states the magnitude together with the direction in words. For example: the top of the ladder is sliding down the wall at $\\frac{9}{8}$ feet per second. When a question asks how fast a quantity is decreasing, the expected answer is the positive magnitude, and the negative sign in the computed rate is the justification for the word decreasing.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Shadow length for a person walking toward a streetlight",
+     "steps": [
+      {
+       "text": "Name the quantities. Let $x$ be the distance in meters from the base of the light to the person and $s$ the length of the shadow in meters; both change with time $t$ in seconds. The heights 5.4 m and 1.8 m are constants. Walking toward the light makes $x$ decrease, so $\\frac{dx}{dt} = -1.2$ meters per second. Wanted: $\\frac{ds}{dt}$."
+      },
+      {
+       "text": "Write the relation. The triangle formed by the top of the light, its base, and the shadow tip is similar to the triangle formed by the top of the person, the person's feet, and the shadow tip. The shadow length $s$ corresponds to the full base $x + s$, and the heights correspond.",
+       "math": "\\frac{s}{x + s} = \\frac{1.8}{5.4} = \\frac{1}{3}"
+      },
+      {
+       "text": "Simplify to a relation that holds at all times.",
+       "math": "3s = x + s \\implies s = \\frac{x}{2}"
+      },
+      {
+       "text": "Differentiate both sides with respect to $t$.",
+       "math": "\\frac{ds}{dt} = \\frac{1}{2}\\,\\frac{dx}{dt}"
+      },
+      {
+       "text": "Substitute the known rate and state the answer. The shadow is shortening at 0.6 meters per second. The rate is negative because $s$ decreases as the person approaches the light, and the answer is the same at every distance $x$ because the relation $s = \\frac{x}{2}$ is linear with a constant coefficient.",
+       "math": "\\frac{ds}{dt} = \\frac{1}{2}(-1.2) = -0.6"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q019",
+      "u4-q020",
+      "u4-q022"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u4-l4",
+   "title": "Local linearity and linearization",
+   "skillIds": [
+    "u4-linearization"
+   ],
+   "estMinutes": 18,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A function $f$ is <strong>differentiable at $a$</strong> when the derivative $f'(a)$ exists. <strong>Local linearity</strong> is the property that the graph of a differentiable function looks like a straight line when it is viewed on a small enough interval around the point $(a, f(a))$. Magnifying the graph around that point makes the bend in the graph shrink toward a straight line, and that line is the tangent line at $a$. This property is the reason a tangent line is a usable substitute for the function near $a$.</p><p>The <strong>linearization</strong> of $f$ at $a$ is the tangent line at $a$ written as a function of $x$:</p><p>$$L(x) = f(a) + f'(a)(x - a)$$</p><p>$L$ is a linear function that agrees with $f$ in value and in slope at $a$: $L(a) = f(a)$ and $L'(a) = f'(a)$. The <strong>tangent-line approximation</strong> is the statement $f(x) \\approx L(x)$ for $x$ near $a$. Exam items also call $L(x)$ the linear approximation of $f$ at $a$; the two names refer to the same function.</p><p>The standard use is estimating a number whose exact value is hard to compute by hand, such as $\\sqrt{9.2}$ or $\\sqrt[3]{27.6}$. The procedure has four steps.</p><ol><li>Choose a function $f$ that produces the wanted number at some input. For $\\sqrt{9.2}$, take $f(x) = \\sqrt{x}$ with target input $x = 9.2$.</li><li>Choose a point $a$ close to the target where $f(a)$ and $f'(a)$ can be computed exactly by hand. For $\\sqrt{9.2}$, take $a = 9$: $f(9) = 3$ and $f'(9) = \\frac{1}{2\\sqrt{9}} = \\frac{1}{6}$.</li><li>Write $L(x)$ with those numbers: $L(x) = 3 + \\frac{1}{6}(x - 9)$.</li><li>Evaluate $L$ at the target: $L(9.2) = 3 + \\frac{1}{6}(0.2) \\approx 3.0333$. The calculator value is $3.0332\\ldots$, so the approximation is correct to three decimal places.</li></ol><p>Two facts about the error. First, the error $|f(x) - L(x)|$ grows as $x$ moves away from $a$, because the graph and the tangent line separate; $L(9.2)$ is a better estimate of $\\sqrt{9.2}$ than $L(12) = 3.5$ is of $\\sqrt{12} = 3.464\\ldots$. Second, the slope multiplies the displacement $x - a$, not the input $x$. Writing $3 + \\frac{1}{6}(9.2)$ produces $4.53$, which is not close to the square root of any number near $9$, and this substitution is the most common error on tangent-line items.</p><p>The exam asks this in three forms: approximate a numerical value as above; approximate $f(b)$ from given values of $f(a)$ and $f'(a)$, or from a table; and write an equation of the tangent line, then use it. A complete answer states the tangent line and then the approximation, for example: the tangent line to $f$ at $x = 9$ is $y = 3 + \\frac{1}{6}(x - 9)$, so $f(9.2) \\approx 3.0333$.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Approximate $\\dfrac{1}{2.1}$ with the linearization of $f(x) = \\dfrac{1}{x}$ at $a = 2$",
+     "steps": [
+      {
+       "text": "Identify the pieces. The target input is $x = 2.1$, the nearby point with an exact value is $a = 2$, and $f(2) = \\frac{1}{2} = 0.5$."
+      },
+      {
+       "text": "Differentiate with the power rule, writing $f(x) = x^{-1}$, and evaluate the derivative at $a = 2$.",
+       "math": "f'(x) = -x^{-2} = -\\frac{1}{x^2}, \\qquad f'(2) = -\\frac{1}{4} = -0.25"
+      },
+      {
+       "text": "Write the linearization.",
+       "math": "L(x) = f(2) + f'(2)(x - 2) = 0.5 - 0.25(x - 2)"
+      },
+      {
+       "text": "Evaluate at the target. The displacement is $x - a = 2.1 - 2 = 0.1$.",
+       "math": "L(2.1) = 0.5 - 0.25(0.1) = 0.5 - 0.025 = 0.475"
+      },
+      {
+       "text": "Compare with the calculator value $\\frac{1}{2.1} = 0.47619\\ldots$. The approximation $0.475$ is below the true value by about $0.0012$. The next section explains why the approximation landed below the true value rather than above it."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q024",
+      "u4-q025"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The error of the tangent-line approximation has a predictable sign, and the exam asks for it. The tool is the second derivative. A function $f$ is <strong>concave up</strong> on an interval when $f''(x) > 0$ for every $x$ in the interval, and <strong>concave down</strong> when $f''(x) < 0$ there. Unit 5 studies concavity in detail; this lesson needs only the definition and one consequence.</p><p><strong>Error direction from concavity.</strong> Suppose $f''$ exists on an interval containing both $a$ and $x$.</p><ul><li>If $f''(x) > 0$ on that interval (concave up), the graph of $f$ lies above its tangent line at $a$, so $L(x) < f(x)$ and $L(x)$ is an <strong>underestimate</strong>.</li><li>If $f''(x) < 0$ on that interval (concave down), the graph lies below its tangent line, so $L(x) > f(x)$ and $L(x)$ is an <strong>overestimate</strong>.</li></ul><p>The reason: the tangent line keeps the constant slope $f'(a)$, while a concave-up function has a slope that increases with $x$. To the right of $a$ the slope of $f$ exceeds $f'(a)$, so $f$ rises above the line. To the left of $a$ the slope of $f$ is less than $f'(a)$, so moving leftward $f$ drops less than the line does, and $f$ is again above the line. The sign of $f'$ plays no part in this rule; only the sign of $f''$ decides the direction. A complete justification reads: $L(1.2)$ is an overestimate of $\\ln 1.2$ because $f''(x) = -\\frac{1}{x^2} < 0$ on $[1, 1.2]$, so the graph of $f(x) = \\ln x$ is concave down and lies below its tangent line there.</p><p>The worked example fits the rule. For $f(x) = \\frac{1}{x}$, $f''(x) = \\frac{2}{x^3}$, which is positive for $x > 0$. The graph is concave up on $[2, 2.1]$, so $L(2.1) = 0.475$ had to be an underestimate, and the calculator value $0.47619\\ldots$ confirms it.</p><p><strong>Differentials.</strong> For $y = f(x)$, the <strong>differential</strong> $dx$ is a chosen change in $x$, and the differential $dy$ is the resulting change along the tangent line:</p><p>$$dy = f'(x)\\,dx$$</p><p>The true change in the function is $\\Delta y = f(x + dx) - f(x)$, and local linearity gives $dy \\approx \\Delta y$. This is the linearization in different notation: $f(x + dx) \\approx f(x) + f'(x)\\,dx$ is $L$ evaluated at $x + dx$, with $x$ in the role of $a$ and $dx$ in the role of the displacement.</p><p>The standard application is <strong>propagated error</strong>. If a quantity $x$ is measured with error at most $dx$, and a second quantity is computed as $f(x)$, then the error in the computed value is approximately $|f'(x)|\\,dx$. For a square with measured side $s = 10$ centimeters and error at most $0.05$ centimeter, the area $A = s^2$ has $dA = 2s\\,ds = 2(10)(0.05) = 1$ square centimeter. The units of $dA$ are the units of $A$; the derivative carries the unit conversion.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Dead reckoning in a game loop predicts the next position of an entity from the current state: <code>next = pos + vel * dt</code>. That line is the linearization. The current time is $a$, the current position is $f(a)$, the velocity is $f'(a)$, the time step <code>dt</code> is $x - a$, and the predicted position is $L(a + dt) = f(a) + f'(a)\\,dt$. Networked games use this to draw a remote player between server updates, and a physics engine uses it as the first-order model of motion within one frame.</p><p>Where the analogy holds: the prediction uses only the value and the first derivative at the current state, which is exactly what a linearization uses. The prediction is exact for an entity moving at constant velocity, the case $f'' = 0$, and the same is true of $L$: the linearization of a linear function is the function itself. The error grows with the step size, which is why a client that misses several updates drifts further from the server position than a client that missed one.</p><p>Where it breaks: the prediction ignores acceleration, so the true path curves away from the straight-line prediction, and the sign of the acceleration, the second derivative, decides which side of the prediction the true position lands on. A positive acceleration puts the true position ahead of the prediction, matching the underestimate rule for a concave-up function. The error also grows roughly with the square of the step: the leading error term of a linearization is $\\frac{1}{2}f''(a)(x - a)^2$, so halving <code>dt</code> cuts the error by about a factor of four, not two. Adding the term <code>0.5 * acc * dt * dt</code> is the second-order correction that a linearization does not contain; Unit 10 makes that correction exact with Taylor polynomials.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q026",
+      "u4-q027",
+      "u4-q028"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u4-l5",
+   "title": "L'Hospital's rule",
+   "skillIds": [
+    "u4-lhopital"
+   ],
+   "estMinutes": 22,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A limit of a quotient, $\\lim_{x \\to c} \\frac{f(x)}{g(x)}$, is evaluated by substitution when both pieces are continuous at $c$ and the denominator is not $0$ there. Substitution fails to decide the limit in two situations. The form $\\frac{0}{0}$ occurs when $\\lim_{x \\to c} f(x) = 0$ and $\\lim_{x \\to c} g(x) = 0$. The form $\\frac{\\infty}{\\infty}$ occurs when $|f(x)| \\to \\infty$ and $|g(x)| \\to \\infty$, with either sign allowed in each piece. Both are called <strong>indeterminate forms</strong>: the notation names the behavior of the two pieces separately, and it carries no information about the limit of the quotient, which can be any real number, infinite, or nonexistent depending on the specific functions.</p><p><strong>L'Hospital's rule</strong> states: suppose $\\lim_{x \\to c} \\frac{f(x)}{g(x)}$ has the form $\\frac{0}{0}$ or $\\frac{\\infty}{\\infty}$, $f$ and $g$ are differentiable on an open interval around $c$ (except possibly at $c$ itself), and $g'(x) \\neq 0$ on that interval except possibly at $c$. If $\\lim_{x \\to c} \\frac{f'(x)}{g'(x)}$ exists, or is $\\infty$ or $-\\infty$, then</p><p>$$\\lim_{x \\to c} \\frac{f(x)}{g(x)} = \\lim_{x \\to c} \\frac{f'(x)}{g'(x)}$$</p><p>The same statement holds with $x \\to c^+$, $x \\to c^-$, $x \\to \\infty$, or $x \\to -\\infty$ in place of $x \\to c$.</p><p>Three points about the mechanics. First, the rule differentiates the numerator and the denominator separately; it does not apply the quotient rule to $\\frac{f}{g}$. Second, the hypothesis about the form is not optional. If the quotient is not indeterminate, the rule does not apply, and computing $\\frac{f'}{g'}$ anyway produces a number unrelated to the limit. For example, $\\lim_{x \\to 0} \\frac{x + 1}{x + 2} = \\frac{1}{2}$ by substitution, while $\\frac{f'(x)}{g'(x)} = \\frac{1}{1} = 1$. Third, the AP exam scores the form check as its own step. A complete justification writes both limits explicitly: since $\\lim_{x \\to 0} (1 - \\cos x) = 0$ and $\\lim_{x \\to 0} x^2 = 0$, the limit has the indeterminate form $\\frac{0}{0}$, and L'Hospital's rule applies. An answer that omits this sentence loses the point even when the final number is right.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Evaluate $\\lim_{x \\to 0} \\dfrac{1 - \\cos x}{x^2}$",
+     "steps": [
+      {
+       "text": "Check the form. The numerator and denominator are continuous, so their limits are their values at $x = 0$: the numerator is $1 - \\cos 0 = 1 - 1 = 0$ and the denominator is $0^2 = 0$. The form is $\\frac{0}{0}$, so L'Hospital's rule applies.",
+       "math": "\\lim_{x \\to 0} (1 - \\cos x) = 0, \\qquad \\lim_{x \\to 0} x^2 = 0"
+      },
+      {
+       "text": "Differentiate the numerator and the denominator separately. The derivative of $1 - \\cos x$ is $\\sin x$, and the derivative of $x^2$ is $2x$.",
+       "math": "\\lim_{x \\to 0} \\frac{1 - \\cos x}{x^2} = \\lim_{x \\to 0} \\frac{\\sin x}{2x}"
+      },
+      {
+       "text": "Check the form of the new quotient before applying the rule again. At $x = 0$, $\\sin 0 = 0$ and $2 \\cdot 0 = 0$, so the form is again $\\frac{0}{0}$ and a second application is justified."
+      },
+      {
+       "text": "Apply the rule a second time. The derivative of $\\sin x$ is $\\cos x$, and the derivative of $2x$ is $2$.",
+       "math": "\\lim_{x \\to 0} \\frac{\\sin x}{2x} = \\lim_{x \\to 0} \\frac{\\cos x}{2}"
+      },
+      {
+       "text": "The new quotient is continuous at $x = 0$, so substitute. The limit is $\\frac{1}{2}$, because the original quotient had the form $\\frac{0}{0}$, the quotient after one application had the form $\\frac{0}{0}$, and the quotient after two applications has the limit $\\frac{\\cos 0}{2} = \\frac{1}{2}$.",
+       "math": "\\lim_{x \\to 0} \\frac{1 - \\cos x}{x^2} = \\frac{\\cos 0}{2} = \\frac{1}{2}"
+      }
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>L'Hospital's rule is a function with a precondition. Its signature is <code>lhospital(f, g, c)</code>, and its contract says the caller must first establish that <code>limit(f, c)</code> and <code>limit(g, c)</code> are both $0$ or both infinite. What the function computes is a comparison of rates: it measures how fast the numerator and the denominator approach their limits, in the way that two counters draining toward zero are compared by their drain rates rather than by their current values, which are both about to be zero and say nothing about the ratio.</p><p>Where the analogy holds: the precondition is a real check that the caller performs, the form check, and it corresponds to the line of the justification that the exam grades. Calling the rule when the precondition fails is undefined behavior that does not throw. The call returns a plausible-looking number, such as $1$ for $\\lim_{x \\to 0} \\frac{x + 1}{x + 2}$, and that number is wrong. Repeated application is a loop whose guard is the same precondition, re-evaluated on the new quotient each pass, and the loop exits as soon as substitution returns a value.</p><p>Where it breaks: the rule is one-directional, unlike a total function that always returns the answer. If $\\lim \\frac{f'}{g'}$ does not exist, the rule returns no information, and the original limit may still exist. For $\\frac{x + \\sin x}{x}$ as $x \\to \\infty$, the form is $\\frac{\\infty}{\\infty}$ and the precondition holds, but $\\frac{f'(x)}{g'(x)} = \\frac{1 + \\cos x}{1}$ oscillates between $0$ and $2$ without settling. The original limit is $1$, found by writing the quotient as $1 + \\frac{\\sin x}{x}$ and using $\\lim_{x \\to \\infty} \\frac{\\sin x}{x} = 0$. So an inconclusive call to the rule is not a proof that the limit fails to exist; it means a different method is required.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q030",
+      "u4-q031"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>After one application of L'Hospital's rule, the new quotient $\\frac{f'}{g'}$ is a fresh limit problem. Substitute into it. If substitution gives a value, that value is the answer and the work stops. If the new quotient is again $\\frac{0}{0}$ or $\\frac{\\infty}{\\infty}$, apply the rule again, with the form check written out again. The number of applications is not fixed in advance; for $\\lim_{x \\to \\infty} \\frac{x^3}{e^x}$ the rule is applied three times, reaching $\\lim_{x \\to \\infty} \\frac{6}{e^x} = 0$. Applying the rule once more after substitution has already produced a value is an error, because the quotient is no longer indeterminate at that point.</p><p>Two other indeterminate forms are handled by rewriting them as quotients. A product $f \\cdot g$ where one factor tends to $0$ and the other tends to $\\pm\\infty$ has the form $0 \\cdot \\infty$. Rewrite it as a quotient by moving one factor into the denominator as a reciprocal:</p><p>$$f \\cdot g = \\frac{f}{1/g} \\qquad \\text{or} \\qquad f \\cdot g = \\frac{g}{1/f}$$</p><p>Both rewrites are valid; choose the one whose derivatives are simpler. For $\\lim_{x \\to 0^+} x \\ln x$, the form $\\frac{\\ln x}{1/x}$ leads to the derivative of $\\ln x$, which is $\\frac{1}{x}$, while $\\frac{x}{1/\\ln x}$ leads to the derivative of $\\frac{1}{\\ln x}$, which is more complicated and still indeterminate after one application. A difference $f - g$ where both pieces tend to $\\infty$ has the form $\\infty - \\infty$. Combine it over a common denominator into a single quotient, then check the form of that quotient. For $\\lim_{x \\to 0} \\left(\\frac{1}{x} - \\frac{1}{\\sin x}\\right)$, the combined quotient is $\\frac{\\sin x - x}{x \\sin x}$, which has the form $\\frac{0}{0}$.</p><p>Two quotient forms resemble $\\frac{0}{0}$ but are not indeterminate, and L'Hospital's rule must not be used on them. If the numerator tends to $0$ and the denominator tends to a nonzero number $L$, the limit is $\\frac{0}{L} = 0$ by substitution. If the numerator tends to a nonzero number and the denominator tends to $0$, the quotient is unbounded near $c$: the limit is $\\infty$, $-\\infty$, or does not exist, and the sign of the quotient on each side of $c$ decides which. For example, $\\lim_{x \\to 0} \\frac{x + 2}{x^2} = \\infty$ because the numerator is near $2$ and the denominator is positive and small on both sides of $0$, while $\\lim_{x \\to 0} \\frac{x + 2}{x}$ does not exist because the quotient is positive for $x > 0$ and negative for $x < 0$. The exam includes quotients of these two kinds specifically to test whether the form check was performed.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Evaluate $\\lim_{x \\to 0^+} x \\ln x$",
+     "steps": [
+      {
+       "text": "Identify the form. As $x \\to 0^+$, the factor $x$ tends to $0$ and the factor $\\ln x$ tends to $-\\infty$. The form is $0 \\cdot \\infty$, which is indeterminate but is a product, and L'Hospital's rule applies only to quotients.",
+       "math": "\\lim_{x \\to 0^+} x = 0, \\qquad \\lim_{x \\to 0^+} \\ln x = -\\infty"
+      },
+      {
+       "text": "Rewrite the product as a quotient by moving $x$ into the denominator as $\\frac{1}{x}$. As $x \\to 0^+$, the numerator $\\ln x \\to -\\infty$ and the denominator $\\frac{1}{x} \\to \\infty$, so the form is $\\frac{-\\infty}{\\infty}$ and L'Hospital's rule applies.",
+       "math": "x \\ln x = \\frac{\\ln x}{1/x}"
+      },
+      {
+       "text": "Differentiate the numerator and the denominator separately. The derivative of $\\ln x$ is $\\frac{1}{x}$, and the derivative of $\\frac{1}{x} = x^{-1}$ is $-x^{-2} = -\\frac{1}{x^2}$.",
+       "math": "\\lim_{x \\to 0^+} \\frac{\\ln x}{1/x} = \\lim_{x \\to 0^+} \\frac{1/x}{-1/x^2}"
+      },
+      {
+       "text": "Simplify the compound fraction before substituting. Dividing by $-\\frac{1}{x^2}$ is multiplying by $-x^2$.",
+       "math": "\\frac{1/x}{-1/x^2} = \\frac{1}{x} \\cdot (-x^2) = -x"
+      },
+      {
+       "text": "Substitute. The limit is $0$, because the rewritten quotient had the form $\\frac{-\\infty}{\\infty}$, L'Hospital's rule applies, and the quotient of derivatives simplifies to $-x$, which tends to $0$. The negative sign of $-x$ for $x > 0$ also shows that $x \\ln x$ approaches $0$ through negative values.",
+       "math": "\\lim_{x \\to 0^+} x \\ln x = \\lim_{x \\to 0^+} (-x) = 0"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u4-q033",
+      "u4-q034",
+      "u4-q035"
+     ]
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "u4-q001",
+   "skillId": "u4-derivative-in-context",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Let $W(t)$ be the volume of water in a tank, in liters, at time $t$ minutes. Suppose $W'(5) = -3$. Which sentence correctly states the meaning of $W'(5) = -3$?</p>",
+   "choices": [
+    "At $t = 5$ minutes, the tank holds $3$ liters less than it held at $t = 0$ minutes.",
+    "At $t = 5$ minutes, the volume of water is decreasing at a rate of $3$ liters per minute.",
+    "At $t = 5$ minutes, the tank contains $3$ liters of water.",
+    "At $t = 5$ minutes, the volume of water is increasing at a rate of $3$ liters per minute."
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from reading the derivative as a net change over an interval. A net change over $[0, 5]$ is $W(5) - W(0)$, a difference of two volumes measured in liters. The derivative $W'(5)$ is an instantaneous rate at the single instant $t = 5$, measured in liters per minute.",
+    null,
+    "This choice comes from reading the value of $W'$ as the value of $W$. The amount of water at $t = 5$ is $W(5)$, measured in liters. The number $W'(5) = -3$ is a rate of change, measured in liters per minute, and it says nothing about how much water is in the tank.",
+    "This choice comes from ignoring the sign of the derivative. A negative derivative means the function is decreasing at that instant. The magnitude $3$ gives the size of the rate, and the sign gives the direction, so $W'(5) = -3$ describes a decrease."
+   ],
+   "hints": [
+    "The derivative $W'(t)$ is the instantaneous rate of change of $W$ with respect to $t$. Its units are the units of $W$ divided by the units of $t$.",
+    "Two separate pieces of information are in $W'(5) = -3$: the sign tells whether $W$ is increasing or decreasing at $t = 5$, and the magnitude tells how fast."
+   ],
+   "solution": [
+    {
+     "text": "The derivative $W'(t)$ is the instantaneous rate of change of the volume with respect to time. Because $W$ is measured in liters and $t$ in minutes, $W'(t)$ is measured in liters per minute."
+    },
+    {
+     "text": "The number $W'(5)$ describes what is happening at the single instant $t = 5$. It is not a volume, and it is not a change accumulated over an interval."
+    },
+    {
+     "text": "The sign of $W'(5)$ is negative, so $W$ is decreasing at $t = 5$. The magnitude is $3$, so the rate of decrease is $3$ liters per minute."
+    },
+    {
+     "text": "Combining these: at $t = 5$ minutes, the volume of water in the tank is decreasing at a rate of $3$ liters per minute."
+    }
+   ]
+  },
+  {
+   "id": "u4-q002",
+   "skillId": "u4-derivative-in-context",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Let $C(x)$ be the cost, in dollars, to produce $x$ kilograms of coffee. What are the units of $C'(x)$?</p>",
+   "choices": [
+    "dollars",
+    "kilograms per dollar",
+    "dollars per kilogram squared",
+    "dollars per kilogram"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from giving $C'(x)$ the units of $C(x)$ itself. The derivative is a rate of change, so its units are the units of the output divided by the units of the input, not the units of the output alone.",
+    "This choice comes from inverting the ratio. The derivative $C'(x)$ is the limit of $\\dfrac{\\Delta C}{\\Delta x}$, with the change in cost (dollars) in the numerator and the change in mass (kilograms) in the denominator.",
+    "This choice comes from the units of the second derivative $C''(x)$. Each differentiation with respect to $x$ divides the units by kilograms once more, so $C''(x)$ has units of dollars per kilogram squared, while $C'(x)$ has been divided by kilograms only once.",
+    null
+   ],
+   "hints": [
+    "The derivative $C'(x)$ is the limit of a difference quotient $\\dfrac{C(x + h) - C(x)}{h}$. The units of a quotient are the units of the numerator divided by the units of the denominator.",
+    "The numerator is a difference of two values of $C$, and the denominator $h$ is a difference of two values of $x$. Attach to each the units of the quantity it measures, then divide the numerator units by the denominator units."
+   ],
+   "solution": [
+    {
+     "text": "The derivative is defined as a limit of difference quotients. Taking a limit does not change units, so $C'(x)$ has the same units as the quotient.",
+     "math": "C'(x) = \\lim_{h \\to 0} \\frac{C(x + h) - C(x)}{h}"
+    },
+    {
+     "text": "The numerator $C(x + h) - C(x)$ is a difference of two costs, so it is measured in dollars. The denominator $h$ is a difference of two masses, so it is measured in kilograms."
+    },
+    {
+     "text": "The units of $C'(x)$ are therefore dollars divided by kilograms, written dollars per kilogram. In context, $C'(x)$ is the marginal cost: approximately the cost of producing one additional kilogram when $x$ kilograms have already been produced."
+    }
+   ]
+  },
+  {
+   "id": "u4-q003",
+   "skillId": "u4-derivative-in-context",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The temperature $T(t)$ of an oven, in degrees Fahrenheit, is recorded at one-minute intervals. Selected values are given in the table.</p><table><thead><tr><th>$t$ (minutes)</th><th>$0$</th><th>$1$</th><th>$2$</th><th>$3$</th><th>$4$</th></tr></thead><tbody><tr><td>$T(t)$ (degrees Fahrenheit)</td><td>$70$</td><td>$130$</td><td>$180$</td><td>$220$</td><td>$250$</td></tr></tbody></table><p>Use the symmetric difference quotient over the interval $[1, 3]$ to approximate $T'(2)$, in degrees Fahrenheit per minute. Give the exact integer.</p>",
+   "answer": 45,
+   "tolerance": 0.001,
+   "hints": [
+    "A difference quotient approximates a derivative by dividing a change in $T$ by the corresponding change in $t$. The symmetric difference quotient at $t = 2$ uses the table values on either side of $t = 2$.",
+    "The interval $[1, 3]$ has width $3 - 1 = 2$ minutes. Divide the change in $T$ from $t = 1$ to $t = 3$ by this width."
+   ],
+   "solution": [
+    {
+     "text": "The symmetric difference quotient at $t = 2$ over $[1, 3]$ is the change in $T$ across the interval divided by the width of the interval.",
+     "math": "T'(2) \\approx \\frac{T(3) - T(1)}{3 - 1} = \\frac{220 - 130}{2} = \\frac{90}{2} = 45"
+    },
+    {
+     "text": "So $T'(2) \\approx 45$ degrees Fahrenheit per minute. At $t = 2$ minutes, the oven temperature is increasing at approximately $45$ degrees Fahrenheit per minute."
+    },
+    {
+     "text": "For comparison, the two one-sided estimates are the average rates over $[1, 2]$ and $[2, 3]$.",
+     "math": "\\frac{T(2) - T(1)}{2 - 1} = \\frac{180 - 130}{1} = 50, \\qquad \\frac{T(3) - T(2)}{3 - 2} = \\frac{220 - 180}{1} = 40"
+    },
+    {
+     "text": "The symmetric difference quotient is the average of these two one-sided estimates, $\\frac{50 + 40}{2} = 45$. At an interior table point, the symmetric quotient is preferred because it uses data on both sides of $t = 2$, and for a function whose derivatives are continuous its error shrinks with the square of the step size, while a one-sided quotient's error shrinks only in proportion to the step size."
+    }
+   ]
+  },
+  {
+   "id": "u4-q004",
+   "skillId": "u4-derivative-in-context",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Let $P(t)$ be the number of bacteria in a culture, in thousands, at time $t$ hours. The function $P$ is differentiable, with $P'(2) = 4$ and $P'(6) = 1$. Which of the following statements must be true?</p>",
+   "choices": [
+    "The population is increasing at both $t = 2$ and $t = 6$, and it is growing faster at $t = 2$ than at $t = 6$.",
+    "The population is larger at $t = 2$ than at $t = 6$.",
+    "The population is decreasing at $t = 6$.",
+    "The population increases by exactly $4000$ bacteria between $t = 2$ and $t = 3$."
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from comparing the sizes of the derivatives as if they were the sizes of the function values. The values $P'(2) = 4$ and $P'(6) = 1$ describe how fast $P$ is changing at each instant, not how large $P$ is. The values $P(2)$ and $P(6)$ are not given, so no comparison between them is possible from this information.",
+    "This choice comes from reading a smaller positive rate as a decrease. A positive derivative means the function is increasing, whatever its size. The rate at $t = 6$ is smaller than the rate at $t = 2$, but $P'(6) = 1$ is still positive, so the population is still increasing at $t = 6$.",
+    "This choice comes from treating the instantaneous rate $P'(2) = 4$ thousand per hour as the exact change over the full hour from $t = 2$ to $t = 3$. The derivative gives the rate at the single instant $t = 2$. The rate can change during the hour, so the actual change $P(3) - P(2)$ is only approximately $4$ thousand, and it need not equal $4$ thousand exactly."
+   ],
+   "hints": [
+    "The derivative $P'(t)$ is the rate of change of the population at the instant $t$, in thousands of bacteria per hour. The sign of $P'(t)$ tells whether $P$ is increasing or decreasing at that instant.",
+    "Separate what the derivative tells you from what it does not. A derivative value gives the sign and speed of change at one instant. It does not give the value of $P$, and it does not give the exact change over an interval."
+   ],
+   "solution": [
+    {
+     "text": "The derivative $P'(t)$ is the instantaneous rate of change of the population, in thousands of bacteria per hour. A positive value means the population is increasing at that instant."
+    },
+    {
+     "text": "Both $P'(2) = 4$ and $P'(6) = 1$ are positive, so the population is increasing at $t = 2$ and at $t = 6$. Because $4 > 1$, the rate of increase at $t = 2$ is larger, which means the population is growing faster at $t = 2$ than at $t = 6$."
+    },
+    {
+     "text": "The other statements do not follow. The values $P(2)$ and $P(6)$ are not given, so their sizes cannot be compared. A positive derivative at $t = 6$ rules out a decrease there. And $P'(2) = 4$ is a rate at one instant, so the change over the hour $[2, 3]$ is approximately, not exactly, $4$ thousand bacteria."
+    }
+   ]
+  },
+  {
+   "id": "u4-q005",
+   "skillId": "u4-derivative-in-context",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>The amount of a drug in a patient's bloodstream is modeled by $A(t) = 50te^{-0.5t}$ milligrams, where $t$ is the number of hours after an injection. Find $A'(3)$, in milligrams per hour. Round to two decimal places.</p>",
+   "answer": -5.58,
+   "tolerance": 0.005,
+   "hints": [
+    "The function $A(t)$ is a product of $50t$ and $e^{-0.5t}$. Differentiating a product requires the product rule, and differentiating $e^{-0.5t}$ requires the chain rule.",
+    "After applying the product rule, factor out the common factor $50e^{-0.5t}$ so that the sign of the result is easy to read. Then substitute $t = 3$."
+   ],
+   "solution": [
+    {
+     "text": "Apply the product rule to $A(t) = 50t \\cdot e^{-0.5t}$. The derivative of $50t$ is $50$. The derivative of $e^{-0.5t}$ is $-0.5e^{-0.5t}$ by the chain rule, because the derivative of the exponent $-0.5t$ is $-0.5$.",
+     "math": "A'(t) = 50e^{-0.5t} + 50t\\left(-0.5e^{-0.5t}\\right)"
+    },
+    {
+     "text": "Factor out $50e^{-0.5t}$.",
+     "math": "A'(t) = 50e^{-0.5t}(1 - 0.5t)"
+    },
+    {
+     "text": "Substitute $t = 3$.",
+     "math": "A'(3) = 50e^{-1.5}(1 - 1.5) = -25e^{-1.5}"
+    },
+    {
+     "text": "Evaluate numerically, using $e^{-1.5} \\approx 0.22313$.",
+     "math": "A'(3) = -25e^{-1.5} \\approx -5.58"
+    },
+    {
+     "text": "Interpretation of the sign: $A'(3)$ is negative, so at $t = 3$ hours the amount of drug in the bloodstream is decreasing, at a rate of approximately $5.58$ milligrams per hour. The factor $1 - 0.5t$ shows that $A'(t) > 0$ for $t < 2$ and $A'(t) < 0$ for $t > 2$, so the amount peaks at $t = 2$ hours and is already falling at $t = 3$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q006",
+   "skillId": "u4-rates-other-contexts",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>The cost of producing $x$ units of a product is $C(x) = 2000 + 15x + 0.02x^2$ dollars. The marginal cost at a production level $x$ is defined as $C'(x)$. What is the marginal cost at $x = 100$?</p>",
+   "choices": [
+    "$15$ dollars per unit",
+    "$17$ dollars per unit",
+    "$19$ dollars per unit",
+    "$37$ dollars per unit"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from using only the coefficient of the linear term. The quadratic term $0.02x^2$ also contributes to the derivative, adding $0.04x = 4$ at $x = 100$.",
+    "This choice comes from dropping the factor $2$ produced by the power rule on $x^2$. The derivative of $0.02x^2$ is $0.04x$, not $0.02x$, so the contribution at $x = 100$ is $4$, not $2$.",
+    null,
+    "This choice comes from computing the average cost $\\dfrac{C(100)}{100} = \\dfrac{3700}{100}$ instead of the marginal cost. Average cost divides total cost by the number of units. Marginal cost is the derivative, the rate at which cost changes per additional unit."
+   ],
+   "hints": [
+    "Marginal cost is a derivative. Differentiate $C(x)$ term by term, then substitute $x = 100$.",
+    "The constant $2000$ has derivative $0$, the term $15x$ has derivative $15$, and the power rule applies to $0.02x^2$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate each term of $C(x)$. The constant term contributes $0$, the linear term contributes its coefficient, and the power rule gives the derivative of the quadratic term.",
+     "math": "C'(x) = 0 + 15 + 0.02 \\cdot 2x = 15 + 0.04x"
+    },
+    {
+     "text": "Substitute $x = 100$.",
+     "math": "C'(100) = 15 + 0.04(100) = 15 + 4 = 19"
+    },
+    {
+     "text": "The marginal cost at $x = 100$ is $19$ dollars per unit. This is approximately the additional cost of producing the $101$st unit once $100$ units have been produced."
+    }
+   ]
+  },
+  {
+   "id": "u4-q007",
+   "skillId": "u4-rates-other-contexts",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The population of a town is modeled by $P(t) = 2000e^{0.05t}$ people, where $t$ is the number of years after 2020. Find the rate of change of the population at $t = 10$, in people per year. Round to two decimal places.</p>",
+   "answer": 164.87,
+   "tolerance": 0.005,
+   "hints": [
+    "The rate of change of the population is the derivative $P'(t)$. The function is an exponential with a constant multiple, $2000$, in front.",
+    "Differentiate $e^{0.05t}$ with the chain rule: the derivative of $e^{kt}$ is $ke^{kt}$. Multiply by the constant $2000$, then substitute $t = 10$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate $P(t)$. The constant $2000$ stays as a factor. By the chain rule, the derivative of $e^{0.05t}$ is $e^{0.05t}$ multiplied by the derivative of the exponent, which is $0.05$.",
+     "math": "P'(t) = 2000 \\cdot 0.05e^{0.05t} = 100e^{0.05t}"
+    },
+    {
+     "text": "Substitute $t = 10$.",
+     "math": "P'(10) = 100e^{0.5}"
+    },
+    {
+     "text": "Evaluate numerically, using $e^{0.5} \\approx 1.64872$.",
+     "math": "P'(10) = 100e^{0.5} \\approx 164.87"
+    },
+    {
+     "text": "Interpretation: in the year 2030, which is $t = 10$, the population of the town is increasing at a rate of approximately $164.87$ people per year."
+    }
+   ]
+  },
+  {
+   "id": "u4-q008",
+   "skillId": "u4-rates-other-contexts",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>A company's revenue from selling $x$ units of a product is $R(x) = 300x - x^2$ dollars, and its cost of producing $x$ units is $C(x) = 60x + 2000$ dollars. The profit is $P(x) = R(x) - C(x)$, and the marginal profit is $P'(x)$. Which of the following gives the marginal profit at $x = 100$ and its meaning?</p>",
+   "choices": [
+    "$100$ dollars per unit; approximately the profit from producing and selling the $101$st unit",
+    "$120$ dollars per unit; approximately the profit from producing and selling the $101$st unit",
+    "$140$ dollars per unit; approximately the profit from producing and selling the $101$st unit",
+    "$40$ dollars per unit; approximately the profit from producing and selling the $101$st unit"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from using the marginal revenue $R'(100) = 300 - 2(100) = 100$ alone, without subtracting the marginal cost. Profit is revenue minus cost, so the marginal profit is $R'(100) - C'(100) = 100 - 60$.",
+    "This choice comes from computing the average profit $\\dfrac{P(100)}{100} = \\dfrac{12000}{100}$ instead of the marginal profit. Average profit divides total profit by the number of units. Marginal profit is the derivative $P'(100)$, the rate at which profit changes per additional unit.",
+    "This choice comes from dropping the factor $2$ produced by the power rule on $x^2$. With that error, $P'(x)$ becomes $240 - x$ and gives $240 - 100 = 140$. The correct derivative of $x^2$ is $2x$, so $P'(x) = 240 - 2x$.",
+    null
+   ],
+   "hints": [
+    "First write the profit function $P(x) = R(x) - C(x)$ as a single simplified expression, then differentiate it.",
+    "Differentiate term by term. The derivative of $x^2$ is $2x$. After finding $P'(x)$, substitute $x = 100$. As a check, the marginal revenue minus the marginal cost at $x = 100$ must give the same number."
+   ],
+   "solution": [
+    {
+     "text": "Write the profit function by subtracting cost from revenue and combining like terms.",
+     "math": "P(x) = (300x - x^2) - (60x + 2000) = 240x - x^2 - 2000"
+    },
+    {
+     "text": "Differentiate term by term. The power rule gives $2x$ as the derivative of $x^2$, and the constant $2000$ has derivative $0$.",
+     "math": "P'(x) = 240 - 2x"
+    },
+    {
+     "text": "Substitute $x = 100$.",
+     "math": "P'(100) = 240 - 2(100) = 40"
+    },
+    {
+     "text": "Check by a second route: marginal revenue is $R'(x) = 300 - 2x$, so $R'(100) = 100$, and marginal cost is $C'(x) = 60$. The difference $100 - 60 = 40$ agrees."
+    },
+    {
+     "text": "The marginal profit at $x = 100$ is $40$ dollars per unit. Because $P'(100)$ is the instantaneous rate of change of profit with respect to units, it approximates the change in profit from one additional unit: producing and selling the $101$st unit adds approximately $40$ dollars of profit. The exact change $P(101) - P(100) = 39$ dollars is close to this approximation."
+    }
+   ]
+  },
+  {
+   "id": "u4-q009",
+   "skillId": "u4-rectilinear-motion",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A particle moves along a horizontal line. Its position at time $t$ seconds, for $t \\geq 0$, is $x(t) = t^3 - 12t^2 + 36t$ centimeters. At which times is the particle at rest?</p>",
+   "choices": [
+    "$t = 4$ only",
+    "$t = 0$ and $t = 6$",
+    "$t = 2$ and $t = 6$",
+    "$t = 2$ only"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from setting the acceleration $a(t) = 6t - 24$ equal to zero. Zero acceleration means the velocity is momentarily not changing; it does not mean the velocity is zero. Rest is a statement about velocity.",
+    "This choice comes from setting the position $x(t) = t(t - 6)^2$ equal to zero. Position zero means the particle is at the origin, not that it is stopped. Rest means the velocity $x'(t)$ is zero.",
+    null,
+    "This choice comes from keeping only one root of the factored velocity $3(t - 2)(t - 6)$. Both factors can be zero, so both $t = 2$ and $t = 6$ are times of rest."
+   ],
+   "hints": [
+    "A particle is at rest at any instant when its velocity is zero. Velocity is the derivative of position with respect to time.",
+    "Differentiate $x(t)$ to get $v(t)$, factor out the common factor $3$, then factor the remaining quadratic and set each factor equal to zero."
+   ],
+   "solution": [
+    {
+     "text": "The velocity is the derivative of the position function.",
+     "math": "v(t) = x'(t) = 3t^2 - 24t + 36"
+    },
+    {
+     "text": "Factor out $3$ and then factor the quadratic.",
+     "math": "v(t) = 3(t^2 - 8t + 12) = 3(t - 2)(t - 6)"
+    },
+    {
+     "text": "The particle is at rest when $v(t) = 0$. A product is zero exactly when one of its factors is zero, so $t - 2 = 0$ or $t - 6 = 0$.",
+     "math": "t = 2 \\quad \\text{or} \\quad t = 6"
+    },
+    {
+     "text": "Both times satisfy $t \\geq 0$, so the particle is at rest at $t = 2$ seconds and at $t = 6$ seconds."
+    }
+   ]
+  },
+  {
+   "id": "u4-q010",
+   "skillId": "u4-rectilinear-motion",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>A particle moves along a line. Its position at time $t$ seconds is $x(t) = 2t^3 - 9t^2 + 12t$ meters. Find the acceleration of the particle at $t = 2$ seconds, in meters per second squared. Give an exact integer.</p>",
+   "answer": 6,
+   "hints": [
+    "Acceleration is the derivative of velocity, and velocity is the derivative of position. So acceleration is the second derivative of position.",
+    "Differentiate $x(t)$ once to get $v(t)$, differentiate again to get $a(t)$, then substitute $t = 2$."
+   ],
+   "solution": [
+    {
+     "text": "Velocity is the first derivative of position.",
+     "math": "v(t) = x'(t) = 6t^2 - 18t + 12"
+    },
+    {
+     "text": "Acceleration is the derivative of velocity.",
+     "math": "a(t) = v'(t) = 12t - 18"
+    },
+    {
+     "text": "Substitute $t = 2$. Position is in meters and time in seconds, so acceleration is in meters per second squared.",
+     "math": "a(2) = 12(2) - 18 = 6 \\text{ meters per second squared}"
+    }
+   ]
+  },
+  {
+   "id": "u4-q011",
+   "skillId": "u4-rectilinear-motion",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A particle moves along a line with velocity $v(t) = t^2 - 4t + 3$ meters per second for $t \\geq 0$. On which of the following intervals is the speed of the particle increasing?</p>",
+   "choices": [
+    "$(1, 2) \\cup (3, \\infty)$",
+    "$(2, \\infty)$",
+    "$(1, 3)$",
+    "$(0, 1) \\cup (2, 3)$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from using only the condition $a(t) > 0$. Positive acceleration increases the velocity, but when the velocity is negative, an increasing velocity moves toward zero and the speed decreases. The sign of $v$ must be compared with the sign of $a$.",
+    "This choice comes from using only the sign of the velocity. On $(1, 3)$ the velocity is negative, which tells you the direction of motion, not whether the speed is increasing. Speed increases only where $v$ and $a$ have the same sign.",
+    "This choice comes from reversing the rule. On these intervals $v$ and $a$ have opposite signs, so the speed is decreasing there. Speed increases where $v$ and $a$ have the same sign."
+   ],
+   "hints": [
+    "Speed is $|v(t)|$. Speed increases when the velocity and the acceleration have the same sign, and decreases when they have opposite signs.",
+    "Factor $v(t)$ to find where it is positive and where it is negative. Differentiate to get $a(t)$ and find where it is positive and where it is negative. Then find the intervals where the two signs agree."
+   ],
+   "solution": [
+    {
+     "text": "Factor the velocity to find its sign on each interval.",
+     "math": "v(t) = (t - 1)(t - 3)"
+    },
+    {
+     "text": "The velocity is zero at $t = 1$ and $t = 3$. Testing a point in each interval: $v > 0$ on $(0, 1)$, $v < 0$ on $(1, 3)$, and $v > 0$ on $(3, \\infty)$."
+    },
+    {
+     "text": "The acceleration is the derivative of the velocity. It is zero at $t = 2$, negative on $(0, 2)$, and positive on $(2, \\infty)$.",
+     "math": "a(t) = v'(t) = 2t - 4"
+    },
+    {
+     "text": "Speed is $|v|$, and it increases exactly where $v$ and $a$ have the same sign. Both are negative on $(1, 2)$. Both are positive on $(3, \\infty)$. On $(0, 1)$ and $(2, 3)$ the signs differ, so the speed decreases there."
+    },
+    {
+     "text": "The speed is increasing on $(1, 2) \\cup (3, \\infty)$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q012",
+   "skillId": "u4-rectilinear-motion",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A particle moves along a line. Its velocity $v(t)$, in meters per second, is a differentiable function of time $t$, in seconds. Selected values of $v$ are given in the table.</p><table><thead><tr><th>$t$ (seconds)</th><th>$0$</th><th>$2$</th><th>$4$</th><th>$6$</th><th>$8$</th></tr></thead><tbody><tr><td>$v(t)$ (meters per second)</td><td>$3$</td><td>$5$</td><td>$2$</td><td>$-1$</td><td>$-4$</td></tr></tbody></table><p>Using the data in the table, which of the following is the best approximation of the acceleration of the particle at $t = 5$ seconds?</p>",
+   "choices": [
+    "$1.5$ meters per second squared",
+    "$-3$ meters per second squared",
+    "$-0.5$ meters per second squared",
+    "$-1.5$ meters per second squared"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from subtracting the velocities in the wrong order, $v(4) - v(6)$ instead of $v(6) - v(4)$. A difference quotient uses the later value minus the earlier value, so the sign of the result matches the direction of change.",
+    "This choice comes from using the change in velocity, $v(6) - v(4) = -3$, without dividing by the length of the time interval. Acceleration is the rate of change, so the change in velocity must be divided by the change in time, which is $2$ seconds.",
+    "This choice comes from dividing the change in velocity by $t = 6$ instead of by the length of the interval, $6 - 4 = 2$. A difference quotient divides by the change in the input, not by the endpoint value.",
+    null
+   ],
+   "hints": [
+    "Acceleration is the derivative of velocity. With only a table, the best estimate of $v'(5)$ is a difference quotient using the two table times closest to $t = 5$ on either side.",
+    "Use $t = 4$ and $t = 6$. The estimate is the change in velocity between those times divided by the change in time, which is $2$ seconds."
+   ],
+   "solution": [
+    {
+     "text": "Acceleration is $a(t) = v'(t)$. The table does not give a formula, so the derivative is approximated by a difference quotient. The time $t = 5$ lies between the table values $t = 4$ and $t = 6$, so the difference quotient over $[4, 6]$, which is centered at $t = 5$, is the best available estimate."
+    },
+    {
+     "text": "Compute the difference quotient with the later value minus the earlier value in the numerator.",
+     "math": "a(5) \\approx \\frac{v(6) - v(4)}{6 - 4} = \\frac{-1 - 2}{2} = \\frac{-3}{2} = -1.5"
+    },
+    {
+     "text": "Velocity is in meters per second and time in seconds, so the acceleration is approximately $-1.5$ meters per second squared. The negative sign means the velocity is decreasing at $t = 5$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q013",
+   "skillId": "u4-rectilinear-motion",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>A particle moves along a line. Its position at time $t$ seconds is $x(t) = 4t^3 - 15t^2 + 12t + 1$ centimeters. Find the speed of the particle at $t = 1$ second, in centimeters per second. Give an exact integer.</p>",
+   "answer": 6,
+   "hints": [
+    "Speed is the absolute value of velocity. First find the velocity at $t = 1$, including its sign.",
+    "Differentiate $x(t)$ to get $v(t)$, substitute $t = 1$, then take the absolute value of the result."
+   ],
+   "solution": [
+    {
+     "text": "Velocity is the derivative of position.",
+     "math": "v(t) = x'(t) = 12t^2 - 30t + 12"
+    },
+    {
+     "text": "Substitute $t = 1$.",
+     "math": "v(1) = 12 - 30 + 12 = -6"
+    },
+    {
+     "text": "The velocity is $-6$ centimeters per second. The negative sign means the particle is moving in the negative direction at $t = 1$."
+    },
+    {
+     "text": "Speed is the absolute value of velocity, so the speed is $6$ centimeters per second.",
+     "math": "\\text{speed} = |v(1)| = |-6| = 6"
+    }
+   ]
+  },
+  {
+   "id": "u4-q014",
+   "skillId": "u4-rectilinear-motion",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>A particle moves along a line. Its position at time $t$ is $x(t) = t^3 - 9t^2 + 24t$ for $0 \\leq t \\leq 6$. On which of the following intervals is the particle moving in the negative direction while its speed is increasing?</p>",
+   "choices": [
+    "$(2, 4)$",
+    "$(3, 4)$",
+    "$(0, 3)$",
+    "$(2, 3)$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from using only the sign of the velocity. On $(2, 4)$ the velocity is negative, so the particle moves in the negative direction, but the speed is increasing only on the part of this interval where the acceleration is also negative.",
+    "This choice comes from reversing the speed rule. On $(3, 4)$ the velocity is negative and the acceleration is positive, so the velocity is rising toward zero and the speed is decreasing. Speed increases only where $v$ and $a$ have the same sign.",
+    "This choice comes from using only the sign of the acceleration. Negative acceleration on $(0, 3)$ does not by itself mean the particle moves in the negative direction; on $(0, 2)$ the velocity is positive, so the particle moves in the positive direction and its speed is decreasing there.",
+    null
+   ],
+   "hints": [
+    "Two conditions must hold at once: the velocity is negative, and the speed is increasing. Speed increases when velocity and acceleration have the same sign.",
+    "Find $v(t)$ and factor it to locate where $v < 0$. Find $a(t)$ and locate where $a < 0$. The answer is the set of times where both conditions hold."
+   ],
+   "solution": [
+    {
+     "text": "The velocity is the derivative of position. Factor it to find its sign.",
+     "math": "v(t) = 3t^2 - 18t + 24 = 3(t - 2)(t - 4)"
+    },
+    {
+     "text": "The velocity is zero at $t = 2$ and $t = 4$. Testing $t = 3$ gives $v(3) = 3(1)(-1) = -3 < 0$, so the particle moves in the negative direction exactly on $(2, 4)$. On $(0, 2)$ and $(4, 6)$ the velocity is positive."
+    },
+    {
+     "text": "The acceleration is the derivative of velocity. It is negative on $(0, 3)$ and positive on $(3, 6)$.",
+     "math": "a(t) = v'(t) = 6t - 18 = 6(t - 3)"
+    },
+    {
+     "text": "Speed is $|v|$, and it increases where $v$ and $a$ have the same sign. The velocity is negative on $(2, 4)$, and within that interval the acceleration is negative only on $(2, 3)$. On $(3, 4)$ the acceleration is positive, so the speed is decreasing there."
+    },
+    {
+     "text": "The particle is moving in the negative direction with increasing speed on $(2, 3)$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q015",
+   "skillId": "u4-rectilinear-motion",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A particle moves along a line with velocity $v(t) = t^3 - 12t$ meters per second for $t > 0$. There is exactly one time $t > 0$ at which the particle is at rest. Find the acceleration of the particle, in meters per second squared, at that time. Give an exact integer.</p>",
+   "answer": 24,
+   "hints": [
+    "The particle is at rest when $v(t) = 0$. Factor $v(t)$ and keep only the root with $t > 0$. The root is not an integer, so keep it in exact form.",
+    "Acceleration is $a(t) = v'(t)$. Substitute the exact value of $t$ into $a(t)$. Because $a(t)$ involves $t^2$, the square root disappears."
+   ],
+   "solution": [
+    {
+     "text": "Factor the velocity to find when the particle is at rest.",
+     "math": "v(t) = t(t^2 - 12) = 0 \\quad \\Rightarrow \\quad t = 0 \\ \\text{or} \\ t^2 = 12"
+    },
+    {
+     "text": "The condition $t > 0$ excludes $t = 0$ and the negative square root, so the particle is at rest only at $t = \\sqrt{12} = 2\\sqrt{3}$ seconds."
+    },
+    {
+     "text": "The acceleration is the derivative of the velocity.",
+     "math": "a(t) = v'(t) = 3t^2 - 12"
+    },
+    {
+     "text": "Substitute $t = \\sqrt{12}$. Since $t^2 = 12$, the square root does not need to be evaluated as a decimal.",
+     "math": "a(\\sqrt{12}) = 3(12) - 12 = 36 - 12 = 24"
+    },
+    {
+     "text": "The acceleration at the moment of rest is $24$ meters per second squared."
+    }
+   ]
+  },
+  {
+   "id": "u4-q016",
+   "skillId": "u4-related-rates",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A point moves along the circle $x^2 + y^2 = 25$, where $x$ and $y$ are differentiable functions of time $t$. At the instant when the point is at $(3, 4)$, $\\dfrac{dx}{dt} = 3$. What is $\\dfrac{dy}{dt}$ at that instant?</p>",
+   "choices": [
+    "$\\dfrac{9}{4}$",
+    "$-\\dfrac{9}{4}$",
+    "$-\\dfrac{3}{4}$",
+    "$-4$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from dropping the negative sign when solving $18 + 8\\dfrac{dy}{dt} = 0$. Moving $18$ to the other side gives $8\\dfrac{dy}{dt} = -18$, so $\\dfrac{dy}{dt}$ is negative.",
+    null,
+    "This choice comes from differentiating $x^2$ as $2x$ with no rate factor, giving $2x + 2y\\dfrac{dy}{dt} = 0$. Because $x$ depends on $t$, the chain rule requires the factor $\\dfrac{dx}{dt}$: the derivative of $x^2$ with respect to $t$ is $2x\\dfrac{dx}{dt}$.",
+    "This choice comes from swapping the values of $x$ and $y$, computing $-\\dfrac{y}{x}\\dfrac{dx}{dt}$ with $x = 4$ and $y = 3$. The point is $(3, 4)$, so $x = 3$ and $y = 4$ in the formula $\\dfrac{dy}{dt} = -\\dfrac{x}{y}\\dfrac{dx}{dt}$."
+   ],
+   "hints": [
+    "Both $x$ and $y$ change with time, so differentiate both sides of $x^2 + y^2 = 25$ with respect to $t$. Each term with $x$ or $y$ needs a chain rule factor, $\\dfrac{dx}{dt}$ or $\\dfrac{dy}{dt}$.",
+    "After differentiating, substitute $x = 3$, $y = 4$, and $\\dfrac{dx}{dt} = 3$, then solve the resulting linear equation for $\\dfrac{dy}{dt}$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate both sides of the relation with respect to $t$. The chain rule attaches $\\dfrac{dx}{dt}$ to the $x^2$ term and $\\dfrac{dy}{dt}$ to the $y^2$ term. The right side is a constant, so its derivative is $0$.",
+     "math": "2x\\frac{dx}{dt} + 2y\\frac{dy}{dt} = 0"
+    },
+    {
+     "text": "Substitute the values at the given instant: $x = 3$, $y = 4$, $\\dfrac{dx}{dt} = 3$.",
+     "math": "2(3)(3) + 2(4)\\frac{dy}{dt} = 0 \\quad \\Rightarrow \\quad 18 + 8\\frac{dy}{dt} = 0"
+    },
+    {
+     "text": "Solve for $\\dfrac{dy}{dt}$.",
+     "math": "\\frac{dy}{dt} = -\\frac{18}{8} = -\\frac{9}{4}"
+    },
+    {
+     "text": "The negative sign means that as $x$ increases at the point $(3, 4)$, $y$ decreases, which is consistent with moving clockwise along the upper half of the circle."
+    }
+   ]
+  },
+  {
+   "id": "u4-q017",
+   "skillId": "u4-related-rates",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>A spherical balloon is being inflated. Its radius $r$ increases at a constant rate of $2$ centimeters per second. The volume of a sphere of radius $r$ is $V = \\frac{4}{3}\\pi r^3$.</p><p>Find the rate at which the volume is increasing, in cubic centimeters per second, at the instant when the radius is $5$ centimeters. Round to two decimal places.</p>",
+   "answer": 628.32,
+   "tolerance": 0.005,
+   "hints": [
+    "Both $V$ and $r$ are functions of time $t$. The given rate is $\\frac{dr}{dt} = 2$, and the requested rate is $\\frac{dV}{dt}$ at the instant when $r = 5$.",
+    "Differentiate $V = \\frac{4}{3}\\pi r^3$ with respect to $t$. Because $r$ depends on $t$, the chain rule produces a factor of $\\frac{dr}{dt}$.",
+    "After differentiating, substitute $r = 5$ and $\\frac{dr}{dt} = 2$, then multiply out and round."
+   ],
+   "solution": [
+    {
+     "text": "The volume and the radius are both functions of time $t$. Differentiate the volume formula with respect to $t$. The chain rule applies to $r^3$ because $r$ depends on $t$.",
+     "math": "\\frac{dV}{dt} = \\frac{4}{3}\\pi \\cdot 3r^2 \\frac{dr}{dt} = 4\\pi r^2 \\frac{dr}{dt}"
+    },
+    {
+     "text": "Substitute the values at the instant of interest: $r = 5$ centimeters and $\\frac{dr}{dt} = 2$ centimeters per second.",
+     "math": "\\frac{dV}{dt} = 4\\pi (5)^2 (2) = 200\\pi"
+    },
+    {
+     "text": "Evaluate and round to two decimal places. The units are cubic centimeters per second, because $r^2$ carries square centimeters and $\\frac{dr}{dt}$ carries centimeters per second.",
+     "math": "200\\pi \\approx 628.32"
+    },
+    {
+     "text": "At the instant when the radius is $5$ centimeters, the volume is increasing at approximately $628.32$ cubic centimeters per second."
+    }
+   ]
+  },
+  {
+   "id": "u4-q018",
+   "skillId": "u4-related-rates",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Water is poured into a tank shaped like an inverted cone (the point of the cone is at the bottom). The tank is $12$ feet tall and the radius of its circular top is $4$ feet. Water enters at a constant rate of $3$ cubic feet per minute. The volume of a cone with base radius $r$ and height $h$ is $V = \\frac{1}{3}\\pi r^2 h$.</p><p>Find the rate at which the depth of the water is rising, in feet per minute, at the instant when the water is $6$ feet deep. Round to two decimal places.</p>",
+   "answer": 0.24,
+   "tolerance": 0.005,
+   "hints": [
+    "The water itself forms a smaller cone with the same shape as the tank. Let $h$ be the depth of the water and $r$ the radius of the water's surface. The volume formula contains two changing variables, $r$ and $h$, but only $\\frac{dh}{dt}$ is requested.",
+    "Use similar triangles to relate $r$ to $h$: the ratio of radius to height is the same for the water cone as for the tank, so $\\frac{r}{h} = \\frac{4}{12}$. Substitute for $r$ so that $V$ is a function of $h$ alone before differentiating.",
+    "Differentiate $V$ with respect to $t$, substitute $\\frac{dV}{dt} = 3$ and $h = 6$, and solve for $\\frac{dh}{dt}$."
+   ],
+   "solution": [
+    {
+     "text": "Let $h$ be the depth of the water and $r$ the radius of the water surface, both in feet, at time $t$ minutes. The water cone is similar to the tank, so the ratio of radius to height is the same for both.",
+     "math": "\\frac{r}{h} = \\frac{4}{12} = \\frac{1}{3}, \\qquad r = \\frac{h}{3}"
+    },
+    {
+     "text": "Substitute $r = \\frac{h}{3}$ into the cone volume formula so that $V$ depends on $h$ only.",
+     "math": "V = \\frac{1}{3}\\pi \\left(\\frac{h}{3}\\right)^2 h = \\frac{\\pi h^3}{27}"
+    },
+    {
+     "text": "Differentiate with respect to $t$, using the chain rule on $h^3$.",
+     "math": "\\frac{dV}{dt} = \\frac{\\pi}{27} \\cdot 3h^2 \\frac{dh}{dt} = \\frac{\\pi h^2}{9}\\frac{dh}{dt}"
+    },
+    {
+     "text": "Substitute $\\frac{dV}{dt} = 3$ cubic feet per minute and $h = 6$ feet, then solve for $\\frac{dh}{dt}$.",
+     "math": "3 = \\frac{\\pi (6)^2}{9}\\frac{dh}{dt} = 4\\pi \\frac{dh}{dt}, \\qquad \\frac{dh}{dt} = \\frac{3}{4\\pi} \\approx 0.24"
+    },
+    {
+     "text": "At the instant when the water is $6$ feet deep, the depth is rising at approximately $0.24$ feet per minute. The units are cubic feet per minute divided by square feet, which is feet per minute."
+    }
+   ]
+  },
+  {
+   "id": "u4-q019",
+   "skillId": "u4-related-rates",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A ladder $10$ feet long leans against a vertical wall. The bottom of the ladder slides away from the wall along the ground at a constant rate of $1.5$ feet per second. Let $x$ be the distance from the wall to the bottom of the ladder and $y$ the height of the top of the ladder on the wall, both in feet.</p><p>At the instant when the bottom of the ladder is $6$ feet from the wall, how fast is the top of the ladder sliding down the wall?</p>",
+   "choices": [
+    "$\\dfrac{8}{9}$ feet per second",
+    "$\\dfrac{9}{16}$ feet per second",
+    "$\\dfrac{9}{8}$ feet per second",
+    "$\\dfrac{3}{2}$ feet per second"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from solving the equation $18 + 16\\frac{dy}{dt} = 0$ with the division inverted, giving $\\frac{16}{18} = \\frac{8}{9}$ instead of $\\frac{18}{16} = \\frac{9}{8}$. Solving for $\\frac{dy}{dt}$ requires dividing $18$ by the coefficient $16$.",
+    "This choice comes from differentiating $x^2 + y^2 = 100$ with the factor $2$ kept on the $y^2$ term but dropped from the $x^2$ term, giving $x\\frac{dx}{dt} + 2y\\frac{dy}{dt} = 0$, which leads to $9 + 16\\frac{dy}{dt} = 0$. The power rule produces a factor of $2$ on both terms.",
+    null,
+    "This choice comes from assuming the top of the ladder moves at the same rate as the bottom. The rates are related through $x^2 + y^2 = 100$, and at this instant they differ because $x \\neq y$."
+   ],
+   "hints": [
+    "The ladder, the wall, and the ground form a right triangle with hypotenuse $10$. Write the Pythagorean relation between $x$ and $y$; it holds at every instant, so it can be differentiated with respect to time.",
+    "Before differentiating, find $y$ at the instant when $x = 6$ from the Pythagorean relation. You will need both $x$ and $y$ after differentiating.",
+    "Differentiate $x^2 + y^2 = 100$ with respect to $t$, substitute $x = 6$, the value of $y$, and $\\frac{dx}{dt} = 1.5$, then solve for $\\frac{dy}{dt}$. A negative value for $\\frac{dy}{dt}$ means the top is moving down; the question asks for the speed of that downward motion."
+   ],
+   "solution": [
+    {
+     "text": "The ladder is the hypotenuse of a right triangle with legs $x$ and $y$, so the Pythagorean theorem gives a relation that holds at every instant.",
+     "math": "x^2 + y^2 = 100"
+    },
+    {
+     "text": "Find $y$ at the instant when $x = 6$.",
+     "math": "y^2 = 100 - 36 = 64, \\qquad y = 8"
+    },
+    {
+     "text": "Differentiate the relation with respect to $t$. Both $x$ and $y$ depend on $t$, so each squared term produces a chain-rule factor.",
+     "math": "2x\\frac{dx}{dt} + 2y\\frac{dy}{dt} = 0"
+    },
+    {
+     "text": "Substitute $x = 6$, $y = 8$, and $\\frac{dx}{dt} = 1.5$ feet per second, then solve for $\\frac{dy}{dt}$.",
+     "math": "2(6)(1.5) + 2(8)\\frac{dy}{dt} = 0, \\qquad 18 + 16\\frac{dy}{dt} = 0, \\qquad \\frac{dy}{dt} = -\\frac{18}{16} = -\\frac{9}{8}"
+    },
+    {
+     "text": "The negative sign means $y$ is decreasing, so the top of the ladder is moving down the wall. Its speed at this instant is $\\frac{9}{8}$ feet per second."
+    }
+   ]
+  },
+  {
+   "id": "u4-q020",
+   "skillId": "u4-related-rates",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A street lamp is mounted at the top of a vertical pole $15$ feet tall. A person $6$ feet tall walks away from the pole along a straight, level path at a constant rate of $4$ feet per second. Let $x$ be the distance, in feet, from the base of the pole to the person, and let $s$ be the length, in feet, of the person's shadow on the ground, measured from the person's feet to the tip of the shadow.</p><p>How fast is the tip of the shadow moving away from the base of the pole?</p>",
+   "choices": [
+    "$\\dfrac{20}{3}$ feet per second",
+    "$\\dfrac{8}{3}$ feet per second",
+    "$4$ feet per second",
+    "$10$ feet per second"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from reporting $\\frac{ds}{dt}$, the rate at which the shadow's length is changing, instead of the rate of the shadow's tip. The tip is at distance $x + s$ from the pole, so its rate is $\\frac{dx}{dt} + \\frac{ds}{dt}$.",
+    "This choice comes from assuming the tip of the shadow moves at the same rate as the person. The shadow also lengthens as the person walks, so the tip moves faster than the person.",
+    "This choice comes from inverting the similar-triangle ratio to $\\frac{15}{6}$ and multiplying by $4$. The correct ratio of the person's height to the pole's height is $\\frac{6}{15}$, and the tip's rate must be found from the relation between $s$ and $x$, not from the ratio alone."
+   ],
+   "hints": [
+    "Two right triangles share the same angle at the tip of the shadow: the large triangle with the pole as one leg and base $x + s$, and the small triangle with the person as one leg and base $s$. Similar triangles have proportional sides.",
+    "Write the proportion $\\frac{s}{x + s} = \\frac{6}{15}$ and solve it for $s$ in terms of $x$. Then the tip's position $x + s$ is a multiple of $x$.",
+    "Differentiate the tip's position with respect to $t$ and substitute $\\frac{dx}{dt} = 4$. The answer does not depend on where the person is."
+   ],
+   "solution": [
+    {
+     "text": "The light ray from the lamp past the top of the person's head to the ground forms two similar right triangles. The large triangle has height $15$ (the pole) and base $x + s$ (pole to shadow tip). The small triangle has height $6$ (the person) and base $s$ (person to shadow tip). Corresponding sides are proportional.",
+     "math": "\\frac{s}{x + s} = \\frac{6}{15} = \\frac{2}{5}"
+    },
+    {
+     "text": "Solve the proportion for $s$ in terms of $x$.",
+     "math": "5s = 2x + 2s, \\qquad 3s = 2x, \\qquad s = \\frac{2x}{3}"
+    },
+    {
+     "text": "The tip of the shadow is at distance $x + s$ from the base of the pole. Express this in terms of $x$ alone.",
+     "math": "x + s = x + \\frac{2x}{3} = \\frac{5x}{3}"
+    },
+    {
+     "text": "Differentiate with respect to $t$ and substitute $\\frac{dx}{dt} = 4$ feet per second.",
+     "math": "\\frac{d}{dt}(x + s) = \\frac{5}{3}\\frac{dx}{dt} = \\frac{5}{3}(4) = \\frac{20}{3}"
+    },
+    {
+     "text": "The tip of the shadow moves away from the pole at $\\frac{20}{3}$ feet per second. This rate is constant; it does not depend on the person's current distance from the pole. For comparison, the shadow's length grows at $\\frac{ds}{dt} = \\frac{2}{3}(4) = \\frac{8}{3}$ feet per second, which is a different quantity."
+    }
+   ]
+  },
+  {
+   "id": "u4-q021",
+   "skillId": "u4-related-rates",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Two cars leave the same intersection on straight roads that meet at a right angle. At a certain instant, car A is $3$ miles north of the intersection and driving north at $40$ miles per hour, and car B is $4$ miles east of the intersection and driving east at $30$ miles per hour.</p><p>Find the rate at which the straight-line distance between the two cars is increasing at that instant, in miles per hour. Give the exact integer.</p>",
+   "answer": 48,
+   "tolerance": 0.001,
+   "hints": [
+    "Let $y$ be car A's distance north of the intersection, $x$ car B's distance east, and $z$ the straight-line distance between the cars. The roads meet at a right angle, so $x$, $y$, and $z$ form a right triangle at every instant.",
+    "Write the Pythagorean relation $x^2 + y^2 = z^2$ and find $z$ at the given instant before differentiating.",
+    "Differentiate the relation with respect to $t$. Substitute $x = 4$, $y = 3$, the value of $z$, $\\frac{dx}{dt} = 30$, and $\\frac{dy}{dt} = 40$, then solve for $\\frac{dz}{dt}$."
+   ],
+   "solution": [
+    {
+     "text": "Let $y$ be car A's distance north of the intersection, $x$ car B's distance east of the intersection, and $z$ the distance between the cars, all in miles at time $t$ hours. Because the roads are perpendicular, the three distances form a right triangle with hypotenuse $z$.",
+     "math": "x^2 + y^2 = z^2"
+    },
+    {
+     "text": "Find $z$ at the given instant, when $x = 4$ and $y = 3$.",
+     "math": "z^2 = 16 + 9 = 25, \\qquad z = 5"
+    },
+    {
+     "text": "Differentiate the relation with respect to $t$. Each variable depends on $t$, so each squared term produces a chain-rule factor. Divide both sides by $2$.",
+     "math": "2x\\frac{dx}{dt} + 2y\\frac{dy}{dt} = 2z\\frac{dz}{dt}, \\qquad x\\frac{dx}{dt} + y\\frac{dy}{dt} = z\\frac{dz}{dt}"
+    },
+    {
+     "text": "Substitute $x = 4$, $\\frac{dx}{dt} = 30$, $y = 3$, $\\frac{dy}{dt} = 40$, and $z = 5$.",
+     "math": "4(30) + 3(40) = 5\\frac{dz}{dt}, \\qquad 120 + 120 = 5\\frac{dz}{dt}, \\qquad \\frac{dz}{dt} = 48"
+    },
+    {
+     "text": "At that instant the distance between the cars is increasing at $48$ miles per hour. Each term on the left has units of miles times miles per hour, and dividing by $z$ in miles leaves miles per hour."
+    }
+   ]
+  },
+  {
+   "id": "u4-q022",
+   "skillId": "u4-related-rates",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>A camera on level ground is $200$ meters from a launch pad. A rocket lifts off from the pad and rises vertically at a constant rate of $50$ meters per second. The camera stays pointed at the rocket. Let $y$ be the height of the rocket in meters and $\\theta$ the camera's angle of elevation in radians, measured from the ground up to the line of sight.</p><p>At the instant when the rocket is $200$ meters high, what is the rate of change of $\\theta$, in radians per second?</p>",
+   "choices": [
+    "$\\dfrac{1}{4}$",
+    "$\\dfrac{1}{2}$",
+    "$25$",
+    "$\\dfrac{1}{8}$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from omitting the factor $\\sec^2\\theta$ produced when $\\tan\\theta$ is differentiated with respect to $t$. The chain rule gives $\\frac{d}{dt}\\tan\\theta = \\sec^2\\theta\\,\\frac{d\\theta}{dt}$, and at this instant $\\sec^2\\theta = 2$.",
+    "This choice comes from multiplying $\\frac{1}{4}$ by $\\sec^2\\theta = 2$ instead of dividing by it. The equation $\\sec^2\\theta\\,\\frac{d\\theta}{dt} = \\frac{1}{4}$ is solved by dividing both sides by $\\sec^2\\theta$.",
+    "This choice comes from omitting the division by $200$ when differentiating $\\tan\\theta = \\frac{y}{200}$, which gives $\\frac{50}{2} = 25$. The constant $\\frac{1}{200}$ stays attached to $\\frac{dy}{dt}$ after differentiation.",
+    null
+   ],
+   "hints": [
+    "The camera, the launch pad, and the rocket form a right triangle. The horizontal leg is the constant $200$ meters, the vertical leg is $y$, and $\\theta$ is the angle at the camera. A trigonometric ratio that involves only these two legs relates $\\theta$ to $y$.",
+    "Write $\\tan\\theta = \\frac{y}{200}$ and differentiate both sides with respect to $t$. The derivative of $\\tan\\theta$ with respect to $\\theta$ is $\\sec^2\\theta$.",
+    "At the instant when $y = 200$, the two legs are equal, so $\\theta = \\frac{\\pi}{4}$. Compute $\\sec^2\\theta$ at that angle, substitute $\\frac{dy}{dt} = 50$, and solve for $\\frac{d\\theta}{dt}$."
+   ],
+   "solution": [
+    {
+     "text": "In the right triangle formed by the camera, the launch pad, and the rocket, the side opposite $\\theta$ is $y$ and the side adjacent to $\\theta$ is the constant $200$. The tangent ratio relates them at every instant.",
+     "math": "\\tan\\theta = \\frac{y}{200}"
+    },
+    {
+     "text": "Differentiate both sides with respect to $t$. The chain rule applies on the left because $\\theta$ depends on $t$.",
+     "math": "\\sec^2\\theta\\,\\frac{d\\theta}{dt} = \\frac{1}{200}\\frac{dy}{dt}"
+    },
+    {
+     "text": "At the instant when $y = 200$, the opposite and adjacent sides are equal, so $\\tan\\theta = 1$ and $\\theta = \\frac{\\pi}{4}$. Compute $\\sec^2\\theta$ using $\\sec^2\\theta = 1 + \\tan^2\\theta$.",
+     "math": "\\sec^2\\theta = 1 + 1^2 = 2"
+    },
+    {
+     "text": "Substitute $\\sec^2\\theta = 2$ and $\\frac{dy}{dt} = 50$ meters per second, then solve for $\\frac{d\\theta}{dt}$.",
+     "math": "2\\frac{d\\theta}{dt} = \\frac{50}{200} = \\frac{1}{4}, \\qquad \\frac{d\\theta}{dt} = \\frac{1}{8}"
+    },
+    {
+     "text": "At that instant the angle of elevation is increasing at $\\frac{1}{8}$ radian per second. The meters cancel in $\\frac{dy}{dt}$ divided by $200$, leaving units of per second, which is what a rate of change of an angle in radians carries."
+    }
+   ]
+  },
+  {
+   "id": "u4-q023",
+   "skillId": "u4-related-rates",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Sand falls from a conveyor onto the ground and forms a pile in the shape of a right circular cone. Sand arrives at a constant rate of $10$ cubic feet per minute. As the pile grows, its height $h$ always equals the diameter of its circular base. The volume of a cone with base radius $r$ and height $h$ is $V = \\frac{1}{3}\\pi r^2 h$.</p><p>At the instant when the pile is $5$ feet high, how fast is the height increasing, in feet per minute?</p>",
+   "choices": [
+    "$\\dfrac{2}{5\\pi}$",
+    "$\\dfrac{8}{5\\pi}$",
+    "$\\dfrac{1}{10\\pi}$",
+    "$\\dfrac{8}{15\\pi}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from setting the radius equal to the height, $r = h$, instead of half of it. The height equals the diameter $2r$, so $r = \\frac{h}{2}$, and with $r = h$ the volume becomes $\\frac{\\pi h^3}{3}$, which leads to $25\\pi\\frac{dh}{dt} = 10$.",
+    null,
+    "This choice comes from inverting the relation between radius and height to $r = 2h$. With $r = 2h$ the volume becomes $\\frac{4\\pi h^3}{3}$ and the equation becomes $100\\pi\\frac{dh}{dt} = 10$. The height equals the diameter, so the radius is half the height, not twice it.",
+    "This choice comes from dropping the factor $\\frac{1}{3}$ in the cone volume formula, which turns it into the cylinder volume $\\pi r^2 h = \\frac{\\pi h^3}{4}$ and leads to $\\frac{75\\pi}{4}\\frac{dh}{dt} = 10$. The volume of a cone is one third of the volume of the cylinder with the same base and height."
+   ],
+   "hints": [
+    "The volume formula has two changing variables, $r$ and $h$. The condition that the height equals the diameter gives a relation between them. Use it to write $V$ in terms of $h$ only before differentiating.",
+    "The diameter is $2r$, so the condition is $h = 2r$, which gives $r = \\frac{h}{2}$. Substitute this into $V = \\frac{1}{3}\\pi r^2 h$ and simplify.",
+    "Differentiate $V$ with respect to $t$, substitute $\\frac{dV}{dt} = 10$ and $h = 5$, and solve for $\\frac{dh}{dt}$. Leave $\\pi$ in the answer."
+   ],
+   "solution": [
+    {
+     "text": "The diameter of the base is $2r$. The condition that the height equals the diameter gives $h = 2r$, so $r = \\frac{h}{2}$. Substitute this into the cone volume formula so that $V$ depends on $h$ only.",
+     "math": "V = \\frac{1}{3}\\pi \\left(\\frac{h}{2}\\right)^2 h = \\frac{\\pi h^3}{12}"
+    },
+    {
+     "text": "Differentiate with respect to $t$, using the chain rule on $h^3$.",
+     "math": "\\frac{dV}{dt} = \\frac{\\pi}{12}\\cdot 3h^2\\frac{dh}{dt} = \\frac{\\pi h^2}{4}\\frac{dh}{dt}"
+    },
+    {
+     "text": "Substitute $\\frac{dV}{dt} = 10$ cubic feet per minute and $h = 5$ feet.",
+     "math": "10 = \\frac{\\pi (5)^2}{4}\\frac{dh}{dt} = \\frac{25\\pi}{4}\\frac{dh}{dt}"
+    },
+    {
+     "text": "Solve for $\\frac{dh}{dt}$.",
+     "math": "\\frac{dh}{dt} = \\frac{10 \\cdot 4}{25\\pi} = \\frac{40}{25\\pi} = \\frac{8}{5\\pi}"
+    },
+    {
+     "text": "At the instant when the pile is $5$ feet high, the height is increasing at $\\frac{8}{5\\pi}$ feet per minute, which is approximately $0.51$ feet per minute."
+    }
+   ]
+  },
+  {
+   "id": "u4-q024",
+   "skillId": "u4-linearization",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Let $f(x) = \\sqrt{x}$. Use the tangent line to the graph of $f$ at $x = 4$ to approximate $\\sqrt{4.1}$.</p><p>Which of the following is the tangent-line approximation of $\\sqrt{4.1}$?</p>",
+   "choices": [
+    "$2.05$",
+    "$2.1$",
+    "$2.025$",
+    "$2.0125$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from using $\\frac{1}{\\sqrt{x}}$ as the derivative of $\\sqrt{x}$, which omits the factor $\\frac{1}{2}$. Writing $\\sqrt{x} = x^{1/2}$, the power rule gives $f'(x) = \\frac{1}{2}x^{-1/2} = \\frac{1}{2\\sqrt{x}}$, so the slope at $x = 4$ is $\\frac{1}{4}$, not $\\frac{1}{2}$.",
+    "This choice comes from using a slope of $1$, that is, adding the full change in $x$ to $f(4)$ without computing the derivative. The slope of the tangent line is $f'(4) = \\frac{1}{4}$.",
+    null,
+    "This choice comes from using $\\frac{1}{2x}$ as the derivative and evaluating it at $x = 4$ to get $\\frac{1}{8}$. The derivative of $\\sqrt{x}$ is $\\frac{1}{2\\sqrt{x}}$, and $\\sqrt{4} = 2$, so the slope at $x = 4$ is $\\frac{1}{2 \\cdot 2} = \\frac{1}{4}$."
+   ],
+   "hints": [
+    "The tangent line to $f$ at $x = a$ is $L(x) = f(a) + f'(a)(x - a)$. Here $a = 4$, and $4$ is chosen because $\\sqrt{4}$ is a known value close to $\\sqrt{4.1}$.",
+    "Write $f(x) = x^{1/2}$ and use the power rule to find $f'(x)$. Then evaluate $f(4)$ and $f'(4)$.",
+    "Substitute $x = 4.1$ into $L(x)$. The quantity $x - a$ is $4.1 - 4 = 0.1$."
+   ],
+   "solution": [
+    {
+     "text": "The tangent line to the graph of $f$ at $x = a$ is the linear function $L(x) = f(a) + f'(a)(x - a)$. Near $x = a$, $L(x)$ approximates $f(x)$. Here $a = 4$.",
+     "math": "L(x) = f(4) + f'(4)(x - 4)"
+    },
+    {
+     "text": "Compute $f(4)$ and $f'(4)$. Write $f(x) = x^{1/2}$ and apply the power rule.",
+     "math": "f(4) = \\sqrt{4} = 2, \\qquad f'(x) = \\frac{1}{2}x^{-1/2} = \\frac{1}{2\\sqrt{x}}, \\qquad f'(4) = \\frac{1}{2\\sqrt{4}} = \\frac{1}{4}"
+    },
+    {
+     "text": "Substitute $x = 4.1$ into the tangent line.",
+     "math": "L(4.1) = 2 + \\frac{1}{4}(4.1 - 4) = 2 + \\frac{1}{4}(0.1) = 2 + 0.025 = 2.025"
+    },
+    {
+     "text": "The tangent-line approximation is $\\sqrt{4.1} \\approx 2.025$. For comparison, a calculator gives $\\sqrt{4.1} \\approx 2.0248$. The approximation is slightly larger than the true value because $f(x) = \\sqrt{x}$ is concave down, so its tangent line lies above its graph."
+    }
+   ]
+  },
+  {
+   "id": "u4-q025",
+   "skillId": "u4-linearization",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>Let $f(x) = x^{1/3}$. Write the linearization $L(x)$ of $f$ at $a = 27$, then use $L$ to approximate $27.6^{1/3}$. Round to two decimal places.</p>",
+   "answer": 3.02,
+   "tolerance": 0.005,
+   "hints": [
+    "The linearization of $f$ at $a$ is the tangent line at $x = a$: $L(x) = f(a) + f'(a)(x - a)$. You need the two numbers $f(27)$ and $f'(27)$.",
+    "Write $f(x) = x^{1/3}$ and use the power rule: $f'(x) = \\frac{1}{3}x^{-2/3}$. Since $27 = 3^3$, the value $27^{2/3} = 3^2 = 9$ is exact.",
+    "Substitute $x = 27.6$ into $L(x)$. The step $x - a$ is $0.6$."
+   ],
+   "solution": [
+    {
+     "text": "Compute the function value at $a = 27$. Because $27 = 3^3$, the cube root is exact.",
+     "math": "f(27) = 27^{1/3} = 3"
+    },
+    {
+     "text": "Differentiate with the power rule and evaluate at $a = 27$. Here $27^{-2/3} = \\frac{1}{27^{2/3}} = \\frac{1}{9}$.",
+     "math": "f'(x) = \\frac{1}{3}x^{-2/3}, \\qquad f'(27) = \\frac{1}{3} \\cdot \\frac{1}{9} = \\frac{1}{27}"
+    },
+    {
+     "text": "Write the linearization, which is the tangent line at $x = 27$.",
+     "math": "L(x) = 3 + \\frac{1}{27}(x - 27)"
+    },
+    {
+     "text": "Substitute $x = 27.6$, so $x - 27 = 0.6$.",
+     "math": "L(27.6) = 3 + \\frac{0.6}{27} = 3 + 0.0222\\ldots \\approx 3.02"
+    },
+    {
+     "text": "So $27.6^{1/3} \\approx 3.02$. A calculator gives $27.6^{1/3} \\approx 3.0221$, so the tangent line is accurate to two decimal places here because $27.6$ is close to $27$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q026",
+   "skillId": "u4-linearization",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Let $L(x)$ be the tangent line to $f(x) = e^x$ at $x = 0$. The value $L(0.3)$ is used to approximate $e^{0.3}$. Is the approximation $L(0.3)$ an overestimate or an underestimate of $e^{0.3}$, and why?</p>",
+   "choices": [
+    "An overestimate, because $f''(x) = e^x > 0$",
+    "An underestimate, because $f'(x) = e^x > 0$",
+    "An underestimate, because $f''(x) = e^x > 0$",
+    "It cannot be determined without computing $e^{0.3}$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from reversing the concavity rule. When $f'' > 0$ the graph is concave up, which means the graph lies above every tangent line, so the tangent line gives a value below the true value: an underestimate.",
+    "This choice comes from using the sign of the first derivative in place of the second derivative. The sign of $f'$ says whether $f$ is increasing; it says nothing about which side of the tangent line the graph lies on. Only the sign of $f''$, which gives the concavity, determines the direction of the error.",
+    null,
+    "This choice comes from the belief that concavity gives no information about the sign of the error. In fact, when $f'' > 0$ on the interval between the point of tangency and the point of approximation, the graph lies above the tangent line there, so the tangent-line value is an underestimate with no computation of $e^{0.3}$ needed."
+   ],
+   "hints": [
+    "The tangent line touches the graph at $x = 0$. Whether the graph is above or below the tangent line near $x = 0$ depends on the concavity of $f$.",
+    "Concavity is determined by the sign of $f''(x)$. Compute $f''(x)$ for $f(x) = e^x$ and decide its sign on the interval $[0, 0.3]$.",
+    "A concave-up graph lies above its tangent lines, and a concave-down graph lies below them. Use the sign you found to place the graph relative to the tangent line, then decide whether the tangent-line value is larger or smaller than the true value."
+   ],
+   "solution": [
+    {
+     "text": "The direction of the error in a tangent-line approximation is decided by concavity. If $f'' > 0$ on the interval between the point of tangency and the point being approximated, the graph is concave up there and lies above the tangent line; if $f'' < 0$, the graph is concave down and lies below the tangent line."
+    },
+    {
+     "text": "Compute the second derivative of $f(x) = e^x$.",
+     "math": "f'(x) = e^x, \\qquad f''(x) = e^x"
+    },
+    {
+     "text": "Since $e^x > 0$ for every real $x$, $f''(x) > 0$ on $[0, 0.3]$. The graph is concave up on this interval, so it lies above the tangent line at $x = 0$."
+    },
+    {
+     "text": "Because the graph is above the tangent line, the tangent-line value $L(0.3)$ is less than the true value $e^{0.3}$. The approximation is an underestimate, and the reason is $f''(x) = e^x > 0$."
+    },
+    {
+     "text": "As a check that is not required for the justification: $L(x) = 1 + x$, so $L(0.3) = 1.3$, while $e^{0.3} \\approx 1.3499$. The tangent-line value is indeed smaller."
+    }
+   ]
+  },
+  {
+   "id": "u4-q027",
+   "skillId": "u4-linearization",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The radius of a sphere is measured as $6$ centimeters, with a possible error in the measurement of at most $0.1$ centimeter. The volume is computed from the formula $V = \\frac{4}{3}\\pi r^3$. Use differentials to estimate the maximum error in the computed volume, in cubic centimeters. Round to two decimal places.</p>",
+   "answer": 45.24,
+   "tolerance": 0.005,
+   "hints": [
+    "A differential estimates a small change in an output from a small change in the input: $dV = V'(r)\\,dr$. Here $dr$ is the possible error in the radius, $0.1$ centimeter.",
+    "Differentiate $V = \\frac{4}{3}\\pi r^3$ with respect to $r$. The result is the surface-area formula $4\\pi r^2$.",
+    "Evaluate $V'(r)$ at $r = 6$, multiply by $dr = 0.1$, and then convert the multiple of $\\pi$ to a decimal."
+   ],
+   "solution": [
+    {
+     "text": "The differential of $V$ with respect to $r$ approximates the change in volume produced by a small change $dr$ in the radius. Compute the derivative.",
+     "math": "\\frac{dV}{dr} = \\frac{4}{3}\\pi \\cdot 3r^2 = 4\\pi r^2"
+    },
+    {
+     "text": "Write the differential and substitute the measured radius $r = 6$ and the maximum radius error $dr = 0.1$.",
+     "math": "dV = 4\\pi r^2\\,dr = 4\\pi(6)^2(0.1) = 4\\pi(36)(0.1) = 14.4\\pi"
+    },
+    {
+     "text": "Convert to a decimal.",
+     "math": "dV = 14.4\\pi \\approx 45.24"
+    },
+    {
+     "text": "The maximum error in the computed volume is approximately $45.24$ cubic centimeters. The units follow from the formula: $r^2$ is in square centimeters and $dr$ is in centimeters, so $dV$ is in cubic centimeters."
+    }
+   ]
+  },
+  {
+   "id": "u4-q028",
+   "skillId": "u4-linearization",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>A function $f$ satisfies $f(1) = 4$ and $f'(x) = \\sqrt{x^2 + 8}$ for all real $x$. Use the tangent line to the graph of $f$ at $x = 1$ to approximate $f(1.1)$. Which of the following gives the approximation and correctly states whether it is an overestimate or an underestimate of $f(1.1)$?</p>",
+   "choices": [
+    "$4.3$, an overestimate",
+    "$7.3$, an underestimate",
+    "$4.03$, an underestimate",
+    "$4.3$, an underestimate"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from reversing the concavity rule. Since $f''(x) = \\frac{x}{\\sqrt{x^2 + 8}}$ is positive for $x > 0$, the graph is concave up on $[1, 1.1]$ and lies above its tangent line, so the tangent-line value is below the true value: an underestimate.",
+    "This choice comes from multiplying the slope by $x = 1.1$ instead of by the step $x - a = 0.1$. The tangent line is $L(x) = f(1) + f'(1)(x - 1)$, and $x - 1 = 0.1$ at $x = 1.1$, giving $4 + 3(0.1) = 4.3$.",
+    "This choice comes from using a step of $0.01$ instead of $0.1$. The step is $x - a = 1.1 - 1 = 0.1$, so the change along the tangent line is $3(0.1) = 0.3$, not $0.03$.",
+    null
+   ],
+   "hints": [
+    "You are not given a formula for $f$, only $f(1)$ and a formula for $f'$. The tangent line at $x = 1$ needs exactly those two pieces of information: $L(x) = f(1) + f'(1)(x - 1)$.",
+    "Evaluate $f'(1) = \\sqrt{1 + 8}$, then compute $L(1.1)$ with the step $x - 1 = 0.1$.",
+    "For the direction of the error, differentiate $f'(x) = \\sqrt{x^2 + 8}$ once more to get $f''(x)$, and determine its sign for $x$ between $1$ and $1.1$."
+   ],
+   "solution": [
+    {
+     "text": "Find the slope of the tangent line at $x = 1$.",
+     "math": "f'(1) = \\sqrt{1^2 + 8} = \\sqrt{9} = 3"
+    },
+    {
+     "text": "Write the tangent line at $x = 1$ using $f(1) = 4$ and $f'(1) = 3$, then evaluate at $x = 1.1$, where the step is $x - 1 = 0.1$.",
+     "math": "L(x) = 4 + 3(x - 1), \\qquad L(1.1) = 4 + 3(0.1) = 4.3"
+    },
+    {
+     "text": "To decide the direction of the error, find $f''$ by differentiating $f'(x) = (x^2 + 8)^{1/2}$ with the chain rule.",
+     "math": "f''(x) = \\frac{1}{2}(x^2 + 8)^{-1/2} \\cdot 2x = \\frac{x}{\\sqrt{x^2 + 8}}"
+    },
+    {
+     "text": "For every $x$ in $[1, 1.1]$, the numerator $x$ is positive and the denominator is positive, so $f''(x) > 0$. The graph of $f$ is concave up on this interval, which means the graph lies above its tangent line there."
+    },
+    {
+     "text": "Because the graph lies above the tangent line, the tangent-line value $4.3$ is less than $f(1.1)$. The approximation is $4.3$ and it is an underestimate."
+    }
+   ]
+  },
+  {
+   "id": "u4-q029",
+   "skillId": "u4-linearization",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>The curve $x^2 + xy + y^2 = 7$ passes through the point $(1, 2)$. Use the tangent line to the curve at $(1, 2)$ to approximate the $y$-coordinate of the point on the curve near $(1, 2)$ whose $x$-coordinate is $1.1$. Give the exact decimal value of the tangent-line approximation.</p>",
+   "answer": 1.92,
+   "tolerance": 0.001,
+   "hints": [
+    "The curve is not given as $y = f(x)$, so the slope of the tangent line comes from implicit differentiation: differentiate both sides of $x^2 + xy + y^2 = 7$ with respect to $x$, treating $y$ as a function of $x$.",
+    "The term $xy$ needs the product rule, and the term $y^2$ needs the chain rule, producing $2y\\,\\frac{dy}{dx}$. Solve for $\\frac{dy}{dx}$, then substitute $x = 1$ and $y = 2$.",
+    "Once you have the slope $m$ at $(1, 2)$, the tangent line is $y = 2 + m(x - 1)$. Substitute $x = 1.1$."
+   ],
+   "solution": [
+    {
+     "text": "Confirm the point is on the curve: $1^2 + (1)(2) + 2^2 = 1 + 2 + 4 = 7$. Then differentiate both sides with respect to $x$. The product rule applies to $xy$ and the chain rule to $y^2$.",
+     "math": "2x + \\left(y + x\\frac{dy}{dx}\\right) + 2y\\frac{dy}{dx} = 0"
+    },
+    {
+     "text": "Collect the terms containing $\\frac{dy}{dx}$ and solve.",
+     "math": "(x + 2y)\\frac{dy}{dx} = -(2x + y), \\qquad \\frac{dy}{dx} = -\\frac{2x + y}{x + 2y}"
+    },
+    {
+     "text": "Substitute $x = 1$ and $y = 2$ to get the slope of the tangent line at $(1, 2)$.",
+     "math": "\\frac{dy}{dx}\\Big|_{(1, 2)} = -\\frac{2(1) + 2}{1 + 2(2)} = -\\frac{4}{5} = -0.8"
+    },
+    {
+     "text": "Write the tangent line through $(1, 2)$ with slope $-0.8$ and evaluate it at $x = 1.1$, where the step is $x - 1 = 0.1$.",
+     "math": "y \\approx 2 + (-0.8)(1.1 - 1) = 2 - 0.08 = 1.92"
+    },
+    {
+     "text": "The tangent-line approximation of the $y$-coordinate is $1.92$. As a check, solving $y^2 + 1.1y + 1.21 = 7$ for the root near $2$ gives $y \\approx 1.918$, which is close to $1.92$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q030",
+   "skillId": "u4-lhopital",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Evaluate $\\displaystyle\\lim_{x \\to 0} \\frac{\\sin 3x}{x}$.</p>",
+   "choices": [
+    "$1$",
+    "$3$",
+    "$0$",
+    "$\\dfrac{1}{3}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from omitting the chain-rule factor $3$ when differentiating $\\sin 3x$. The derivative of $\\sin 3x$ is $3\\cos 3x$, so the quotient of derivatives is $\\frac{3\\cos 3x}{1}$, which approaches $3$.",
+    null,
+    "This choice comes from taking the numerator's value at $x = 0$, which is $\\sin 0 = 0$, as the limit without checking the denominator. The denominator is also $0$ at $x = 0$, so the form is $\\frac{0}{0}$ and the limit must be found by another method.",
+    "This choice comes from inverting the quotient of derivatives, that is, computing $\\frac{(x)'}{(\\sin 3x)'}$ instead of $\\frac{(\\sin 3x)'}{(x)'}$. L'Hospital's rule keeps the numerator's derivative on top."
+   ],
+   "hints": [
+    "Before applying L'Hospital's rule, substitute $x = 0$ into the numerator and the denominator separately and record the form of the limit.",
+    "If the form is $\\frac{0}{0}$, L'Hospital's rule says the limit equals the limit of the quotient of the derivatives: differentiate $\\sin 3x$ and $x$ separately, not as a quotient. The derivative of $\\sin 3x$ needs the chain rule."
+   ],
+   "solution": [
+    {
+     "text": "Check the form. At $x = 0$ the numerator is $\\sin 0 = 0$ and the denominator is $0$, so the limit has the indeterminate form $\\frac{0}{0}$, and L'Hospital's rule applies."
+    },
+    {
+     "text": "Differentiate the numerator and the denominator separately. The chain rule gives the factor $3$ in the numerator.",
+     "math": "\\lim_{x \\to 0} \\frac{\\sin 3x}{x} = \\lim_{x \\to 0} \\frac{3\\cos 3x}{1}"
+    },
+    {
+     "text": "The new quotient is continuous at $x = 0$, so substitute.",
+     "math": "\\frac{3\\cos 0}{1} = 3"
+    },
+    {
+     "text": "The limit is $3$. This agrees with the Unit 1 result $\\lim_{u \\to 0} \\frac{\\sin u}{u} = 1$ applied with $u = 3x$: $\\frac{\\sin 3x}{x} = 3 \\cdot \\frac{\\sin 3x}{3x} \\to 3 \\cdot 1$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q031",
+   "skillId": "u4-lhopital",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\lim_{x \\to \\infty} \\frac{2x^2 + 3x}{x^2 - 1}$ using L'Hospital's rule. Give an exact integer.</p>",
+   "answer": 2,
+   "tolerance": 0.001,
+   "hints": [
+    "As $x \\to \\infty$, both $2x^2 + 3x$ and $x^2 - 1$ grow without bound. State this form before applying the rule.",
+    "L'Hospital's rule applies to the form $\\frac{\\infty}{\\infty}$ as well as $\\frac{0}{0}$. Differentiate the numerator and the denominator separately. If the result is again $\\frac{\\infty}{\\infty}$, apply the rule a second time.",
+    "After the second application, the quotient is a constant. Compare your answer with the ratio of the leading coefficients from Unit 1."
+   ],
+   "solution": [
+    {
+     "text": "Check the form. As $x \\to \\infty$, the numerator $2x^2 + 3x \\to \\infty$ and the denominator $x^2 - 1 \\to \\infty$. The form is $\\frac{\\infty}{\\infty}$, so L'Hospital's rule applies."
+    },
+    {
+     "text": "Apply the rule once by differentiating the numerator and the denominator separately.",
+     "math": "\\lim_{x \\to \\infty} \\frac{2x^2 + 3x}{x^2 - 1} = \\lim_{x \\to \\infty} \\frac{4x + 3}{2x}"
+    },
+    {
+     "text": "Check the form again. As $x \\to \\infty$, $4x + 3 \\to \\infty$ and $2x \\to \\infty$, so the form is still $\\frac{\\infty}{\\infty}$ and the rule may be applied a second time.",
+     "math": "\\lim_{x \\to \\infty} \\frac{4x + 3}{2x} = \\lim_{x \\to \\infty} \\frac{4}{2} = 2"
+    },
+    {
+     "text": "The limit is $2$. This agrees with the dominant-term method from Unit 1: for a rational function whose numerator and denominator have the same degree, the limit at infinity is the ratio of the leading coefficients, $\\frac{2}{1} = 2$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q032",
+   "skillId": "u4-lhopital",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Evaluate $\\displaystyle\\lim_{x \\to 0} \\frac{e^{2x} - 1}{\\sin 3x}$.</p>",
+   "choices": [
+    "$\\dfrac{2}{3}$",
+    "$\\dfrac{1}{3}$",
+    "$2$",
+    "$\\dfrac{3}{2}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from omitting the chain-rule factor $2$ when differentiating $e^{2x}$. The derivative of $e^{2x}$ is $2e^{2x}$, which equals $2$ at $x = 0$, so the numerator of the quotient of derivatives approaches $2$, not $1$.",
+    "This choice comes from omitting the chain-rule factor $3$ when differentiating $\\sin 3x$. The derivative of $\\sin 3x$ is $3\\cos 3x$, which equals $3$ at $x = 0$, so the denominator of the quotient of derivatives approaches $3$, not $1$.",
+    "This choice comes from inverting the quotient of derivatives, placing the derivative of $\\sin 3x$ on top and the derivative of $e^{2x} - 1$ on the bottom. L'Hospital's rule keeps the numerator's derivative in the numerator."
+   ],
+   "hints": [
+    "Substitute $x = 0$ into the numerator and the denominator separately. Recall that $e^0 = 1$ and $\\sin 0 = 0$, and record the form.",
+    "For the form $\\frac{0}{0}$, differentiate the numerator and the denominator separately. Both $e^{2x}$ and $\\sin 3x$ are compositions, so each derivative carries a chain-rule factor.",
+    "After differentiating, the new quotient is continuous at $x = 0$. Substitute $x = 0$ and simplify."
+   ],
+   "solution": [
+    {
+     "text": "Check the form. At $x = 0$ the numerator is $e^0 - 1 = 0$ and the denominator is $\\sin 0 = 0$, so the form is $\\frac{0}{0}$ and L'Hospital's rule applies."
+    },
+    {
+     "text": "Differentiate the numerator and the denominator separately. The chain rule gives a factor of $2$ from $e^{2x}$ and a factor of $3$ from $\\sin 3x$.",
+     "math": "\\lim_{x \\to 0} \\frac{e^{2x} - 1}{\\sin 3x} = \\lim_{x \\to 0} \\frac{2e^{2x}}{3\\cos 3x}"
+    },
+    {
+     "text": "The new quotient is continuous at $x = 0$ because its denominator $3\\cos 0 = 3$ is not zero. Substitute $x = 0$.",
+     "math": "\\frac{2e^{0}}{3\\cos 0} = \\frac{2 \\cdot 1}{3 \\cdot 1} = \\frac{2}{3}"
+    },
+    {
+     "text": "The limit is $\\frac{2}{3}$. As a numerical check, at $x = 0.001$ the original quotient is approximately $0.6673$, which is close to $0.6667$."
+    }
+   ]
+  },
+  {
+   "id": "u4-q033",
+   "skillId": "u4-lhopital",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Evaluate $\\displaystyle\\lim_{x \\to 0} \\frac{x + \\sin x}{\\cos x}$.</p>",
+   "choices": [
+    "$1$",
+    "$2$",
+    "$0$",
+    "The limit does not exist"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from applying the pattern $\\lim_{x \\to 0} \\frac{\\sin x}{x} = 1$ to a quotient that does not have that form. The denominator here is $\\cos x$, not $x$, and the numerator has an extra term $x$.",
+    "This choice comes from reporting the derivative of the numerator at $x = 0$, which is $1 + \\cos 0 = 2$, as the limit. The derivative of the numerator is part of L'Hospital's rule, and that rule does not apply here because the form is not indeterminate.",
+    null,
+    "This choice comes from applying L'Hospital's rule to a quotient that is not indeterminate. Differentiating the numerator and the denominator gives $\\frac{1 + \\cos x}{-\\sin x}$, which is unbounded near $0$, but that quotient has no relation to the original limit because the original form is $\\frac{0}{1}$, not $\\frac{0}{0}$."
+   ],
+   "hints": [
+    "Before choosing a method, substitute $x = 0$ into the numerator and the denominator separately and record the two values.",
+    "L'Hospital's rule applies only when substitution gives $\\frac{0}{0}$ or $\\frac{\\infty}{\\infty}$. If the denominator's value is a nonzero number, the quotient is continuous at $0$ and the limit is found by substitution alone."
+   ],
+   "solution": [
+    {
+     "text": "Substitute $x = 0$ into the numerator and the denominator separately.",
+     "math": "0 + \\sin 0 = 0, \\qquad \\cos 0 = 1"
+    },
+    {
+     "text": "The form is $\\frac{0}{1}$. This is not an indeterminate form, so L'Hospital's rule does not apply. A quotient of continuous functions is continuous wherever the denominator is nonzero, and $\\cos 0 = 1 \\neq 0$."
+    },
+    {
+     "text": "Because the quotient is continuous at $x = 0$, the limit equals the value of the quotient at $x = 0$.",
+     "math": "\\lim_{x \\to 0} \\frac{x + \\sin x}{\\cos x} = \\frac{0}{1} = 0"
+    }
+   ]
+  },
+  {
+   "id": "u4-q034",
+   "skillId": "u4-lhopital",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\lim_{x \\to 0} \\frac{e^x - 1 - x}{x^2}$. Give the exact value as a decimal.</p>",
+   "answer": 0.5,
+   "hints": [
+    "Substitute $x = 0$ into the numerator and the denominator separately. Both give $0$, so the form is $\\frac{0}{0}$ and L'Hospital's rule applies.",
+    "After one application of the rule, substitute $x = 0$ again. Check the form of the new quotient before deciding whether to apply the rule a second time.",
+    "L'Hospital's rule can be applied again only if the new quotient is also $\\frac{0}{0}$ or $\\frac{\\infty}{\\infty}$. Differentiate the numerator and the denominator separately each time; do not use the quotient rule."
+   ],
+   "solution": [
+    {
+     "text": "Substitute $x = 0$. The numerator is $e^0 - 1 - 0 = 0$ and the denominator is $0^2 = 0$, so the form is $\\frac{0}{0}$ and L'Hospital's rule applies."
+    },
+    {
+     "text": "Apply the rule once: differentiate the numerator and the denominator separately.",
+     "math": "\\lim_{x \\to 0} \\frac{e^x - 1 - x}{x^2} = \\lim_{x \\to 0} \\frac{e^x - 1}{2x}"
+    },
+    {
+     "text": "Substitute $x = 0$ into the new quotient. The numerator is $e^0 - 1 = 0$ and the denominator is $2 \\cdot 0 = 0$, so the form is again $\\frac{0}{0}$ and the rule applies a second time."
+    },
+    {
+     "text": "Apply the rule a second time.",
+     "math": "\\lim_{x \\to 0} \\frac{e^x - 1}{2x} = \\lim_{x \\to 0} \\frac{e^x}{2}"
+    },
+    {
+     "text": "The quotient $\\frac{e^x}{2}$ is continuous at $x = 0$, so substitute.",
+     "math": "\\lim_{x \\to 0} \\frac{e^x}{2} = \\frac{e^0}{2} = \\frac{1}{2} = 0.5"
+    }
+   ]
+  },
+  {
+   "id": "u4-q035",
+   "skillId": "u4-lhopital",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Evaluate $\\displaystyle\\lim_{x \\to \\infty} x\\sin\\left(\\frac{1}{x}\\right)$.</p>",
+   "choices": [
+    "$0$",
+    "$1$",
+    "$-1$",
+    "$\\infty$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from treating the factor $\\sin\\left(\\frac{1}{x}\\right) \\to 0$ as making the whole product $0$. The other factor $x$ grows without bound at the same time, so the product is the indeterminate form $\\infty \\cdot 0$ and its value must be computed.",
+    null,
+    "This choice comes from dropping one of the two minus signs when applying L'Hospital's rule. The derivative of $\\sin\\left(\\frac{1}{x}\\right)$ is $\\cos\\left(\\frac{1}{x}\\right)\\cdot\\left(-\\frac{1}{x^2}\\right)$ and the derivative of $\\frac{1}{x}$ is $-\\frac{1}{x^2}$. The two minus signs cancel, leaving $\\cos\\left(\\frac{1}{x}\\right)$, not $-\\cos\\left(\\frac{1}{x}\\right)$.",
+    "This choice comes from treating the factor $x \\to \\infty$ as dominating the product. The other factor $\\sin\\left(\\frac{1}{x}\\right)$ shrinks to $0$ at the same time, so the product is the indeterminate form $\\infty \\cdot 0$ and its value must be computed."
+   ],
+   "hints": [
+    "As $x \\to \\infty$, the factor $x$ grows without bound and the factor $\\sin\\left(\\frac{1}{x}\\right)$ approaches $0$. A product of the form $\\infty \\cdot 0$ is indeterminate, so neither factor decides the limit on its own.",
+    "L'Hospital's rule needs a quotient. Rewrite the product as a fraction by moving the factor $x$ into the denominator as $\\frac{1}{x}$, then check the form of the quotient.",
+    "After rewriting, the quotient has the form $\\frac{0}{0}$. Differentiate the numerator and the denominator separately, using the chain rule on $\\sin\\left(\\frac{1}{x}\\right)$, and simplify before substituting."
+   ],
+   "solution": [
+    {
+     "text": "As $x \\to \\infty$, $x \\to \\infty$ and $\\sin\\left(\\frac{1}{x}\\right) \\to \\sin 0 = 0$, so the product has the indeterminate form $\\infty \\cdot 0$. Rewrite the product as a quotient so L'Hospital's rule can be used.",
+     "math": "x\\sin\\left(\\frac{1}{x}\\right) = \\frac{\\sin\\left(\\frac{1}{x}\\right)}{\\frac{1}{x}}"
+    },
+    {
+     "text": "As $x \\to \\infty$, the numerator $\\sin\\left(\\frac{1}{x}\\right) \\to 0$ and the denominator $\\frac{1}{x} \\to 0$, so the form is $\\frac{0}{0}$ and L'Hospital's rule applies."
+    },
+    {
+     "text": "Differentiate the numerator and the denominator separately. The numerator needs the chain rule with inner function $\\frac{1}{x}$, whose derivative is $-\\frac{1}{x^2}$.",
+     "math": "\\lim_{x \\to \\infty} \\frac{\\sin\\left(\\frac{1}{x}\\right)}{\\frac{1}{x}} = \\lim_{x \\to \\infty} \\frac{\\cos\\left(\\frac{1}{x}\\right)\\cdot\\left(-\\frac{1}{x^2}\\right)}{-\\frac{1}{x^2}}"
+    },
+    {
+     "text": "The factor $-\\frac{1}{x^2}$ appears in both the numerator and the denominator and cancels, including its minus sign.",
+     "math": "\\lim_{x \\to \\infty} \\cos\\left(\\frac{1}{x}\\right)"
+    },
+    {
+     "text": "The cosine function is continuous and $\\frac{1}{x} \\to 0$, so the limit is $\\cos 0$.",
+     "math": "\\lim_{x \\to \\infty} x\\sin\\left(\\frac{1}{x}\\right) = \\cos 0 = 1"
+    }
+   ]
+  }
+ ],
+ "masteryCheck": {
+  "questionCount": 8,
+  "passCount": 7
+ }
+}

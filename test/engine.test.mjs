@@ -185,3 +185,47 @@ test('event history is capped so state stays small', () => {
   answerN(s, 'u1-a', 50, { difficulty: 2 });
   assert.equal(s.skills['u1-a'].events.length, E.EVENT_CAP);
 });
+
+test('wrong multiple-choice picks are counted per question and never affect scoring', () => {
+  const a = E.newState(), b = E.newState();
+  E.recordAnswer(a, { skillId: 'u1-a', questionId: 'q1', correct: false, hintsUsed: 0, difficulty: 2, now: NOW, choice: 1 });
+  E.recordAnswer(b, { skillId: 'u1-a', questionId: 'q1', correct: false, hintsUsed: 0, difficulty: 2, now: NOW });
+  assert.equal(E.masteryScore(a, 'u1-a'), E.masteryScore(b, 'u1-a'));
+  assert.equal(a.skills['u1-a'].difficulty, b.skills['u1-a'].difficulty);
+  E.recordAnswer(a, { skillId: 'u1-a', questionId: 'q1', correct: false, hintsUsed: 0, difficulty: 2, now: NOW + 1, choice: 1 });
+  E.recordAnswer(a, { skillId: 'u1-a', questionId: 'q1', correct: true, hintsUsed: 0, difficulty: 2, now: NOW + 2, choice: 0 });
+  assert.deepEqual(a.seenQuestions.q1.wrongChoices, { 1: 2 }); // correct picks are not counted
+  assert.equal(b.seenQuestions.q1.wrongChoices, undefined);     // numeric answers record no choice
+});
+
+test('questionHistory, skillHistory, and unitPatterns name repeated errors', () => {
+  const unit = makeUnit();
+  const state = E.newState();
+  const q = unit.questions[0]; // skill u1-a, choices a/b/c, answer 0
+  assert.deepEqual(E.questionHistory(state, q), { attempts: 0, correctCount: 0, wrongCount: 0, priorWrongChoices: [] });
+  assert.deepEqual(E.unitPatterns(state, unit), { repeated: [], skills: [] });
+
+  E.recordAnswer(state, { skillId: q.skillId, questionId: q.id, correct: false, hintsUsed: 0, difficulty: q.difficulty, now: NOW, choice: 2 });
+  E.recordAnswer(state, { skillId: q.skillId, questionId: q.id, correct: false, hintsUsed: 1, difficulty: q.difficulty, now: NOW + 1, choice: 2 });
+  E.recordAnswer(state, { skillId: q.skillId, questionId: q.id, correct: false, hintsUsed: 0, difficulty: q.difficulty, now: NOW + 2, choice: 1 });
+  E.recordAnswer(state, { skillId: q.skillId, questionId: q.id, correct: true, hintsUsed: 2, difficulty: q.difficulty, now: NOW + 3, choice: 0 });
+
+  const qh = E.questionHistory(state, q);
+  assert.equal(qh.attempts, 4);
+  assert.equal(qh.wrongCount, 3);
+  assert.deepEqual(qh.priorWrongChoices.map((c) => [c.index, c.count, c.misconception]), [[2, 2, 'm'], [1, 1, 'm']]);
+
+  const sh = E.skillHistory(state, q.skillId);
+  assert.equal(sh.recentTotal, 4);
+  assert.equal(sh.recentWrong, 3);
+  assert.equal(sh.recentWithHints, 1);
+  assert.equal(sh.score, E.masteryScore(state, q.skillId));
+
+  const p = E.unitPatterns(state, unit);
+  assert.equal(p.repeated.length, 1);
+  assert.equal(p.repeated[0].question.id, q.id);
+  assert.deepEqual(p.repeated[0].choices.map((c) => c.index), [2]); // only the choice picked twice
+  assert.equal(p.skills.length, 1);
+  assert.equal(p.skills[0].skill.id, q.skillId);
+  assert.equal(E.skillHistory(state, 'never-seen').recentTotal, 0);
+});

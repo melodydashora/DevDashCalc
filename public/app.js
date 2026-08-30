@@ -43,11 +43,11 @@ function announce(text) { $('#live-region').textContent = text; }
 // the learner's answer to it are sent to the server.
 function mountTutor(container, unit, q, ctx) {
   if (!TUTOR.available) return;
-  container.innerHTML = `<div class="btn-row"><button type="button" class="secondary tutor-open">Talk it through with the tutor</button></div>`;
+  container.innerHTML = `<div class="btn-row"><button type="button" class="secondary tutor-open">Ask the tutor about this question</button></div>`;
   $('.tutor-open', container).addEventListener('click', () => {
     container.innerHTML = `<div class="tutor-panel">
       <h3>Tutor</h3>
-      <p class="viz-note">The tutor sees this question, the verified solution, and your answer — nothing else. It explains; the app's verified solution stays the authority.</p>
+      <p class="viz-note">The tutor sees this question, the verified solution, your answer, and a count of your earlier attempts on this question and skill — nothing else, never your name. It explains; the app's verified solution stays the authority.</p>
       <div class="tutor-log" aria-live="polite"></div>
       <p class="tutor-status"></p>
       <div class="numeric-row tutor-ask-row" hidden>
@@ -73,7 +73,7 @@ function mountTutor(container, unit, q, ctx) {
     };
 
     const ask = async (followUp) => {
-      status.textContent = 'The tutor is thinking. This usually takes under a minute.';
+      status.textContent = 'Waiting for the tutor to reply. This usually takes under a minute.';
       askRow.hidden = true;
       sendBtn.disabled = true;
       try {
@@ -83,6 +83,8 @@ function mountTutor(container, unit, q, ctx) {
           body: JSON.stringify({
             unitId: unit.id, questionId: q.id,
             learnerAnswer: ctx.learnerAnswer, correct: ctx.correct,
+            chosenIndex: ctx.chosenIndex,
+            history: ctx.history,
             followUp: followUp || undefined,
             transcript,
           }),
@@ -316,8 +318,16 @@ function mountQuestion(container, unit, q, opts, done) {
     container.querySelectorAll('.choice').forEach((b) => { b.disabled = true; });
     const numIn = $('#num-in', container); if (numIn) numIn.disabled = true;
 
+    // History is read before this answer is recorded, so it describes earlier attempts only.
+    const qh = E.questionHistory(S, q);
+    const sh = E.skillHistory(S, q.skillId);
+    const history = {
+      attempts: qh.attempts, wrongCount: qh.wrongCount,
+      priorWrongChoices: qh.priorWrongChoices.map((c) => ({ index: c.index, count: c.count })),
+      skillScore: sh.score, recentTotal: sh.recentTotal, recentWrong: sh.recentWrong, recentWithHints: sh.recentWithHints,
+    };
     if (countsTowardMastery) {
-      E.recordAnswer(S, { skillId: q.skillId, questionId: q.id, correct: grade.correct, hintsUsed, difficulty: q.difficulty, now: Date.now() });
+      E.recordAnswer(S, { skillId: q.skillId, questionId: q.id, correct: grade.correct, hintsUsed, difficulty: q.difficulty, now: Date.now(), choice: q.type === 'mc' ? selected : null });
       save();
     }
 
@@ -357,7 +367,7 @@ function mountQuestion(container, unit, q, opts, done) {
         const vizIds = explorersFor(unit, q.skillId);
         const vizSlot = $('.viz-slot', fbArea);
         if (vizIds.length && vizSlot) {
-          vizSlot.innerHTML = `<p><strong>See it, then drive it:</strong> the picture below responds only to your slider — drag it and watch the same idea this question tested.</p>`;
+          vizSlot.innerHTML = `<p><strong>Interactive explorer:</strong> the graph below shows the idea this question tested. It changes only when you move its slider or press its buttons.</p>`;
           mountExplorer(vizSlot, vizIds[0]);
         }
         announce('Not yet correct. The full solution and an interactive explorer are shown.');
@@ -369,7 +379,7 @@ function mountQuestion(container, unit, q, opts, done) {
       const learnerAnswer = q.type === 'mc'
         ? (selected !== null ? `choice ${'ABCDE'[selected]} (${q.choices[selected]})` : '(none)')
         : String(response);
-      mountTutor(tutorSlot, unit, q, { learnerAnswer, correct: grade.correct });
+      mountTutor(tutorSlot, unit, q, { learnerAnswer, correct: grade.correct, chosenIndex: q.type === 'mc' ? selected : null, history });
     }
     $('.next-btn', fbArea).addEventListener('click', () => done({ correct: grade.correct, hintsUsed, response }));
     $('.next-btn', fbArea).focus();
@@ -382,7 +392,7 @@ function viewHome() {
   const name = S.settings.name ? `, ${esc(S.settings.name)}` : '';
   const due = E.reviewQueue(S, allUnits(), Date.now(), m.reviewAfterDays);
   const failedNote = CONTENT.failed.length
-    ? `<div class="card" style="border-color: var(--notyet);"><p><strong>Some content failed to load:</strong> ${esc(CONTENT.failed.join('; '))}. The server may still be preparing these units.</p></div>` : '';
+    ? `<div class="card" style="border-color: var(--notyet);"><p><strong>Some content failed to load:</strong> ${esc(CONTENT.failed.join('; '))}. Reload this page to try loading them again.</p></div>` : '';
 
   const unitCards = m.units.map((meta) => {
     const unit = CONTENT.units.get(meta.id);
@@ -408,16 +418,16 @@ function viewHome() {
 
   mountView(`
     <h1>Welcome back${name}.</h1>
-    <p>${esc(m.subtitle)}. Every unit follows the same path: <strong>lessons → practice → Mastery Check → next unit</strong>. Nothing unlocks by luck and nothing ever re-locks.</p>
+    <p>${esc(m.subtitle)}. Every unit follows the same sequence: <strong>lessons → practice → Mastery Check → next unit</strong>. A unit unlocks only when you pass the previous unit's Mastery Check or the placement check, and no unit ever re-locks.</p>
     ${failedNote}
-    ${S.lastLocation && S.lastLocation !== '#/home' ? `<div class="card subtle"><p><strong>Pick up where you left off:</strong></p><div class="btn-row"><a class="btn" href="${esc(S.lastLocation)}">Continue</a></div></div>` : ''}
+    ${S.lastLocation && S.lastLocation !== '#/home' ? `<div class="card subtle"><p><strong>Return to your last location:</strong></p><div class="btn-row"><a class="btn" href="${esc(S.lastLocation)}">Continue</a></div></div>` : ''}
     ${!S.diagnostic.completed ? `<div class="card">
         <h2>Optional: placement check</h2>
-        <p>If you already know some calculus, a short placement check can unlock the units you have already mastered. It asks up to 3 questions per unit and stops as soon as a unit is not yet solid. You can stop at any time, and stopping early loses nothing.</p>
+        <p>If you already know some calculus, a short placement check can unlock the units you have already mastered. It asks up to 3 questions per unit and stops at the first unit where you answer fewer than 2 questions correctly. You can stop at any time; stopping early does not remove any progress.</p>
         <div class="btn-row"><a class="btn" href="#/diagnostic">Start placement check</a><span class="session-progress">Skippable — Unit 1 is already open.</span></div>
       </div>`
       : `<p class="session-progress">Placement check completed — placed through Unit ${S.diagnostic.placedThroughUnit || 0}.</p>`}
-    ${due.length ? `<div class="card subtle"><p><strong>Review recommended:</strong> ${due.length} mastered skill${due.length > 1 ? 's have' : ' has'} not been exercised in a while. Review keeps mastery real; it never blocks your progress.</p><div class="btn-row"><a class="btn secondary" href="#/review">Open review</a></div></div>` : ''}
+    ${due.length ? `<div class="card subtle"><p><strong>Review recommended:</strong> ${due.length} mastered skill${due.length > 1 ? 's have' : ' has'} not been practiced for ${m.reviewAfterDays} days or more. Review is recommended; it never blocks your progress.</p><div class="btn-row"><a class="btn secondary" href="#/review">Open review</a></div></div>` : ''}
     <h2>Units</h2>
     ${unitCards}
   `, { breadcrumb: ['Home'], nav: 'home' });
@@ -425,6 +435,25 @@ function viewHome() {
 }
 
 // ---------------------------------------------------------------- views: unit
+// Recurring errors, stated plainly. Shown on every unit page in the same place
+// so the learner always knows where to look; the empty state says what would appear.
+function patternsHtml(unit) {
+  const p = E.unitPatterns(S, unit);
+  if (!p.repeated.length && !p.skills.length) {
+    return `<p>Nothing repeated yet. This section lists any wrong choice you have picked more than once on the same question, with the specific error it comes from, and any skill with several wrong answers among its last ${E.RECENT_WINDOW}.</p>`;
+  }
+  const skillName = (id) => esc(unit.skills.find((s) => s.id === id)?.name || id);
+  const repeated = p.repeated.map(({ question, choices }) => `<li>
+      <strong>${skillName(question.skillId)}</strong> — question ${esc(question.id)}:
+      ${choices.map((c) => `choice ${'ABCDE'[c.index]} picked ${c.count} times. ${c.misconception ? `This choice comes from: ${c.misconception}` : ''}`).join(' ')}
+      <details><summary>Show the question</summary>${question.prompt}</details>
+    </li>`).join('');
+  const skills = p.skills.map((x) => `<li><strong>${esc(x.skill.name)}</strong>: ${x.recentWrong} of the last ${x.recentTotal} answers were wrong (mastery ${x.score} / 100). Practice serves this skill first until it recovers.</li>`).join('');
+  return `${repeated ? `<p><strong>Same wrong choice, more than once:</strong></p><ul class="rules-list">${repeated}</ul>` : ''}
+    ${skills ? `<p><strong>Skills with several recent wrong answers:</strong></p><ul class="rules-list">${skills}</ul>` : ''}
+    <p class="session-progress">These are counts, not judgments. They exist so the specific error can be named and practiced.</p>`;
+}
+
 function viewUnit(requestedId) {
   const unit = CONTENT.units.get(requestedId);
   const m = CONTENT.manifest;
@@ -454,21 +483,23 @@ function viewUnit(requestedId) {
       ? `This unit is passed. You can keep practicing here any time, or continue to the next unit from <a href="#/home">Home</a>.`
       : eligible
         ? `All core skills are at mastery. The <strong>Mastery Check</strong> below is open — passing it unlocks Unit ${unit.number + 1}.`
-        : `Work through the lessons, then use <strong>Practice</strong> until every core skill reaches ${E.MASTERY_THRESHOLD} / 100. Then the Mastery Check opens.`)}
+        : `Complete the lessons, then use <strong>Practice</strong> until every core skill reaches ${E.MASTERY_THRESHOLD} / 100. Then the Mastery Check opens.`)}
     <h2>Skills in this unit</h2>
     <div class="card">${skillBars(unit)}
-      <p class="session-progress">Mastery is earned by answering correctly without hints, including at difficulty 2 or higher. Wrong answers lower the score — that is expected and recoverable.</p>
+      <p class="session-progress">Mastery is earned by answering correctly without hints, including at difficulty 2 or higher. Wrong answers lower the score; later correct answers raise it again.</p>
     </div>
+    <h2>Patterns in your answers</h2>
+    <div class="card">${patternsHtml(unit)}</div>
     <h2>Interactive explorers</h2>
     <div class="card">
-      <p>Each explorer is a picture you drive with a slider — nothing moves unless you move it. Open one, drag, and watch the numbers and the graph tell the same story.</p>
+      <p>Each explorer is a graph controlled by a slider or buttons. The graph changes only when you move a control. The table under each graph shows the numbers the graph is drawn from.</p>
       <div id="explorer-slots"></div>
     </div>
     <h2>Lessons</h2>
     ${lessonRows}
     <h2>Practice</h2>
     <div class="card">
-      <p>Adaptive practice serves ${m.practiceSetSize} questions per set, always targeting your weakest skill at the right difficulty.</p>
+      <p>A practice set has ${m.practiceSetSize} questions. Each question is chosen from your lowest-scoring skill at that skill's current difficulty level.</p>
       <div class="btn-row"><a class="btn" href="#/practice/${unitId}">Start a practice set</a></div>
     </div>
     <h2>Mastery Check</h2>
@@ -479,7 +510,7 @@ function viewUnit(requestedId) {
         <li>You need ${unit.masteryCheck.passCount} correct to pass.</li>
         <li>No hints during the check. No time limit.</li>
         <li>Results and full solutions appear after the last question, not during.</li>
-        <li>You can retake it as many times as you want — each retake draws a fresh set of questions. Nothing is lost by not passing.</li>
+        <li>You can retake it as many times as you want — each retake draws a new set of questions. Nothing is lost by not passing.</li>
       </ul>
       ${passed ? `<p class="tag passed" style="display:inline-block">Passed on ${new Date(S.unitsPassed[unitId].passedAt).toLocaleDateString()}</p>` : ''}
       ${eligible
@@ -599,7 +630,7 @@ function viewPractice(requestedId) {
       let streak = 0;
       for (let i = results.length - 1; i >= 0 && results[i].correct; i--) streak += 1;
       const sp = $('#set-progress', v);
-      if (sp) sp.textContent = `${results.filter((x) => x.correct).length} of ${results.length} correct so far${streak >= 2 ? ` · ${streak} in a row` : ''}.`;
+      if (sp) sp.textContent = `${results.filter((x) => x.correct).length} of ${results.length} correct so far${streak >= 2 ? ` · ${streak} consecutive correct` : ''}.`;
       askNext();
     });
   };
@@ -652,10 +683,10 @@ function viewMastery(requestedId) {
     <div class="card">
       <p><strong>Exactly what will happen:</strong></p>
       <ul class="rules-list">
-        <li>${questionCount} questions, one at a time. ${passCount} correct passes.</li>
+        <li>${questionCount} questions, one at a time. You need ${passCount} correct to pass.</li>
         <li>No hints. No time limit. After each answer you will only see "answer recorded".</li>
         <li>After question ${questionCount}, you get full results with every solution.</li>
-        <li>Passing unlocks Unit ${unit.number + 1}. Not passing changes nothing — you keep all progress and can retake with fresh questions.</li>
+        <li>Passing unlocks Unit ${unit.number + 1}. Not passing changes nothing — you keep all progress and can retake with a new set of questions.</li>
       </ul>
       <div class="btn-row">
         <button type="button" id="start-check">Start now</button>
@@ -699,11 +730,11 @@ function viewMastery(requestedId) {
         <h2>${passed ? `Passed: ${correct} of ${questions.length}.` : `Not passed yet: ${correct} of ${questions.length}. You need ${passCount}.`}</h2>
         ${passed
           ? `<p>Unit ${unit.number} is complete. Unit ${unit.number + 1} is now unlocked.</p>`
-          : `<p>This is information, not a setback: it shows exactly what to practice. Skills to revisit: ${weakSkills.map((sid) => esc(skillName(unit, sid))).join(', ') || '—'}.</p>`}
+          : `<p>Your progress is unchanged. The skills with incorrect answers are listed so you know what to practice. Skills to practice: ${weakSkills.map((sid) => esc(skillName(unit, sid))).join(', ') || '—'}.</p>`}
         <div class="btn-row">
           ${passed
             ? (CONTENT.byNumber.get(unit.number + 1) ? `<a class="btn" href="#/unit/unit-${String(unit.number + 1).padStart(2, '0')}">Go to Unit ${unit.number + 1}</a>` : `<a class="btn" href="#/home">Back to Home</a>`)
-            : `<a class="btn" href="#/practice/${unitId}">Practice the weak skills</a><button type="button" class="secondary" id="retake-btn">Retake with fresh questions</button>`}
+            : `<a class="btn" href="#/practice/${unitId}">Practice the listed skills</a><button type="button" class="secondary" id="retake-btn">Retake with new questions</button>`}
           <a class="btn quiet" href="#/unit/${unitId}">Back to Unit ${unit.number}</a>
         </div>
       </div>
@@ -728,9 +759,9 @@ function viewDiagnostic() {
     <div class="card">
       <p><strong>Exactly how this works:</strong></p>
       <ul class="rules-list">
-        <li>Questions come unit by unit, starting at Unit 1: two questions per unit, plus a third only if you get exactly one of the first two.</li>
-        <li>A unit places out when you answer 2 questions correctly. Hints are not available; you see whether you were right after each question.</li>
-        <li>The check stops at the first unit that does not place out, or whenever you press "Stop here". Stopping early loses nothing.</li>
+        <li>Questions come unit by unit, starting at Unit 1: two questions per unit, plus a third only if you answer exactly one of the first two correctly.</li>
+        <li>A unit counts as placed when you answer 2 of its questions correctly. Hints are not available; you see whether you were right after each question.</li>
+        <li>The check stops at the first unit that is not placed, or whenever you press "Stop here". Stopping early does not remove any progress.</li>
         <li>Result: all placed units unlock immediately and count as passed by placement. You can still practice or review them any time.</li>
       </ul>
       <div class="btn-row"><button type="button" id="diag-start">Begin with Unit 1</button><a class="btn secondary" href="#/home">Not now</a></div>
@@ -788,7 +819,7 @@ function viewDiagnostic() {
       slot.innerHTML = `<div class="card">
         <h2>Placement complete</h2>
         <p>${placedThrough === 0
-          ? 'You start at Unit 1 — the standard starting point. Nothing about this was a failure; it simply sets the right first step.'
+          ? 'You start at Unit 1. Unit 1 is the starting point for every learner who is not placed past it. No progress was removed.'
           : `Units 1 through ${placedThrough} are unlocked and marked passed by placement. Your next new material is Unit ${Math.min(placedThrough + 1, 10)}.`}</p>
         <div class="btn-row"><a class="btn" href="#/home">Go to Home</a>
         ${placedThrough < 10 ? `<a class="btn secondary" href="#/unit/unit-${String(Math.min(placedThrough + 1, 10)).padStart(2, '0')}">Open Unit ${Math.min(placedThrough + 1, 10)}</a>` : ''}</div>
@@ -806,12 +837,12 @@ function viewReview() {
   const due = E.reviewQueue(S, allUnits(), Date.now(), m.reviewAfterDays);
   if (!due.length) {
     return mountView(`<h1>Review</h1>
-      <p>Nothing is due for review right now. Skills come here after being mastered and then untouched for ${m.reviewAfterDays} days. Review is recommended, never required — it keeps mastery honest but never blocks progress.</p>
+      <p>Nothing is due for review right now. A skill appears here after it reaches mastery and then goes ${m.reviewAfterDays} days without being practiced. Review is recommended, never required; it never blocks progress.</p>
       <div class="btn-row"><a class="btn secondary" href="#/home">Back to Home</a></div>`,
       { breadcrumb: ['Home', 'Review'], nav: 'review' });
   }
   const sessionItems = due.slice(0, 6);
-  const listed = due.map((d) => `<li>${esc(d.skill.name)} (Unit ${d.unit.number}) — last exercised ${new Date(d.lastSeen).toLocaleDateString()}</li>`).join('');
+  const listed = due.map((d) => `<li>${esc(d.skill.name)} (Unit ${d.unit.number}) — last practiced ${new Date(d.lastSeen).toLocaleDateString()}</li>`).join('');
   const v = mountView(`
     <h1>Review</h1>
     <p>${due.length} skill${due.length > 1 ? 's are' : ' is'} due. This session covers up to ${sessionItems.length} of them, one question each, hints allowed.</p>
@@ -827,7 +858,7 @@ function viewReview() {
     const ask = () => {
       if (i >= sessionItems.length) {
         slot.innerHTML = `<div class="card"><h2>Review complete: ${correct} of ${sessionItems.length} correct</h2>
-          <p>Anything answered incorrectly has its mastery score adjusted, so adaptive practice in that unit will pick it up. Nothing was locked.</p>
+          <p>Each skill answered incorrectly now has a lower mastery score, so practice in that unit will select it more often. Nothing was locked.</p>
           <div class="btn-row"><a class="btn" href="#/home">Back to Home</a></div></div>`;
         announce('Review complete.');
         return;
@@ -869,17 +900,18 @@ function viewSettings() {
         <li>Mastery per skill is 0–100. Correct without hints raises it the most; hints give half credit; wrong answers lower it. Recent answers count more than old ones.</li>
         <li>A skill can only reach mastery (${E.MASTERY_THRESHOLD}) with correct answers at difficulty 2 or higher.</li>
         <li>The Mastery Check opens when all core skills reach ${E.MASTERY_THRESHOLD}, and passing it unlocks the next unit. Units never re-lock.</li>
+        <li>The app counts which wrong choice you picked on each question. Each unit page lists any choice picked twice or more under "Patterns in your answers", and the tutor (when enabled) is told those counts. These counts change nothing about scoring.</li>
         <li>Keyboard: Tab moves between controls, Enter or Space activates, Enter submits a typed answer.</li>
       </ul>
     </div>
     <div class="card">
       <h2>Your data</h2>
-      <p>Progress saves to this server and to this browser after every answer. It never leaves this app.</p>
+      <p>Progress is saved to this server and to this browser after every answer. It is not sent anywhere else.</p>
       <div class="btn-row">
         <button type="button" id="export-btn" class="secondary">Download my progress (JSON)</button>
         <label class="btn secondary" style="cursor:pointer">Import progress<input id="import-file" type="file" accept="application/json" class="visually-hidden"></label>
       </div>
-      <h3>Start over</h3>
+      <h3>Erase progress</h3>
       <p><label><input type="checkbox" id="reset-confirm"> I understand this erases all progress and cannot be undone.</label></p>
       <div class="btn-row"><button type="button" id="reset-btn" disabled>Erase all progress</button></div>
     </div>
