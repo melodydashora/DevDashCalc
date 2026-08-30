@@ -379,7 +379,12 @@ export function buildInsights(snapshot, now, opts = {}) {
       const item = planItem(course, a);
       const due = timeOf(a.dueAt);
       const lockTime = timeOf(a.lockAt);
-      const closed = a.lockedForUser || (lockTime !== null && lockTime <= now);
+      // Canvas sets locked_for_user for several causes (a passed lock date,
+      // module prerequisites, a future unlock date). Only a passed lock date
+      // proves the window is over; other locks are labeled separately so the
+      // guidance stays literally true.
+      const lockDatePassed = lockTime !== null && lockTime <= now;
+      const closed = a.lockedForUser || lockDatePassed;
       const missingFlag = Boolean(sub && sub.missing) || missingIdSet.has(a.id);
       const done = Boolean(sub && sub.submittedAt) || (sub && sub.workflowState === 'graded');
 
@@ -389,7 +394,7 @@ export function buildInsights(snapshot, now, opts = {}) {
       if (!done) {
         if ((due !== null && due < now) || missingFlag) {
           if (closed) {
-            plan.overdueClosed.push(item);
+            plan.overdueClosed.push({ ...item, lockKind: lockDatePassed ? 'date' : 'other' });
             row.overdueClosed += 1;
           } else {
             plan.overdueOpen.push(item);

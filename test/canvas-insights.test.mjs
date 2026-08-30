@@ -204,6 +204,8 @@ test('past-due work that Canvas has locked lands in overdue-closed, not overdue-
   const out = CI.buildInsights(makeSnapshot([makeCourse({ assignments: [byLockDate, byFlag, stillOpen] })]), NOW);
   assert.deepEqual(out.plan.overdueClosed.map((i) => i.assignmentId), ['a1', 'a2']);
   assert.deepEqual(out.plan.overdueOpen.map((i) => i.assignmentId), ['a3'], 'a future lock date keeps it open');
+  assert.equal(out.plan.overdueClosed[0].lockKind, 'date', 'a passed lock date is labeled as such');
+  assert.equal(out.plan.overdueClosed[1].lockKind, 'other', 'locked_for_user without a passed lock date is another kind of lock');
 });
 
 test('an excused assignment appears in no plan section and no attention list', () => {

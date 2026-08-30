@@ -105,7 +105,13 @@ class CanvasError extends Error {
 function parseCookies(req) {
   return Object.fromEntries(String(req.headers.cookie || '').split(';').map((part) => {
     const i = part.indexOf('=');
-    return i < 0 ? [] : [part.slice(0, i).trim(), decodeURIComponent(part.slice(i + 1))];
+    if (i < 0) return [];
+    const raw = part.slice(i + 1);
+    // A raw % is legal in a cookie value (RFC 6265), and another app or an
+    // extension can set one on this host — never let it throw.
+    let value;
+    try { value = decodeURIComponent(raw); } catch { value = raw; }
+    return [part.slice(0, i).trim(), value];
   }).filter((pair) => pair.length));
 }
 
@@ -157,6 +163,14 @@ async function canvasSessionOrStored(req, res) {
   if (found) return found;
   const stored = await canvasStoreLoad();
   if (!stored) return null;
+  // A cookie-less client with a remembered profile reuses the existing
+  // remembered session instead of minting one per request.
+  for (const [id, s] of canvasSessions) {
+    if (s.remembered && s.baseUrl === stored.baseUrl && s.token === stored.token && s.expiresAt > Date.now()) {
+      setCanvasCookie(req, res, id, CANVAS_SESSION_TTL_MS / 1000);
+      return { id, session: s };
+    }
+  }
   const candidate = { baseUrl: stored.baseUrl, token: stored.token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS, user: null, remembered: true };
   try {
     const user = await canvasGet(candidate, 'users/self');
@@ -166,6 +180,7 @@ async function canvasSessionOrStored(req, res) {
     console.error('[calc-coach] canvas: stored-profile reconnect failed:', e.message);
     return null;
   }
+  evictCanvasSessions();
   const id = randomUUID();
   canvasSessions.set(id, candidate);
   setCanvasCookie(req, res, id, CANVAS_SESSION_TTL_MS / 1000);
@@ -178,6 +193,24 @@ function setCanvasCookie(req, res, id, maxAgeSeconds) {
   const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
   res.setHeader('Set-Cookie',
     `canvas_session=${encodeURIComponent(id)}; Path=/api/canvas; HttpOnly; SameSite=Strict; Max-Age=${maxAgeSeconds}${secure}`);
+}
+
+// The sliding 8-hour expiry has to move the cookie too, not just the
+// in-memory session — otherwise the browser drops the cookie 8 hours after
+// connect and the renewed session becomes unreachable.
+function renewCanvasSession(req, res, found) {
+  found.session.expiresAt = Date.now() + CANVAS_SESSION_TTL_MS;
+  setCanvasCookie(req, res, found.id, CANVAS_SESSION_TTL_MS / 1000);
+}
+
+function evictCanvasSessions() {
+  while (canvasSessions.size >= CANVAS_MAX_SESSIONS) {
+    let oldest = null;
+    for (const [id, s] of canvasSessions) {
+      if (!oldest || s.expiresAt < oldest.expiresAt) oldest = { id, expiresAt: s.expiresAt };
+    }
+    canvasSessions.delete(oldest.id);
+  }
 }
 
 function canvasErrorFrom(status, data) {
@@ -233,9 +266,11 @@ async function canvasGetAll(session, endpoint, query = {}) {
     const { data, linkNext } = await canvasFetch(session, url);
     if (Array.isArray(data)) items.push(...data);
     if (!linkNext) return { items, truncated: false };
+    // A next link exists, so the list is provably incomplete if we stop here
+    // for any reason — that is truncation and is reported as such.
     let next;
-    try { next = new URL(linkNext); } catch { return { items, truncated: false }; }
-    if (next.origin !== origin) return { items, truncated: false };
+    try { next = new URL(linkNext); } catch { return { items, truncated: true }; }
+    if (next.origin !== origin) return { items, truncated: true };
     url = next;
   }
   return { items, truncated: true };
@@ -256,9 +291,15 @@ async function mapLimit(values, limit, fn) {
 }
 
 // A link is only shown to the learner when it points back into their own
-// Canvas instance.
+// Canvas instance — origin equality, not a prefix check, so a superstring
+// host such as school.edu.evil.com can never pass.
 function canvasSafeLink(baseUrl, htmlUrl) {
-  return typeof htmlUrl === 'string' && htmlUrl.startsWith(baseUrl) ? htmlUrl : null;
+  if (typeof htmlUrl !== 'string' || htmlUrl === '') return null;
+  try {
+    return new URL(htmlUrl).origin === new URL(baseUrl).origin ? htmlUrl : null;
+  } catch {
+    return null;
+  }
 }
 
 async function canvasSnapshot(session) {
@@ -273,8 +314,10 @@ async function canvasSnapshot(session) {
 
   let missingSubmissions = [];
   let missingSubmissionsError = null;
+  let missingSubmissionsTruncated = false;
   try {
     const page = await canvasGetAll(session, 'users/self/missing_submissions', { 'include[]': 'course_id' });
+    missingSubmissionsTruncated = page.truncated;
     missingSubmissions = page.items
       .map(normalizeMissingSubmission)
       .map((m) => ({ ...m, htmlUrl: canvasSafeLink(session.baseUrl, m.htmlUrl) }));
@@ -293,6 +336,7 @@ async function canvasSnapshot(session) {
       modules: [],
       assignments: [],
       assignmentsTruncated: false,
+      modulesTruncated: false,
       assignmentsError: null,
     };
     try {
@@ -318,13 +362,16 @@ async function canvasSnapshot(session) {
     }
     try {
       const page = await canvasGetAll(session, `courses/${course.id}/modules`, { 'include[]': 'items' });
+      result.modulesTruncated = page.truncated;
       result.modules = await mapLimit(page.items, 1, async (rawModule) => {
         let items = Array.isArray(rawModule?.items) ? rawModule.items : null;
         const moduleId = String(rawModule?.id ?? '');
         if (items === null && CANVAS_NUMERIC_ID.test(moduleId)) {
           // Canvas omits items for very large modules; fetch them directly.
           try {
-            items = (await canvasGetAll(session, `courses/${course.id}/modules/${moduleId}/items`)).items;
+            const itemsPage = await canvasGetAll(session, `courses/${course.id}/modules/${moduleId}/items`);
+            items = itemsPage.items;
+            if (itemsPage.truncated) result.modulesTruncated = true;
           } catch {
             items = null;
           }
@@ -350,6 +397,7 @@ async function canvasSnapshot(session) {
     coursesTruncated,
     missingSubmissions,
     missingSubmissionsError,
+    missingSubmissionsTruncated,
     courses,
   };
 }
@@ -357,11 +405,16 @@ async function canvasSnapshot(session) {
 // Calm, literal error sentences (invariant 3 applies to server strings too,
 // even though the language lint only scans client files). Detail stays in
 // the server log; the token appears in no message, ever.
-function sendCanvasError(req, res, e, sessionId) {
+// dropStored: when an ESTABLISHED session's token is rejected, the remembered
+// profile holds that same dead token and is deleted with it. A failed NEW
+// connect attempt (POST) passes false — its candidate token was never saved,
+// and a working remembered profile must not be deleted by a typo.
+async function sendCanvasError(req, res, e, sessionId, dropStored = true) {
   const kind = e instanceof CanvasError ? e.kind : 'canvas';
   console.error('[calc-coach] canvas:', kind, e instanceof CanvasError ? e.status : '', e.message);
   if (kind === 'auth') {
     if (sessionId) canvasSessions.delete(sessionId);
+    if (dropStored) await canvasStoreDelete();
     setCanvasCookie(req, res, '', 0);
     return sendJson(res, 401, {
       connected: false,
@@ -443,7 +496,7 @@ async function handleCanvasAssessment(req, res) {
   if (!providerChain().length) return sendJson(res, 200, { available: false });
   const found = await canvasSessionOrStored(req, res);
   if (!found) return sendJson(res, 401, { connected: false, reason: 'disconnected', error: 'Connect Canvas to ask for an assessment.' });
-  found.session.expiresAt = Date.now() + CANVAS_SESSION_TTL_MS;
+  renewCanvasSession(req, res, found); // sliding renewal, cookie included
   // The learner's term selection travels with the request so the assessment
   // sees the same lens as the plan and grades pages.
   let termIds = [];
@@ -478,6 +531,7 @@ async function handleCanvas(req, res, url) {
     if (req.method === 'GET') {
       const found = await canvasSessionOrStored(req, res);
       if (!found) return sendJson(res, 200, { connected: false });
+      renewCanvasSession(req, res, found);
       return sendJson(res, 200, {
         connected: true,
         user: found.session.user,
@@ -486,8 +540,9 @@ async function handleCanvas(req, res, url) {
       });
     }
     if (req.method === 'DELETE') {
-      const found = canvasSession(req);
-      if (found) canvasSessions.delete(found.id);
+      // Single-user app: Disconnect means the token leaves server memory
+      // entirely, not just the session this cookie names.
+      canvasSessions.clear();
       await canvasStoreDelete();
       setCanvasCookie(req, res, '', 0);
       return sendJson(res, 200, { connected: false });
@@ -506,18 +561,12 @@ async function handleCanvas(req, res, url) {
         const user = await canvasGet(candidate, 'users/self');
         candidate.user = { id: String(user?.id ?? ''), name: String(user?.name || 'Canvas learner') };
       } catch (e) {
-        return sendCanvasError(req, res, e, null);
+        return sendCanvasError(req, res, e, null, false);
       }
       if (remember) await canvasStoreSave(baseUrl, token);
       else await canvasStoreDelete();
       // Oldest-first eviction keeps the store bounded even if the form loops.
-      while (canvasSessions.size >= CANVAS_MAX_SESSIONS) {
-        let oldest = null;
-        for (const [id, s] of canvasSessions) {
-          if (!oldest || s.expiresAt < oldest.expiresAt) oldest = { id, expiresAt: s.expiresAt };
-        }
-        canvasSessions.delete(oldest.id);
-      }
+      evictCanvasSessions();
       const id = randomUUID();
       canvasSessions.set(id, candidate);
       setCanvasCookie(req, res, id, CANVAS_SESSION_TTL_MS / 1000);
@@ -530,7 +579,7 @@ async function handleCanvas(req, res, url) {
     if (req.method !== 'GET') return sendJson(res, 405, { error: 'use GET' });
     const found = await canvasSessionOrStored(req, res);
     if (!found) return sendJson(res, 401, { connected: false, reason: 'disconnected', error: 'Connect Canvas to load this data.' });
-    found.session.expiresAt = Date.now() + CANVAS_SESSION_TTL_MS; // sliding renewal
+    renewCanvasSession(req, res, found); // sliding renewal, cookie included
     try {
       return sendJson(res, 200, await canvasSnapshot(found.session));
     } catch (e) {

@@ -961,7 +961,7 @@ function viewSettings() {
 // is kept in S, localStorage, or the progress export, so exporting Calc
 // Coach progress can never expose Canvas data. Course and assignment names
 // are external data and are shown as Canvas reports them.
-const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, note: '' };
+const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, assessment: null, note: '' };
 
 const canvasDateTime = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : null);
 const canvasDateOnly = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)) : null);
@@ -983,14 +983,18 @@ async function canvasEnsureSession() {
   if (CANVAS.checked) return;
   try {
     const { res, data } = await canvasApi('/api/canvas/session');
-    CANVAS.connected = Boolean(res.ok && data && data.connected);
-    CANVAS.user = CANVAS.connected ? data.user : null;
-    CANVAS.host = CANVAS.connected ? String(data.host || '') : '';
-    CANVAS.remembered = Boolean(CANVAS.connected && data.remembered);
+    if (res.ok) {
+      CANVAS.connected = Boolean(data && data.connected);
+      CANVAS.user = CANVAS.connected ? data.user : null;
+      CANVAS.host = CANVAS.connected ? String(data.host || '') : '';
+      CANVAS.remembered = Boolean(CANVAS.connected && data.remembered);
+      CANVAS.checked = true; // only a definitive answer is cached
+    } else {
+      CANVAS.connected = false; // transient server trouble: probe again next visit
+    }
   } catch {
-    CANVAS.connected = false;
+    CANVAS.connected = false; // network hiccup: probe again next visit
   }
-  CANVAS.checked = true;
 }
 
 // Loads one consistent snapshot and computes the insights from it. Returns
@@ -1086,7 +1090,7 @@ function wireCanvasControls(root, rerender) {
     disconnect.addEventListener('click', async () => {
       try { await canvasApi('/api/canvas/session', { method: 'DELETE' }); } catch { /* removing a session that is already gone is fine */ }
       CANVAS.connected = false; CANVAS.user = null; CANVAS.host = ''; CANVAS.remembered = false;
-      CANVAS.snapshot = null; CANVAS.insights = null;
+      CANVAS.snapshot = null; CANVAS.insights = null; CANVAS.terms = []; CANVAS.termIds = null; CANVAS.assessment = null;
       CANVAS.note = 'Canvas is disconnected. The token is out of server memory and the saved copy is deleted.';
       announce('Canvas is disconnected.');
       rerender();
@@ -1190,6 +1194,8 @@ function canvasItemHtml(item, attention) {
   if (item.missing) tags.push('<span class="tag">Marked missing in Canvas</span>');
   if (item.late && item.submittedAt) tags.push('<span class="tag">Submitted late</span>');
   if (item.isQuiz) tags.push('<span class="tag">Quiz</span>');
+  if (item.lockKind === 'date') tags.push('<span class="tag">Lock date passed</span>');
+  else if (item.lockKind === 'other') tags.push('<span class="tag">Locked in Canvas</span>');
   const link = item.htmlUrl ? ` <a href="${esc(item.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas (new tab)</a>` : '';
   return `<div class="canvas-item${attention ? ' attention' : ''}">
     <div><strong>${esc(item.name)}</strong><span class="canvas-meta">${esc(item.courseName)}</span></div>
@@ -1241,6 +1247,7 @@ function viewCanvas() {
     const notes = [];
     if (snap.coursesTruncated) notes.push('Canvas returned more active courses than could be loaded; the first 15 by name are shown.');
     if (snap.missingSubmissionsError) notes.push(snap.missingSubmissionsError);
+    if (snap.missingSubmissionsTruncated) notes.push('Canvas returned more missing-assignment entries than could be loaded; that list is incomplete.');
     const courseRows = ins.perCourse.map((row) => {
       const score = row.score === null ? 'No current score' : `Current score ${row.score}${row.grade ? ` (${esc(row.grade)})` : ''}`;
       return `<a class="canvas-course" href="#/canvas/course/${esc(row.courseId)}">
@@ -1287,8 +1294,8 @@ function viewCanvasPlan() {
         <div><strong>${esc(g.courseName)}</strong></div>
         <div class="canvas-item-side"><span class="canvas-meta">${g.requirementCompletedCount} of ${g.requirementCount} requirements complete</span></div>
       </div>`).join('')}</div>` : '';
-    const closed = ins.plan.overdueClosed.length ? `<h3>Past due and closed in Canvas (${ins.plan.overdueClosed.length})</h3>
-      <p class="canvas-meta">Canvas no longer accepts a submission for these. The next step is to continue with the plan above. If you want more time, you can ask the teacher.</p>
+    const closed = ins.plan.overdueClosed.length ? `<h3>Past due and locked in Canvas (${ins.plan.overdueClosed.length})</h3>
+      <p class="canvas-meta">Canvas is not accepting a submission for these right now. The next step is to continue with the plan above. Where the tag reads Lock date passed, the window is over and you can ask the teacher for more time. Where it reads Locked in Canvas, the assignment page in Canvas shows the reason, such as module steps that come first.</p>
       <div class="canvas-list">${ins.plan.overdueClosed.map((i) => canvasItemHtml(i, false)).join('')}</div>
       <details class="explorer-details"><summary>Text you can copy to request more time</summary>
         <div class="explorer-body">
@@ -1364,21 +1371,26 @@ function viewCanvasGrades() {
 }
 
 function viewCanvasAssessment() {
-  canvasPage(() => `<div class="card">
+  canvasPage(() => {
+    const prior = CANVAS.assessment ? `
+      <h3>Latest assessment</h3>
+      <p class="canvas-meta">Generated ${esc(canvasDateTime(new Date(CANVAS.assessment.at).toISOString()) || '')} from a fresh pull of your Canvas data. It is kept until you leave or reload the app.</p>
+      <div class="canvas-assessment">${CANVAS.assessment.text.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('')}</div>` : '';
+    return `<div class="card">
       <h2>Assessment</h2>
       <p class="canvas-meta">The assessment is written by the same AI service as the math tutor, from the Canvas data shown on The plan and Grades. It never receives your token. Canvas data is authoritative; where the assessment and Canvas disagree, Canvas is right.</p>
       ${TUTOR.available ? `
-      <p>Selecting the button pulls a fresh copy of your Canvas data, applies the same term selection as the other pages, and shows the AI service's written assessment here: the overall picture, what is going well, problem areas by course, and a suggested order of work. Nothing is saved and nothing runs on its own.</p>
-      <div class="btn-row"><button type="button" class="canvas-assess-btn">Ask for an assessment</button></div>
+      <p>Selecting the button pulls a fresh copy of your Canvas data, applies the same term selection as the other pages, and shows the AI service's written assessment here: the overall picture, what is going well, problem areas by course, and a suggested order of work. Nothing runs on its own.</p>
+      <div class="btn-row"><button type="button" class="canvas-assess-btn">${CANVAS.assessment ? 'Ask for a new assessment' : 'Ask for an assessment'}</button></div>
       <p class="canvas-meta canvas-assess-status"></p>
-      <div class="canvas-assessment" hidden></div>`
+      ${prior}`
     : '<p>No AI service is configured on this server, so the assessment is unavailable. The plan and Grades pages work without it. To enable it, set an API key in Replit Secrets as described in the README.</p>'}
-    </div>`,
+    </div>`;
+  },
   ['Canvas', 'Assessment'], 'assessment', (body) => {
     const btn = $('.canvas-assess-btn', body);
     if (!btn) return;
     const status = $('.canvas-assess-status', body);
-    const out = $('.canvas-assessment', body);
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       status.textContent = 'Waiting for the assessment. This usually takes under a minute.';
@@ -1389,19 +1401,21 @@ function viewCanvasAssessment() {
           body: JSON.stringify({ termIds: CANVAS.termIds || [] }),
         });
         if (data && data.available === false) {
-          status.textContent = 'No AI service is configured on this server.';
+          if (status.isConnected) { status.textContent = 'No AI service is configured on this server.'; btn.disabled = false; }
           return;
         }
         if (!res.ok || !data || !data.text) throw new Error((data && data.error) || `HTTP ${res.status}`);
-        out.hidden = false;
-        out.innerHTML = data.text.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
-        status.textContent = 'This assessment was generated just now from a fresh pull of your Canvas data.';
+        // The finished assessment lives in CANVAS state, not in this page's
+        // DOM, so navigating away while it was being written cannot lose it.
+        CANVAS.assessment = { text: data.text, at: Date.now() };
         announce('Assessment ready.');
+        if ((location.hash || '') === '#/canvas/assessment') router();
       } catch (e) {
-        status.textContent = 'The assessment could not be created this time. Your progress is unaffected; you can try again.';
         console.warn('Canvas assessment failed:', e);
-      } finally {
-        btn.disabled = false;
+        if (status.isConnected) {
+          status.textContent = 'The assessment could not be created this time. Your progress is unaffected; you can try again.';
+          btn.disabled = false;
+        }
       }
     });
   });
@@ -1467,6 +1481,7 @@ function viewCanvasCourse(courseId) {
       <p class="canvas-meta">${esc(course.courseCode || 'Canvas course')}${course.term ? ` · ${esc(course.term.name)}` : ''}${course.score !== null ? ` · Current score ${course.score}${course.grade ? ` (${esc(course.grade)})` : ''}` : ' · No current score'}</p>
       ${course.assignmentsError ? `<p class="canvas-note">${esc(course.assignmentsError)}</p>` : ''}
       ${course.assignmentsTruncated ? '<p class="canvas-meta">Canvas returned more assignments than could be loaded; the list below is incomplete.</p>' : ''}
+      ${course.modulesTruncated ? '<p class="canvas-meta">Canvas returned more modules or module items than could be loaded; the module list below is incomplete.</p>' : ''}
       ${stats}
       ${modules}
       <h3>Assignments (${course.assignments.length})</h3>
