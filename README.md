@@ -90,6 +90,31 @@ Everything below is deterministic and visible to the learner in-app (Settings �
 - **Full keyboard operability**, visible focus outlines, `aria-live` result
   announcements, adjustable text size, and light/dark/system themes.
 
+## Optional: the AI tutor
+
+Set `ANTHROPIC_API_KEY` in the environment (on Replit: **Tools → Secrets →
+add `ANTHROPIC_API_KEY`**) and a "Talk it through with the tutor" button
+appears on every answer's feedback panel. The tutor (Claude, `claude-opus-5`)
+diagnoses where the learner's specific answer diverged from the correct path
+and answers follow-up questions about the problem, in the same literal, calm
+style as the rest of the app.
+
+Guardrails, by design:
+
+- **Grounded, never authoritative.** Every request includes the verified
+  answer and solution as ground truth; the tutor is instructed never to
+  contradict them and never to invent a different final answer. Grading is
+  always done by the app against the verified key — the tutor only explains.
+- **Private.** Only the question content and the learner's answer to that
+  question are sent. No name, no progress data, no history from other
+  questions. The follow-up conversation lives in memory and is discarded when
+  the learner moves on.
+- **Optional.** Without the key, the endpoint reports unavailable and the
+  button never renders; the app is fully functional.
+- **Zero-dependency.** The server calls the Anthropic Messages API over raw
+  HTTPS with Node's built-in `fetch` (no SDK), keeping the no-`npm install`
+  guarantee.
+
 ## Architecture
 
 ```

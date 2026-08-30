@@ -7,6 +7,7 @@ import { explorersFor, mountExplorer, explorerTitle } from '/viz.js';
 
 // ---------------------------------------------------------------- data & state
 const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [] };
+const TUTOR = { available: false };
 let S = null;                // progress state (engine shape + app extras)
 let saveTimer = null;
 let tickTimer = null;        // optional elapsed-time display
@@ -35,6 +36,82 @@ function renderMath(container) {
 }
 
 function announce(text) { $('#live-region').textContent = text; }
+
+// ------------------------------------------------------------------ AI tutor
+// Renders only when the server reports ANTHROPIC_API_KEY is configured.
+// Conversation lives in memory per question; only this question's content and
+// the learner's answer to it are sent to the server.
+function mountTutor(container, unit, q, ctx) {
+  if (!TUTOR.available) return;
+  container.innerHTML = `<div class="btn-row"><button type="button" class="secondary tutor-open">Talk it through with the tutor</button></div>`;
+  $('.tutor-open', container).addEventListener('click', () => {
+    container.innerHTML = `<div class="tutor-panel">
+      <h3>Tutor</h3>
+      <p class="viz-note">The tutor sees this question, the verified solution, and your answer — nothing else. It explains; the app's verified solution stays the authority.</p>
+      <div class="tutor-log" aria-live="polite"></div>
+      <p class="tutor-status"></p>
+      <div class="numeric-row tutor-ask-row" hidden>
+        <label for="tutor-in" class="visually-hidden">Ask a follow-up question</label>
+        <input id="tutor-in" type="text" autocomplete="off" placeholder="Ask a follow-up about this problem">
+        <button type="button" class="tutor-send">Send</button>
+      </div>
+    </div>`;
+    const log = $('.tutor-log', container);
+    const status = $('.tutor-status', container);
+    const askRow = $('.tutor-ask-row', container);
+    const input = $('#tutor-in', container);
+    const sendBtn = $('.tutor-send', container);
+    const transcript = [];
+
+    const addMsg = (role, text) => {
+      const div = document.createElement('div');
+      div.className = `tutor-msg ${role}`;
+      const paragraphs = esc(text).split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+      div.innerHTML = `<span class="tutor-who">${role === 'user' ? 'You' : 'Tutor'}</span>${paragraphs}`;
+      log.appendChild(div);
+      renderMath(div);
+    };
+
+    const ask = async (followUp) => {
+      status.textContent = 'The tutor is thinking. This usually takes under a minute.';
+      askRow.hidden = true;
+      sendBtn.disabled = true;
+      try {
+        const res = await fetch('/api/tutor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            unitId: unit.id, questionId: q.id,
+            learnerAnswer: ctx.learnerAnswer, correct: ctx.correct,
+            followUp: followUp || undefined,
+            transcript,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        if (followUp) transcript.push({ role: 'user', text: followUp });
+        transcript.push({ role: 'assistant', text: data.text });
+        addMsg('assistant', data.text);
+        status.textContent = '';
+      } catch (e) {
+        status.textContent = 'The tutor could not answer this time. Your progress here is unaffected; you can try again.';
+        console.warn('tutor:', e.message);
+      }
+      askRow.hidden = false;
+      sendBtn.disabled = false;
+    };
+
+    sendBtn.addEventListener('click', () => {
+      const text = input.value.trim();
+      if (!text) return;
+      addMsg('user', text);
+      input.value = '';
+      ask(text);
+    });
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendBtn.click(); });
+    ask(null);
+  });
+}
 
 // ---------------------------------------------------------------- persistence
 function ensureAppFields(state) {
@@ -261,6 +338,7 @@ function mountQuestion(container, unit, q, opts, done) {
           <h3>Correct.</h3>
           ${hintsUsed > 0 ? `<p>You used ${hintsUsed} hint${hintsUsed > 1 ? 's' : ''}, so this counts as partial credit toward mastery. Solving without hints counts fully.</p>` : ''}
           <details><summary>Show the full solution</summary>${solutionHtml}</details>
+          <div class="tutor-slot"></div>
           <div class="btn-row"><button type="button" class="next-btn">Continue</button></div>
         </div>`;
         announce('Correct.');
@@ -270,6 +348,7 @@ function mountQuestion(container, unit, q, opts, done) {
           ${grade.misconception ? `<p><strong>About this choice:</strong> ${grade.misconception}</p>` : ''}
           <p><strong>Here is the complete solution:</strong></p>
           ${solutionHtml}
+          <div class="tutor-slot"></div>
           <div class="viz-slot"></div>
           <div class="btn-row"><button type="button" class="next-btn">Continue</button></div>
         </div>`;
@@ -285,6 +364,13 @@ function mountQuestion(container, unit, q, opts, done) {
       }
     }
     renderMath(fbArea);
+    const tutorSlot = $('.tutor-slot', fbArea);
+    if (tutorSlot) {
+      const learnerAnswer = q.type === 'mc'
+        ? (selected !== null ? `choice ${'ABCDE'[selected]} (${q.choices[selected]})` : '(none)')
+        : String(response);
+      mountTutor(tutorSlot, unit, q, { learnerAnswer, correct: grade.correct });
+    }
     $('.next-btn', fbArea).addEventListener('click', () => done({ correct: grade.correct, hintsUsed, response }));
     $('.next-btn', fbArea).focus();
   });
@@ -858,6 +944,7 @@ async function boot() {
     S = await loadProgress();
     applySettings();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
+    fetch('/api/tutor').then((r) => r.json()).then((d) => { TUTOR.available = Boolean(d.available); }).catch(() => {});
     await loadContent();
     window.addEventListener('hashchange', router);
     router();
