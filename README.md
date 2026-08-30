@@ -118,7 +118,8 @@ re-asked elsewhere.
 | Google Gemini | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) | `TUTOR_MODEL_GEMINI`, default `gemini-2.5-pro` |
 
 `TUTOR_PROVIDERS="anthropic,openai,gemini"` reorders or limits the chain.
-`GET /api/tutor` reports the active chain. Whichever provider answers, the
+`GET /api/tutor` reports the active chain (vendor names only; model ids never
+reach the browser). Whichever provider answers, the
 same system prompt and the same guardrails below apply, and the question
 content plus attempt counts described under "Private" are what it receives.
 

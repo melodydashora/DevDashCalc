@@ -220,7 +220,8 @@ function historyLines(q, history, chosenIndex, correct) {
 
 async function handleTutor(req, res, url) {
   const chain = providerChain();
-  if (req.method === 'GET') return sendJson(res, 200, { available: chain.length > 0, providers: chain, model: chain.length ? ADAPTERS[chain[0]].model() : null });
+  // Reports availability and the vendor chain only; model ids never reach the browser.
+  if (req.method === 'GET') return sendJson(res, 200, { available: chain.length > 0, providers: chain });
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'use GET or POST' });
   if (!chain.length) return sendJson(res, 200, { available: false });
 
