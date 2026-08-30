@@ -425,10 +425,11 @@ function viewHome() {
 }
 
 // ---------------------------------------------------------------- views: unit
-function viewUnit(unitId) {
-  const unit = CONTENT.units.get(unitId);
+function viewUnit(requestedId) {
+  const unit = CONTENT.units.get(requestedId);
   const m = CONTENT.manifest;
-  if (!unit) return mountView(`<h1>Unit not found</h1><p>The unit "${esc(unitId)}" did not load. <a href="#/home">Back to Home</a>.</p>`, { breadcrumb: ['Home'] });
+  if (!unit) return mountView(`<h1>Unit not found</h1><p>That unit did not load. <a href="#/home">Back to Home</a>.</p>`, { breadcrumb: ['Home'] });
+  const unitId = unit.id; // canonical id from content, not from the URL hash
   if (!E.unitUnlocked(S, m, unit.number)) {
     return mountView(`<h1>Unit ${unit.number} is locked</h1>
       <p>To unlock it, pass the Mastery Check for Unit ${unit.number - 1}. That rule never changes.</p>
@@ -507,10 +508,11 @@ function viewUnit(unitId) {
 }
 
 // -------------------------------------------------------------- views: lesson
-function viewLesson(unitId, lessonId) {
-  const unit = CONTENT.units.get(unitId);
-  const lesson = unit?.lessons.find((l) => l.id === lessonId);
+function viewLesson(requestedUnitId, requestedLessonId) {
+  const unit = CONTENT.units.get(requestedUnitId);
+  const lesson = unit?.lessons.find((l) => l.id === requestedLessonId);
   if (!unit || !lesson) return mountView(`<h1>Lesson not found</h1><p><a href="#/home">Back to Home</a></p>`, { breadcrumb: ['Home'] });
+  const unitId = unit.id, lessonId = lesson.id; // canonical ids from content
 
   const idx = unit.lessons.indexOf(lesson);
   const next = unit.lessons[idx + 1];
@@ -566,10 +568,11 @@ function viewLesson(unitId, lessonId) {
 }
 
 // ------------------------------------------------------------ views: practice
-function viewPractice(unitId) {
-  const unit = CONTENT.units.get(unitId);
+function viewPractice(requestedId) {
+  const unit = CONTENT.units.get(requestedId);
   const m = CONTENT.manifest;
   if (!unit) return mountView(`<h1>Unit not found</h1><p><a href="#/home">Back to Home</a></p>`, { breadcrumb: ['Home'] });
+  const unitId = unit.id; // canonical id from content
   const setSize = m.practiceSetSize;
   const before = Object.fromEntries(unit.skills.map((sk) => [sk.id, E.masteryScore(S, sk.id)]));
   const recentIds = [];
@@ -633,9 +636,10 @@ function viewPractice(unitId) {
 }
 
 // ------------------------------------------------------------- views: mastery
-function viewMastery(unitId) {
-  const unit = CONTENT.units.get(unitId);
+function viewMastery(requestedId) {
+  const unit = CONTENT.units.get(requestedId);
   if (!unit) return mountView(`<h1>Unit not found</h1><p><a href="#/home">Back to Home</a></p>`, { breadcrumb: ['Home'] });
+  const unitId = unit.id; // canonical id from content
   if (!E.masteryCheckEligible(S, unit)) {
     return mountView(`<h1>Mastery Check not open yet</h1>
       <p>It opens when every core skill in Unit ${unit.number} reaches ${E.MASTERY_THRESHOLD} / 100. <a href="#/unit/${unitId}">Back to the unit</a>.</p>`,
@@ -924,10 +928,19 @@ function applySettings() {
   document.documentElement.dataset.textsize = s.textSize || 'medium';
 }
 
+// Route params come from location.hash — user-controllable via a crafted
+// link. They are validated against a strict allowlist here, and every view
+// additionally switches to the matched content object's own id (unit.id,
+// lesson.id) before building any HTML, so hash-derived strings never reach
+// innerHTML.
+const SAFE_ID = /^[a-z0-9-]{1,64}$/;
+
 function router() {
   const hash = location.hash || '#/home';
   const parts = hash.slice(2).split('/');
-  const [route, a, b] = parts;
+  let [route, a, b] = parts;
+  if (a !== undefined && !SAFE_ID.test(a)) { a = undefined; route = 'home'; }
+  if (b !== undefined && !SAFE_ID.test(b)) { b = undefined; route = 'home'; }
   if (route === 'home' || route === '') viewHome();
   else if (route === 'unit' && a) viewUnit(a);
   else if (route === 'lesson' && a && b) viewLesson(a, b);
