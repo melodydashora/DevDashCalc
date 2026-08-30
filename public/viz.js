@@ -541,6 +541,7 @@ EXPLORERS['taylor-series'] = {
 // ----------------------------------------------------- mapping & mounting
 const KEYWORD_MAP = [
   [/riemann|trapezoid|sum|accumulat/, 'riemann-sum'],
+  [/rectilinear|velocity|accelerat/, 'secant-tangent'],
   [/taylor|maclaurin|lagrange|power|polynomial-approx/, 'taylor-series'],
   [/series|converg|diverg|geometric|ratio|harmonic|alternat|p-series|comparison/, 'series-partial-sums'],
   [/polar/, 'polar-area'],
