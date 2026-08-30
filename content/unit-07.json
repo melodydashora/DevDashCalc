@@ -1,0 +1,1779 @@
+{
+ "id": "unit-07",
+ "number": 7,
+ "title": "Differential Equations",
+ "overview": "This unit covers equations that relate a function to its own derivative. You will translate verbal descriptions such as \"the rate is proportional to the difference\" into differential equations, verify proposed solutions by substitution, read slope fields to predict the behavior of solutions without solving, approximate solutions numerically with Euler's method, and solve separable equations exactly, including finding the particular solution and its domain from an initial condition. The exponential model dy/dt = ky and the BC-only logistic model dP/dt = kP(1 - P/L) are the two applied models the exam asks about most often. Differential equations are 6-9% of the BC exam and appear in one free-response question almost every year, usually combining separation of variables with a slope field or an Euler's method step. The techniques rely on the antiderivatives from Unit 6, the chain rule and implicit differentiation from Unit 3, and the tangent-line approximation and concavity reasoning from Units 4 and 5.",
+ "skills": [
+  {
+   "id": "u7-modeling-and-verifying",
+   "name": "Writing differential equations from descriptions and verifying solutions",
+   "core": true
+  },
+  {
+   "id": "u7-slope-fields",
+   "name": "Sketching and reasoning with slope fields",
+   "core": true
+  },
+  {
+   "id": "u7-euler-method",
+   "name": "Euler's method (BC)",
+   "core": true
+  },
+  {
+   "id": "u7-separation-of-variables",
+   "name": "Finding general solutions by separation of variables",
+   "core": true
+  },
+  {
+   "id": "u7-particular-solutions",
+   "name": "Particular solutions, initial conditions, and domains",
+   "core": true
+  },
+  {
+   "id": "u7-exponential-models",
+   "name": "Exponential growth and decay models",
+   "core": true
+  },
+  {
+   "id": "u7-logistic-models",
+   "name": "Logistic growth models (BC)",
+   "core": true
+  }
+ ],
+ "lessons": [
+  {
+   "id": "u7-l1",
+   "title": "Modeling with differential equations and verifying solutions",
+   "skillIds": [
+    "u7-modeling-and-verifying"
+   ],
+   "estMinutes": 18,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>differential equation</strong> is an equation that contains a derivative of an unknown function. The unknown is the function itself, not a number. The equation $\\frac{dy}{dx} = 6 - 2y$ is a differential equation whose unknown is the function $y(x)$. The <strong>order</strong> of a differential equation is the highest derivative that appears in it: $\\frac{dy}{dx} = 6 - 2y$ is first order, and $x^2 y'' - 6y = 0$ is second order. Almost every equation on the BC exam is first order.</p><p>A <strong>solution</strong> of a differential equation on an interval is a function that makes the equation a true statement for every $x$ in that interval when the function and its derivatives are substituted. A solution is not a number, and agreement at a few values of $x$ is not enough; the two sides must agree as an <strong>identity</strong>, an equation that is true for every value of the variable, over the whole interval.</p><p>A first-order equation usually has infinitely many solutions that differ by one arbitrary constant $C$. The whole family, written with $C$ left unspecified, is the <strong>general solution</strong>. One member of the family, selected by an <strong>initial condition</strong> such as $y(0) = 5$, is a <strong>particular solution</strong>. Lessons 4 and 5 use the same three terms.</p><p>Modeling questions give a sentence and ask for the equation. The phrase \"the rate of change of $y$ with respect to $t$\" always means $\\frac{dy}{dt}$, and \"is proportional to\" always means \"equals a constant $k$ times\". The standard translations are:</p><table><thead><tr><th>Verbal statement</th><th>Differential equation</th></tr></thead><tbody><tr><td>the rate of change of $y$ is proportional to $y$</td><td>$\\frac{dy}{dt} = ky$</td></tr><tr><td>proportional to the difference between $y$ and a constant $a$</td><td>$\\frac{dy}{dt} = k(y - a)$</td></tr><tr><td>proportional to the product of $y$ and $L - y$</td><td>$\\frac{dy}{dt} = ky(L - y)$</td></tr><tr><td>inversely proportional to $y$</td><td>$\\frac{dy}{dt} = \\frac{k}{y}$</td></tr></tbody></table><p>The <strong>constant of proportionality</strong> $k$ is a fixed real number whose value is not known from the sentence alone. Its sign carries meaning: in $\\frac{dy}{dt} = ky$ with $y > 0$, the quantity grows when $k > 0$ and decays when $k < 0$. Its units are $1$ over the units of $t$, because $\\frac{dy}{dt}$ has units of $y$ per unit of $t$ and the product $ky$ must have the same units; if $t$ is measured in hours, $k$ is measured in $\\text{hour}^{-1}$. Write the equation with $k$ as a symbol unless the problem supplies its value or supplies data from which its value can be computed.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Verify that $y = 3 + Ce^{-2x}$ solves $\\dfrac{dy}{dx} = 6 - 2y$ for every $C$, then find the particular solution with $y(0) = 5$",
+     "steps": [
+      {
+       "text": "Compute the left side of the equation from the candidate. The derivative of the constant $3$ is $0$, $C$ is a constant factor, and the chain rule supplies the factor $-2$ from the exponent.",
+       "math": "\\frac{dy}{dx} = 0 + C \\cdot e^{-2x} \\cdot (-2) = -2Ce^{-2x}"
+      },
+      {
+       "text": "Compute the right side of the equation by substituting the candidate for $y$ and simplifying.",
+       "math": "6 - 2y = 6 - 2\\left(3 + Ce^{-2x}\\right) = 6 - 6 - 2Ce^{-2x} = -2Ce^{-2x}"
+      },
+      {
+       "text": "Both sides equal $-2Ce^{-2x}$ for every real $x$ and for every value of $C$. No condition on $C$ remained, so every member of the family $y = 3 + Ce^{-2x}$ is a solution. The check is complete."
+      },
+      {
+       "text": "Apply the initial condition to the family. Substitute $x = 0$ and use $e^{0} = 1$.",
+       "math": "y(0) = 3 + Ce^{0} = 3 + C = 5 \\implies C = 2"
+      },
+      {
+       "text": "State the particular solution. As a consistency check, $y(0) = 3 + 2 = 5$ matches the condition, and $\\frac{dy}{dx} = -4e^{-2x}$ is negative for all $x$, which agrees with the equation, since $y > 3$ makes $6 - 2y$ negative.",
+       "math": "y = 3 + 2e^{-2x}"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q001",
+      "u7-q002"
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A differential equation is a specification. The equation $\\frac{dy}{dx} = 6 - 2y$ says: for every input $x$, the derivative of the implementation at $x$ must equal $6$ minus twice its value at $x$. It is an invariant that must hold at every $x$, the same way a postcondition such as <code>assert isSorted(result)</code> must hold on every call, not on a typical one. A candidate function is an implementation, and verifying it is a property test: substitute the candidate into both sides and check that <code>lhs(x) === rhs(x)</code>.</p><p>Where the analogy holds: checking is cheaper than synthesis. Differentiating $3 + Ce^{-2x}$ and comparing is mechanical; writing the function from the specification, which Lesson 4 does by separation of variables, is the hard direction, in the same way that checking a proposed output against a spec is easier than generating the output. The general solution is one specification with infinitely many conforming implementations distinguished by the parameter $C$, like a spec that fixes behavior up to one free configuration value, and an initial condition is the configuration entry that selects one implementation.</p><p>Where it breaks: a property test samples inputs, and a differential equation cannot be verified by sampling. The two sides of an equation could agree at several sampled $x$ values while the identity fails elsewhere, so the check must be carried out symbolically, as an algebraic identity in $x$ over the whole interval. The verification is a proof, not a test run. A second difference is the quantifier over $C$. Verifying a family means the constant must cancel completely from the comparison; a candidate for which the two sides agree only when $C$ takes one specific value has produced a single solution, not a family, and a test suite has no built-in notion of a parameter that must drop out.</p>"
+    },
+    {
+     "type": "concept",
+     "html": "<p>Some questions give a candidate with an unknown exponent or coefficient and ask for the value that makes it a solution. The method is the same substitution, followed by algebra on the unknown. For a candidate $y = x^n$, compute $y' = nx^{n-1}$ and $y'' = n(n - 1)x^{n-2}$, substitute, and divide out the common power of $x$; what remains is a polynomial equation in $n$. For a candidate $y = e^{rx}$, compute $y' = re^{rx}$ and $y'' = r^2 e^{rx}$, substitute, and divide out $e^{rx}$, which is never zero; what remains is a polynomial equation in $r$. Solve it and keep only the roots that satisfy any restriction the problem states, such as \"$n$ is positive\".</p><p>For example, with $y = e^{rx}$ in $y'' - 5y' + 6y = 0$:</p><p>$$r^2 e^{rx} - 5re^{rx} + 6e^{rx} = e^{rx}\\left(r^2 - 5r + 6\\right) = e^{rx}(r - 2)(r - 3) = 0$$</p><p>so $r = 2$ or $r = 3$, and both $e^{2x}$ and $e^{3x}$ are solutions.</p><p>When a question asks you to verify that a family is a solution \"for every constant $C$\", the requirement is that after substitution the two sides agree as expressions in $x$ with no condition on $C$. In the worked example both sides were $-2Ce^{-2x}$, so $C$ cancelled completely. Compare the candidate $y = e^{2x} + C$ for the equation $y' = 2y$: the left side is $2e^{2x}$ and the right side is $2e^{2x} + 2C$, and they agree only when $C = 0$. That candidate is not a general solution; the constant is in the wrong position, and the family that works is $y = Ce^{2x}$, for which both sides equal $2Ce^{2x}$. A surviving $C$ is the signal that the constant was attached to the wrong term. Test each candidate family by substitution rather than by its appearance.</p><p>The <strong>product-form model</strong> describes a rate that depends on two groups interacting: a rumor spreading through a school, or an infection spreading through a population. If $N(t)$ is the number who have heard the rumor at time $t$ and $M$ is the total population, then $M - N$ is the number who have not heard it, and</p><p>$$\\frac{dN}{dt} = kN(M - N)$$</p><p>with $k > 0$. The sign convention matters: the second factor is \"total minus current\", never \"current minus total\". For $0 < N < M$ both factors are positive, so the rate is positive and $N$ increases, which matches the situation. The reversed factor $N - M$ would make the rate negative. This product form is the BC logistic model, which Lesson 5 solves; in this lesson the task is to write it correctly from the sentence.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q003",
+      "u7-q004",
+      "u7-q005"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u7-l2",
+   "title": "Slope fields",
+   "skillIds": [
+    "u7-slope-fields"
+   ],
+   "estMinutes": 18,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A first-order differential equation of the form $\\frac{dy}{dx} = f(x, y)$ assigns a slope to every point of the plane: the slope of the solution curve that passes through $(x, y)$ is the number $f(x, y)$. A <strong>slope field</strong> is a picture of that assignment. At each point of a grid, a short line segment is drawn with slope $f(x, y)$. A segment with slope $0$ is horizontal; a segment with a large positive or negative slope is close to vertical.</p><p>To build a slope field, evaluate $f$ at each grid point and record the result in a table. For $\\frac{dy}{dx} = x + y$:</p><table><thead><tr><th>$x$</th><th>$y$</th><th>$\\frac{dy}{dx} = x + y$</th></tr></thead><tbody><tr><td>$-1$</td><td>$1$</td><td>$0$</td></tr><tr><td>$0$</td><td>$0$</td><td>$0$</td></tr><tr><td>$0$</td><td>$-1$</td><td>$-1$</td></tr><tr><td>$1$</td><td>$0$</td><td>$1$</td></tr><tr><td>$1$</td><td>$1$</td><td>$2$</td></tr></tbody></table><p>An <strong>isocline</strong> of the equation is the set of points where the slope has one fixed value $m$, that is, the curve $f(x, y) = m$. The <strong>zero isocline</strong> is the curve $f(x, y) = 0$, where every segment is horizontal. For $\\frac{dy}{dx} = x + y$ the zero isocline is the line $y = -x$, and the two points with slope $0$ in the table lie on it.</p><p>Three tests separate equations by which variables they use.</p><ul><li>If $f$ depends on $x$ only, the slope at $(x, y)$ does not change when $y$ changes, so all segments along any vertical line are identical. Checking for this pattern is called the <strong>vertical-line test</strong> in this lesson; it is a different test from the vertical line test for functions in precalculus.</li><li>If $f$ depends on $y$ only, the slope does not change when $x$ changes, so all segments along any horizontal line are identical. Checking for this pattern is called the <strong>horizontal-line test</strong>.</li><li>If $f$ depends on both variables, neither of the two patterns holds.</li></ul><p>The exam asks you to match a field to an equation, to sketch the segments of a field at a listed set of points, and to sketch the solution curve through a given point. The matching procedure is:</p><ol><li>Solve $f(x, y) = 0$ to find the zero isocline, and locate the horizontal segments.</li><li>Decide where $f$ is positive and where it is negative, and compare with where segments rise and fall.</li><li>Apply the vertical-line test or the horizontal-line test to decide whether the equation can involve $x$ only or $y$ only.</li><li>If two candidates survive, compute the slope at one specific point and compare its value, not only its sign.</li></ol><p>A sketched solution curve passes through the given point, is tangent to the field at every point, and is horizontal exactly where it crosses the zero isocline.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Build the slope field for $\\dfrac{dy}{dx} = x - y$ on the grid $x, y \\in \\{-1, 0, 1\\}$ and describe the solution curves",
+     "steps": [
+      {
+       "text": "Evaluate $f(x, y) = x - y$ at each of the nine grid points. Each row of the table is one segment of the field.",
+       "math": "\\begin{array}{c|ccc} y \\backslash x & -1 & 0 & 1 \\\\ \\hline 1 & -2 & -1 & 0 \\\\ 0 & -1 & 0 & 1 \\\\ -1 & 0 & 1 & 2 \\end{array}"
+      },
+      {
+       "text": "Find the zero isocline by solving $x - y = 0$, which gives the line $y = x$. The three grid points on that line, $(-1, -1)$, $(0, 0)$, and $(1, 1)$, have horizontal segments, matching the zeros on the diagonal of the table."
+      },
+      {
+       "text": "Determine the sign regions. Below the line $y = x$, where $y < x$, the slope $x - y$ is positive, so segments rise. Above the line, where $y > x$, the slope is negative, so segments fall. The slope depends on both $x$ and $y$, so neither the vertical-line test nor the horizontal-line test applies: the row for $y = 0$ in the table contains three different values."
+      },
+      {
+       "text": "Look for a line that the field follows. On the line $y = x - 1$, the slope of the field is $x - (x - 1) = 1$, which equals the slope of the line itself, so $y = x - 1$ is a solution of the equation. A solution above that line, where $y > x - 1$, has slope $x - y < 1$, less than the line's slope, so the vertical gap between the solution and the line shrinks as $x$ increases; a solution below the line has slope greater than $1$ and the gap shrinks for the same reason.",
+       "math": "y = x - 1 \\implies \\frac{dy}{dx} = 1 = x - y"
+      },
+      {
+       "text": "Conclusion: every solution curve approaches the line $y = x - 1$ as $x$ increases. A solution that starts above the line $y = x$ falls, crosses $y = x$ with a horizontal tangent, and then rises; that crossing is a local minimum of the solution because the slope changes from negative to positive there. This equation is not separable, so Lesson 4 does not solve it, but its general solution is $y = x - 1 + Ce^{-x}$, which you can verify by the substitution method of Lesson 1, and the term $Ce^{-x}$ approaches $0$ as $x$ increases."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q006",
+      "u7-q007"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>An <strong>equilibrium solution</strong> of $\\frac{dy}{dx} = f(x, y)$ is a constant function $y = c$ such that $f(x, c) = 0$ for every $x$. The horizontal line $y = c$ is then itself a solution curve, because its slope $0$ agrees with the field at every point on it. For $\\frac{dy}{dx} = (2 - y)(y + 1)$, the equilibrium solutions are $y = 2$ and $y = -1$. A zero of $f$ that depends on $x$, such as the line $y = x$ for $\\frac{dy}{dx} = x - y$, is not an equilibrium, because that line does not have slope $0$.</p><p>The <strong>uniqueness property</strong> states: if $f(x, y)$ and its derivative with respect to $y$ (computed with $x$ held constant) are continuous near a point, then exactly one solution curve passes through that point. Every equation in this course satisfies this condition. The consequence you use is that two solution curves never cross. In particular, a solution that starts strictly between two equilibrium solutions stays strictly between them for all $x$, and a solution that starts above an equilibrium stays above it.</p><p>The long-run behavior of a particular solution is read from the field without solving:</p><ul><li>The sign of $\\frac{dy}{dx}$ at the starting point, and throughout the region the solution occupies, tells whether the solution is increasing or decreasing.</li><li>A solution that is increasing and cannot cross the equilibrium above it is bounded and monotone, so it approaches a limit, and that limit is the nearest equilibrium in the direction of motion. The same holds for a decreasing solution and the nearest equilibrium below.</li><li>A zero of $\\frac{dy}{dx}$ that depends on $x$ marks a local extremum of the solution: a minimum where the slope changes from negative to positive, a maximum where it changes from positive to negative.</li></ul><p>For $\\frac{dy}{dx} = (2 - y)(y + 1)$ with $y(0) = 0$, the slope at $y = 0$ is $(2)(1) = 2 > 0$, the solution increases, it cannot cross $y = 2$, and it approaches $2$ as $x$ increases. For $\\frac{dy}{dx} = (x + 1)(4 - y)$ with $y(0) = 0$, the solution stays below the equilibrium $y = 4$, so the factor $4 - y$ is positive along it; the factor $x + 1$ is negative for $x < -1$ and positive for $x > -1$, so the solution has a local minimum at $x = -1$.</p><p>A complete justification names each fact: the sign of the slope, the equilibrium involved, and the reason the equilibrium cannot be crossed. For example: since $\\frac{dy}{dx} > 0$ at $(0, 0)$ and $y = 2$ is an equilibrium solution that no other solution can cross, the solution is increasing and $\\lim_{x \\to \\infty} y = 2$.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A slope field is a pure function <code>f(x, y)</code> sampled on a grid, the same object as the vector-field lookup in a particle simulation: <code>field[i][j] = f(x_i, y_j)</code> stores, for each cell, the direction a particle at that cell would move. A solution curve is the path a particle traces when at every point it moves in the sampled direction, and an equilibrium solution is a fixed point of the flow, a row where the lookup returns a horizontal direction for every column.</p><p>Where the analogy holds: because <code>f</code> is pure, the direction at a point depends only on the point, never on how the particle arrived, which is exactly why two paths cannot cross. If two paths met at a point they would have the same direction there and, by the uniqueness property, would be the same path from then on. A particle released between two fixed-point rows stays between them, and a particle that keeps moving toward a fixed point with no other fixed point in the way converges to it, which is the long-run reasoning in this lesson.</p><p>Where it breaks: the lookup returns only a direction, not the path. Producing the actual solution requires integration, either exactly by separation of variables (Lesson 4) or approximately by time-stepping, which is Euler's method (Lesson 3), and the time-stepped path drifts from the true one at every step. A coarse grid can also hide features: if the sign of <code>f</code> changes inside a narrow band between two grid columns, no sampled segment shows it, so a local extremum of the solution can be invisible in the sampled field even though it exists. The table of slopes is evidence about the equation; the equation itself is the authority.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q008",
+      "u7-q009",
+      "u7-q010"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u7-l3",
+   "title": "Euler's method (BC)",
+   "skillIds": [
+    "u7-euler-method"
+   ],
+   "estMinutes": 16,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p><strong>Euler's method</strong> is a procedure that approximates the solution of a differential equation $\\frac{dy}{dx} = f(x, y)$ from a known starting point $(x_0, y_0)$ by following tangent lines in short straight segments. The differential equation gives the slope of the solution at any point, so at the current point $(x_n, y_n)$ the slope is $m_n = f(x_n, y_n)$. A <strong>step</strong> moves along that tangent line by a fixed horizontal distance $h$, called the <strong>step size</strong>:</p><p>$$x_{n+1} = x_n + h, \\qquad y_{n+1} = y_n + h\\, m_n = y_n + h\\, f(x_n, y_n)$$</p><p>The new point $(x_{n+1}, y_{n+1})$ is then treated as if it were on the solution curve, and the process repeats. Each step is the tangent-line approximation from Unit 4 applied once, with the slope recomputed at the start of every step.</p><p>Write the work as a table with four columns: $x$, $y$, $\\frac{dy}{dx}$ evaluated at that row's point, and $h \\cdot \\frac{dy}{dx}$. The last entry of a row is added to that row's $y$ to produce the next row's $y$, and the next row's $x$ is the current $x$ plus $h$. The layout is:</p><table><thead><tr><th>$x_n$</th><th>$y_n$</th><th>$\\frac{dy}{dx} = f(x_n, y_n)$</th><th>$h \\cdot \\frac{dy}{dx}$</th></tr></thead><tbody><tr><td>$x_0$</td><td>$y_0$</td><td>$m_0$</td><td>$h m_0$</td></tr><tr><td>$x_0 + h$</td><td>$y_0 + h m_0$</td><td>$m_1$</td><td>$h m_1$</td></tr><tr><td>$x_0 + 2h$</td><td>$y_1 + h m_1$</td><td></td><td></td></tr></tbody></table><p>Write every row, including the starting row. On a free-response question the table is the shown work, and the slope column is where an arithmetic error is easiest to locate. The final row needs only $x$ and $y$; its slope is not used.</p><p>Two details about the step size. First, $h$ is negative when the target $x$ lies to the left of the starting $x$. The update formulas are unchanged; a negative $h$ times a positive slope decreases $y$, which is the correct direction when moving leftward along a rising curve. Second, the number of steps equals the distance to the target divided by $|h|$: from $x = 0$ to $x = 1$ with $h = 0.5$ takes $2$ steps, and from $x = 2$ to $x = 1$ in two steps of equal size means $h = -0.5$. Exam prompts state either the step size or the number of steps; compute the other before starting the table, and stop when $x$ reaches the target, not one step earlier or later.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Euler's method is explicit time stepping in a game loop. The state is <code>y</code>, the physics is a derivative function <code>f(x, y)</code>, and each frame runs <code>y += h * f(x, y); x += h;</code> until <code>x</code> reaches the target. The four-column table is the log of the loop's state at the top of each iteration, with the slope and the increment recorded before they are applied. Stepping backward is the same loop with a negative <code>h</code>.</p><p>Where the analogy holds: the slope is read once per step from the current state and held constant for the whole step, exactly as a fixed-timestep physics loop integrates a velocity as if it were constant within a frame. Every value in the table is a function of the previous row only, so an error in one row propagates to every later row and to no earlier row, which is the same discipline as checking a loop invariant frame by frame. The exam's table is the trace you would print while debugging such a loop.</p><p>Where it breaks: the exact solution is the limit as $h \\to 0$, and no finite loop reaches it. The loop produces an approximation whose global error grows roughly in proportion to $h$, so halving $h$ roughly halves the error at the cost of doubling the step count. A large $h$ relative to how quickly $f$ changes can also overshoot an equilibrium. For the cooling equation $\\frac{dT}{dt} = -0.2(T - 20)$, where $T$ is the temperature of a cup of coffee in degrees Celsius, $t$ is time in minutes, and $20$ is the room temperature, a single step with $h = 5$ from $T(0) = 90$ gives $T = 90 + 5(-14) = 20$, which is exactly room temperature after one step, although the true solution approaches $20$ and never reaches it. Game engines clamp or subdivide their time step for the same reason.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Approximate $y(1)$ for $\\dfrac{dy}{dx} = x - y$ with $y(0) = 2$, using two steps of size $h = 0.5$",
+     "steps": [
+      {
+       "text": "Identify the pieces: $f(x, y) = x - y$, the starting point is $(0, 2)$, the target is $x = 1$, and $h = 0.5$. The number of steps is $(1 - 0)/0.5 = 2$, which matches the prompt. The starting row of the table is $x = 0$, $y = 2$."
+      },
+      {
+       "text": "First step. Evaluate the slope at $(0, 2)$, multiply by $h$, and add the result to $y$.",
+       "math": "m_0 = 0 - 2 = -2, \\qquad h\\, m_0 = 0.5(-2) = -1, \\qquad y(0.5) \\approx 2 + (-1) = 1"
+      },
+      {
+       "text": "Second step. Evaluate the slope at the new point $(0.5, 1)$, not at the original point.",
+       "math": "m_1 = 0.5 - 1 = -0.5, \\qquad h\\, m_1 = 0.5(-0.5) = -0.25, \\qquad y(1) \\approx 1 + (-0.25) = 0.75"
+      },
+      {
+       "text": "The complete table, which is the work an exam grader expects to see:<table><thead><tr><th>$x$</th><th>$y$</th><th>$\\frac{dy}{dx} = x - y$</th><th>$h \\cdot \\frac{dy}{dx}$</th></tr></thead><tbody><tr><td>$0$</td><td>$2$</td><td>$-2$</td><td>$-1$</td></tr><tr><td>$0.5$</td><td>$1$</td><td>$-0.5$</td><td>$-0.25$</td></tr><tr><td>$1$</td><td>$0.75$</td><td></td><td></td></tr></tbody></table>"
+      },
+      {
+       "text": "The approximation is $y(1) \\approx 0.75$. The exact solution of this equation, which you can verify by substitution, is $y = x - 1 + 3e^{-x}$, so $y(1) = 3/e \\approx 1.104$; the Euler value is smaller, and the next section explains why the direction of that error was predictable before the exact solution was known."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q011",
+      "u7-q012"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Every Euler step follows a tangent line, and a tangent line lies on one side of the curve wherever the concavity does not change. To find the concavity, compute $y''$ by differentiating both sides of the differential equation with respect to $x$. Treat $y$ as a function of $x$, so every term containing $y$ produces a factor of $\\frac{dy}{dx}$ by the chain rule, and then replace $\\frac{dy}{dx}$ by the right side of the original equation. For $\\frac{dy}{dx} = x - y$:</p><p>$$y'' = 1 - \\frac{dy}{dx} = 1 - (x - y) = 1 - x + y$$</p><p>For $\\frac{dy}{dx} = xy$, the product rule and the chain rule together give $y'' = y + x\\frac{dy}{dx} = y + x(xy) = y(1 + x^2)$. The result is an expression in $x$ and $y$ whose sign is checked on the region the solution passes through.</p><p>The direction of the error follows from the sign of $y''$:</p><ul><li>If $y'' > 0$ on the interval, the solution is <strong>concave up</strong>, every tangent line lies below the curve, and Euler's method gives an <strong>underestimate</strong>.</li><li>If $y'' < 0$ on the interval, the solution is <strong>concave down</strong>, every tangent line lies above the curve, and Euler's method gives an <strong>overestimate</strong>.</li></ul><p>In the worked example, $y'' = 1 - x + y$ is positive at every point the table visited, so $0.75$ is an underestimate, and the exact value $3/e \\approx 1.104$ confirms it. A smaller step size reduces the size of the error but does not change its direction as long as the concavity does not change on the interval. A complete justification names three things: the sign of $y''$, the resulting concavity, and the position of the tangent lines relative to the curve. Stating only that the answer is too small does not earn the reasoning point.</p><p>Contextual problems change the letters but not the procedure. If $T$ is a temperature in degrees Celsius and $t$ is time in minutes, the columns are $t$ in minutes, $T$ in degrees Celsius, $\\frac{dT}{dt}$ in degrees Celsius per minute, and $h \\cdot \\frac{dT}{dt}$ in degrees Celsius, because minutes times degrees per minute leaves degrees. The step size is stated in the units of $t$, so two steps of $2$ minutes means $h = 2$, and the final answer carries the units of $T$.</p><p>The exam's standard forms are: a table to approximate a value at a stated $x$ or $t$ with a stated step size or step count; one backward step from a point given to the right of the target; and a request to state whether the approximation is an overestimate or an underestimate together with a reason, which is answered by the sign of $y''$.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q013",
+      "u7-q014",
+      "u7-q015"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u7-l4",
+   "title": "Separation of variables and particular solutions",
+   "skillIds": [
+    "u7-separation-of-variables",
+    "u7-particular-solutions"
+   ],
+   "estMinutes": 26,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A differential equation is <strong>separable</strong> if it can be written in the form $\\frac{dy}{dx} = g(x)\\,h(y)$, a product of a function of $x$ alone and a function of $y$ alone. Either factor may be a constant. The equation $\\frac{dy}{dx} = 3x^2 y$ is separable with $g(x) = 3x^2$ and $h(y) = y$; the equation $\\frac{dy}{dx} = y - 3$ is separable with $g(x) = 1$ and $h(y) = y - 3$.</p><p>The procedure has four steps.</p><ol><li>Divide both sides by $h(y)$ and multiply both sides by $dx$, so that every $y$ is on the left with $dy$ and every $x$ is on the right with $dx$: $$\\frac{dy}{h(y)} = g(x)\\,dx$$</li><li>Integrate both sides, the left with respect to $y$ and the right with respect to $x$.</li><li>Write one constant of integration $C$, on the $x$ side only. Two constants, one on each side, would combine into a single constant anyway.</li><li>Solve for $y$ when the algebra allows it. A relation such as $y^2 = x^2 + C$ is an acceptable general solution when solving for $y$ would require choosing a sign that the problem does not fix.</li></ol><p>The <strong>general solution</strong> is the family of all solutions, with $C$ left unspecified. When step 2 produces a logarithm, $\\ln|y| = F(x) + C$, exponentiating gives $|y| = e^{C} e^{F(x)}$. The factor $e^{C}$ is a positive constant, and removing the absolute value multiplies by either $+1$ or $-1$, so $y = \\pm e^{C} e^{F(x)}$. The product $\\pm e^{C}$ is an arbitrary nonzero constant, and the convention is to rename it $C$ and write $y = Ce^{F(x)}$. This renaming is called <strong>constant absorption</strong>. The new $C$ multiplies; it is not added.</p><p>Factoring is the tool for recognizing separability. The right side $xy + x$ equals $x(y + 1)$, so $\\frac{dy}{dx} = xy + x$ separates into $\\frac{dy}{y + 1} = x\\,dx$. The right sides $x + y$ and $xy + 1$ cannot be written as a product of a function of $x$ and a function of $y$, so those equations are not separable and this method does not apply to them.</p><p>Step 1 divides by $h(y)$, which is undefined where $h(y) = 0$. If $h(y_0) = 0$, the constant function $y = y_0$ satisfies the original equation, because both sides equal $0$. Such a constant solution is an <strong>equilibrium solution</strong>. The division discards it, so check the zeros of $h$ separately and add each constant solution back when the family does not already include it.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the general solution of $\\dfrac{dy}{dx} = 3x^2 y$",
+     "steps": [
+      {
+       "text": "The right side is the product $g(x)\\,h(y)$ with $g(x) = 3x^2$ and $h(y) = y$, so the equation is separable. Divide by $y$ and multiply by $dx$. Dividing by $y$ requires $y \\neq 0$; the constant function $y = 0$ is an equilibrium solution and is set aside to be checked at the end.",
+       "math": "\\frac{dy}{y} = 3x^2\\,dx"
+      },
+      {
+       "text": "Integrate each side with respect to its own variable, writing the constant once on the $x$ side.",
+       "math": "\\ln|y| = x^3 + C"
+      },
+      {
+       "text": "Exponentiate both sides. The factor $e^{C}$ is a positive constant, and removing the absolute value introduces a sign.",
+       "math": "|y| = e^{C} e^{x^3} \\quad\\text{so}\\quad y = \\pm e^{C} e^{x^3}"
+      },
+      {
+       "text": "Absorb the sign and $e^{C}$ into a single nonzero constant, renamed $C$. The value $C = 0$ gives $y = 0$, which is the equilibrium solution set aside in step 1 and does satisfy the equation, so the family covers every solution when $C$ is allowed to be any real number.",
+       "math": "y = Ce^{x^3}"
+      },
+      {
+       "text": "Check by differentiating: $\\frac{d}{dx}\\big(Ce^{x^3}\\big) = Ce^{x^3}\\cdot 3x^2 = 3x^2 y$, which is the original equation. The general solution is $y = Ce^{x^3}$."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q016",
+      "u7-q017"
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Separation of variables is a refactor that splits a coupled expression into two independent modules. The equation $\\frac{dy}{dx} = g(x)\\,h(y)$ ties $x$ and $y$ together in one expression. Rewriting it as $\\frac{dy}{h(y)} = g(x)\\,dx$ puts every reference to $y$ in one function and every reference to $x$ in another. Each side is then integrated on its own, with no shared state: <code>integrate(1/h, y)</code> and <code>integrate(g, x)</code> can be computed in either order, and the output of one never enters the other. The single $+ C$ is the one interface between the two modules, which is why the constant is written once rather than once per side.</p><p>Where the analogy holds: factoring $g(x)\\,h(y)$ out of a sum, as in $2xy - 4x = 2x(y - 2)$, is the same move as extracting a shared dependency so that two pieces of code no longer reference each other; it is the refactor that makes the split possible. Once the split exists, each integral is a self-contained unit that you can test in isolation by differentiating its output. The general solution behaves like a parameterized module: $C$ is the one configuration value left unbound until an initial condition supplies it.</p><p>Where it breaks: many equations cannot be refactored this way. In $\\frac{dy}{dx} = x + y$ and $\\frac{dy}{dx} = \\sin(x + y)$ the coupling between $x$ and $y$ is intrinsic, no factoring produces $g(x)\\,h(y)$, and the only tools left in this course are the slope field from Lesson 2 and Euler's method from Lesson 3. The refactor also has a silent side effect: dividing by $h(y)$ deletes the constant solutions where $h(y) = 0$. A refactor that drops a code path without a warning is a bug, and the fix here is manual: list the zeros of $h$ and add each equilibrium solution back manually.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q019",
+      "u7-q021"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>A <strong>particular solution</strong> is the one member of the general family that passes through a given point. An <strong>initial condition</strong> is a stated value $y(x_0) = y_0$. To find the particular solution, find the general solution, substitute $x = x_0$ and $y = y_0$ to determine $C$, and then solve for $y$. Substituting into the integrated equation before solving for $y$ is usually less work and is equally valid.</p><p>Three decisions determine whether the final answer is correct.</p><p>First, the sign of a square root. When the integrated equation has the form $y^2 = p(x)$ for some expression $p(x)$, solving for $y$ gives $y = \\sqrt{p(x)}$ or $y = -\\sqrt{p(x)}$. The solution is a single function, so exactly one sign is correct, and the sign of $y_0$ decides it: if $y_0 > 0$, take the positive root; if $y_0 < 0$, take the negative root.</p><p>Second, the absolute value in a logarithm. When the integrated equation is $\\ln|y - a| = F(x) + C$, exponentiating gives $|y - a| = e^{C} e^{F(x)}$, so $y - a$ equals either $+e^{C} e^{F(x)}$ or $-e^{C} e^{F(x)}$. The sign of $y_0 - a$ decides which. A shorter method is to absorb first, writing $y - a = Ce^{F(x)}$ with $C$ allowed to be negative, and then solve for $C$ from the initial condition; the correct sign then appears in $C$ automatically.</p><p>Third, the domain. The <strong>domain of a particular solution</strong> is the largest open interval containing $x_0$ on which the formula is defined and differentiable. It is not the set of every $x$ where the formula can be evaluated. A solution of a differential equation is defined on one interval. The formula $y = -\\frac{1}{x}$ is defined on two separate intervals, $x < 0$ and $x > 0$, and only the one containing $x_0$ is the domain. A vertical asymptote ends the interval. The edge of a square root also ends the interval, and that endpoint is excluded because the solution is not differentiable there. Report the domain as an interval with $x_0$ inside it, for example $-2 < x < 2$ or $x > 0$.</p><p>The common AP forms are: find the particular solution and write it as $y = f(x)$; find $f(x_1)$ for a stated $x_1$; and state the domain of the particular solution. A complete answer shows the separation, the integration with $C$, the substitution of the initial condition, the sign decision with its reason, and the domain with $x_0$ inside it.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the particular solution of $\\dfrac{dy}{dx} = -\\dfrac{x}{y}$ with $y(0) = -2$, and state its domain",
+     "steps": [
+      {
+       "text": "The right side is $g(x)\\,h(y)$ with $g(x) = -x$ and $h(y) = \\frac{1}{y}$. Multiply both sides by $y$ and by $dx$. Since $h(y) = \\frac{1}{y}$ is never $0$, no equilibrium solution is lost.",
+       "math": "y\\,dy = -x\\,dx"
+      },
+      {
+       "text": "Integrate each side, with one constant on the $x$ side.",
+       "math": "\\frac{y^2}{2} = -\\frac{x^2}{2} + C"
+      },
+      {
+       "text": "Substitute the initial condition $x = 0$, $y = -2$ into the integrated equation to find $C$, then multiply through by $2$.",
+       "math": "\\frac{(-2)^2}{2} = 0 + C \\implies C = 2, \\qquad y^2 = 4 - x^2"
+      },
+      {
+       "text": "Solve for $y$. The relation $y^2 = 4 - x^2$ gives $y = \\sqrt{4 - x^2}$ or $y = -\\sqrt{4 - x^2}$. Because $y(0) = -2$ is negative, the negative root is the solution.",
+       "math": "y = -\\sqrt{4 - x^2}"
+      },
+      {
+       "text": "State the domain. The formula is defined for $-2 \\le x \\le 2$, and its derivative $\\frac{dy}{dx} = \\frac{x}{\\sqrt{4 - x^2}}$ is defined only for $-2 < x < 2$. The largest open interval containing $x_0 = 0$ on which the solution is differentiable is $-2 < x < 2$, and that interval is the domain. As a check, on this interval $\\frac{x}{\\sqrt{4 - x^2}} = -\\frac{x}{y}$ because $y = -\\sqrt{4 - x^2}$, so the function satisfies the original equation."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q022",
+      "u7-q023",
+      "u7-q025"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u7-l5",
+   "title": "Exponential and logistic models",
+   "skillIds": [
+    "u7-exponential-models",
+    "u7-logistic-models"
+   ],
+   "estMinutes": 24,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>An <strong>exponential model</strong> is any situation in which a quantity changes at a rate proportional to its current amount: $\\frac{dy}{dt} = ky$ for a constant $k$. The phrase \"at a rate proportional to $y$\" in a problem statement is the signal to write this equation. It is separable, and the previous lesson's method solves it:</p><p>$\\frac{dy}{y} = k\\,dt \\implies \\ln|y| = kt + C \\implies y = Ce^{kt} \\implies y = y_0 e^{kt}$</p><p>where the absorbed constant $C$ equals $y(0)$ because $e^{0} = 1$, so it is renamed $y_0$, the amount at time $0$. If $k > 0$ the quantity grows; if $k < 0$ it decays. The constant $k$ has units of $1$ per time unit (per hour, per year), so that $kt$ is a pure number, and $t$ must be measured in the same time unit that $k$ uses.</p><p>The <strong>doubling time</strong> of a growing quantity is the time $T$ at which $y(T) = 2y_0$. Solving $y_0 e^{kT} = 2y_0$ gives $e^{kT} = 2$, so $T = \\frac{\\ln 2}{k}$. The <strong>half-life</strong> of a decaying quantity is the time at which $y(T) = \\frac{1}{2}y_0$; the same steps give $e^{kT} = \\frac{1}{2}$, so $T = \\frac{\\ln 2}{|k|}$. Both are measured in time units and neither depends on $y_0$. After $n$ half-lives the amount is $y_0\\left(\\frac{1}{2}\\right)^n = \\frac{y_0}{2^n}$, which is a fast check on any numerical answer.</p><p><strong>Newton's law of cooling</strong> states that the temperature $T$ of an object changes at a rate proportional to the difference between its temperature and the constant surrounding temperature $T_{\\text{room}}$:</p><p>$$\\frac{dT}{dt} = k(T - T_{\\text{room}}), \\qquad T(t) = T_{\\text{room}} + (T_0 - T_{\\text{room}})e^{kt}$$</p><p>with $k < 0$, so the difference $T - T_{\\text{room}}$ decays exponentially and $T$ approaches $T_{\\text{room}}$. The solution comes from the substitution $u = T - T_{\\text{room}}$, which satisfies $\\frac{du}{dt} = ku$; differentiating $T(t)$ confirms it.</p><p>Exam problems follow a fixed two-stage procedure. Stage one: use one measured data point $y(t_1) = y_1$ to find $k$. Divide by $y_0$ and take the natural logarithm: $e^{kt_1} = \\frac{y_1}{y_0}$, so $k = \\frac{1}{t_1}\\ln\\frac{y_1}{y_0}$. Stage two: answer the question asked (a value at a later time, a doubling time, the time to reach a target) using the formula with that $k$. Keep $k$ as an exact logarithm through every step and round only the final number; a $k$ rounded early to two decimal places produces an error that grows inside the exponent.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find the half-life of a radioactive sample with $A(0) = 100$ mg and $A(4) = 70$ mg",
+     "steps": [
+      {
+       "text": "The sample decays at a rate proportional to the amount present, $\\frac{dA}{dt} = kA$ with $t$ in hours, so the amount is exponential with $A_0 = 100$ mg.",
+       "math": "A(t) = 100e^{kt}"
+      },
+      {
+       "text": "Stage one: use the data point $A(4) = 70$ to find $k$. Divide by $100$, then take the natural logarithm of both sides.",
+       "math": "70 = 100e^{4k} \\implies e^{4k} = 0.7 \\implies k = \\frac{\\ln 0.7}{4} = -\\frac{1}{4}\\ln\\frac{10}{7}"
+      },
+      {
+       "text": "The value is negative, as a decay constant must be, with units of $1$ per hour. The decimal below is for reference only; the exact logarithm is what goes into the next step.",
+       "math": "k \\approx -0.0892 \\text{ per hour}"
+      },
+      {
+       "text": "Stage two: the half-life $T$ satisfies $A(T) = 50$, so $e^{kT} = \\frac{1}{2}$ and $T = \\frac{\\ln 2}{|k|}$. Substitute the exact $k$.",
+       "math": "T = \\frac{\\ln 2}{\\tfrac{1}{4}\\ln\\tfrac{10}{7}} = \\frac{4\\ln 2}{\\ln\\tfrac{10}{7}}"
+      },
+      {
+       "text": "Evaluate only at the end: $\\ln 2 \\approx 0.6931$ and $\\ln\\frac{10}{7} \\approx 0.3567$, so the half-life is about $7.77$ hours. This is consistent with the data: after $4$ hours the sample still holds $70$ mg, more than half, so the half-life must exceed $4$ hours.",
+       "math": "T = \\frac{4\\ln 2}{\\ln(10/7)} \\approx 7.77 \\text{ hours}"
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q027",
+      "u7-q029",
+      "u7-q030"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>A <strong>logistic model</strong> describes a population $P(t)$ whose growth rate is close to proportional to $P$ when $P$ is small and falls to zero as $P$ approaches a fixed ceiling. The <strong>logistic differential equation</strong> is</p><p>$$\\frac{dP}{dt} = kP\\left(1 - \\frac{P}{L}\\right)$$</p><p>with constants $k > 0$ and $L > 0$. The constant $L$ is the <strong>carrying capacity</strong>. The same equation appears in two other algebraic forms, and you must recognize $L$ in all three:</p><ul><li>Standard form $kP\\left(1 - \\frac{P}{L}\\right)$: $L$ is the denominator under $P$.</li><li>Factored form $\\frac{k}{L}P(L - P)$: $L$ is the number that $P$ is subtracted from.</li><li>Expanded form $kP - \\frac{k}{L}P^2$: given $\\frac{dP}{dt} = aP - bP^2$, factor out $aP$ to get $aP\\left(1 - \\frac{b}{a}P\\right)$, so $k = a$ and $L = \\frac{a}{b}$.</li></ul><p>An <strong>equilibrium</strong> is a constant solution, a value of $P$ at which $\\frac{dP}{dt} = 0$. The logistic equation has two: $P = 0$ and $P = L$. For $0 < P < L$ the factor $1 - \\frac{P}{L}$ is positive, so $\\frac{dP}{dt} > 0$ and $P$ increases toward $L$. For $P > L$ the factor is negative, so $\\frac{dP}{dt} < 0$ and $P$ decreases toward $L$. In both cases $\\lim_{t \\to \\infty} P(t) = L$ for every starting value $P_0 > 0$. A solution never crosses an equilibrium, so a population that starts below $L$ stays below $L$ for all $t$.</p><p>As a function of $P$, the rate $\\frac{dP}{dt} = kP - \\frac{k}{L}P^2$ is a downward-opening parabola with zeros at $P = 0$ and $P = L$, so its maximum is at the midpoint $P = \\frac{L}{2}$. The population grows fastest when $P = \\frac{L}{2}$, and the maximum rate is $k\\cdot\\frac{L}{2}\\cdot\\frac{1}{2} = \\frac{kL}{4}$. The rate $\\frac{dP}{dt}$ increases while $P < \\frac{L}{2}$ and decreases once $P > \\frac{L}{2}$, so a solution that starts below $\\frac{L}{2}$ is concave up until $P = \\frac{L}{2}$ and concave down after; the point where $P = \\frac{L}{2}$ is its point of inflection. A solution that starts between $\\frac{L}{2}$ and $L$ is concave down for all $t$.</p><p>The explicit solution, which the exam provides rather than asks you to derive, is</p><p>$$P(t) = \\frac{L}{1 + Ae^{-kt}}, \\qquad A = \\frac{L - P_0}{P_0}$$</p><p>Reading it: $L$ is the numerator, because $e^{-kt} \\to 0$ makes the denominator approach $1$; $k$ is the positive number in the exponent, with the minus sign part of the form; and $P(0) = \\frac{L}{1 + A}$. The exam's most common questions are the limit, the sign of $\\frac{dP}{dt}$ at a given $P$, the population or time of fastest growth, and concavity. A complete justification for the limit reads: $\\lim_{t \\to \\infty} P(t) = L$ because $\\frac{dP}{dt} > 0$ for $P_0 \\le P < L$, so $P$ is increasing and approaches the equilibrium $L$.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Exponential growth is a loop with no rate limit. Each tick executes <code>total += k * total * dt</code>: the increment is proportional to the current total, the way compound interest adds a fixed percentage of the balance, and nothing in the loop ever slows it. The total is unbounded. Logistic growth is the same loop with backpressure. The increment is multiplied by a throttle factor <code>(1 - total / L)</code>, which is close to <code>1</code> while the system is nearly empty and approaches <code>0</code> as it fills, so the effective rate falls to zero and <code>L</code> is the steady state. The throttle makes the loop self-limiting without any external check on <code>total</code>.</p><p>Where the analogy holds: the sign of the increment is the sign of the throttle factor, so a total above <code>L</code> shrinks and a total below <code>L</code> grows, which is the equilibrium analysis in code. The increment is largest when <code>total === L / 2</code>, matching the point of fastest growth. And the loop with a small <code>dt</code> is exactly Euler's method from Lesson 3 applied to the logistic equation.</p><p>Where it breaks: the model treats $P$ as a continuous quantity that changes smoothly and treats $L$ as fixed, while a real population is an integer and its carrying capacity moves with the environment. The loop with a finite <code>dt</code> can overshoot <code>L</code>, which the exact solution never does. And the steady state is approached but never reached at any finite time, because $Ae^{-kt}$ is never zero, so the statement \"the population reaches its capacity\" is never literally true in the model; only the limit as $t \\to \\infty$ equals $L$.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q032",
+      "u7-q033",
+      "u7-q034"
+     ]
+    },
+    {
+     "type": "worked-example",
+     "title": "Describe the solution of $\\frac{dP}{dt} = 0.08P\\left(1 - \\frac{P}{1500}\\right)$, $P(0) = 300$, without solving",
+     "steps": [
+      {
+       "text": "Here $P$ is a deer population and $t$ is in years. Match the equation to the standard form: $k = 0.08$ per year and the carrying capacity is the denominator, $L = 1500$ deer. Because $0 < 300 < 1500$, the population increases toward the equilibrium and its limit is the carrying capacity.",
+       "math": "\\lim_{t \\to \\infty} P(t) = 1500 \\text{ deer}"
+      },
+      {
+       "text": "Direction: for $0 < P < 1500$ the factor $1 - \\frac{P}{1500}$ is positive, so $\\frac{dP}{dt} > 0$ and $P$ is increasing for all $t \\ge 0$. At the start the rate is",
+       "math": "\\left.\\frac{dP}{dt}\\right|_{P = 300} = 0.08(300)\\left(1 - \\frac{300}{1500}\\right) = 0.08(300)(0.8) = 19.2 \\text{ deer per year}"
+      },
+      {
+       "text": "Fastest growth: $\\frac{dP}{dt}$ as a function of $P$ is a downward parabola with zeros at $0$ and $1500$, so its maximum is at $P = \\frac{1500}{2} = 750$ deer. The maximum rate is",
+       "math": "\\left.\\frac{dP}{dt}\\right|_{P = 750} = 0.08(750)\\left(1 - \\frac{750}{1500}\\right) = 0.08(750)(0.5) = 30 \\text{ deer per year}"
+      },
+      {
+       "text": "Concavity: the rate increases while $P < 750$ and decreases once $P > 750$, so the graph of $P$ is concave up for $300 \\le P < 750$ and concave down for $750 < P < 1500$. The point where $P = 750$ is the point of inflection."
+      },
+      {
+       "text": "Justification as written on the exam: $P$ is increasing because $\\frac{dP}{dt} > 0$ for $300 \\le P < 1500$; $\\lim_{t \\to \\infty} P(t) = 1500$ because $P = 1500$ is the equilibrium the increasing solution approaches; the growth rate is greatest at $P = 750$ because $\\frac{dP}{dt}$ is a quadratic in $P$ maximized halfway between its zeros."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u7-q035",
+      "u7-q036"
+     ]
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "u7-q001",
+   "skillId": "u7-modeling-and-verifying",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>The temperature $T$ of an object, measured in degrees Celsius, changes at a rate proportional to the difference between $T$ and the temperature of the room, which is a constant $20$ degrees Celsius. Let $t$ be time in minutes and let $k$ be a constant. Which differential equation describes this situation?</p>",
+   "choices": [
+    "$\\dfrac{dT}{dt} = kT - 20$",
+    "$\\dfrac{dT}{dt} = kT$",
+    "$\\dfrac{dT}{dt} = k(T - 20)$",
+    "$\\dfrac{dT}{dt} = \\dfrac{k}{T - 20}$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from multiplying $k$ by $T$ alone and then subtracting $20$. The rate is proportional to the whole difference $T - 20$, so $k$ multiplies the entire quantity $T - 20$.",
+    "This choice comes from omitting the room temperature. A rate proportional to $T$ itself describes a quantity that changes in proportion to its own size; here the rate is proportional to the gap between $T$ and $20$.",
+    null,
+    "This choice comes from reading \"proportional to\" as \"inversely proportional to\". Proportional means the rate equals a constant times the difference, not a constant divided by the difference."
+   ],
+   "hints": [
+    "The phrase \"rate of change of $T$\" translates to $\\dfrac{dT}{dt}$. The phrase \"proportional to a quantity\" translates to a constant $k$ multiplied by that quantity.",
+    "Write the quantity first: the difference between $T$ and the room temperature is $T - 20$. Then multiply the whole difference by $k$."
+   ],
+   "solution": [
+    {
+     "text": "Identify the rate. \"The temperature changes at a rate\" means the derivative of $T$ with respect to time $t$.",
+     "math": "\\frac{dT}{dt}"
+    },
+    {
+     "text": "Identify the quantity the rate is proportional to. The difference between $T$ and the room temperature $20$ is $T - 20$."
+    },
+    {
+     "text": "\"Proportional to\" means equal to a constant times that quantity. The constant $k$ multiplies the whole difference.",
+     "math": "\\frac{dT}{dt} = k(T - 20)"
+    },
+    {
+     "text": "Check the sign behavior. If the object is warmer than the room, $T - 20$ is positive and the temperature should fall, so $k$ is negative for a real cooling object. The form of the equation is the same either way; the sign is carried by $k$. This equation is called Newton's law of cooling."
+    }
+   ]
+  },
+  {
+   "id": "u7-q002",
+   "skillId": "u7-modeling-and-verifying",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Which of the following functions is a solution of the differential equation $\\dfrac{dy}{dx} = 3y - 6$?</p>",
+   "choices": [
+    "$y = 2 + e^{3x}$",
+    "$y = e^{3x}$",
+    "$y = 2 + e^{-3x}$",
+    "$y = 2e^{3x} - 6$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from omitting the constant term $2$. For $y = e^{3x}$, the derivative is $3e^{3x}$ but $3y - 6 = 3e^{3x} - 6$; the two sides differ by $6$.",
+    "This choice comes from reversing the sign of the exponent. For $y = 2 + e^{-3x}$, the derivative is $-3e^{-3x}$ while $3y - 6 = 3e^{-3x}$; the two sides have opposite signs.",
+    "This choice comes from carrying the $-6$ of the equation into the solution as a constant term. For $y = 2e^{3x} - 6$, the derivative is $6e^{3x}$ while $3y - 6 = 6e^{3x} - 24$."
+   ],
+   "hints": [
+    "A function is a solution of a differential equation when substituting the function and its derivative makes the equation a true statement for every $x$. Test each candidate by computing $y'$ and $3y - 6$ separately.",
+    "For a candidate of the form $y = a + e^{bx}$, the derivative is $be^{bx}$ and $3y - 6 = 3a - 6 + 3e^{bx}$. Both the constant parts and the exponential parts must match."
+   ],
+   "solution": [
+    {
+     "text": "Compute the derivative of the candidate $y = 2 + e^{3x}$.",
+     "math": "\\frac{dy}{dx} = 3e^{3x}"
+    },
+    {
+     "text": "Compute the right side of the equation for the same candidate.",
+     "math": "3y - 6 = 3(2 + e^{3x}) - 6 = 6 + 3e^{3x} - 6 = 3e^{3x}"
+    },
+    {
+     "text": "The two sides are equal for every $x$, so $y = 2 + e^{3x}$ is a solution. Each of the other candidates fails this test: either the constant parts or the signs of the exponential parts do not match."
+    }
+   ]
+  },
+  {
+   "id": "u7-q003",
+   "skillId": "u7-modeling-and-verifying",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Let $y = x^n$ for $x > 0$, where $n$ is a constant. Find the positive value of $n$ for which $y$ is a solution of the differential equation $x^2 y'' - 6y = 0$. Give an exact integer.</p>",
+   "answer": 3,
+   "hints": [
+    "Compute $y'$ and $y''$ from $y = x^n$ using the power rule, treating $n$ as a constant. Then substitute into $x^2 y'' - 6y$.",
+    "After substitution, every term contains the factor $x^n$. Divide it out to obtain a quadratic equation in $n$, and keep the positive root."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate twice with the power rule.",
+     "math": "y' = n x^{n-1}, \\qquad y'' = n(n-1)x^{n-2}"
+    },
+    {
+     "text": "Substitute into the left side of the equation. Multiplying $y''$ by $x^2$ raises the exponent back to $n$.",
+     "math": "x^2 y'' - 6y = n(n-1)x^{n} - 6x^{n} = \\big(n(n-1) - 6\\big)x^{n}"
+    },
+    {
+     "text": "Since $x^n$ is not zero for $x > 0$, the expression is zero for all $x$ exactly when the coefficient is zero.",
+     "math": "n^2 - n - 6 = 0 \\quad\\Longrightarrow\\quad (n - 3)(n + 2) = 0"
+    },
+    {
+     "text": "The roots are $n = 3$ and $n = -2$. The question asks for the positive value, so $n = 3$. Check: $y = x^3$ gives $y'' = 6x$, and $x^2 \\cdot 6x - 6x^3 = 0$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q004",
+   "skillId": "u7-modeling-and-verifying",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A rumor spreads through a school of $800$ students. Let $N(t)$ be the number of students who have heard the rumor after $t$ days. The rumor spreads at a rate proportional to the product of the number of students who have heard it and the number of students who have not heard it. Let $k$ be a positive constant. Which differential equation describes this situation?</p>",
+   "choices": [
+    "$\\dfrac{dN}{dt} = kN$",
+    "$\\dfrac{dN}{dt} = k(800 - N)$",
+    "$\\dfrac{dN}{dt} = kN(N - 800)$",
+    "$\\dfrac{dN}{dt} = kN(800 - N)$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from omitting the second factor. The rate is proportional to a product of two counts; $kN$ uses only the count of students who have heard the rumor.",
+    "This choice comes from including only the students who have not yet heard the rumor. The count who have heard it, $N$, must also appear as a factor in the product.",
+    "This choice comes from writing the number of students who have not heard the rumor as $N - 800$ instead of $800 - N$. For $0 < N < 800$ the factor $N - 800$ is negative, which would make $N$ decrease.",
+    null
+   ],
+   "hints": [
+    "Write each count as an expression in $N$. The number who have heard the rumor is $N$. The total is $800$, so the number who have not heard it is the total minus $N$.",
+    "\"Proportional to the product\" means the rate equals a constant $k$ times the first count times the second count."
+   ],
+   "solution": [
+    {
+     "text": "The rate of spread is the derivative of $N$ with respect to $t$, measured in students per day.",
+     "math": "\\frac{dN}{dt}"
+    },
+    {
+     "text": "The number who have heard the rumor is $N$. The number who have not heard it is the total minus that count.",
+     "math": "800 - N"
+    },
+    {
+     "text": "The rate is proportional to the product of the two counts, so the constant $k$ multiplies the product.",
+     "math": "\\frac{dN}{dt} = kN(800 - N)"
+    },
+    {
+     "text": "Check the sign. When $0 < N < 800$, both factors are positive and $k > 0$, so $N$ increases, which matches a rumor that spreads. This is the product-form model from this lesson; Lesson 5 calls it a logistic differential equation and calls the total $800$ its carrying capacity."
+    }
+   ]
+  },
+  {
+   "id": "u7-q005",
+   "skillId": "u7-modeling-and-verifying",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>For $x > 0$, which of the following is the general solution of the differential equation $x y' - y = x$? Here $C$ represents an arbitrary constant, and the family must satisfy the equation for every value of $C$.</p>",
+   "choices": [
+    "$y = x\\ln x + C$",
+    "$y = x\\ln x + Cx$",
+    "$y = \\ln x + Cx$",
+    "$y = Cx\\ln x$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from adding the arbitrary constant on its own. Substituting $y = x\\ln x + C$ gives $xy' - y = x - C$, which equals $x$ only when $C = 0$. The related equation $xy' - y = 0$ is satisfied by $Cx$, not by a bare constant $C$.",
+    null,
+    "This choice comes from dropping the factor $x$ in front of $\\ln x$. Substituting $y = \\ln x + Cx$ gives $xy' = 1 + Cx$, so $xy' - y = 1 - \\ln x$, which is not $x$.",
+    "This choice comes from attaching $C$ as an overall multiplier of the whole expression. Substituting $y = Cx\\ln x$ gives $xy' - y = Cx$, which equals $x$ only when $C = 1$, so it is not a solution for every $C$."
+   ],
+   "hints": [
+    "Test each family by substitution. Compute $y'$, form $xy' - y$, and simplify. The result must be exactly $x$ with no $C$ remaining.",
+    "The derivative of $x\\ln x$ is $\\ln x + 1$ by the product rule. Where the constant $C$ is placed determines whether it cancels in $xy' - y$."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate the candidate $y = x\\ln x + Cx$ using the product rule on $x\\ln x$.",
+     "math": "y' = \\ln x + x\\cdot\\frac{1}{x} + C = \\ln x + 1 + C"
+    },
+    {
+     "text": "Multiply by $x$ and subtract $y$.",
+     "math": "xy' - y = (x\\ln x + x + Cx) - (x\\ln x + Cx) = x"
+    },
+    {
+     "text": "The result is $x$ for every value of $C$, so $y = x\\ln x + Cx$ is the general solution. The $Cx$ term cancels because $y = Cx$ solves the related equation $xy' - y = 0$: substituting gives $x\\cdot C - Cx = 0$."
+    },
+    {
+     "text": "For contrast, the family $y = x\\ln x + C$ gives $xy' - y = x - C$, which is $x$ only when $C = 0$. A constant added alone does not solve this equation because the equation contains $y$ itself, not only $y'$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q006",
+   "skillId": "u7-slope-fields",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A slope field has the following properties.</p><ul><li>Every segment centered on a point of the $x$-axis is horizontal.</li><li>Segments centered at points above the $x$-axis have positive slope, and the segments become steeper as the distance from the $x$-axis increases.</li><li>Segments centered at points below the $x$-axis have negative slope.</li><li>Along any horizontal line, all of the segments are identical.</li></ul><p>Which differential equation produces this slope field?</p>",
+   "choices": [
+    "$\\dfrac{dy}{dx} = x$",
+    "$\\dfrac{dy}{dx} = y$",
+    "$\\dfrac{dy}{dx} = -y$",
+    "$\\dfrac{dy}{dx} = xy$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from matching the slope to the wrong variable. For $\\frac{dy}{dx} = x$, segments are identical along vertical lines and horizontal on the $y$-axis, not on the $x$-axis.",
+    null,
+    "This choice comes from reversing the sign. For $\\frac{dy}{dx} = -y$, segments above the $x$-axis have negative slope and segments below have positive slope, the opposite of the description.",
+    "This choice comes from including a factor of $x$. For $\\frac{dy}{dx} = xy$, segments are horizontal on both axes, and along a horizontal line the slope changes with $x$, so the segments are not identical."
+   ],
+   "hints": [
+    "A slope field draws, at each point $(x, y)$, a short segment whose slope is the value of $\\dfrac{dy}{dx}$ there. Segments identical along a horizontal line means the slope does not depend on $x$.",
+    "The slope is zero exactly when $y = 0$, positive when $y > 0$, negative when $y < 0$, and larger in size farther from the $x$-axis. Find the expression in $y$ alone with all four of these properties."
+   ],
+   "solution": [
+    {
+     "text": "Along any horizontal line, $y$ is constant and $x$ varies. If the segments are identical along such a line, the slope depends only on $y$. This rules out $\\frac{dy}{dx} = x$ and $\\frac{dy}{dx} = xy$."
+    },
+    {
+     "text": "On the $x$-axis, $y = 0$ and the segments are horizontal, so the expression must be $0$ when $y = 0$. Above the axis, $y > 0$ and the slope is positive; below, $y < 0$ and the slope is negative. So the slope has the same sign as $y$. This rules out $\\frac{dy}{dx} = -y$."
+    },
+    {
+     "text": "The slope grows in size with the distance from the $x$-axis, which is $|y|$. The expression $y$ has all of these properties.",
+     "math": "\\frac{dy}{dx} = y"
+    },
+    {
+     "text": "Consistency check: the solutions of $\\frac{dy}{dx} = y$ are $y = Ce^{x}$. For $C > 0$ they increase, for $C < 0$ they decrease, and $y = 0$ is a horizontal solution, matching the field."
+    }
+   ]
+  },
+  {
+   "id": "u7-q007",
+   "skillId": "u7-slope-fields",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>The table gives the slope of the segment of a slope field at five points $(x, y)$.</p><table><thead><tr><th>Point $(x, y)$</th><th>$(0, 0)$</th><th>$(1, 1)$</th><th>$(2, 2)$</th><th>$(2, 1)$</th><th>$(1, 2)$</th></tr></thead><tbody><tr><td>Slope</td><td>$0$</td><td>$0$</td><td>$0$</td><td>$1$</td><td>$-1$</td></tr></tbody></table><p>Which differential equation is consistent with every entry in the table?</p>",
+   "choices": [
+    "$\\dfrac{dy}{dx} = y - x$",
+    "$\\dfrac{dy}{dx} = x + y$",
+    "$\\dfrac{dy}{dx} = xy$",
+    "$\\dfrac{dy}{dx} = x - y$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from reversing the order of subtraction. At $(2, 1)$, $y - x = 1 - 2 = -1$, but the table lists slope $1$ at that point.",
+    "This choice comes from adding instead of subtracting. At $(1, 1)$, $x + y = 2$, but the table lists slope $0$ at that point.",
+    "This choice comes from using the product of the coordinates. At $(1, 1)$, $xy = 1$, but the table lists slope $0$ at that point.",
+    null
+   ],
+   "hints": [
+    "Substitute each point into each candidate expression. A single mismatch rules out a candidate.",
+    "Three points with $x = y$ all have slope $0$, so the expression must equal $0$ whenever $x = y$. Use the points $(2, 1)$ and $(1, 2)$ to decide the sign."
+   ],
+   "solution": [
+    {
+     "text": "The slope is $0$ at $(0, 0)$, $(1, 1)$, and $(2, 2)$. Each has $x = y$. The expressions $x - y$ and $y - x$ are $0$ at all three; $x + y$ gives $2$ at $(1, 1)$ and $xy$ gives $1$ at $(1, 1)$, so those two are ruled out."
+    },
+    {
+     "text": "Use the point $(2, 1)$, where the slope is $1$, to decide between $x - y$ and $y - x$.",
+     "math": "x - y = 2 - 1 = 1, \\qquad y - x = 1 - 2 = -1"
+    },
+    {
+     "text": "Only $x - y$ matches. Confirm at $(1, 2)$: $x - y = 1 - 2 = -1$, which agrees with the table.",
+     "math": "\\frac{dy}{dx} = x - y"
+    }
+   ]
+  },
+  {
+   "id": "u7-q008",
+   "skillId": "u7-slope-fields",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Let $y = f(x)$ be the particular solution of the differential equation $\\dfrac{dy}{dx} = y(3 - y)$ with initial condition $f(0) = 1$. Which statement describes the behavior of $f(x)$ as $x$ increases from $0$?</p>",
+   "choices": [
+    "$f(x)$ increases and approaches $3$ but never reaches it.",
+    "$f(x)$ increases without bound.",
+    "$f(x)$ decreases and approaches $0$.",
+    "$f(x)$ stays constant at $1$."
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from ignoring the equilibrium solution $y = 3$. Solution curves of this equation cannot cross the line $y = 3$, because the constant function $y = 3$ is itself a solution and solution curves do not cross; a curve starting at $y = 1$ stays below $3$.",
+    "This choice comes from a sign error in evaluating $y(3 - y)$ at $y = 1$. The value is $1 \\cdot 2 = 2$, which is positive, so $f$ is increasing at the start, not decreasing.",
+    "This choice comes from treating the starting value as an equilibrium. An equilibrium requires $\\frac{dy}{dx} = 0$, but at $y = 1$ the slope is $1(3 - 1) = 2$, not $0$."
+   ],
+   "hints": [
+    "Evaluate the slope $y(3 - y)$ at the starting value $y = 1$. Its sign tells you whether $f$ is increasing or decreasing at $x = 0$.",
+    "Find the equilibrium values, where $y(3 - y) = 0$. A solution curve that starts strictly between two equilibrium values stays between them, because the constant equilibrium functions are themselves solutions and solution curves do not cross.",
+    "For $1 < y < 3$, check the sign of $y(3 - y)$. If it stays positive, $f$ keeps increasing. Combine that with the bound from the previous hint to decide the long-run behavior."
+   ],
+   "solution": [
+    {
+     "text": "Find the equilibrium solutions, the constant functions that satisfy the equation. Set the slope to zero.",
+     "math": "y(3 - y) = 0 \\quad\\Longrightarrow\\quad y = 0 \\ \\text{ or }\\ y = 3"
+    },
+    {
+     "text": "At the initial point, $y = 1$, the slope is $1(3 - 1) = 2$, which is positive, so $f$ is increasing at $x = 0$. This rules out the choices that say $f$ decreases or stays constant."
+    },
+    {
+     "text": "For every $y$ with $0 < y < 3$, both factors $y$ and $3 - y$ are positive, so the slope is positive. Since $f$ starts at $1$ and the constant solution $y = 3$ cannot be crossed, $f(x)$ remains in the interval $(1, 3)$ and keeps increasing."
+    },
+    {
+     "text": "An increasing function that stays below $3$ approaches a limit $L$ with $L \\leq 3$. If $L$ were less than $3$, the slope would approach $L(3 - L)$, a positive number, and $f$ would keep growing past $L$. So the limit is exactly $3$, and $f(x)$ never equals $3$ because that would require crossing the equilibrium solution."
+    },
+    {
+     "text": "Confirmation by separation of variables: the particular solution is the function below (Lesson 5 calls this form a logistic function), which increases toward $3$ as $x$ grows.",
+     "math": "f(x) = \\frac{3}{1 + 2e^{-3x}}"
+    }
+   ]
+  },
+  {
+   "id": "u7-q009",
+   "skillId": "u7-slope-fields",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A slope field for a differential equation has the following three properties.</p><ul><li>Along every vertical line, all the segments have the same slope.</li><li>The segments are horizontal exactly on the vertical lines $x = 2$ and $x = -2$.</li><li>For $-2 < x < 2$, every segment has a negative slope.</li></ul><p>Which differential equation could produce this slope field?</p>",
+   "choices": [
+    "$\\dfrac{dy}{dx} = 4 - x^2$",
+    "$\\dfrac{dy}{dx} = x^2 - 4$",
+    "$\\dfrac{dy}{dx} = y^2 - 4$",
+    "$\\dfrac{dy}{dx} = (x - 2)^2$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from matching the zeros at $x = \\pm 2$ without checking the sign between them. For $4 - x^2$, the slope at $x = 0$ is $4$, which is positive, so the segments between $x = -2$ and $x = 2$ would slope upward instead of downward.",
+    null,
+    "This choice comes from matching the zeros and the sign but using $y$ where $x$ is needed. A slope that depends only on $y$ gives identical segments along every horizontal line, and horizontal segments on the horizontal lines $y = \\pm 2$, not on the vertical lines $x = \\pm 2$.",
+    "This choice comes from matching a zero at $x = 2$ only. The expression $(x - 2)^2$ is $0$ only at $x = 2$, and it is never negative, so there would be no horizontal segments at $x = -2$ and no downward segments anywhere."
+   ],
+   "hints": [
+    "Segments that are identical along every vertical line mean the slope does not change when $y$ changes. So the right side of the equation should be a function of $x$ alone.",
+    "Test each candidate at three inputs: $x = 2$, $x = -2$, and $x = 0$. The correct expression is $0$ at the first two and negative at the third."
+   ],
+   "solution": [
+    {
+     "text": "Along a vertical line, $x$ is fixed and $y$ varies. Identical segments along every vertical line mean the slope depends on $x$ only, so the right side must be a function of $x$ alone. That rules out $\\dfrac{dy}{dx} = y^2 - 4$."
+    },
+    {
+     "text": "Horizontal segments exactly on $x = 2$ and $x = -2$ mean the expression is $0$ at both $x = 2$ and $x = -2$ and nowhere else. The expression $(x - 2)^2$ is $0$ only at $x = 2$, so it is ruled out."
+    },
+    {
+     "text": "Both $x^2 - 4$ and $4 - x^2$ are $0$ at $x = \\pm 2$. Test the sign between them at $x = 0$.",
+     "math": "x^2 - 4 \\big|_{x = 0} = -4 < 0, \\qquad 4 - x^2 \\big|_{x = 0} = 4 > 0"
+    },
+    {
+     "text": "Only $x^2 - 4$ is negative on $-2 < x < 2$. The differential equation is $\\dfrac{dy}{dx} = x^2 - 4$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q010",
+   "skillId": "u7-slope-fields",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Consider the differential equation $\\dfrac{dy}{dx} = (x - 1)(y + 2)$. Let $y = f(x)$ be the particular solution whose graph passes through the point $(0, 0)$. Which of the following statements about $f$ is true?</p>",
+   "choices": [
+    "$f$ has a local maximum at $x = 1$, and $f(x) > -2$ for all $x$.",
+    "The graph of $f$ crosses the line $y = -2$ at some $x < 0$.",
+    "$f$ is decreasing for all $x$.",
+    "$f$ has a local minimum at $x = 1$, and $f(x) > -2$ for all $x$."
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from reading the sign change of $\\dfrac{dy}{dx}$ at $x = 1$ in reverse. Because $y + 2 > 0$ along this curve, the sign of the slope is the sign of $x - 1$: negative for $x < 1$ and positive for $x > 1$. A change from decreasing to increasing is a local minimum, not a maximum.",
+    "This choice comes from ignoring that $y = -2$ is itself a solution of the differential equation. The constant function $y = -2$ makes both sides $0$. Solutions of this equation are unique, so two solution curves cannot share a point, and a curve that starts above $y = -2$ stays above it for every $x$.",
+    "This choice comes from examining the slope only at the starting point $(0, 0)$, where it is $(0 - 1)(0 + 2) = -2$. That slope is negative, but the factor $x - 1$ becomes positive once $x > 1$, so $f$ increases for $x > 1$.",
+    null
+   ],
+   "hints": [
+    "Start by finding the constant solutions. If a constant $y = c$ makes the right side $0$ for every $x$, then $y = c$ is an equilibrium solution, and no other solution curve can cross that horizontal line.",
+    "Along the curve through $(0, 0)$, decide the sign of each factor. The factor $y + 2$ keeps one sign for the whole curve. The factor $x - 1$ changes sign at $x = 1$. Combine the signs to find where $f$ is decreasing and where it is increasing.",
+    "If you want to confirm the reasoning, separate the variables: $\\dfrac{dy}{y + 2} = (x - 1)\\,dx$, integrate, and use the point $(0, 0)$ to find the constant. Then check the resulting formula against the statements."
+   ],
+   "solution": [
+    {
+     "text": "First find the equilibrium solutions, the constant functions that satisfy the equation. Setting $y = -2$ makes the right side $(x - 1)(0) = 0$ for every $x$, so $y = -2$ is a solution. The right side is a polynomial in $x$ and $y$, so solutions through any point are unique, and no other solution curve can touch the line $y = -2$. The curve through $(0, 0)$ starts above that line, so $f(x) > -2$ for all $x$."
+    },
+    {
+     "text": "Because $f(x) + 2 > 0$ everywhere, the sign of $f'(x) = (x - 1)(f(x) + 2)$ is the sign of $x - 1$. So $f'(x) < 0$ for $x < 1$ and $f'(x) > 0$ for $x > 1$. By the First Derivative Test, $f$ has a local minimum at $x = 1$. This rules out a local maximum at $x = 1$ and rules out $f$ decreasing for all $x$."
+    },
+    {
+     "text": "The same conclusions follow from the explicit solution. Separate the variables and integrate.",
+     "math": "\\int \\frac{dy}{y + 2} = \\int (x - 1)\\,dx \\quad\\Longrightarrow\\quad \\ln|y + 2| = \\frac{(x - 1)^2}{2} + C"
+    },
+    {
+     "text": "Use the point $(0, 0)$: $\\ln 2 = \\dfrac{1}{2} + C$, so $C = \\ln 2 - \\dfrac{1}{2}$. Solving for $y$ with $y + 2 > 0$ gives the particular solution.",
+     "math": "f(x) = 2e^{\\frac{(x - 1)^2 - 1}{2}} - 2"
+    },
+    {
+     "text": "The exponential factor is always positive, so $f(x) > -2$ for all $x$, and the exponent $\\dfrac{(x - 1)^2 - 1}{2}$ is smallest at $x = 1$, so $f$ has its minimum there, with value $f(1) = 2e^{-1/2} - 2 \\approx -0.79$. The true statement is that $f$ has a local minimum at $x = 1$ and $f(x) > -2$ for all $x$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q011",
+   "skillId": "u7-euler-method",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>Let $y = f(x)$ be the solution of the differential equation $\\dfrac{dy}{dx} = x + y$ with initial condition $f(0) = 1$. Use Euler's method, starting at $x = 0$ with a step size of $0.5$, to approximate $f(1)$. Give the exact value of the approximation.</p>",
+   "answer": 2.5,
+   "tolerance": 0.001,
+   "hints": [
+    "Euler's method moves along the tangent line for one step at a time. From a point $(x_n, y_n)$, the next $y$ value is $y_{n+1} = y_n + h \\cdot \\dfrac{dy}{dx}\\Big|_{(x_n, y_n)}$, where $h$ is the step size.",
+    "Two steps of size $0.5$ take you from $x = 0$ to $x = 0.5$ and then to $x = 1$. Compute the slope $x + y$ at the current point before each step, using the $y$ value produced by the previous step."
+   ],
+   "solution": [
+    {
+     "text": "With step size $h = 0.5$, reaching $x = 1$ from $x = 0$ takes two steps. At each step, the new $y$ value is the old $y$ value plus $h$ times the slope at the old point.",
+     "math": "y_{n+1} = y_n + 0.5\\,(x_n + y_n)"
+    },
+    {
+     "text": "Step 1, from $(0, 1)$. The slope is $0 + 1 = 1$.",
+     "math": "y(0.5) \\approx 1 + 0.5 \\cdot 1 = 1.5"
+    },
+    {
+     "text": "Step 2, from $(0.5, 1.5)$. The slope is $0.5 + 1.5 = 2$.",
+     "math": "y(1) \\approx 1.5 + 0.5 \\cdot 2 = 2.5"
+    },
+    {
+     "text": "The Euler approximation is $f(1) \\approx 2.5$. For reference, the exact solution is $f(x) = 2e^x - x - 1$, so $f(1) = 2e - 2 \\approx 3.44$; the approximation is low because the solution is concave up."
+    }
+   ]
+  },
+  {
+   "id": "u7-q012",
+   "skillId": "u7-euler-method",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Let $y = f(x)$ be the solution of $\\dfrac{dy}{dx} = 2x - y$ with $f(1) = 3$. Using Euler's method with one step of size $0.2$, starting at $x = 1$, which of the following is the approximation of $f(1.2)$?</p>",
+   "choices": [
+    "$2.8$",
+    "$3.2$",
+    "$2$",
+    "$2.6$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from reversing the sign of the slope. At $(1, 3)$ the slope is $2(1) - 3 = -1$, so the step moves $y$ downward: $3 + 0.2(-1) = 2.8$, not $3 + 0.2(1)$.",
+    "This choice comes from adding the slope $-1$ to $y$ without multiplying by the step size. Euler's method adds $h \\cdot \\dfrac{dy}{dx}$, which is $0.2 \\cdot (-1) = -0.2$, not $-1$.",
+    "This choice comes from computing the slope as $x - y = 1 - 3 = -2$, with the coefficient $2$ on $x$ dropped. The correct slope at $(1, 3)$ is $2(1) - 3 = -1$."
+   ],
+   "hints": [
+    "One Euler step uses the tangent line at the starting point. Compute the slope $\\dfrac{dy}{dx}$ at $(1, 3)$ from the differential equation first.",
+    "The step formula is $y_{\\text{new}} = y_{\\text{old}} + h \\cdot \\text{slope}$ with $h = 0.2$. Check the sign of the slope before adding."
+   ],
+   "solution": [
+    {
+     "text": "Evaluate the slope at the starting point $(x, y) = (1, 3)$ using the differential equation.",
+     "math": "\\frac{dy}{dx}\\Big|_{(1, 3)} = 2(1) - 3 = -1"
+    },
+    {
+     "text": "Apply one Euler step of size $h = 0.2$.",
+     "math": "f(1.2) \\approx 3 + 0.2 \\cdot (-1) = 3 - 0.2 = 2.8"
+    },
+    {
+     "text": "The approximation is $f(1.2) \\approx 2.8$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q013",
+   "skillId": "u7-euler-method",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>A cup of coffee cools in a room held at $20$ degrees Celsius. The temperature $T$ of the coffee, in degrees Celsius, satisfies $\\dfrac{dT}{dt} = -0.2\\,(T - 20)$, where $t$ is the time in minutes. At $t = 0$ the temperature is $90$ degrees Celsius. Use Euler's method with two steps of equal size, starting at $t = 0$, to approximate the temperature at $t = 4$ minutes. Give the exact value of the approximation, in degrees Celsius.</p>",
+   "answer": 45.2,
+   "tolerance": 0.001,
+   "hints": [
+    "Two equal steps from $t = 0$ to $t = 4$ means each step has size $h = 2$ minutes. The rate $\\dfrac{dT}{dt}$ is in degrees Celsius per minute, so $h \\cdot \\dfrac{dT}{dt}$ is a change in degrees Celsius.",
+    "At each step, compute the rate $-0.2\\,(T - 20)$ using the current temperature, then add $2$ times that rate to the current temperature. Use the result of step 1 as the starting temperature for step 2."
+   ],
+   "solution": [
+    {
+     "text": "The step size is $h = \\dfrac{4 - 0}{2} = 2$ minutes. Each Euler step computes the new temperature from the current one.",
+     "math": "T_{n+1} = T_n + 2 \\cdot \\big(-0.2\\,(T_n - 20)\\big)"
+    },
+    {
+     "text": "Step 1, from $t = 0$ with $T = 90$. The rate is $-0.2\\,(90 - 20) = -14$ degrees Celsius per minute.",
+     "math": "T(2) \\approx 90 + 2 \\cdot (-14) = 62"
+    },
+    {
+     "text": "Step 2, from $t = 2$ with $T = 62$. The rate is $-0.2\\,(62 - 20) = -8.4$ degrees Celsius per minute.",
+     "math": "T(4) \\approx 62 + 2 \\cdot (-8.4) = 45.2"
+    },
+    {
+     "text": "The Euler approximation of the temperature at $t = 4$ minutes is $45.2$ degrees Celsius. The rate becomes less negative as the coffee approaches room temperature, which is why the second step changes $T$ by less than the first."
+    }
+   ]
+  },
+  {
+   "id": "u7-q014",
+   "skillId": "u7-euler-method",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Let $y = f(x)$ be the solution of $\\dfrac{dy}{dx} = e^{y}$ with $f(0) = 0$. Euler's method, starting at $x = 0$ with any positive step size, is used to approximate $f(0.5)$. Is this approximation an overestimate or an underestimate of $f(0.5)$, and why?</p>",
+   "choices": [
+    "Overestimate, because $\\dfrac{d^2y}{dx^2} = e^{2y} > 0$, so the graph of $f$ is concave up.",
+    "Underestimate, because $\\dfrac{d^2y}{dx^2} = -e^{2y} < 0$, so the graph of $f$ is concave down.",
+    "Underestimate, because $\\dfrac{d^2y}{dx^2} = e^{2y} > 0$, so the graph of $f$ is concave up and the tangent lines lie below the graph.",
+    "Overestimate, because $\\dfrac{d^2y}{dx^2} = -e^{2y} < 0$, so the graph of $f$ is concave down."
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from the correct concavity paired with the wrong position of the tangent lines. When a graph is concave up, each tangent line lies below the graph, so following tangent lines produces values that are too small, an underestimate.",
+    "This choice comes from a sign error in $\\dfrac{d^2y}{dx^2}$. Differentiating $\\dfrac{dy}{dx} = e^{y}$ with the chain rule gives $\\dfrac{d^2y}{dx^2} = e^{y} \\cdot \\dfrac{dy}{dx} = e^{y} \\cdot e^{y} = e^{2y}$, which is positive, so the graph is concave up, not concave down.",
+    null,
+    "This choice comes from two errors together: a sign error in $\\dfrac{d^2y}{dx^2}$, which equals $e^{2y} > 0$, and the wrong tangent-line position for that concavity. A concave-up graph lies above its tangent lines, so Euler's method underestimates."
+   ],
+   "hints": [
+    "Euler's method follows tangent lines. Whether a tangent line lies above or below the graph is decided by the concavity of the graph, which is the sign of $\\dfrac{d^2y}{dx^2}$.",
+    "To find $\\dfrac{d^2y}{dx^2}$, differentiate both sides of $\\dfrac{dy}{dx} = e^{y}$ with respect to $x$. The chain rule brings in a factor of $\\dfrac{dy}{dx}$, which you can replace using the differential equation."
+   ],
+   "solution": [
+    {
+     "text": "Differentiate both sides of $\\dfrac{dy}{dx} = e^{y}$ with respect to $x$. Because $y$ depends on $x$, the chain rule gives a factor of $\\dfrac{dy}{dx}$, which equals $e^{y}$.",
+     "math": "\\frac{d^2y}{dx^2} = e^{y}\\cdot\\frac{dy}{dx} = e^{y}\\cdot e^{y} = e^{2y}"
+    },
+    {
+     "text": "Since $e^{2y} > 0$ for every $y$, the graph of $f$ is concave up everywhere. A concave-up graph lies above each of its tangent lines."
+    },
+    {
+     "text": "Euler's method moves along tangent lines of the solution curve (and, at later steps, along tangent lines of nearby solution curves, which are also concave up). Every step therefore ends at or below the true curve, so the final value is an underestimate of $f(0.5)$."
+    },
+    {
+     "text": "As a check, the exact solution is $f(x) = -\\ln(1 - x)$, so $f(0.5) = \\ln 2 \\approx 0.693$. One Euler step of size $0.5$ gives $0 + 0.5\\,e^{0} = 0.5$, which is below $0.693$. The approximation is an underestimate because $\\dfrac{d^2y}{dx^2} = e^{2y} > 0$ and the graph is concave up."
+    }
+   ]
+  },
+  {
+   "id": "u7-q015",
+   "skillId": "u7-euler-method",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Let $y = f(x)$ be the solution of the differential equation $\\dfrac{dy}{dx} = x - y^2$ with $f(2) = 1$. Use Euler's method with two steps of equal size, starting at $x = 2$, to approximate $f(1)$. Give the exact value of the approximation.</p>",
+   "answer": -0.125,
+   "tolerance": 0.001,
+   "hints": [
+    "The target $x = 1$ is to the left of the starting point $x = 2$. Two equal steps from $x = 2$ to $x = 1$ means each step has size $h = \\dfrac{1 - 2}{2} = -0.5$. A negative step size is allowed in Euler's method; the update formula does not change.",
+    "At each step, compute the slope $x - y^2$ at the current point and add $h \\cdot \\text{slope}$ to the current $y$. With $h < 0$, a positive slope decreases $y$.",
+    "After the first step you are at $x = 1.5$. Use the new $y$ value there to compute the slope for the second step."
+   ],
+   "solution": [
+    {
+     "text": "Moving from $x = 2$ to $x = 1$ in two equal steps requires $h = \\dfrac{1 - 2}{2} = -0.5$. Euler's method uses the same update with this negative step size.",
+     "math": "y_{n+1} = y_n + (-0.5)\\,(x_n - y_n^2)"
+    },
+    {
+     "text": "Step 1, from $(2, 1)$. The slope is $2 - 1^2 = 1$.",
+     "math": "y(1.5) \\approx 1 + (-0.5)(1) = 0.5"
+    },
+    {
+     "text": "Step 2, from $(1.5, 0.5)$. The slope is $1.5 - 0.5^2 = 1.5 - 0.25 = 1.25$.",
+     "math": "y(1) \\approx 0.5 + (-0.5)(1.25) = 0.5 - 0.625 = -0.125"
+    },
+    {
+     "text": "The Euler approximation is $f(1) \\approx -0.125$. The slope was positive at both points, and stepping leftward along a line of positive slope lowers $y$, which is why the approximation decreased at each step."
+    }
+   ]
+  },
+  {
+   "id": "u7-q016",
+   "skillId": "u7-separation-of-variables",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Which of the following is the general solution of the differential equation $\\dfrac{dy}{dx} = \\dfrac{x}{y}$, where $C$ is an arbitrary constant?</p>",
+   "choices": [
+    "$y = \\dfrac{x^2}{2} + C$",
+    "$y^2 = x^2 + C$",
+    "$y^2 = x^2$",
+    "$\\ln|y| = \\dfrac{x^2}{2} + C$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from integrating only the right side, $x$, with respect to $x$ while the division by $y$ is left in place. The equation must first be rearranged so that every $y$ is on the side with $dy$: multiplying both sides by $y$ gives $y\\,dy = x\\,dx$.",
+    null,
+    "This choice comes from omitting the constant of integration. Integrating both sides produces $\\dfrac{y^2}{2} = \\dfrac{x^2}{2} + C_1$, and the general solution must keep a constant so that every solution curve is included.",
+    "This choice comes from dividing by $y$ instead of multiplying by $y$ when separating. The form $\\dfrac{dy}{y} = x\\,dx$ solves $\\dfrac{dy}{dx} = xy$, not $\\dfrac{dy}{dx} = \\dfrac{x}{y}$."
+   ],
+   "hints": [
+    "Separation of variables means rewriting the equation so that one side contains only $y$ and $dy$ and the other side contains only $x$ and $dx$. Here $y$ is in a denominator on the right; move it to the left by multiplying.",
+    "After separating, the equation reads $y\\,dy = x\\,dx$. Integrate both sides and keep one constant of integration. Multiplying an equation by $2$ turns $2C_1$ into a new arbitrary constant, which is still written $C$."
+   ],
+   "solution": [
+    {
+     "text": "Multiply both sides by $y$ and by $dx$ so that all $y$ terms are with $dy$ and all $x$ terms are with $dx$.",
+     "math": "y\\,dy = x\\,dx"
+    },
+    {
+     "text": "Integrate both sides. A single constant of integration on one side is enough, because a constant on each side could be combined into one.",
+     "math": "\\int y\\,dy = \\int x\\,dx \\quad\\Longrightarrow\\quad \\frac{y^2}{2} = \\frac{x^2}{2} + C_1"
+    },
+    {
+     "text": "Multiply through by $2$ and rename $2C_1$ as $C$, which is still an arbitrary constant.",
+     "math": "y^2 = x^2 + C"
+    },
+    {
+     "text": "Check by implicit differentiation: $2y\\,\\dfrac{dy}{dx} = 2x$, so $\\dfrac{dy}{dx} = \\dfrac{x}{y}$, which matches the original equation. The general solution is $y^2 = x^2 + C$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q017",
+   "skillId": "u7-separation-of-variables",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find the general solution of the differential equation $\\dfrac{dy}{dx} = 2xy$. In each choice, $C$ is an arbitrary constant.</p>",
+   "choices": [
+    "$y = e^{x^2} + C$",
+    "$y = Ce^{x^2}$",
+    "$y = Ce^{2x}$",
+    "$y = x^2 + C$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from adding the constant after exponentiating. Separation gives $\\ln|y| = x^2 + C$, and exponentiating both sides turns the added constant into a multiplied one: $|y| = e^{C} e^{x^2}$. Check: $y = e^{x^2} + C$ has $y' = 2x e^{x^2}$, which is not $2xy$ unless $C = 0$.",
+    null,
+    "This choice comes from writing the integral of $2x$ as $2x$. The integral of $2x$ with respect to $x$ is $x^2$, so the exponent must be $x^2$, not $2x$.",
+    "This choice comes from integrating $2x$ alone, as if the equation were $\\dfrac{dy}{dx} = 2x$. The factor $y$ on the right side must first be moved to the left as $\\dfrac{1}{y}\\,dy$, and integrating $\\dfrac{1}{y}$ produces a logarithm, not $y$ itself."
+   ],
+   "hints": [
+    "The right side is a product of a function of $x$ and a function of $y$. Divide both sides by $y$ and multiply both sides by $dx$ so that every $y$ is on the left with $dy$ and every $x$ is on the right with $dx$.",
+    "Integrate both sides. The left side integrates to $\\ln|y|$. After integrating, solve for $y$ by exponentiating both sides, and combine $e^{C}$ and the sign of $y$ into a single arbitrary constant."
+   ],
+   "solution": [
+    {
+     "text": "Separate the variables. Divide both sides by $y$ (for $y \\neq 0$) and multiply both sides by $dx$.",
+     "math": "\\frac{1}{y}\\,dy = 2x\\,dx"
+    },
+    {
+     "text": "Integrate both sides. Only one constant of integration is needed; put it on the right.",
+     "math": "\\ln|y| = x^2 + C_1"
+    },
+    {
+     "text": "Exponentiate both sides. An added constant in the exponent becomes a multiplied constant.",
+     "math": "|y| = e^{x^2 + C_1} = e^{C_1} e^{x^2}"
+    },
+    {
+     "text": "Let $C = \\pm e^{C_1}$ absorb the sign of $y$. The constant function $y = 0$ also satisfies the equation and corresponds to $C = 0$, so the general solution is $y = Ce^{x^2}$ with $C$ any real number.",
+     "math": "y = Ce^{x^2}"
+    },
+    {
+     "text": "Verify by differentiating: $y' = C \\cdot 2x e^{x^2} = 2x \\cdot Ce^{x^2} = 2xy$, which matches the differential equation."
+    }
+   ]
+  },
+  {
+   "id": "u7-q018",
+   "skillId": "u7-separation-of-variables",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A differential equation $\\dfrac{dy}{dx} = F(x, y)$ is called separable when $F(x, y)$ can be written as a product $g(x)\\,h(y)$ of a function of $x$ alone and a function of $y$ alone. Which of the following differential equations is separable?</p>",
+   "choices": [
+    "$\\dfrac{dy}{dx} = xy + 1$",
+    "$\\dfrac{dy}{dx} = x + y$",
+    "$\\dfrac{dy}{dx} = e^{x} + e^{y}$",
+    "$\\dfrac{dy}{dx} = xy + x$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from factoring $x$ out of both terms of $xy + 1$. The term $1$ has no factor of $x$, so $xy + 1$ does not factor as $x$ times a function of $y$. There is no way to write $xy + 1$ as $g(x)\\,h(y)$.",
+    "This choice comes from treating a sum as if each term could be integrated on its own side. Separation requires a product $g(x)\\,h(y)$, and the sum $x + y$ is not such a product. Writing $dy = (x + y)\\,dx$ still leaves $y$ on the right side with $dx$.",
+    "This choice comes from confusing $e^{x} + e^{y}$ with $e^{x + y}$. The exponent rule gives $e^{x + y} = e^{x} e^{y}$, which would be separable, but a sum of two exponentials does not factor into a function of $x$ times a function of $y$.",
+    null
+   ],
+   "hints": [
+    "Test each right side by trying to factor it. A separable right side factors completely into (something in $x$ only) times (something in $y$ only). A sum of two terms is separable only if a common factor can be factored out to leave a product.",
+    "In one of the four expressions, both terms share the factor $x$. Factor it out and check whether what remains depends on $y$ alone."
+   ],
+   "solution": [
+    {
+     "text": "Check $xy + x$. Both terms contain the factor $x$.",
+     "math": "xy + x = x(y + 1)"
+    },
+    {
+     "text": "This is a product of $g(x) = x$ and $h(y) = y + 1$, so the equation separates.",
+     "math": "\\frac{1}{y + 1}\\,dy = x\\,dx"
+    },
+    {
+     "text": "Check the others. In $xy + 1$, the term $1$ contains no $x$ and no $y$, so no common factor exists and no factoring into $g(x)\\,h(y)$ is possible. In $x + y$, the two terms share no factor. In $e^{x} + e^{y}$, the two terms share no factor; by contrast $e^{x + y} = e^{x} e^{y}$ would separate, but that is a different expression."
+    },
+    {
+     "text": "The separable equation is $\\dfrac{dy}{dx} = xy + x$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q019",
+   "skillId": "u7-separation-of-variables",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find the general solution of the differential equation $\\dfrac{dy}{dx} = 2xy - 4x$. In each choice, $C$ is an arbitrary constant.</p>",
+   "choices": [
+    "$y = 2 + Ce^{x^2}$",
+    "$y = Ce^{x^2}$",
+    "$y = Ce^{x^2} - 2$",
+    "$y = 2 + Ce^{x^2/2}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from dropping the $-4x$ term and solving $\\dfrac{dy}{dx} = 2xy$ instead. The $-4x$ term shifts the solution by a constant: check that $y = Ce^{x^2}$ gives $y' = 2xy$, which differs from $2xy - 4x$.",
+    "This choice comes from reversing the sign of the constant term. Factoring gives $2x(y - 2)$, so integrating $\\dfrac{1}{y - 2}\\,dy$ leads to $\\ln|y - 2| = x^2 + C_1$, then $y - 2 = Ce^{x^2}$ and $y = 2 + Ce^{x^2}$. Check: $y = Ce^{x^2} - 2$ gives $y' = 2x(y + 2)$, not $2x(y - 2)$.",
+    "This choice comes from writing the integral of $2x$ as $\\dfrac{x^2}{2}$. The antiderivative of $2x$ is $x^2$; the factor $\\dfrac{1}{2}$ would appear only when integrating $x$ alone."
+   ],
+   "hints": [
+    "The right side is not yet written as a product, but both terms share the factor $2x$. Factor it out before separating.",
+    "After factoring, divide both sides by the $y$-factor and integrate. The left side integrates to a logarithm of that $y$-factor. Exponentiate and then solve for $y$."
+   ],
+   "solution": [
+    {
+     "text": "Factor the right side so that it becomes a product of a function of $x$ and a function of $y$.",
+     "math": "\\frac{dy}{dx} = 2x(y - 2)"
+    },
+    {
+     "text": "Separate the variables (for $y \\neq 2$) and integrate both sides.",
+     "math": "\\int \\frac{1}{y - 2}\\,dy = \\int 2x\\,dx \\quad\\Longrightarrow\\quad \\ln|y - 2| = x^2 + C_1"
+    },
+    {
+     "text": "Exponentiate both sides. The added constant becomes a multiplied constant $C = \\pm e^{C_1}$, and $C = 0$ recovers the constant solution $y = 2$.",
+     "math": "y - 2 = Ce^{x^2}"
+    },
+    {
+     "text": "Solve for $y$.",
+     "math": "y = 2 + Ce^{x^2}"
+    },
+    {
+     "text": "Verify: $y' = 2xCe^{x^2}$ and $2xy - 4x = 2x(y - 2) = 2x \\cdot Ce^{x^2}$. The two sides agree."
+    }
+   ]
+  },
+  {
+   "id": "u7-q020",
+   "skillId": "u7-separation-of-variables",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find the general solution of the differential equation $\\dfrac{dy}{dx} = e^{x - y}$. In each choice, $C$ is an arbitrary constant.</p>",
+   "choices": [
+    "$y = x + C$",
+    "$y = e^{x} + C$",
+    "$y = \\ln\\left(e^{x} + C\\right)$",
+    "$y = -\\ln\\left(C - e^{x}\\right)$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from adding the constant after taking the logarithm, as $\\ln(e^{x}) + C$. The constant is added at the integration step, before the logarithm: $e^{y} = e^{x} + C$, and $\\ln(e^{x} + C)$ is not equal to $x + C$. Check: $y = x + C$ gives $y' = 1$, but $e^{x - y} = e^{-C}$, which equals $1$ only when $C = 0$.",
+    "This choice comes from integrating $e^{y}\\,dy$ as $y$. The integral of $e^{y}$ with respect to $y$ is $e^{y}$, so the equation after integrating is $e^{y} = e^{x} + C$, and $y$ is recovered by taking a logarithm.",
+    null,
+    "This choice comes from moving $e^{-y}$ to the left side as a multiplier and integrating $e^{-y}\\,dy$. Dividing both sides by $e^{-y}$ multiplies the left side by its reciprocal $e^{y}$, so the left side is $e^{y}\\,dy$, not $e^{-y}\\,dy$. Check: $y = -\\ln(C - e^{x})$ gives $y' = e^{x + y}$, not $e^{x - y}$."
+   ],
+   "hints": [
+    "Use the exponent rule $e^{a - b} = e^{a} e^{-b}$ to write the right side as a product of a function of $x$ and a function of $y$.",
+    "To move $e^{-y}$ to the left side, divide both sides by it. Dividing by $e^{-y}$ is the same as multiplying by $e^{y}$. Then integrate both sides and solve for $y$ with a logarithm."
+   ],
+   "solution": [
+    {
+     "text": "Rewrite the right side as a product using the rule $e^{x - y} = e^{x} e^{-y}$.",
+     "math": "\\frac{dy}{dx} = e^{x} e^{-y}"
+    },
+    {
+     "text": "Separate the variables. Dividing both sides by $e^{-y}$ multiplies by $e^{y}$.",
+     "math": "e^{y}\\,dy = e^{x}\\,dx"
+    },
+    {
+     "text": "Integrate both sides. The antiderivative of $e^{y}$ with respect to $y$ is $e^{y}$, and the antiderivative of $e^{x}$ with respect to $x$ is $e^{x}$.",
+     "math": "e^{y} = e^{x} + C"
+    },
+    {
+     "text": "Solve for $y$ by taking the natural logarithm of both sides. The constant stays inside the logarithm; it cannot be moved outside because $\\ln(a + b) \\neq \\ln a + \\ln b$.",
+     "math": "y = \\ln\\left(e^{x} + C\\right)"
+    },
+    {
+     "text": "Verify: $y' = \\dfrac{e^{x}}{e^{x} + C} = \\dfrac{e^{x}}{e^{y}} = e^{x - y}$, which matches the differential equation."
+    }
+   ]
+  },
+  {
+   "id": "u7-q021",
+   "skillId": "u7-separation-of-variables",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Find the general solution of the differential equation $\\dfrac{dy}{dx} = \\dfrac{x^2}{y\\left(1 + x^3\\right)}$. In each choice, $C$ is an arbitrary constant.</p>",
+   "choices": [
+    "$y^2 = 2\\ln\\left|1 + x^3\\right| + C$",
+    "$y^2 = \\dfrac{1}{3}\\ln\\left|1 + x^3\\right| + C$",
+    "$y = \\dfrac{2}{3}\\ln\\left|1 + x^3\\right| + C$",
+    "$y^2 = \\dfrac{2}{3}\\ln\\left|1 + x^3\\right| + C$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from omitting the factor $\\dfrac{1}{3}$ from the substitution. With $u = 1 + x^3$, $du = 3x^2\\,dx$, so $x^2\\,dx = \\dfrac{1}{3}\\,du$ and the integral of $\\dfrac{x^2}{1 + x^3}$ is $\\dfrac{1}{3}\\ln|1 + x^3|$, not $\\ln|1 + x^3|$.",
+    "This choice comes from omitting the factor $2$ that appears when clearing $\\dfrac{y^2}{2}$. Integrating $y\\,dy$ gives $\\dfrac{y^2}{2}$; multiplying the whole equation by $2$ doubles the right side to $\\dfrac{2}{3}\\ln|1 + x^3|$.",
+    "This choice comes from integrating the left side $y\\,dy$ as $y$ instead of $\\dfrac{y^2}{2}$. The variable $y$ is multiplied by $dy$, so its integral is $\\dfrac{y^2}{2}$, and the solution is an equation in $y^2$.",
+    null
+   ],
+   "hints": [
+    "Multiply both sides by $y$ and by $dx$ so that the left side is $y\\,dy$ and the right side involves only $x$. Then the right side is a rational function whose numerator is a constant multiple of the derivative of its denominator.",
+    "Integrate the right side with the substitution $u = 1 + x^3$, so $du = 3x^2\\,dx$. Keep track of the factor $\\dfrac{1}{3}$ that this substitution introduces.",
+    "After integrating both sides, multiply the entire equation by $2$ to clear the $\\dfrac{1}{2}$ on the left. The arbitrary constant absorbs the factor $2$."
+   ],
+   "solution": [
+    {
+     "text": "Separate the variables. Multiply both sides by $y$ and by $dx$.",
+     "math": "y\\,dy = \\frac{x^2}{1 + x^3}\\,dx"
+    },
+    {
+     "text": "Integrate the left side.",
+     "math": "\\int y\\,dy = \\frac{y^2}{2}"
+    },
+    {
+     "text": "Integrate the right side with the substitution $u = 1 + x^3$, $du = 3x^2\\,dx$, so $x^2\\,dx = \\dfrac{1}{3}\\,du$.",
+     "math": "\\int \\frac{x^2}{1 + x^3}\\,dx = \\frac{1}{3}\\int \\frac{1}{u}\\,du = \\frac{1}{3}\\ln|u| = \\frac{1}{3}\\ln\\left|1 + x^3\\right|"
+    },
+    {
+     "text": "Set the two antiderivatives equal with one constant $C_1$, then multiply through by $2$ and write $C = 2C_1$.",
+     "math": "\\frac{y^2}{2} = \\frac{1}{3}\\ln\\left|1 + x^3\\right| + C_1 \\quad\\Longrightarrow\\quad y^2 = \\frac{2}{3}\\ln\\left|1 + x^3\\right| + C"
+    },
+    {
+     "text": "Verify by implicit differentiation: $2y\\,y' = \\dfrac{2}{3}\\cdot\\dfrac{3x^2}{1 + x^3} = \\dfrac{2x^2}{1 + x^3}$, so $y' = \\dfrac{x^2}{y(1 + x^3)}$, which matches. The solution is left in implicit form because solving for $y$ would require choosing a sign for the square root."
+    }
+   ]
+  },
+  {
+   "id": "u7-q022",
+   "skillId": "u7-particular-solutions",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>Let $y = f(x)$ be the particular solution of the differential equation $\\dfrac{dy}{dx} = \\dfrac{4x}{y}$ with the initial condition $f(0) = 3$. Find $f(2)$. Give an exact integer.</p>",
+   "answer": 5,
+   "hints": [
+    "Separate the variables: multiply both sides by $y$ and by $dx$, then integrate both sides. The result is an equation relating $y^2$ and $x^2$ with one constant.",
+    "Substitute $x = 0$ and $y = 3$ into the general solution to find the constant. Then solve for $y$, choosing the square root whose sign matches $f(0) = 3$, and evaluate at $x = 2$."
+   ],
+   "solution": [
+    {
+     "text": "Separate the variables and integrate both sides.",
+     "math": "\\int y\\,dy = \\int 4x\\,dx \\quad\\Longrightarrow\\quad \\frac{y^2}{2} = 2x^2 + C_1"
+    },
+    {
+     "text": "Multiply by $2$ and write $C = 2C_1$.",
+     "math": "y^2 = 4x^2 + C"
+    },
+    {
+     "text": "Apply the initial condition $f(0) = 3$: substitute $x = 0$, $y = 3$.",
+     "math": "3^2 = 4(0)^2 + C \\quad\\Longrightarrow\\quad C = 9"
+    },
+    {
+     "text": "Solve for $y$. Because $f(0) = 3$ is positive, the particular solution is the positive square root.",
+     "math": "f(x) = \\sqrt{4x^2 + 9}"
+    },
+    {
+     "text": "Evaluate at $x = 2$.",
+     "math": "f(2) = \\sqrt{4(4) + 9} = \\sqrt{25} = 5"
+    }
+   ]
+  },
+  {
+   "id": "u7-q023",
+   "skillId": "u7-particular-solutions",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find the particular solution $y = f(x)$ of the differential equation $\\dfrac{dy}{dx} = y - 3$ with the initial condition $f(0) = 1$.</p>",
+   "choices": [
+    "$y = 3 + 2e^{x}$",
+    "$y = 3 - 2e^{x}$",
+    "$y = 3 - 2e^{-x}$",
+    "$y = 3 - e^{x}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from removing the absolute value in $\\ln|y - 3|$ without using the sign of $y - 3$ at the initial point. At $x = 0$, $y - 3 = 1 - 3 = -2$ is negative, so $y - 3 = -2e^{x}$. Check: $y = 3 + 2e^{x}$ gives $f(0) = 5$, not $1$.",
+    null,
+    "This choice comes from reversing the sign of the exponent. Integrating $\\dfrac{1}{y - 3}\\,dy = 1\\,dx$ gives $\\ln|y - 3| = x + C$, so the exponent is $+x$. Check: $y = 3 - 2e^{-x}$ gives $y' = 2e^{-x}$, but $y - 3 = -2e^{-x}$, so the equation is not satisfied.",
+    "This choice comes from taking the constant of integration as $0$ instead of solving for it from the initial condition. With $y - 3 = Ce^{x}$, substituting $x = 0$, $y = 1$ gives $C = -2$, not $-1$. Check: $y = 3 - e^{x}$ gives $f(0) = 2$, not $1$."
+   ],
+   "hints": [
+    "Separate the variables: divide both sides by $y - 3$ and multiply by $dx$. Integrating the left side produces $\\ln|y - 3|$.",
+    "After exponentiating, write $y - 3 = Ce^{x}$ where $C$ may be positive or negative. Substitute $x = 0$ and $y = 1$ to find $C$, including its sign, and then solve for $y$."
+   ],
+   "solution": [
+    {
+     "text": "Separate the variables (for $y \\neq 3$) and integrate both sides.",
+     "math": "\\int \\frac{1}{y - 3}\\,dy = \\int 1\\,dx \\quad\\Longrightarrow\\quad \\ln|y - 3| = x + C_1"
+    },
+    {
+     "text": "Exponentiate both sides. The sign of $y - 3$ and the factor $e^{C_1}$ combine into a single constant $C$ that can be positive or negative.",
+     "math": "y - 3 = Ce^{x}"
+    },
+    {
+     "text": "Apply the initial condition $f(0) = 1$: substitute $x = 0$ and $y = 1$.",
+     "math": "1 - 3 = Ce^{0} \\quad\\Longrightarrow\\quad C = -2"
+    },
+    {
+     "text": "Solve for $y$.",
+     "math": "y = 3 - 2e^{x}"
+    },
+    {
+     "text": "Verify: $y' = -2e^{x}$ and $y - 3 = -2e^{x}$, so the differential equation holds, and $f(0) = 3 - 2 = 1$ matches the initial condition."
+    }
+   ]
+  },
+  {
+   "id": "u7-q024",
+   "skillId": "u7-particular-solutions",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Let $y = f(x)$ be the particular solution of the differential equation $\\dfrac{dy}{dx} = \\dfrac{2x + 1}{2y}$ with the initial condition $f(0) = -2$. Find $f(3)$. Give an exact integer.</p>",
+   "answer": -4,
+   "hints": [
+    "Separate the variables: multiply both sides by $2y$ and by $dx$, then integrate both sides. The left side becomes $y^2$ and the right side becomes a polynomial in $x$ plus a constant.",
+    "Use $x = 0$, $y = -2$ to find the constant. When solving $y^2 = \\ldots$ for $y$, the initial value $f(0) = -2$ is negative, so the particular solution is the negative square root. Evaluate that expression at $x = 3$."
+   ],
+   "solution": [
+    {
+     "text": "Separate the variables and integrate both sides.",
+     "math": "\\int 2y\\,dy = \\int (2x + 1)\\,dx \\quad\\Longrightarrow\\quad y^2 = x^2 + x + C"
+    },
+    {
+     "text": "Apply the initial condition $f(0) = -2$: substitute $x = 0$ and $y = -2$.",
+     "math": "(-2)^2 = 0^2 + 0 + C \\quad\\Longrightarrow\\quad C = 4"
+    },
+    {
+     "text": "Solve for $y$. The equation $y^2 = x^2 + x + 4$ has two branches, $y = \\sqrt{x^2 + x + 4}$ and $y = -\\sqrt{x^2 + x + 4}$. Because $f(0) = -2$ is negative, the particular solution is the negative branch. The quantity $x^2 + x + 4$ is positive for every real $x$, so this branch is defined for all $x$.",
+     "math": "f(x) = -\\sqrt{x^2 + x + 4}"
+    },
+    {
+     "text": "Evaluate at $x = 3$.",
+     "math": "f(3) = -\\sqrt{9 + 3 + 4} = -\\sqrt{16} = -4"
+    }
+   ]
+  },
+  {
+   "id": "u7-q025",
+   "skillId": "u7-particular-solutions",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Let $y = f(x)$ be the particular solution of the differential equation $\\dfrac{dy}{dx} = y^2$ with the initial condition $f(1) = -1$. Which of the following is the domain of $f$?</p>",
+   "choices": [
+    "All real numbers $x$",
+    "All real numbers $x$ except $x = 0$",
+    "$x > 0$",
+    "$x < 0$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from not locating the vertical asymptote of the solution. Solving gives $f(x) = -\\dfrac{1}{x}$, which is undefined at $x = 0$, so the solution cannot exist on all real numbers.",
+    "This choice comes from taking every $x$ where the formula $-\\dfrac{1}{x}$ is defined as the domain. A particular solution of a differential equation is defined on a single open interval containing the initial point. The interval $x < 0$ is separated from the initial point $x = 1$ by the asymptote at $x = 0$, so it is not part of the domain of $f$.",
+    null,
+    "This choice comes from selecting the interval on the wrong side of the vertical asymptote. The initial condition $f(1) = -1$ places the initial point at $x = 1$, which is in the interval $x > 0$, not in $x < 0$."
+   ],
+   "hints": [
+    "Separate the variables and integrate to find the formula for $f(x)$. Then look for any $x$ value where that formula is undefined.",
+    "The domain of a particular solution is the largest open interval that contains the initial $x$ value and on which the solution is defined and differentiable. Start at $x = 1$ and extend the interval in both directions until you reach a point where the formula is undefined or until there is no such point."
+   ],
+   "solution": [
+    {
+     "text": "Separate the variables. Since $y = 0$ does not satisfy $f(1) = -1$, division by $y^2$ is allowed.",
+     "math": "\\int \\frac{1}{y^2}\\,dy = \\int 1\\,dx \\quad\\Rightarrow\\quad -\\frac{1}{y} = x + C"
+    },
+    {
+     "text": "Apply the initial condition $f(1) = -1$ to find $C$.",
+     "math": "-\\frac{1}{-1} = 1 + C \\quad\\Rightarrow\\quad C = 0"
+    },
+    {
+     "text": "Solve for $y$.",
+     "math": "-\\frac{1}{y} = x \\quad\\Rightarrow\\quad y = -\\frac{1}{x}"
+    },
+    {
+     "text": "The formula $-\\dfrac{1}{x}$ is undefined at $x = 0$, where the graph has a vertical asymptote. A particular solution must be defined on one open interval that contains the initial point $x = 1$. The largest such interval that avoids $x = 0$ is $x > 0$."
+    },
+    {
+     "text": "Therefore the domain of $f$ is $x > 0$. On this interval $f(x) = -\\dfrac{1}{x}$ is differentiable and satisfies $f'(x) = \\dfrac{1}{x^2} = \\left(-\\dfrac{1}{x}\\right)^2 = \\big(f(x)\\big)^2$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q026",
+   "skillId": "u7-particular-solutions",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Let $y = f(x)$ be the particular solution of the differential equation $\\dfrac{dy}{dx} = \\dfrac{3y}{x}$ with the initial condition $f(-1) = 2$. Find $f(-2)$. Give an exact integer.</p>",
+   "answer": 16,
+   "hints": [
+    "Separate the variables so that all $y$ terms are on one side with $dy$ and all $x$ terms are on the other side with $dx$. Both integrals produce natural logarithms.",
+    "After integrating you have $\\ln|y| = 3\\ln|x| + C$. Exponentiate both sides, then combine the constant and the absolute-value signs into a single constant $A$ whose sign is fixed by the initial condition.",
+    "Use $f(-1) = 2$ to find the constant, then substitute $x = -2$ into the resulting formula."
+   ],
+   "solution": [
+    {
+     "text": "Separate the variables. The initial value $y = 2$ is not zero, so division by $y$ is allowed. The initial point $x = -1$ is not zero, so the solution is defined on the interval $x < 0$, the side of $x = 0$ that contains the initial point.",
+     "math": "\\int \\frac{1}{y}\\,dy = \\int \\frac{3}{x}\\,dx \\quad\\Rightarrow\\quad \\ln|y| = 3\\ln|x| + C"
+    },
+    {
+     "text": "Exponentiate both sides, using $e^{3\\ln|x|} = |x|^3$. Since $|x|^3$ equals $x^3$ or $-x^3$ and $|y|$ equals $y$ or $-y$, the constant $e^{C}$ and those signs combine into one nonzero constant $A$.",
+     "math": "|y| = e^{C}|x|^3 \\quad\\Rightarrow\\quad y = A x^3"
+    },
+    {
+     "text": "Apply the initial condition $f(-1) = 2$.",
+     "math": "2 = A(-1)^3 = -A \\quad\\Rightarrow\\quad A = -2"
+    },
+    {
+     "text": "The particular solution is $f(x) = -2x^3$ on the interval $x < 0$. Evaluate at $x = -2$.",
+     "math": "f(-2) = -2(-2)^3 = -2(-8) = 16"
+    },
+    {
+     "text": "Check: $f'(x) = -6x^2$ and $\\dfrac{3f(x)}{x} = \\dfrac{3(-2x^3)}{x} = -6x^2$, so the differential equation holds, and $f(-1) = -2(-1) = 2$ matches the initial condition."
+    }
+   ]
+  },
+  {
+   "id": "u7-q027",
+   "skillId": "u7-exponential-models",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A bacteria population $P$, measured in cells, grows at a rate proportional to its size, so that $\\dfrac{dP}{dt} = kP$ with $k = 0.2$ per hour and $t$ measured in hours. At time $t = 0$ the population is $500$ cells. Which of the following gives $P$ as a function of $t$?</p>",
+   "choices": [
+    "$P = 500e^{-0.2t}$",
+    "$P = 500(1 + 0.2t)$",
+    "$P = 500 + e^{0.2t}$",
+    "$P = 500e^{0.2t}$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from reversing the sign of $k$. A negative exponent describes exponential decay, but the population is growing, so the constant in the exponent is $+0.2$.",
+    "This choice comes from treating the growth rate as a constant number of cells per hour, which gives a linear function. The rate $\\dfrac{dP}{dt} = 0.2P$ depends on $P$ itself, and the solution of that equation is exponential, not linear.",
+    "This choice comes from adding the initial value instead of multiplying by it. The general solution of $\\dfrac{dP}{dt} = kP$ is $P = Ce^{kt}$, and at $t = 0$ this gives $P(0) = C$, so $C = 500$ multiplies the exponential.",
+    null
+   ],
+   "hints": [
+    "The differential equation $\\dfrac{dP}{dt} = kP$ has the general solution $P = Ce^{kt}$, where $C$ is a constant.",
+    "Substitute $t = 0$ into $P = Ce^{kt}$ to see what $C$ represents, then use the given value $P(0) = 500$ and the given $k$."
+   ],
+   "solution": [
+    {
+     "text": "The equation $\\dfrac{dP}{dt} = kP$ says the rate of change is proportional to the current amount. Its general solution is an exponential function.",
+     "math": "P = Ce^{kt}"
+    },
+    {
+     "text": "At $t = 0$, $e^{k \\cdot 0} = 1$, so $P(0) = C$. The initial population is $500$ cells, so $C = 500$."
+    },
+    {
+     "text": "Substitute $k = 0.2$ and $C = 500$.",
+     "math": "P = 500e^{0.2t}"
+    },
+    {
+     "text": "Check: $\\dfrac{dP}{dt} = 500 \\cdot 0.2e^{0.2t} = 0.2P$, and $P(0) = 500$. Both conditions hold."
+    }
+   ]
+  },
+  {
+   "id": "u7-q028",
+   "skillId": "u7-exponential-models",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>A radioactive substance decays according to $\\dfrac{dA}{dt} = kA$, where $A$ is the amount in grams and $t$ is measured in days. The half-life of the substance is $10$ days. A sample contains $80$ grams at $t = 0$. How many grams remain after $30$ days? Give an exact integer.</p>",
+   "answer": 10,
+   "hints": [
+    "The half-life is the time it takes for the amount to fall to half of its current value. Count how many half-lives fit into $30$ days.",
+    "Each half-life multiplies the amount by $\\dfrac{1}{2}$. Apply that factor once for each half-life, starting from $80$ grams."
+   ],
+   "solution": [
+    {
+     "text": "The solution of $\\dfrac{dA}{dt} = kA$ with $A(0) = 80$ is $A = 80e^{kt}$. The half-life condition $A(10) = 40$ gives $e^{10k} = \\dfrac{1}{2}$."
+    },
+    {
+     "text": "Write $30$ days as three half-lives, so $e^{30k} = \\left(e^{10k}\\right)^3$.",
+     "math": "A(30) = 80e^{30k} = 80\\left(e^{10k}\\right)^3 = 80\\left(\\frac{1}{2}\\right)^3"
+    },
+    {
+     "text": "Evaluate.",
+     "math": "A(30) = \\frac{80}{8} = 10"
+    },
+    {
+     "text": "After $30$ days, $10$ grams remain. As a check, halving three times gives $80 \\to 40 \\to 20 \\to 10$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q029",
+   "skillId": "u7-exponential-models",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The population $P$ of a town satisfies $\\dfrac{dP}{dt} = 0.05P$, where $t$ is measured in years. The doubling time is the number of years required for the population to become twice its initial value. Find the doubling time, in years. Round to two decimal places.</p>",
+   "answer": 13.86,
+   "tolerance": 0.005,
+   "hints": [
+    "Write the solution of the differential equation as $P = P_0 e^{0.05t}$, where $P_0$ is the initial population. The doubling time is the value of $t$ at which $P = 2P_0$.",
+    "Set $2P_0 = P_0 e^{0.05t}$. The unknown initial population $P_0$ divides out, leaving an equation you can solve with the natural logarithm."
+   ],
+   "solution": [
+    {
+     "text": "The general solution of $\\dfrac{dP}{dt} = 0.05P$ is $P = P_0 e^{0.05t}$, where $P_0 = P(0)$ is the initial population."
+    },
+    {
+     "text": "Set $P$ equal to twice the initial value and divide both sides by $P_0$.",
+     "math": "2P_0 = P_0 e^{0.05t} \\quad\\Rightarrow\\quad 2 = e^{0.05t}"
+    },
+    {
+     "text": "Take the natural logarithm of both sides and solve for $t$.",
+     "math": "\\ln 2 = 0.05t \\quad\\Rightarrow\\quad t = \\frac{\\ln 2}{0.05} = 20\\ln 2"
+    },
+    {
+     "text": "Evaluate to two decimal places.",
+     "math": "t = 20\\ln 2 \\approx 13.86"
+    },
+    {
+     "text": "The doubling time is approximately $13.86$ years. It does not depend on the initial population, because $P_0$ divided out."
+    }
+   ]
+  },
+  {
+   "id": "u7-q030",
+   "skillId": "u7-exponential-models",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A cup of tea cools in a room held at $20$ degrees Celsius. Its temperature $T$, in degrees Celsius, satisfies $\\dfrac{dT}{dt} = k(T - 20)$, where $t$ is measured in minutes and $k$ is a constant. At $t = 0$ the temperature is $90$ degrees, and at $t = 10$ it is $60$ degrees. Which of the following gives $T$ as a function of $t$?</p>",
+   "choices": [
+    "$T = 20 + 70e^{kt}$ with $k = \\dfrac{1}{10}\\ln\\dfrac{7}{4}$",
+    "$T = 20 + 70e^{kt}$ with $k = \\dfrac{1}{10}\\ln\\dfrac{4}{7}$",
+    "$T = 90e^{kt}$ with $k = \\dfrac{1}{10}\\ln\\dfrac{2}{3}$",
+    "$T = 20 + 90e^{kt}$ with $k = \\dfrac{1}{10}\\ln\\dfrac{4}{9}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from inverting the ratio when solving $e^{10k} = \\dfrac{40}{70}$. The ratio is the later difference $60 - 20 = 40$ divided by the initial difference $70$, which is less than $1$, so $k$ must be negative. With $k = \\dfrac{1}{10}\\ln\\dfrac{7}{4} > 0$ the formula describes a tea that warms without limit.",
+    null,
+    "This choice comes from treating the equation as $\\dfrac{dT}{dt} = kT$ and ignoring the room temperature. The differential equation involves $T - 20$, so it is the difference $T - 20$, not $T$ itself, that decays exponentially.",
+    "This choice comes from using the initial temperature $90$ as the initial value of the difference $T - 20$. At $t = 0$ the difference is $90 - 20 = 70$, so the coefficient of the exponential is $70$."
+   ],
+   "hints": [
+    "Let $u = T - 20$. Since $20$ is a constant, $\\dfrac{du}{dt} = \\dfrac{dT}{dt} = ku$, so the difference $u$ decays exponentially: $u = Ce^{kt}$.",
+    "Find $C$ from the value of $T - 20$ at $t = 0$. Then substitute $t = 10$ and the known temperature $60$ to obtain an equation for $e^{10k}$, and solve it with the natural logarithm. Check the sign of $k$ against the fact that the tea is cooling."
+   ],
+   "solution": [
+    {
+     "text": "Let $u = T - 20$, the difference between the tea's temperature and the room temperature. Then $\\dfrac{du}{dt} = \\dfrac{dT}{dt} = k(T - 20) = ku$, so $u = Ce^{kt}$ and $T = 20 + Ce^{kt}$."
+    },
+    {
+     "text": "Apply $T(0) = 90$ to find $C$.",
+     "math": "90 = 20 + Ce^{0} \\quad\\Rightarrow\\quad C = 70"
+    },
+    {
+     "text": "Apply $T(10) = 60$ to find $k$.",
+     "math": "60 = 20 + 70e^{10k} \\quad\\Rightarrow\\quad e^{10k} = \\frac{40}{70} = \\frac{4}{7}"
+    },
+    {
+     "text": "Take the natural logarithm and solve for $k$.",
+     "math": "10k = \\ln\\frac{4}{7} \\quad\\Rightarrow\\quad k = \\frac{1}{10}\\ln\\frac{4}{7}"
+    },
+    {
+     "text": "Since $\\dfrac{4}{7} < 1$, $\\ln\\dfrac{4}{7}$ is negative, so $k$ is negative and the difference $T - 20$ shrinks toward $0$ over time. This matches a cooling cup of tea. The formula is $T = 20 + 70e^{kt}$ with $k = \\dfrac{1}{10}\\ln\\dfrac{4}{7}$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q031",
+   "skillId": "u7-exponential-models",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A metal part at $100$ degrees Celsius is placed in a room held at $20$ degrees Celsius. The temperature $T$ of the part, in degrees Celsius, obeys Newton's law of cooling: the rate of change of $T$ is proportional to the difference between $T$ and the room temperature, so $\\dfrac{dT}{dt} = k(T - 20)$, with $t$ measured in minutes. After $5$ minutes the part is at $60$ degrees. At what time $t$, in minutes, does the part reach $30$ degrees? Give an exact integer.</p>",
+   "answer": 15,
+   "hints": [
+    "The difference $T - 20$ satisfies $\\dfrac{d}{dt}(T - 20) = k(T - 20)$, so $T - 20 = Ce^{kt}$. Find $C$ from the temperature at $t = 0$.",
+    "Use the temperature at $t = 5$ to find the value of $e^{5k}$. You do not need a decimal value of $k$; the value of $e^{5k}$ is a simple fraction.",
+    "Set $T = 30$ and solve for $e^{kt}$. Express that value as a power of $e^{5k}$ to read off $t$."
+   ],
+   "solution": [
+    {
+     "text": "Let $u = T - 20$. Then $\\dfrac{du}{dt} = ku$, so $u = Ce^{kt}$ and $T = 20 + Ce^{kt}$. At $t = 0$, $T = 100$, so $C = 100 - 20 = 80$.",
+     "math": "T - 20 = 80e^{kt}"
+    },
+    {
+     "text": "Apply $T(5) = 60$.",
+     "math": "60 - 20 = 80e^{5k} \\quad\\Rightarrow\\quad e^{5k} = \\frac{40}{80} = \\frac{1}{2}"
+    },
+    {
+     "text": "Set $T = 30$ and solve for $e^{kt}$.",
+     "math": "30 - 20 = 80e^{kt} \\quad\\Rightarrow\\quad e^{kt} = \\frac{10}{80} = \\frac{1}{8}"
+    },
+    {
+     "text": "Since $\\dfrac{1}{8} = \\left(\\dfrac{1}{2}\\right)^3 = \\left(e^{5k}\\right)^3 = e^{15k}$, the equation $e^{kt} = e^{15k}$ gives $t = 15$.",
+     "math": "e^{kt} = e^{15k} \\quad\\Rightarrow\\quad t = 15"
+    },
+    {
+     "text": "The part reaches $30$ degrees Celsius at $t = 15$ minutes. Interpretation: the difference from room temperature halves every $5$ minutes, going $80 \\to 40 \\to 20 \\to 10$, and a difference of $10$ degrees means $T = 30$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q032",
+   "skillId": "u7-logistic-models",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>A population $P$ satisfies the logistic differential equation $\\dfrac{dP}{dt} = 0.04P\\left(1 - \\dfrac{P}{2000}\\right)$, where $t$ is measured in years. What is the carrying capacity of this population?</p>",
+   "choices": [
+    "$1000$",
+    "$2000$",
+    "$0.04$",
+    "$80$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from confusing the carrying capacity $L$ with the population $\\dfrac{L}{2}$ at which the growth rate $\\dfrac{dP}{dt}$ is largest. The carrying capacity is the value the population approaches over time, which is $L$ itself.",
+    null,
+    "This choice comes from reading the growth constant $k$ as the carrying capacity. In the form $\\dfrac{dP}{dt} = kP\\left(1 - \\dfrac{P}{L}\\right)$, the constant $0.04$ is $k$, which sets how fast the population grows when it is small, not the limiting size.",
+    "This choice comes from multiplying $k$ and $L$: $0.04 \\times 2000 = 80$. This product is not the carrying capacity; the carrying capacity is the value $L$ that appears in the denominator. The largest possible growth rate is $\\dfrac{kL}{4} = 20$, a rate in individuals per year, not a population size."
+   ],
+   "hints": [
+    "The standard form of the logistic equation is $\\dfrac{dP}{dt} = kP\\left(1 - \\dfrac{P}{L}\\right)$, where $L$ is the carrying capacity. Match the given equation to this form.",
+    "The carrying capacity is the positive value of $P$ at which $\\dfrac{dP}{dt} = 0$, because the population stops changing when it reaches that size. Find the value of $P$ that makes the factor in parentheses equal to $0$."
+   ],
+   "solution": [
+    {
+     "text": "The logistic differential equation has the standard form $\\dfrac{dP}{dt} = kP\\left(1 - \\dfrac{P}{L}\\right)$, where $k$ is the growth constant and $L$ is the carrying capacity. Compare with the given equation.",
+     "math": "\\frac{dP}{dt} = 0.04P\\left(1 - \\frac{P}{2000}\\right) \\quad\\Rightarrow\\quad k = 0.04,\\ L = 2000"
+    },
+    {
+     "text": "As a check, the population stops changing when $\\dfrac{dP}{dt} = 0$. For $P > 0$ this happens when the factor $1 - \\dfrac{P}{2000}$ equals $0$, that is, when $P = 2000$."
+    },
+    {
+     "text": "For $0 < P < 2000$ the rate is positive and the population increases toward $2000$; for $P > 2000$ the rate is negative and the population decreases toward $2000$. So $\\lim_{t \\to \\infty} P(t) = 2000$, and the carrying capacity is $2000$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q033",
+   "skillId": "u7-logistic-models",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The number of fish $P$ in a lake satisfies the differential equation $\\dfrac{dP}{dt} = 3P - 0.006P^2$, where $t$ is measured in years. Find the population $P$ at which the fish population is growing fastest, that is, the value of $P$ at which $\\dfrac{dP}{dt}$ is largest. Give an exact integer, in fish.</p>",
+   "answer": 250,
+   "hints": [
+    "The right side $3P - 0.006P^2$ is a quadratic function of $P$ that opens downward. Its maximum is at its vertex. Alternatively, factor out $3P$ to rewrite the equation in the logistic form $kP\\left(1 - \\dfrac{P}{L}\\right)$ and read off the carrying capacity $L$.",
+    "For a logistic model $\\dfrac{dP}{dt} = kP\\left(1 - \\dfrac{P}{L}\\right)$, the growth rate $\\dfrac{dP}{dt}$ is largest when $P = \\dfrac{L}{2}$. Find $L$ first."
+   ],
+   "solution": [
+    {
+     "text": "Factor $3P$ out of the right side to put the equation in logistic form. Since $0.006 = 3 \\cdot 0.002$ and $0.002 = \\dfrac{1}{500}$, the carrying capacity is $L = 500$ fish and the growth constant is $k = 3$.",
+     "math": "\\frac{dP}{dt} = 3P(1 - 0.002P) = 3P\\left(1 - \\frac{P}{500}\\right)"
+    },
+    {
+     "text": "The growth rate $\\dfrac{dP}{dt}$ is a function of $P$. It is largest where its derivative with respect to $P$ is zero. Treat $g(P) = 3P - 0.006P^2$ as a downward-opening parabola in $P$.",
+     "math": "g'(P) = 3 - 0.012P = 0 \\quad \\Longrightarrow \\quad P = \\frac{3}{0.012} = 250"
+    },
+    {
+     "text": "Because $g''(P) = -0.012 < 0$, this critical point is a maximum. This agrees with the general fact that a logistic population grows fastest at half the carrying capacity, $\\dfrac{L}{2} = \\dfrac{500}{2} = 250$ fish. At that population the growth rate is $g(250) = 3(250) - 0.006(250)^2 = 375$ fish per year."
+    }
+   ]
+  },
+  {
+   "id": "u7-q034",
+   "skillId": "u7-logistic-models",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>A population $P(t)$ satisfies the logistic differential equation $\\dfrac{dP}{dt} = 0.5P\\left(1 - \\dfrac{P}{800}\\right)$ with initial condition $P(0) = 1000$, where $t$ is measured in years. Which of the following statements is true?</p>",
+   "choices": [
+    "$P$ increases and approaches $800$ as $t$ increases.",
+    "$P$ decreases and approaches $400$ as $t$ increases.",
+    "$P$ decreases and approaches $800$ as $t$ increases.",
+    "$P$ decreases and approaches $0$ as $t$ increases."
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from treating every logistic population as increasing toward the carrying capacity, without checking the sign of the factor $1 - \\dfrac{P}{800}$. At $P = 1000$ that factor is $1 - \\dfrac{1000}{800} = -0.25$, so $\\dfrac{dP}{dt} = 0.5(1000)(-0.25) = -125 < 0$ and $P$ is decreasing.",
+    "This choice comes from confusing the value $\\dfrac{L}{2} = 400$, where a growing logistic population has its fastest growth, with the limiting value. The limiting value is the equilibrium $P = 800$, where $\\dfrac{dP}{dt} = 0$; the value $400$ is not an equilibrium, because $\\dfrac{dP}{dt}$ is not zero there.",
+    null,
+    "This choice comes from ignoring the equilibrium at $P = 800$. The population decreases only while $P > 800$. If $P$ ever reached a value below $800$, the factor $1 - \\dfrac{P}{800}$ would be positive and $P$ would increase again, so $P$ cannot pass through $800$. It approaches $800$ from above and never reaches $0$."
+   ],
+   "hints": [
+    "Substitute $P = 1000$ into the right side of the differential equation and find the sign of $\\dfrac{dP}{dt}$ at $t = 0$. The sign tells you whether $P$ is increasing or decreasing.",
+    "The equilibrium values are the values of $P$ for which $\\dfrac{dP}{dt} = 0$. Find them, and decide which equilibrium a solution that starts at $P = 1000$ moves toward."
+   ],
+   "solution": [
+    {
+     "text": "Find the equilibrium values by setting the right side equal to zero. Because the equation is $0.5P\\left(1 - \\dfrac{P}{800}\\right) = 0$, the equilibria are $P = 0$ and $P = 800$. The carrying capacity is $L = 800$."
+    },
+    {
+     "text": "Determine the sign of $\\dfrac{dP}{dt}$ at the initial value $P = 1000$.",
+     "math": "\\left.\\frac{dP}{dt}\\right|_{P = 1000} = 0.5(1000)\\left(1 - \\frac{1000}{800}\\right) = 500(-0.25) = -125 < 0"
+    },
+    {
+     "text": "For every $P > 800$, the factor $1 - \\dfrac{P}{800}$ is negative, so $\\dfrac{dP}{dt} < 0$ and $P$ decreases. As $P$ gets closer to $800$, the factor $1 - \\dfrac{P}{800}$ gets closer to $0$, so the rate of decrease slows. The solution cannot cross the equilibrium $P = 800$, because at that value the rate is zero."
+    },
+    {
+     "text": "Therefore $P$ decreases and approaches the carrying capacity $800$ as $t$ increases. This can also be read from the explicit solution $P(t) = \\dfrac{800}{1 - 0.2e^{-0.5t}}$, whose denominator increases toward $1$ from below, so $P(t)$ decreases toward $800$."
+    }
+   ]
+  },
+  {
+   "id": "u7-q035",
+   "skillId": "u7-logistic-models",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A deer population is modeled by $P(t) = \\dfrac{1200}{1 + 5e^{-0.4t}}$, where $t$ is measured in years since the population was first counted. Find the time $t$ at which the population is growing fastest. Round to two decimal places, in years.</p>",
+   "answer": 4.02,
+   "tolerance": 0.005,
+   "hints": [
+    "The function $P(t) = \\dfrac{L}{1 + Ae^{-kt}}$ is the solution of a logistic differential equation. Identify the carrying capacity $L$ from the numerator. A logistic population grows fastest when $P$ is equal to a specific fraction of $L$.",
+    "The growth rate $\\dfrac{dP}{dt}$ of a logistic model is largest when $P = \\dfrac{L}{2}$. Set $P(t)$ equal to $\\dfrac{L}{2}$ and solve the resulting equation for $t$ using the natural logarithm."
+   ],
+   "solution": [
+    {
+     "text": "The model has the logistic form $P(t) = \\dfrac{L}{1 + Ae^{-kt}}$ with $L = 1200$, $A = 5$, and $k = 0.4$. It satisfies $\\dfrac{dP}{dt} = 0.4P\\left(1 - \\dfrac{P}{1200}\\right)$, so the growth rate $\\dfrac{dP}{dt}$, viewed as a quadratic in $P$, is largest when $P = \\dfrac{L}{2} = 600$. The initial population is $P(0) = \\dfrac{1200}{6} = 200$, which is below $600$, so the population does reach $600$ at some positive time."
+    },
+    {
+     "text": "Set $P(t) = 600$ and solve for the exponential factor.",
+     "math": "\\frac{1200}{1 + 5e^{-0.4t}} = 600 \\quad \\Longrightarrow \\quad 1 + 5e^{-0.4t} = 2 \\quad \\Longrightarrow \\quad e^{-0.4t} = \\frac{1}{5}"
+    },
+    {
+     "text": "Take the natural logarithm of both sides and solve for $t$.",
+     "math": "-0.4t = \\ln\\frac{1}{5} = -\\ln 5 \\quad \\Longrightarrow \\quad t = \\frac{\\ln 5}{0.4} \\approx \\frac{1.6094}{0.4} \\approx 4.0236"
+    },
+    {
+     "text": "The population is growing fastest at $t \\approx 4.02$ years. At that time $P = 600$ deer, and the growth rate is $0.4(600)\\left(1 - \\dfrac{600}{1200}\\right) = 120$ deer per year."
+    }
+   ]
+  },
+  {
+   "id": "u7-q036",
+   "skillId": "u7-logistic-models",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>The function $P(t) = \\dfrac{3000}{1 + 4e^{-0.6t}}$ satisfies $P(0) = 600$. It is the particular solution of which of the following logistic differential equations?</p>",
+   "choices": [
+    "$\\dfrac{dP}{dt} = 0.6P\\left(1 - \\dfrac{P}{3000}\\right)$",
+    "$\\dfrac{dP}{dt} = 0.6P\\left(1 - \\dfrac{P}{600}\\right)$",
+    "$\\dfrac{dP}{dt} = 0.6P$",
+    "$\\dfrac{dP}{dt} = -0.6P\\left(1 - \\dfrac{P}{3000}\\right)$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from using the initial value $P(0) = 600$ as the carrying capacity. The carrying capacity is the limit of $P(t)$ as $t \\to \\infty$. Since $e^{-0.6t} \\to 0$, that limit is the numerator $3000$, not the starting value $600$. Check: this equation gives $\\dfrac{dP}{dt} = 0$ at $P = 600$, but $P(t)$ is increasing at $t = 0$.",
+    "This choice comes from ignoring the denominator $1 + 4e^{-0.6t}$ and treating the model as exponential growth. Exponential growth $\\dfrac{dP}{dt} = 0.6P$ has solutions $P = Ce^{0.6t}$, which grow without bound; the given $P(t)$ is bounded above by $3000$, so its equation must contain the factor $1 - \\dfrac{P}{3000}$.",
+    "This choice comes from carrying the negative sign in the exponent $-0.6t$ into the growth constant $k$. In the logistic solution $\\dfrac{L}{1 + Ae^{-kt}}$ the exponent is $-kt$ with $k$ positive, so the exponent $-0.6t$ means $k = 0.6$, not $k = -0.6$. Check: with $k = -0.6$ the rate at $P = 600$ would be negative, but $P(t)$ is increasing."
+   ],
+   "hints": [
+    "The general solution of the logistic equation $\\dfrac{dP}{dt} = kP\\left(1 - \\dfrac{P}{L}\\right)$ is $P(t) = \\dfrac{L}{1 + Ae^{-kt}}$. Match the numerator and the exponent of the given function to this form.",
+    "The carrying capacity $L$ is the limit of $P(t)$ as $t \\to \\infty$, and the constant $k$ is the positive number multiplying $t$ in the exponent $-kt$. The initial value $600$ determines only the constant $A$, not $L$ or $k$.",
+    "To confirm a choice, differentiate $P(t)$ with the chain rule and compare the result with $kP\\left(1 - \\dfrac{P}{L}\\right)$ at one value of $t$, for example $t = 0$."
+   ],
+   "solution": [
+    {
+     "text": "The logistic differential equation $\\dfrac{dP}{dt} = kP\\left(1 - \\dfrac{P}{L}\\right)$ has general solution $P(t) = \\dfrac{L}{1 + Ae^{-kt}}$, where $L$ is the carrying capacity, $k > 0$ is the growth constant, and $A$ is fixed by the initial condition. Compare with the given function: the numerator is $L = 3000$, the exponent $-0.6t$ gives $k = 0.6$, and $A = 4$."
+    },
+    {
+     "text": "Confirm that $L = 3000$ is the limiting value, not $600$. As $t \\to \\infty$, $e^{-0.6t} \\to 0$, so $P(t) \\to \\dfrac{3000}{1 + 0} = 3000$. The initial value is $P(0) = \\dfrac{3000}{1 + 4} = 600$, which matches the stated condition and determines only $A = 4$."
+    },
+    {
+     "text": "Verify directly by differentiating $P(t)$ with the chain rule at $t = 0$.",
+     "math": "P'(t) = \\frac{3000 \\cdot 4 \\cdot 0.6\\, e^{-0.6t}}{\\left(1 + 4e^{-0.6t}\\right)^2}, \\qquad P'(0) = \\frac{7200}{25} = 288"
+    },
+    {
+     "text": "Compare with the candidate equation at $P = 600$. The value $288$ matches, and the rate is positive, which rules out the choice with $k = -0.6$. The choice with $L = 600$ gives rate $0$ at $P = 600$, and the exponential choice gives $0.6(600) = 360$. So the correct equation is $\\dfrac{dP}{dt} = 0.6P\\left(1 - \\dfrac{P}{3000}\\right)$.",
+     "math": "0.6(600)\\left(1 - \\frac{600}{3000}\\right) = 360(0.8) = 288"
+    }
+   ]
+  }
+ ],
+ "masteryCheck": {
+  "questionCount": 8,
+  "passCount": 7
+ }
+}
