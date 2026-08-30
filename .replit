@@ -1,0 +1,12 @@
+# Calc Coach — zero-dependency Node server. Press Run.
+entrypoint = "server.js"
+modules = ["nodejs-22"]
+run = "node server.js"
+
+[deployment]
+run = ["sh", "-c", "node server.js"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 3000
+externalPort = 80

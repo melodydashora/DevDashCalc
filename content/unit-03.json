@@ -1,0 +1,957 @@
+{
+  "id": "unit-03",
+  "number": 3,
+  "title": "Differentiation: Composite, Implicit, and Inverse Functions",
+  "overview": "This unit extends differentiation to composite functions, implicitly defined curves, and inverse functions. You will learn the chain rule and apply it through nested compositions, differentiate equations that mix x and y without solving for y, and compute derivatives of inverse functions, including arcsin, arccos, and arctan. The unit closes with a systematic procedure for choosing the correct rule for a mixed expression, and with higher-order derivatives and their notation.",
+  "skills": [
+    { "id": "u3-chain-rule", "name": "The chain rule for single and nested compositions", "core": true },
+    { "id": "u3-implicit", "name": "Implicit differentiation: finding dy/dx and tangent lines on implicit curves", "core": true },
+    { "id": "u3-inverse-derivative", "name": "The derivative of an inverse function theorem", "core": true },
+    { "id": "u3-inverse-trig", "name": "Derivatives of inverse trigonometric functions", "core": true },
+    { "id": "u3-procedure-select", "name": "Selecting and combining differentiation procedures for mixed expressions", "core": true },
+    { "id": "u3-higher-order", "name": "Higher-order derivatives and their notation", "core": true }
+  ],
+  "lessons": [
+    {
+      "id": "u3-l1",
+      "title": "The chain rule",
+      "skillIds": ["u3-chain-rule"],
+      "estMinutes": 18,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>A <strong>composite function</strong> applies one function to the output of another. If $y = f(g(x))$, the <strong>inner function</strong> is $g$ and the <strong>outer function</strong> is $f$. For example, $\\sin(3x)$ has inner function $3x$ and outer function $\\sin$.</p><p>The <strong>chain rule</strong> states: if $g$ is differentiable at $x$ and $f$ is differentiable at $g(x)$, then</p><p>$$\\frac{d}{dx} f(g(x)) = f'(g(x)) \\cdot g'(x)$$</p><p>In words: differentiate the outer function, leave the inner expression unchanged inside it, then multiply by the derivative of the inner function. In Leibniz notation, with $u = g(x)$, the same statement reads $\\frac{dy}{dx} = \\frac{dy}{du} \\cdot \\frac{du}{dx}$.</p><p>Two details cause most errors. First, the outer derivative $f'$ is evaluated at $g(x)$, the original inner expression, not at $x$. Second, the factor $g'(x)$ multiplies the result; omitting that factor is the most common differentiation error on the AP exam.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>A composition $f(g(x))$ is a nested call: <code>f(g(x))</code>. The chain rule says the sensitivity of the final output to $x$ is the product of the local sensitivities along the call chain: how much <code>g</code> amplifies a small change in its input, times how much <code>f</code> amplifies a small change in its own input.</p><p>Reverse-mode automatic differentiation (the backpropagation algorithm) implements exactly this: each operation node stores its local derivative, and the total derivative is the product of the local derivatives along the path from input to output. The analogy is close to exact, because autodiff is an implementation of the chain rule.</p><p>Where it needs care: the factors are not constants. $f'$ must be evaluated at the intermediate value $g(x)$, the value that actually flowed through the call, not at the original input $x$. In autodiff terms, the backward pass needs the forward pass's intermediate activations.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Differentiate $y = \\sqrt{5x^2 + 4}$",
+          "steps": [
+            { "text": "Rewrite the square root as a power and name the layers: outer function $u^{1/2}$, inner function $u = 5x^2 + 4$.", "math": "y = (5x^2 + 4)^{1/2}" },
+            { "text": "Differentiate the outer power, keeping the inner expression unchanged inside it.", "math": "\\frac{dy}{dx} = \\frac{1}{2}(5x^2+4)^{-1/2} \\cdot \\frac{d}{dx}(5x^2+4)" },
+            { "text": "Multiply by the inner derivative $10x$ and simplify.", "math": "\\frac{dy}{dx} = \\frac{10x}{2\\sqrt{5x^2+4}} = \\frac{5x}{\\sqrt{5x^2+4}}" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q001", "u3-q002", "u3-q003"]
+        },
+        {
+          "type": "concept",
+          "html": "<p>A composition can have more than two layers. The chain rule extends by multiplying one derivative factor per layer, working from the outermost layer inward. For $y = f(g(h(x)))$:</p><p>$$\\frac{dy}{dx} = f'(g(h(x))) \\cdot g'(h(x)) \\cdot h'(x)$$</p><p>A reliable procedure: peel one layer at a time. Differentiate the outermost function with everything inside left intact, then multiply by the derivative of the next layer, and continue until the innermost layer has been differentiated.</p><p>Powers of trigonometric functions hide a layer. The notation $\\cos^3(2x)$ means $(\\cos(2x))^3$, which is three layers: a cube, a cosine, and $2x$. Each layer contributes exactly one factor to the derivative.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Differentiate $y = \\sin^2(4x)$",
+          "steps": [
+            { "text": "Rewrite to expose the layers: a square, a sine, and $4x$.", "math": "y = (\\sin(4x))^2" },
+            { "text": "Differentiate the outer square, keeping the inside intact.", "math": "\\frac{dy}{dx} = 2\\sin(4x) \\cdot \\frac{d}{dx}\\sin(4x)" },
+            { "text": "Differentiate $\\sin(4x)$, which is itself a composition with inner derivative $4$.", "math": "\\frac{d}{dx}\\sin(4x) = 4\\cos(4x)" },
+            { "text": "Multiply all factors.", "math": "\\frac{dy}{dx} = 8\\sin(4x)\\cos(4x)" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q004", "u3-q005", "u3-q006"]
+        }
+      ]
+    },
+    {
+      "id": "u3-l2",
+      "title": "Implicit differentiation",
+      "skillIds": ["u3-implicit"],
+      "estMinutes": 18,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>An equation like $x^2 + y^2 = 25$ does not give $y$ as an explicit formula in $x$; it states a relationship that $x$ and $y$ satisfy together. Near most points on such a curve, the equation still determines $y$ as a function of $x$, even without a formula. <strong>Implicit differentiation</strong> finds $\\frac{dy}{dx}$ directly from the equation.</p><p>The procedure has three steps. First, differentiate both sides of the equation with respect to $x$, treating $y$ as an unnamed function of $x$. Because $y$ depends on $x$, every term containing $y$ requires the chain rule: the derivative of $y^2$ with respect to $x$ is $2y\\frac{dy}{dx}$, not $2y$. Second, collect every term containing $\\frac{dy}{dx}$ on one side and factor it out. Third, divide to isolate $\\frac{dy}{dx}$.</p><p>The result is usually a formula in both $x$ and $y$. That is acceptable: to evaluate a slope you substitute both coordinates of a point on the curve. A term like $xy$ mixes the two variables and needs the product rule: $\\frac{d}{dx}(xy) = y + x\\frac{dy}{dx}$.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>Treat the equation as an invariant that every state on the curve satisfies, like a class invariant <code>x*x + y*y === 25</code> that must hold after every update. The variable <code>y</code> is not free; it is bound to <code>x</code> by the invariant, the way a computed property is bound to the fields it derives from. Differentiating both sides asserts that as <code>x</code> changes and <code>y</code> co-changes, the invariant's value does not move. Every appearance of $y$ picks up a $\\frac{dy}{dx}$ factor for the same reason a change propagates through a computed property: $y$ is downstream of $x$.</p><p>Where the analogy breaks: a computed property has an explicit formula, so the dependency is one visible function. An implicit curve may have no closed-form $y(x)$ at all, and at a point with a vertical tangent there is locally no function $y(x)$ whatsoever; the computed property is undefined there even though the invariant still holds.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Slope and tangent line on the ellipse $x^2 + 4y^2 = 25$",
+          "steps": [
+            { "text": "Differentiate both sides with respect to $x$. The $y$ term uses the chain rule.", "math": "2x + 8y\\frac{dy}{dx} = 0" },
+            { "text": "Solve for the derivative.", "math": "\\frac{dy}{dx} = -\\frac{x}{4y}" },
+            { "text": "Evaluate at the point $(3, 2)$, which lies on the curve because $9 + 16 = 25$.", "math": "\\left.\\frac{dy}{dx}\\right|_{(3,2)} = -\\frac{3}{8}" },
+            { "text": "Write the tangent line in point-slope form.", "math": "y - 2 = -\\frac{3}{8}(x - 3)" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q007", "u3-q008", "u3-q009"]
+        },
+        {
+          "type": "concept",
+          "html": "<p>Because $\\frac{dy}{dx}$ from implicit differentiation is typically a fraction in $x$ and $y$, the tangent line's direction is read from that fraction. The tangent is <strong>horizontal</strong> at points where the numerator is zero and the denominator is not zero. The tangent is <strong>vertical</strong> at points where the denominator is zero and the numerator is not zero. If both are zero at the same point, the quotient gives no information and the point needs separate analysis; the AP exam presents that case rarely and marks it clearly.</p><p>To find horizontal tangent points: set the numerator equal to zero, solve for the resulting relation between $x$ and $y$, substitute that relation into the original curve equation, and solve. Then confirm two things for each candidate point: the point satisfies the original equation, and the denominator is nonzero there.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Horizontal tangent points on $x^2 + 4y^2 = 25$",
+          "steps": [
+            { "text": "From the previous worked example, the derivative is a quotient.", "math": "\\frac{dy}{dx} = -\\frac{x}{4y}" },
+            { "text": "Set the numerator to zero, which gives $x = 0$, and substitute into the curve equation.", "math": "0 + 4y^2 = 25 \\implies y = \\pm\\frac{5}{2}" },
+            { "text": "Check the denominator at each candidate: $4y = \\pm 10 \\neq 0$. Both points have horizontal tangents.", "math": "\\left(0, \\tfrac{5}{2}\\right), \\qquad \\left(0, -\\tfrac{5}{2}\\right)" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q010", "u3-q011", "u3-q012"]
+        }
+      ]
+    },
+    {
+      "id": "u3-l3",
+      "title": "Derivatives of inverse functions",
+      "skillIds": ["u3-inverse-derivative"],
+      "estMinutes": 14,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>Two functions $f$ and $g$ are <strong>inverses</strong> when each undoes the other: $g(f(x)) = x$ for every $x$ in the domain of $f$, and $f(g(x)) = x$ for every $x$ in the domain of $g$. The standard notation is $g = f^{-1}$. The graph of $g$ is the graph of $f$ reflected across the line $y = x$, so the point $(a, b)$ on the graph of $f$ corresponds to the point $(b, a)$ on the graph of $g$.</p><p>Differentiating the identity $f(g(x)) = x$ with the chain rule gives $f'(g(x)) \\cdot g'(x) = 1$, and therefore</p><p>$$g'(x) = \\frac{1}{f'(g(x))}$$</p><p>wherever $f'(g(x)) \\neq 0$. Read the evaluation point carefully: to find $g'(b)$, you evaluate $f'$ at $a = g(b)$, the corresponding input of $f$, not at $b$. On exam problems the value $a$ usually comes from a given equation such as $f(a) = b$, or from a table row.</p><p>A caution about notation: $f^{-1}$ names the inverse function. It is not the reciprocal $\\frac{1}{f}$, which is a different function with a different derivative.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>An invertible function is an encoder with a matching decoder: <code>decode(encode(x)) === x</code>. The theorem states that if <code>encode</code> locally stretches its input by a factor of $f'(a)$ near $a$, then <code>decode</code> must locally shrink by the factor $\\frac{1}{f'(a)}$ near the encoded value $f(a)$; otherwise the round trip could not return exactly $x$.</p><p>The evaluation-point rule matches how you would invert a lookup. The value $g'(b)$ is keyed by the output $b$, but the stretch factor $f'(a)$ is stored with the input $a$, so you first resolve $a = g(b)$ and then read $f'(a)$. The analogy breaks where $f'(a) = 0$: the encoder locally collapses an interval toward a single value, the decoder's stretch factor would need to be infinite, and $g$ is not differentiable at that output.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Evaluate $g'(2)$ for $g = f^{-1}$ where $f(x) = x^3 + x$",
+          "steps": [
+            { "text": "Find $g(2)$ by solving $f(a) = 2$.", "math": "a^3 + a = 2 \\implies a = 1, \\qquad g(2) = 1" },
+            { "text": "Differentiate $f$ and evaluate at $a = 1$.", "math": "f'(x) = 3x^2 + 1, \\qquad f'(1) = 4" },
+            { "text": "Apply the theorem.", "math": "g'(2) = \\frac{1}{f'(g(2))} = \\frac{1}{4}" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q013", "u3-q014"]
+        },
+        {
+          "type": "worked-example",
+          "title": "Read $g'$ from a table",
+          "steps": [
+            { "text": "A table gives $f(2) = 6$, $f'(2) = 3$, $f(6) = 11$, $f'(6) = 8$, and $g = f^{-1}$. To compute $g'(6)$, first resolve $g(6)$ by finding the row whose output is $6$: since $f(2) = 6$, the inverse gives $g(6) = 2$.", "math": "g(6) = 2" },
+            { "text": "Evaluate $f'$ at $2$. The table entry $f'(6) = 8$ is a distractor: it is $f'$ at the wrong point.", "math": "f'(2) = 3" },
+            { "text": "Take the reciprocal.", "math": "g'(6) = \\frac{1}{3}" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q015", "u3-q016", "u3-q017"]
+        }
+      ]
+    },
+    {
+      "id": "u3-l4",
+      "title": "Derivatives of inverse trigonometric functions",
+      "skillIds": ["u3-inverse-trig"],
+      "estMinutes": 15,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>The inverse trigonometric functions are the inverses of $\\sin$, $\\cos$, and $\\tan$ after each is restricted to an interval where it is one-to-one. The AP exam writes them as $\\arcsin x$, $\\arccos x$, $\\arctan x$, or equivalently as $\\sin^{-1} x$, $\\cos^{-1} x$, $\\tan^{-1} x$. Their derivatives are fixed formulas to memorize:</p><p>$$\\frac{d}{dx}\\arcsin x = \\frac{1}{\\sqrt{1-x^2}} \\qquad \\frac{d}{dx}\\arccos x = -\\frac{1}{\\sqrt{1-x^2}} \\qquad \\frac{d}{dx}\\arctan x = \\frac{1}{1+x^2}$$</p><p>Three anchors reduce the memory load. The arccosine derivative is the negative of the arcsine derivative. The square-root formulas belong to arcsine and arccosine, whose inputs live in $[-1, 1]$; the arctangent formula has no square root and is defined for all real $x$. With an inner function $u$, each formula gains a chain-rule factor $u'$ and every $x$ is replaced by $u$; for example $\\frac{d}{dx}\\arcsin u = \\frac{u'}{\\sqrt{1-u^2}}$, where $u^2$ means the square of the entire inner expression.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>These functions are <code>Math.asin</code>, <code>Math.acos</code>, and <code>Math.atan</code>. The domain restriction on arcsine is an API precondition: pass an input outside $[-1, 1]$ and you get <code>NaN</code>, exactly as the mathematical function is undefined there. The restricted output range (for arcsine, $[-\\frac{\\pi}{2}, \\frac{\\pi}{2}]$) is the library choosing one principal branch so the function is single-valued, for the same reason an inverse lookup on a non-unique key must pick one canonical row.</p><p>The derivative $\\frac{1}{\\sqrt{1-x^2}}$ grows without bound as $x$ approaches $\\pm 1$. In numerical terms, arcsine is badly conditioned near the edge of its domain: a tiny change in the input produces a large change in the output, which is why geometry code that feeds a dot product into <code>acos</code> loses precision near parallel vectors. This edge behavior belongs to arcsine and arccosine only; the analogy does not transfer to <code>atan</code>, whose derivative $\\frac{1}{1+x^2}$ is bounded by $1$ and well conditioned everywhere.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Derive $\\frac{d}{dx}\\arcsin x$ with implicit differentiation",
+          "steps": [
+            { "text": "Let $y = \\arcsin x$, which means $\\sin y = x$ with $y$ in $\\left[-\\frac{\\pi}{2}, \\frac{\\pi}{2}\\right]$. Differentiate both sides with respect to $x$.", "math": "\\cos y \\cdot \\frac{dy}{dx} = 1" },
+            { "text": "Solve for the derivative.", "math": "\\frac{dy}{dx} = \\frac{1}{\\cos y}" },
+            { "text": "Rewrite $\\cos y$ in terms of $x$ using $\\sin^2 y + \\cos^2 y = 1$ with $\\sin y = x$. On the restricted interval, $\\cos y \\geq 0$, so the positive square root is correct.", "math": "\\cos y = \\sqrt{1 - x^2}" },
+            { "text": "Combine the results.", "math": "\\frac{d}{dx}\\arcsin x = \\frac{1}{\\sqrt{1-x^2}}" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q018", "u3-q019"]
+        },
+        {
+          "type": "worked-example",
+          "title": "Differentiate $y = \\arctan(5x)$",
+          "steps": [
+            { "text": "Apply the arctangent formula with inner function $u = 5x$; the formula becomes $\\frac{u'}{1+u^2}$ with $u' = 5$.", "math": "\\frac{dy}{dx} = \\frac{5}{1 + (5x)^2}" },
+            { "text": "Square the entire inner expression.", "math": "\\frac{dy}{dx} = \\frac{5}{1 + 25x^2}" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q020", "u3-q021", "u3-q022"]
+        }
+      ]
+    },
+    {
+      "id": "u3-l5",
+      "title": "Choosing the procedure; higher-order derivatives",
+      "skillIds": ["u3-procedure-select", "u3-higher-order"],
+      "estMinutes": 20,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>Mixed expressions require choosing rules in the correct order. The choice is determined by the <strong>outermost operation</strong>, meaning the last operation you would perform if you evaluated the expression by hand at a number:</p><ul><li>A sum or difference of terms: differentiate term by term.</li><li>A product of two expressions that both contain $x$: product rule.</li><li>A quotient: quotient rule.</li><li>A function applied to an inner expression: chain rule.</li><li>An equation relating $x$ and $y$ with no explicit formula for $y$: implicit differentiation.</li></ul><p>Apply the rule for the outermost operation first. Each sub-derivative that appears is a smaller differentiation problem; classify it the same way and continue until only library derivatives remain. A constant multiplier is not a product-rule case: $\\frac{d}{dx}\\left[5\\sin x\\right] = 5\\cos x$ directly.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>Classifying the outermost operation is parsing. An expression is a tree; the root node's type selects the rule: a <code>+</code> node dispatches to the sum rule, a <code>*</code> node to the product rule, a <code>/</code> node to the quotient rule, and a function-application node to the chain rule. Differentiation is a recursive tree walk that dispatches on node type at every level. This is not merely an analogy: symbolic differentiators and autodiff frameworks are implemented exactly this way, so the procedure is fully mechanical and you can trust it.</p><p>Two places the picture needs an extension. A constant-factor node can be hoisted out instead of triggering the product rule; that is an optimization, not a different rule. And an implicit equation is not a single expression tree with a $y$ leaf: $y$ is an unknown function node, so after the tree walk you still owe an algebra step, collecting and isolating $\\frac{dy}{dx}$, that no pure tree traversal performs.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Differentiate $f(x) = x^3 e^{4x}$",
+          "steps": [
+            { "text": "The outermost operation is a product of $x^3$ and $e^{4x}$, so the product rule applies first.", "math": "f'(x) = \\frac{d}{dx}\\left[x^3\\right] e^{4x} + x^3 \\frac{d}{dx}\\left[e^{4x}\\right]" },
+            { "text": "Each sub-derivative is classified on its own: $x^3$ is a library power; $e^{4x}$ is a composition needing the chain rule.", "math": "\\frac{d}{dx}x^3 = 3x^2, \\qquad \\frac{d}{dx}e^{4x} = 4e^{4x}" },
+            { "text": "Assemble and factor.", "math": "f'(x) = 3x^2 e^{4x} + 4x^3 e^{4x} = x^2 e^{4x}(3 + 4x)" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q023", "u3-q024", "u3-q025"]
+        },
+        {
+          "type": "concept",
+          "html": "<p>The <strong>second derivative</strong> is the derivative of the derivative: $f''(x) = \\frac{d}{dx}\\left[f'(x)\\right]$. Continuing gives the third derivative and, in general, the $n$th derivative. Notations you must recognize: prime marks $f''$ and $f'''$; the parenthesized order $f^{(n)}$ for $n \\geq 4$, where the parentheses distinguish a derivative order from a power; and the Leibniz forms $\\frac{d^2y}{dx^2}$ and $\\frac{d^ny}{dx^n}$. The expression $\\left(\\frac{dy}{dx}\\right)^2$ is the square of the first derivative, a different object from $\\frac{d^2y}{dx^2}$.</p><p>Computing a higher-order derivative is repeated application of the same first-derivative rules, and every chain-rule factor appears again at each stage. Some families of functions have cyclic derivatives: the derivatives of $\\sin x$ repeat with period $4$, so a high-order derivative of $\\sin x$ is found by reducing the order modulo $4$.</p><p>For implicit curves, $\\frac{d^2y}{dx^2}$ is found by differentiating the expression for $\\frac{dy}{dx}$ again, remembering that $y$ still depends on $x$, and substituting the known $\\frac{dy}{dx}$ wherever it appears. Substituting the original curve equation at the end often collapses the result to a short form.</p>"
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q029", "u3-q031"]
+        },
+        {
+          "type": "worked-example",
+          "title": "Second derivative of an implicit curve: $x^2 - y^2 = 9$",
+          "steps": [
+            { "text": "Differentiate once and solve for the first derivative.", "math": "2x - 2y\\frac{dy}{dx} = 0 \\implies \\frac{dy}{dx} = \\frac{x}{y}" },
+            { "text": "Differentiate $\\frac{x}{y}$ with the quotient rule; $y$ is still a function of $x$.", "math": "\\frac{d^2y}{dx^2} = \\frac{y - x\\frac{dy}{dx}}{y^2}" },
+            { "text": "Substitute $\\frac{dy}{dx} = \\frac{x}{y}$ and combine over a common denominator.", "math": "\\frac{d^2y}{dx^2} = \\frac{y - \\frac{x^2}{y}}{y^2} = \\frac{y^2 - x^2}{y^3}" },
+            { "text": "Use the original equation: $x^2 - y^2 = 9$ means $y^2 - x^2 = -9$.", "math": "\\frac{d^2y}{dx^2} = -\\frac{9}{y^3}" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u3-q028", "u3-q030", "u3-q032"]
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "u3-q001",
+      "skillId": "u3-chain-rule",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Find $\\frac{d}{dx}\\sin(3x)$.</p>",
+      "choices": ["$3\\cos(3x)$", "$\\cos(3x)$", "$-3\\cos(3x)$", "$3\\cos(x)$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from differentiating the outer function $\\sin$ while omitting the chain-rule factor $3$ from the inner function $3x$.",
+        "This choice comes from using $-\\cos$ as the derivative of $\\sin$; the negative sign belongs to the derivative of $\\cos$, not $\\sin$.",
+        "This choice comes from replacing the inner input $3x$ with $x$ after differentiating; the outer derivative must be evaluated at the original inner expression $3x$."
+      ],
+      "hints": [
+        "Identify the two layers: the outer function is $\\sin(u)$ and the inner function is $u = 3x$.",
+        "The chain rule says to differentiate the outer function, keep the inner expression unchanged inside it, then multiply by the derivative of the inner function."
+      ],
+      "solution": [
+        { "text": "Write the function as a composition: outer $\\sin(u)$, inner $u = 3x$. Differentiate the outer function and keep the inside intact.", "math": "\\frac{d}{dx}\\sin(3x) = \\cos(3x) \\cdot \\frac{d}{dx}(3x)" },
+        { "text": "The derivative of the inner function $3x$ is $3$. Multiply.", "math": "\\cos(3x) \\cdot 3 = 3\\cos(3x)" }
+      ]
+    },
+    {
+      "id": "u3-q002",
+      "skillId": "u3-chain-rule",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Find $\\frac{d}{dx}\\left(2x^3 - 5x\\right)^4$.</p>",
+      "choices": ["$4(2x^3-5x)^3(6x^2-5)$", "$4(2x^3-5x)^3$", "$(6x^2-5)^4$", "$4(6x^2-5)^3$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from applying the power rule to the outer function while omitting the chain-rule factor $6x^2 - 5$ from the inner function.",
+        "This choice comes from differentiating the inner function and then raising the result to the fourth power; the power rule and the inner derivative combine by multiplication, not by substitution.",
+        "This choice comes from placing the inner derivative $6x^2 - 5$ inside the power; the original inner expression $2x^3 - 5x$ stays inside the power, and the inner derivative multiplies from outside."
+      ],
+      "hints": [
+        "The expression has the form $u^4$ where $u = 2x^3 - 5x$.",
+        "Apply the power rule to $u^4$ first, keeping $u$ intact, then multiply by $u' = \\frac{d}{dx}(2x^3 - 5x)$."
+      ],
+      "solution": [
+        { "text": "Set $u = 2x^3 - 5x$, so the function is $u^4$. By the chain rule:", "math": "\\frac{d}{dx}u^4 = 4u^3 \\cdot \\frac{du}{dx}" },
+        { "text": "Compute the inner derivative.", "math": "\\frac{du}{dx} = 6x^2 - 5" },
+        { "text": "Substitute back.", "math": "\\frac{d}{dx}\\left(2x^3-5x\\right)^4 = 4(2x^3-5x)^3(6x^2-5)" }
+      ]
+    },
+    {
+      "id": "u3-q003",
+      "skillId": "u3-chain-rule",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>Let $f(x) = (x^2 + 3)^3$. Compute $f'(1)$. Enter an integer.</p>",
+      "answer": 96,
+      "tolerance": 0.001,
+      "hints": [
+        "Apply the chain rule with outer function $u^3$ and inner function $u = x^2 + 3$ before substituting $x = 1$.",
+        "The derivative is $3(x^2+3)^2 \\cdot 2x$. Simplify, then evaluate at $x = 1$."
+      ],
+      "solution": [
+        { "text": "Differentiate with the chain rule.", "math": "f'(x) = 3(x^2+3)^2 \\cdot 2x = 6x(x^2+3)^2" },
+        { "text": "Evaluate at $x = 1$. The inner expression is $1 + 3 = 4$.", "math": "f'(1) = 6(1)(4)^2 = 96" }
+      ]
+    },
+    {
+      "id": "u3-q004",
+      "skillId": "u3-chain-rule",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Let $h(x) = e^{\\cos x}$. Find $h'(x)$.</p>",
+      "choices": ["$-\\sin(x)\\,e^{\\cos x}$", "$e^{\\cos x}$", "$\\sin(x)\\,e^{\\cos x}$", "$-\\sin(x)\\,e^{-\\sin x}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from differentiating $e^u$ as $e^u$ while omitting the chain-rule factor from the inner function $\\cos x$.",
+        "This choice comes from using $\\sin x$ as the derivative of $\\cos x$; the derivative of $\\cos x$ is $-\\sin x$.",
+        "This choice comes from replacing the exponent with its derivative; the original exponent $\\cos x$ stays in place, and the inner derivative multiplies from outside."
+      ],
+      "hints": [
+        "The outer function is $e^u$ with inner function $u = \\cos x$.",
+        "The derivative of $e^u$ with respect to $u$ is $e^u$; multiply by the derivative of $\\cos x$ with respect to $x$."
+      ],
+      "solution": [
+        { "text": "Apply the chain rule with $u = \\cos x$. The exponential keeps its own exponent.", "math": "h'(x) = e^{\\cos x} \\cdot \\frac{d}{dx}(\\cos x)" },
+        { "text": "The derivative of $\\cos x$ is $-\\sin x$.", "math": "h'(x) = -\\sin(x)\\, e^{\\cos x}" }
+      ]
+    },
+    {
+      "id": "u3-q005",
+      "skillId": "u3-chain-rule",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>Let $y = \\cos^3(2x)$. Find $\\frac{dy}{dx}$.</p>",
+      "choices": ["$-6\\cos^2(2x)\\sin(2x)$", "$-3\\cos^2(2x)\\sin(2x)$", "$6\\cos^2(2x)\\sin(2x)$", "$3\\cos^2(2x)$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from applying the chain rule to the cube and to the cosine, but omitting the innermost factor $2$ from differentiating $2x$.",
+        "This choice comes from using $\\sin$ as the derivative of $\\cos$; the derivative of $\\cos$ contributes a negative sign.",
+        "This choice comes from applying the power rule to the cube only; the derivative of $\\cos(2x)$ must also be multiplied in, through two further chain-rule layers."
+      ],
+      "hints": [
+        "Rewrite the function to expose the layers: $y = (\\cos(2x))^3$. There are three layers: a cube, a cosine, and $2x$.",
+        "Differentiate one layer at a time and multiply the results: the power rule on the cube, then the derivative of cosine, then the derivative of $2x$.",
+        "Each layer contributes one factor: $3(\\cos(2x))^2$, then $-\\sin(2x)$, then $2$."
+      ],
+      "solution": [
+        { "text": "Write the layers explicitly: $y = u^3$, $u = \\cos v$, $v = 2x$.", "math": "\\frac{dy}{dx} = 3u^2 \\cdot \\frac{du}{dv} \\cdot \\frac{dv}{dx}" },
+        { "text": "Differentiate each layer: the cube gives $3u^2$, the cosine gives $-\\sin v$, and $2x$ gives $2$.", "math": "\\frac{dy}{dx} = 3\\cos^2(2x) \\cdot (-\\sin(2x)) \\cdot 2" },
+        { "text": "Combine the constant factors.", "math": "\\frac{dy}{dx} = -6\\cos^2(2x)\\sin(2x)" }
+      ]
+    },
+    {
+      "id": "u3-q006",
+      "skillId": "u3-chain-rule",
+      "difficulty": 3,
+      "type": "numeric",
+      "prompt": "<p>The table gives values of $g$, $g'$, and $f'$ at selected inputs. Let $h(x) = f(g(x))$.</p><table><thead><tr><th>$x$</th><th>$g(x)$</th><th>$g'(x)$</th><th>$f'(x)$</th></tr></thead><tbody><tr><td>$2$</td><td>$3$</td><td>$5$</td><td>$7$</td></tr><tr><td>$3$</td><td>$1$</td><td>$4$</td><td>$-2$</td></tr></tbody></table><p>Compute $h'(2)$. Enter an integer.</p>",
+      "answer": -10,
+      "tolerance": 0.001,
+      "hints": [
+        "By the chain rule, $h'(2) = f'(g(2)) \\cdot g'(2)$.",
+        "First read $g(2)$ from the table, then look up $f'$ at that value, not at $2$."
+      ],
+      "solution": [
+        { "text": "Apply the chain rule at $x = 2$.", "math": "h'(2) = f'(g(2)) \\cdot g'(2)" },
+        { "text": "From the table, $g(2) = 3$, so the outer derivative is $f'(3) = -2$, and $g'(2) = 5$.", "math": "h'(2) = f'(3) \\cdot g'(2) = (-2)(5)" },
+        { "text": "Multiply. The value $f'(2) = 7$ in the table is a distractor evaluated at the wrong input.", "math": "h'(2) = -10" }
+      ]
+    },
+    {
+      "id": "u3-q007",
+      "skillId": "u3-implicit",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>The curve $x^2 + y^2 = 25$ defines $y$ implicitly as a function of $x$ near most of its points. Find $\\frac{dy}{dx}$.</p>",
+      "choices": ["$-\\dfrac{x}{y}$", "$\\dfrac{x}{y}$", "$-\\dfrac{y}{x}$", "The derivative cannot be found without first solving for $y$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from a sign slip while isolating $\\frac{dy}{dx}$: moving the $2x$ term to the other side of the equation changes its sign.",
+        "This choice comes from swapping the roles of $x$ and $y$ while solving; the term $2y\\frac{dy}{dx}$ puts $y$ in the denominator of the final answer.",
+        "This choice comes from assuming an explicit formula for $y$ is required; implicit differentiation finds $\\frac{dy}{dx}$ directly from the equation without solving for $y$."
+      ],
+      "hints": [
+        "Differentiate both sides of the equation with respect to $x$. The derivative of $y^2$ with respect to $x$ is $2y\\frac{dy}{dx}$ by the chain rule.",
+        "After differentiating you get $2x + 2y\\frac{dy}{dx} = 0$. Solve this equation for $\\frac{dy}{dx}$."
+      ],
+      "solution": [
+        { "text": "Differentiate both sides with respect to $x$, treating $y$ as a function of $x$.", "math": "2x + 2y\\frac{dy}{dx} = 0" },
+        { "text": "Isolate the derivative.", "math": "\\frac{dy}{dx} = -\\frac{2x}{2y} = -\\frac{x}{y}" }
+      ]
+    },
+    {
+      "id": "u3-q008",
+      "skillId": "u3-implicit",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Find $\\frac{dy}{dx}$ for the curve $x^3 + xy + y^2 = 7$.</p>",
+      "choices": ["$-\\dfrac{3x^2 + y}{x + 2y}$", "$\\dfrac{3x^2 + y}{x + 2y}$", "$-\\dfrac{3x^2}{x + 2y}$", "$-\\dfrac{3x^2 + y}{2y}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from a sign slip while moving the non-derivative terms across the equals sign; both $3x^2$ and $y$ change sign together.",
+        "This choice comes from differentiating $xy$ as $x\\frac{dy}{dx}$ only; the product rule also produces the term $y$, which belongs in the numerator.",
+        "This choice comes from differentiating $xy$ as $y$ only; the product rule also produces the term $x\\frac{dy}{dx}$, which belongs with the other derivative terms in the denominator."
+      ],
+      "hints": [
+        "The term $xy$ is a product of $x$ and the function $y$, so it needs the product rule: its derivative is $y + x\\frac{dy}{dx}$.",
+        "After differentiating every term, collect the terms containing $\\frac{dy}{dx}$ on one side and factor it out."
+      ],
+      "solution": [
+        { "text": "Differentiate each term with respect to $x$. Use the product rule on $xy$ and the chain rule on $y^2$.", "math": "3x^2 + \\left(y + x\\frac{dy}{dx}\\right) + 2y\\frac{dy}{dx} = 0" },
+        { "text": "Group the $\\frac{dy}{dx}$ terms and factor.", "math": "(x + 2y)\\frac{dy}{dx} = -(3x^2 + y)" },
+        { "text": "Divide.", "math": "\\frac{dy}{dx} = -\\frac{3x^2 + y}{x + 2y}" }
+      ]
+    },
+    {
+      "id": "u3-q009",
+      "skillId": "u3-implicit",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>Find the slope of the line tangent to the circle $x^2 + y^2 = 25$ at the point $(3, 4)$. Enter the exact decimal value.</p>",
+      "answer": -0.75,
+      "tolerance": 0.001,
+      "hints": [
+        "Implicit differentiation of $x^2 + y^2 = 25$ gives a formula for $\\frac{dy}{dx}$ in terms of $x$ and $y$.",
+        "The formula is $\\frac{dy}{dx} = -\\frac{x}{y}$. Substitute both coordinates of the point."
+      ],
+      "solution": [
+        { "text": "Differentiate implicitly and solve for the derivative.", "math": "2x + 2y\\frac{dy}{dx} = 0 \\implies \\frac{dy}{dx} = -\\frac{x}{y}" },
+        { "text": "Substitute the point $(3, 4)$.", "math": "\\left.\\frac{dy}{dx}\\right|_{(3,4)} = -\\frac{3}{4} = -0.75" }
+      ]
+    },
+    {
+      "id": "u3-q010",
+      "skillId": "u3-implicit",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Find an equation of the line tangent to the curve $xy = 6$ at the point $(2, 3)$.</p>",
+      "choices": ["$y = -\\frac{3}{2}x + 6$", "$y = \\frac{3}{2}x$", "$y = -\\frac{2}{3}x + \\frac{13}{3}$", "$y = -\\frac{3}{2}x$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from a sign slip in the slope: solving $y + x\\frac{dy}{dx} = 0$ gives a negative slope at $(2, 3)$, not a positive one.",
+        "This choice comes from using $-\\frac{x}{y}$ instead of $-\\frac{y}{x}$ for the slope; for $xy = 6$ the product rule puts $y$ in the numerator of the slope formula.",
+        "This choice comes from writing point-slope form as $y + 3 = m(x - 2)$; the point $(2, 3)$ requires $y - 3$ on the left side."
+      ],
+      "hints": [
+        "Differentiate $xy = 6$ implicitly. The left side needs the product rule.",
+        "Solve for $\\frac{dy}{dx}$, evaluate it at $(2, 3)$ to get the slope, then use point-slope form $y - 3 = m(x - 2)$."
+      ],
+      "solution": [
+        { "text": "Differentiate both sides with the product rule.", "math": "y + x\\frac{dy}{dx} = 0 \\implies \\frac{dy}{dx} = -\\frac{y}{x}" },
+        { "text": "Evaluate the slope at $(2, 3)$.", "math": "m = -\\frac{3}{2}" },
+        { "text": "Write point-slope form and simplify.", "math": "y - 3 = -\\frac{3}{2}(x - 2) \\implies y = -\\frac{3}{2}x + 6" }
+      ]
+    },
+    {
+      "id": "u3-q011",
+      "skillId": "u3-implicit",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>Consider the curve $x^2 + xy + y^2 = 27$. At which of the following points does the curve have a horizontal tangent line?</p>",
+      "choices": ["$(3, -6)$", "$(3, 6)$", "$(-6, 3)$", "$(-3, -6)$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from dropping the sign while substituting into the condition $y = -2x$; at $x = 3$ that condition gives $y = -6$.",
+        "This choice comes from setting the denominator $x + 2y$ equal to zero; that condition locates vertical tangent lines, not horizontal ones.",
+        "This choice comes from a sign error while substituting $y = -2x$ into the curve equation; the correct candidate points are $(3, -6)$ and $(-3, 6)$."
+      ],
+      "hints": [
+        "First find $\\frac{dy}{dx}$ by implicit differentiation. A horizontal tangent occurs where the numerator of $\\frac{dy}{dx}$ is zero and the denominator is not zero.",
+        "The derivative is $\\frac{dy}{dx} = -\\frac{2x + y}{x + 2y}$. Set $2x + y = 0$ and substitute the resulting relation into the curve equation.",
+        "Substituting $y = -2x$ into $x^2 + xy + y^2 = 27$ gives $3x^2 = 27$. Check which listed point satisfies both conditions."
+      ],
+      "solution": [
+        { "text": "Differentiate implicitly and solve for the derivative.", "math": "2x + y + x\\frac{dy}{dx} + 2y\\frac{dy}{dx} = 0 \\implies \\frac{dy}{dx} = -\\frac{2x + y}{x + 2y}" },
+        { "text": "A horizontal tangent needs the numerator zero and the denominator nonzero. Set $2x + y = 0$, so $y = -2x$.", "math": "2x + y = 0" },
+        { "text": "Substitute into the curve equation.", "math": "x^2 + x(-2x) + (-2x)^2 = 3x^2 = 27 \\implies x = \\pm 3" },
+        { "text": "The candidate points are $(3, -6)$ and $(-3, 6)$. At $(3, -6)$ the denominator is $x + 2y = 3 - 12 = -9 \\neq 0$, so the tangent there is horizontal.", "math": "(3, -6)" }
+      ]
+    },
+    {
+      "id": "u3-q012",
+      "skillId": "u3-implicit",
+      "difficulty": 3,
+      "type": "numeric",
+      "prompt": "<p>The curve $x^2 y = 12$ passes through the point $(2, 3)$. Find the $y$-intercept of the line tangent to the curve at that point. Enter an integer.</p>",
+      "answer": 9,
+      "tolerance": 0.001,
+      "hints": [
+        "Differentiate $x^2 y = 12$ implicitly; the left side is a product of $x^2$ and $y$.",
+        "Solve for $\\frac{dy}{dx}$, evaluate at $(2, 3)$, write the tangent line in point-slope form, then set $x = 0$."
+      ],
+      "solution": [
+        { "text": "Differentiate with the product rule.", "math": "2xy + x^2\\frac{dy}{dx} = 0 \\implies \\frac{dy}{dx} = -\\frac{2y}{x}" },
+        { "text": "Evaluate the slope at $(2, 3)$.", "math": "m = -\\frac{2(3)}{2} = -3" },
+        { "text": "Write the tangent line and simplify.", "math": "y - 3 = -3(x - 2) \\implies y = -3x + 9" },
+        { "text": "The $y$-intercept is the value of $y$ at $x = 0$.", "math": "y = 9" }
+      ]
+    },
+    {
+      "id": "u3-q013",
+      "skillId": "u3-inverse-derivative",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Let $f(x) = x^3 + 2$ and let $g$ be the inverse function of $f$. Find $g'(10)$.</p>",
+      "choices": ["$\\dfrac{1}{12}$", "$12$", "$\\dfrac{1}{300}$", "$\\dfrac{1}{6}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice is $f'(g(10))$ without the reciprocal; the theorem divides $1$ by this value.",
+        "This choice comes from evaluating $f'$ at $10$ instead of at $g(10) = 2$; the derivative of $f$ must be evaluated at the inverse's output.",
+        "This choice comes from differentiating $x^3$ as $3x$ instead of $3x^2$ before applying the theorem."
+      ],
+      "hints": [
+        "The theorem states $g'(b) = \\frac{1}{f'(g(b))}$. First find $g(10)$, the input $a$ with $f(a) = 10$.",
+        "Solve $a^3 + 2 = 10$ to get $g(10)$, then evaluate $f'(x) = 3x^2$ at that value and take the reciprocal."
+      ],
+      "solution": [
+        { "text": "Find $g(10)$ by solving $f(a) = 10$.", "math": "a^3 + 2 = 10 \\implies a = 2, \\qquad g(10) = 2" },
+        { "text": "Differentiate $f$ and evaluate at $2$.", "math": "f'(x) = 3x^2, \\qquad f'(2) = 12" },
+        { "text": "Apply the inverse function derivative theorem.", "math": "g'(10) = \\frac{1}{f'(g(10))} = \\frac{1}{12}" }
+      ]
+    },
+    {
+      "id": "u3-q014",
+      "skillId": "u3-inverse-derivative",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Let $f$ be a differentiable, invertible function and let $g = f^{-1}$. Which expression equals $g'(x)$ wherever the denominator is nonzero?</p>",
+      "choices": ["$\\dfrac{1}{f'(g(x))}$", "$\\dfrac{1}{f'(x)}$", "$f'(g(x))$", "$-\\dfrac{f'(x)}{f(x)^2}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice evaluates $f'$ at $x$ itself; the theorem evaluates $f'$ at $g(x)$, the corresponding input on the original function's axis.",
+        "This choice omits the reciprocal; differentiating the identity $f(g(x)) = x$ forces $f'(g(x))\\,g'(x) = 1$.",
+        "This choice is the derivative of the reciprocal function $\\frac{1}{f(x)}$; the inverse function $f^{-1}$ is a different object from the reciprocal $\\frac{1}{f}$."
+      ],
+      "hints": [
+        "Start from the identity $f(g(x)) = x$, which holds for all $x$ in the domain of $g$.",
+        "Differentiate both sides of $f(g(x)) = x$ with the chain rule and solve for $g'(x)$."
+      ],
+      "solution": [
+        { "text": "Differentiate the identity $f(g(x)) = x$ using the chain rule.", "math": "f'(g(x))\\, g'(x) = 1" },
+        { "text": "Solve for $g'(x)$.", "math": "g'(x) = \\frac{1}{f'(g(x))}" }
+      ]
+    },
+    {
+      "id": "u3-q015",
+      "skillId": "u3-inverse-derivative",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>The table gives values of a differentiable, invertible function $f$ and its derivative.</p><table><thead><tr><th>$x$</th><th>$f(x)$</th><th>$f'(x)$</th></tr></thead><tbody><tr><td>$1$</td><td>$4$</td><td>$5$</td></tr><tr><td>$4$</td><td>$7$</td><td>$0.5$</td></tr></tbody></table><p>Let $g = f^{-1}$. Compute $g'(4)$. Enter the exact decimal value.</p>",
+      "answer": 0.2,
+      "tolerance": 0.001,
+      "hints": [
+        "First find $g(4)$: scan the $f(x)$ column for the output value $4$.",
+        "Since $f(1) = 4$, you have $g(4) = 1$. Apply $g'(4) = \\frac{1}{f'(g(4))}$."
+      ],
+      "solution": [
+        { "text": "Find $g(4)$ from the table: $f(1) = 4$, so $g(4) = 1$.", "math": "g(4) = 1" },
+        { "text": "Apply the theorem, evaluating $f'$ at $1$, not at $4$. The entry $f'(4) = 0.5$ is a distractor at the wrong input.", "math": "g'(4) = \\frac{1}{f'(1)} = \\frac{1}{5} = 0.2" }
+      ]
+    },
+    {
+      "id": "u3-q016",
+      "skillId": "u3-inverse-derivative",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Let $f(x) = x^3 + x + 1$ and let $g = f^{-1}$. Given that $f(1) = 3$, find $g'(3)$.</p>",
+      "choices": ["$\\dfrac{1}{4}$", "$4$", "$\\dfrac{1}{28}$", "$\\dfrac{1}{3}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice is $f'(1)$ without the reciprocal; the theorem gives $g'(3)$ as $1$ divided by this value.",
+        "This choice comes from evaluating $f'$ at $3$ instead of at $g(3) = 1$.",
+        "This choice comes from differentiating only the $x^3$ term; the full derivative $f'(x) = 3x^2 + 1$ includes the derivative of the $x$ term."
+      ],
+      "hints": [
+        "The statement $f(1) = 3$ tells you the value of $g(3)$ directly.",
+        "Compute $f'(x)$, evaluate it at $g(3) = 1$, and take the reciprocal."
+      ],
+      "solution": [
+        { "text": "Since $f(1) = 3$, the inverse satisfies $g(3) = 1$.", "math": "g(3) = 1" },
+        { "text": "Differentiate $f$ and evaluate at $1$.", "math": "f'(x) = 3x^2 + 1, \\qquad f'(1) = 4" },
+        { "text": "Apply the theorem.", "math": "g'(3) = \\frac{1}{f'(1)} = \\frac{1}{4}" }
+      ]
+    },
+    {
+      "id": "u3-q017",
+      "skillId": "u3-inverse-derivative",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>Let $f$ be a differentiable, invertible function with $f(2) = 5$ and $f'(2) = \\frac{1}{4}$. Let $g = f^{-1}$. Which of the following is an equation of the line tangent to the graph of $g$ at $x = 5$?</p>",
+      "choices": ["$y = 4x - 18$", "$y = \\frac{1}{4}x + \\frac{3}{4}$", "$y = 4x - 3$", "$y = \\frac{1}{4}x + \\frac{9}{2}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice uses slope $\\frac{1}{4}$, which is $f'(2)$ without the reciprocal; the slope of $g$ at $5$ is $\\frac{1}{f'(2)} = 4$.",
+        "This choice uses the point $(2, 5)$, which lies on the graph of $f$; the graph of $g$ contains the swapped point $(5, 2)$.",
+        "This choice combines both errors: the reciprocal was not taken for the slope, and the point was not swapped from $(2, 5)$ to $(5, 2)$."
+      ],
+      "hints": [
+        "A tangent line needs a point and a slope. The point on the graph of $g$ at $x = 5$ is $(5, g(5))$, and $g(5)$ comes from reading $f(2) = 5$ in reverse.",
+        "The slope is $g'(5) = \\frac{1}{f'(g(5))}$, and $g(5) = 2$. Use point-slope form with the point $(5, g(5))$."
+      ],
+      "solution": [
+        { "text": "Since $f(2) = 5$, the inverse satisfies $g(5) = 2$, so the tangent point is $(5, 2)$.", "math": "g(5) = 2" },
+        { "text": "Compute the slope with the inverse function derivative theorem.", "math": "g'(5) = \\frac{1}{f'(2)} = \\frac{1}{1/4} = 4" },
+        { "text": "Write point-slope form and simplify.", "math": "y - 2 = 4(x - 5) \\implies y = 4x - 18" }
+      ]
+    },
+    {
+      "id": "u3-q018",
+      "skillId": "u3-inverse-trig",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Find $\\frac{d}{dx}\\arctan x$.</p>",
+      "choices": ["$\\dfrac{1}{1+x^2}$", "$\\dfrac{1}{\\sqrt{1-x^2}}$", "$-\\dfrac{1}{1+x^2}$", "$\\sec^2 x$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This is the derivative of $\\arcsin x$; the arctangent derivative has $1 + x^2$ in the denominator and no square root.",
+        "This is the derivative of the inverse cotangent; the arctangent derivative is positive.",
+        "This is the derivative of $\\tan x$ itself, not of its inverse function."
+      ],
+      "hints": [
+        "This is one of the three inverse trigonometric derivatives to memorize: arcsine, arccosine, arctangent.",
+        "Two of the three formulas involve $\\sqrt{1 - x^2}$; the arctangent formula is the one that does not."
+      ],
+      "solution": [
+        { "text": "Start from $y = \\arctan x$, so $\\tan y = x$, and differentiate implicitly.", "math": "\\sec^2 y \\cdot \\frac{dy}{dx} = 1 \\implies \\frac{dy}{dx} = \\frac{1}{\\sec^2 y} = \\frac{1}{1 + \\tan^2 y}" },
+        { "text": "Substitute $\\tan y = x$.", "math": "\\frac{d}{dx}\\arctan x = \\frac{1}{1 + x^2}" }
+      ]
+    },
+    {
+      "id": "u3-q019",
+      "skillId": "u3-inverse-trig",
+      "difficulty": 1,
+      "type": "numeric",
+      "prompt": "<p>Let $f(x) = \\arctan x$. Compute $f'(1)$. Enter the exact decimal value.</p>",
+      "answer": 0.5,
+      "tolerance": 0.001,
+      "hints": [
+        "The derivative of $\\arctan x$ is $\\frac{1}{1+x^2}$.",
+        "Substitute $x = 1$ into the derivative formula."
+      ],
+      "solution": [
+        { "text": "Write the derivative formula.", "math": "f'(x) = \\frac{1}{1 + x^2}" },
+        { "text": "Evaluate at $x = 1$.", "math": "f'(1) = \\frac{1}{1 + 1} = \\frac{1}{2} = 0.5" }
+      ]
+    },
+    {
+      "id": "u3-q020",
+      "skillId": "u3-inverse-trig",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Find $\\frac{d}{dx}\\arcsin(3x)$.</p>",
+      "choices": ["$\\dfrac{3}{\\sqrt{1-9x^2}}$", "$\\dfrac{1}{\\sqrt{1-9x^2}}$", "$\\dfrac{3}{\\sqrt{1-3x^2}}$", "$\\dfrac{3}{1+9x^2}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice omits the chain-rule factor $3$ from the inner function $3x$.",
+        "This choice substitutes $3x^2$ instead of $(3x)^2 = 9x^2$ into the formula; the entire inner expression is squared.",
+        "This choice uses the arctangent formula; the arcsine derivative involves $\\sqrt{1 - u^2}$."
+      ],
+      "hints": [
+        "Use the formula $\\frac{d}{dx}\\arcsin u = \\frac{u'}{\\sqrt{1-u^2}}$ with $u = 3x$.",
+        "Square the entire inner expression: $u^2 = (3x)^2 = 9x^2$. Include the factor $u' = 3$."
+      ],
+      "solution": [
+        { "text": "Apply the arcsine derivative formula with $u = 3x$ and $u' = 3$.", "math": "\\frac{d}{dx}\\arcsin(3x) = \\frac{3}{\\sqrt{1-(3x)^2}}" },
+        { "text": "Simplify the square.", "math": "\\frac{3}{\\sqrt{1-9x^2}}" }
+      ]
+    },
+    {
+      "id": "u3-q021",
+      "skillId": "u3-inverse-trig",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Find $\\frac{d}{dx}\\arccos(x^2)$.</p>",
+      "choices": ["$-\\dfrac{2x}{\\sqrt{1-x^4}}$", "$\\dfrac{2x}{\\sqrt{1-x^4}}$", "$-\\dfrac{2x}{\\sqrt{1-x^2}}$", "$-\\dfrac{1}{\\sqrt{1-x^4}}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from using the arcsine formula; the arccosine derivative carries a negative sign.",
+        "This choice comes from squaring incorrectly: the formula needs $(x^2)^2 = x^4$ under the square root, not $x^2$.",
+        "This choice omits the chain-rule factor $2x$ from the inner function $x^2$."
+      ],
+      "hints": [
+        "Use $\\frac{d}{dx}\\arccos u = -\\frac{u'}{\\sqrt{1-u^2}}$ with $u = x^2$.",
+        "Compute $u' = 2x$ and $u^2 = x^4$, then assemble the formula."
+      ],
+      "solution": [
+        { "text": "Apply the arccosine formula with $u = x^2$ and $u' = 2x$.", "math": "\\frac{d}{dx}\\arccos(x^2) = -\\frac{2x}{\\sqrt{1-(x^2)^2}}" },
+        { "text": "Simplify.", "math": "-\\frac{2x}{\\sqrt{1-x^4}}" }
+      ]
+    },
+    {
+      "id": "u3-q022",
+      "skillId": "u3-inverse-trig",
+      "difficulty": 3,
+      "type": "numeric",
+      "prompt": "<p>Let $f(x) = x\\arctan x$. Compute $f'(1)$. Round to three decimal places.</p>",
+      "answer": 1.285,
+      "tolerance": 0.001,
+      "hints": [
+        "The function is a product of $x$ and $\\arctan x$. Start with the product rule.",
+        "You get $f'(x) = \\arctan x + \\frac{x}{1+x^2}$. Evaluate each term at $x = 1$, using $\\arctan 1 = \\frac{\\pi}{4}$."
+      ],
+      "solution": [
+        { "text": "Apply the product rule.", "math": "f'(x) = 1 \\cdot \\arctan x + x \\cdot \\frac{1}{1+x^2} = \\arctan x + \\frac{x}{1+x^2}" },
+        { "text": "Evaluate at $x = 1$, using $\\arctan 1 = \\frac{\\pi}{4}$.", "math": "f'(1) = \\frac{\\pi}{4} + \\frac{1}{2}" },
+        { "text": "Compute the decimal value.", "math": "f'(1) \\approx 0.785398 + 0.5 = 1.285398 \\approx 1.285" }
+      ]
+    },
+    {
+      "id": "u3-q023",
+      "skillId": "u3-procedure-select",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Consider $f(x) = \\sin(x^2)\\, e^x$. Which differentiation procedure applies at the top level, before any other rule is used?</p>",
+      "choices": [
+        "The product rule, because the expression is $\\sin(x^2)$ multiplied by $e^x$",
+        "The chain rule alone, because the expression contains the composition $\\sin(x^2)$",
+        "The chain rule, with outer function $\\sin$ applied to $x^2 e^x$",
+        "No product rule is needed, because the derivative of $e^x$ is $e^x$"
+      ],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice identifies a real composition, but that composition sits inside one factor; the outermost structure is a product, so the product rule applies first and the chain rule is used while differentiating the first factor.",
+        "This choice misreads the expression: $e^x$ multiplies $\\sin(x^2)$ from outside and is not inside the sine's argument.",
+        "This choice treats a factor with a simple derivative as ignorable; the product rule is required whenever two non-constant factors are multiplied, regardless of how simple their derivatives are."
+      ],
+      "hints": [
+        "Identify the outermost operation: decide whether the whole expression is a sum, a product, a quotient, or a single function applied to an inner expression.",
+        "The expression is one factor times another factor. The rule matching the outermost operation applies first; rules for inner structure apply during the sub-derivatives."
+      ],
+      "solution": [
+        { "text": "The outermost operation is multiplication: the two factors are $\\sin(x^2)$ and $e^x$. The product rule applies first.", "math": "f'(x) = \\frac{d}{dx}\\left[\\sin(x^2)\\right] e^x + \\sin(x^2)\\,\\frac{d}{dx}\\left[e^x\\right]" },
+        { "text": "The chain rule is then used inside the first sub-derivative.", "math": "f'(x) = 2x\\cos(x^2)\\, e^x + \\sin(x^2)\\, e^x" }
+      ]
+    },
+    {
+      "id": "u3-q024",
+      "skillId": "u3-procedure-select",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Find $\\frac{d}{dx}\\left[x^2 \\sin(3x)\\right]$.</p>",
+      "choices": ["$2x\\sin(3x) + 3x^2\\cos(3x)$", "$2x\\sin(3x) + x^2\\cos(3x)$", "$6x\\cos(3x)$", "$3x^2\\cos(3x)$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice applies the product rule correctly but omits the chain-rule factor $3$ when differentiating $\\sin(3x)$.",
+        "This choice multiplies the two derivatives together; the product rule is a sum of two terms, each pairing one factor's derivative with the other factor left unchanged.",
+        "This choice treats $x^2$ as a constant coefficient; both factors depend on $x$, so the product rule produces two terms."
+      ],
+      "hints": [
+        "The expression is a product of $x^2$ and $\\sin(3x)$, and both factors depend on $x$.",
+        "Apply the product rule, and remember that differentiating $\\sin(3x)$ requires the chain rule."
+      ],
+      "solution": [
+        { "text": "Apply the product rule.", "math": "\\frac{d}{dx}\\left[x^2\\sin(3x)\\right] = 2x\\sin(3x) + x^2 \\cdot \\frac{d}{dx}\\sin(3x)" },
+        { "text": "Differentiate $\\sin(3x)$ with the chain rule.", "math": "\\frac{d}{dx}\\sin(3x) = 3\\cos(3x)" },
+        { "text": "Combine.", "math": "2x\\sin(3x) + 3x^2\\cos(3x)" }
+      ]
+    },
+    {
+      "id": "u3-q025",
+      "skillId": "u3-procedure-select",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Find $\\frac{d}{dx}\\left[\\dfrac{e^{2x}}{x+1}\\right]$.</p>",
+      "choices": ["$\\dfrac{e^{2x}(2x+1)}{(x+1)^2}$", "$\\dfrac{e^{2x}(2x+3)}{(x+1)^2}$", "$2e^{2x}$", "$\\dfrac{e^{2x}(2x+1)}{x+1}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from adding the two numerator terms; the quotient rule subtracts $e^{2x}\\cdot\\frac{d}{dx}(x+1)$ from $\\frac{d}{dx}\\left[e^{2x}\\right]\\cdot(x+1)$.",
+        "This choice differentiates the numerator and denominator separately and divides the results; the quotient rule has a specific two-term numerator over the square of the denominator.",
+        "This choice omits squaring the denominator; the quotient rule divides by $(x+1)^2$."
+      ],
+      "hints": [
+        "The expression is a quotient. Use the quotient rule, and note that the numerator $e^{2x}$ itself needs the chain rule.",
+        "Quotient rule: $\\left(\\frac{u}{v}\\right)' = \\frac{u'v - uv'}{v^2}$ with $u = e^{2x}$ and $v = x+1$."
+      ],
+      "solution": [
+        { "text": "Apply the quotient rule with $u = e^{2x}$, $u' = 2e^{2x}$ (chain rule), $v = x+1$, $v' = 1$.", "math": "\\frac{d}{dx}\\left[\\frac{e^{2x}}{x+1}\\right] = \\frac{2e^{2x}(x+1) - e^{2x}(1)}{(x+1)^2}" },
+        { "text": "Factor $e^{2x}$ from the numerator and simplify.", "math": "\\frac{e^{2x}(2x + 2 - 1)}{(x+1)^2} = \\frac{e^{2x}(2x+1)}{(x+1)^2}" }
+      ]
+    },
+    {
+      "id": "u3-q026",
+      "skillId": "u3-procedure-select",
+      "difficulty": 3,
+      "type": "numeric",
+      "prompt": "<p>Let $f(x) = \\dfrac{x}{\\sqrt{x^2+9}}$. Compute $f'(4)$. Enter the exact decimal value.</p>",
+      "answer": 0.072,
+      "tolerance": 0.001,
+      "hints": [
+        "Rewrite the function as $x(x^2+9)^{-1/2}$ and use the product rule together with the chain rule, or use the quotient rule directly.",
+        "After differentiating, factor out $(x^2+9)^{-3/2}$; the derivative collapses to a single fraction before you substitute $x = 4$."
+      ],
+      "solution": [
+        { "text": "Rewrite and apply the product rule with the chain rule.", "math": "f'(x) = (x^2+9)^{-1/2} + x \\cdot \\left(-\\tfrac{1}{2}\\right)(x^2+9)^{-3/2}(2x)" },
+        { "text": "Factor out $(x^2+9)^{-3/2}$.", "math": "f'(x) = (x^2+9)^{-3/2}\\left[(x^2+9) - x^2\\right] = \\frac{9}{(x^2+9)^{3/2}}" },
+        { "text": "Evaluate at $x = 4$: the base is $16 + 9 = 25$ and $25^{3/2} = 125$.", "math": "f'(4) = \\frac{9}{125} = 0.072" }
+      ]
+    },
+    {
+      "id": "u3-q027",
+      "skillId": "u3-procedure-select",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>The equation $\\sin(xy) = y$ defines $y$ implicitly as a function of $x$ near the origin. Find $\\frac{dy}{dx}$.</p>",
+      "choices": ["$\\dfrac{y\\cos(xy)}{1 - x\\cos(xy)}$", "$\\dfrac{y\\cos(xy)}{1 + x\\cos(xy)}$", "$y\\cos(xy)$", "$\\dfrac{\\cos(xy)}{1 - x\\cos(xy)}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from a sign slip while collecting the $\\frac{dy}{dx}$ terms; moving $x\\cos(xy)\\frac{dy}{dx}$ across the equals sign changes its sign.",
+        "This choice comes from differentiating $xy$ as $y$ alone; the product rule also produces $x\\frac{dy}{dx}$, which must be collected with the right side's $\\frac{dy}{dx}$.",
+        "This choice comes from differentiating $xy$ as $1 + x\\frac{dy}{dx}$; the product rule gives $y + x\\frac{dy}{dx}$, with the factor $y$, not $1$."
+      ],
+      "hints": [
+        "Differentiate both sides with respect to $x$. The left side needs the chain rule with inner function $xy$, and $xy$ itself needs the product rule.",
+        "You get $\\cos(xy)\\left(y + x\\frac{dy}{dx}\\right) = \\frac{dy}{dx}$. Expand, collect every $\\frac{dy}{dx}$ term on one side, and factor."
+      ],
+      "solution": [
+        { "text": "Differentiate both sides. The left side is a composition whose inner function is the product $xy$.", "math": "\\cos(xy)\\left(y + x\\frac{dy}{dx}\\right) = \\frac{dy}{dx}" },
+        { "text": "Expand and move both $\\frac{dy}{dx}$ terms to one side.", "math": "y\\cos(xy) = \\frac{dy}{dx} - x\\cos(xy)\\frac{dy}{dx}" },
+        { "text": "Factor and divide.", "math": "\\frac{dy}{dx} = \\frac{y\\cos(xy)}{1 - x\\cos(xy)}" }
+      ]
+    },
+    {
+      "id": "u3-q028",
+      "skillId": "u3-higher-order",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Let $f(x) = x^4 - 3x^2$. Find $f''(x)$.</p>",
+      "choices": ["$12x^2 - 6$", "$4x^3 - 6x$", "$12x^2$", "$24x$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This is the first derivative $f'(x)$; the second derivative requires differentiating once more.",
+        "This choice omits the second derivative of the $-3x^2$ term, which contributes $-6$; every term is differentiated at each stage.",
+        "This is the third derivative $f'''(x)$; differentiate exactly twice."
+      ],
+      "hints": [
+        "Differentiate once to get $f'(x)$, then differentiate that result again.",
+        "The first derivative is $f'(x) = 4x^3 - 6x$. Apply the power rule to each term of this expression."
+      ],
+      "solution": [
+        { "text": "Differentiate once.", "math": "f'(x) = 4x^3 - 6x" },
+        { "text": "Differentiate again, term by term.", "math": "f''(x) = 12x^2 - 6" }
+      ]
+    },
+    {
+      "id": "u3-q029",
+      "skillId": "u3-higher-order",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Which notation denotes the third derivative of $y$ with respect to $x$?</p>",
+      "choices": ["$\\dfrac{d^3y}{dx^3}$", "$\\left(\\dfrac{dy}{dx}\\right)^3$", "$\\dfrac{dy^3}{dx^3}$", "$\\dfrac{d^3y}{d^3x}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This is the cube of the first derivative, a product of three copies of $\\frac{dy}{dx}$; repeated differentiation is not the same operation as raising a derivative to a power.",
+        "This notation reads as a derivative of $y^3$; the exponent in the numerator belongs on the operator symbol $d$, not on $y$.",
+        "The conventional placement puts the exponent at the end of the denominator, as $dx^3$; writing $d^3x$ does not follow the standard notation."
+      ],
+      "hints": [
+        "In Leibniz notation, the operator $\\frac{d}{dx}$ is applied three times to $y$.",
+        "Stacking $\\frac{d}{dx}$ three times produces an exponent of $3$ on the $d$ in the numerator and on the $dx$ in the denominator."
+      ],
+      "solution": [
+        { "text": "Apply the operator $\\frac{d}{dx}$ three times to $y$.", "math": "\\frac{d}{dx}\\,\\frac{d}{dx}\\,\\frac{d}{dx}\\,y = \\frac{d^3y}{dx^3}" },
+        { "text": "Equivalent notations are $y'''$ and $f'''(x)$; the AP exam uses both the prime form and the Leibniz form.", "math": "y''' = \\frac{d^3y}{dx^3}" }
+      ]
+    },
+    {
+      "id": "u3-q030",
+      "skillId": "u3-higher-order",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>Let $f(x) = \\sin(2x)$. Compute $f''\\left(\\frac{\\pi}{4}\\right)$. Enter an integer.</p>",
+      "answer": -4,
+      "tolerance": 0.001,
+      "hints": [
+        "Differentiate twice; each differentiation of $\\sin(2x)$ or $\\cos(2x)$ produces a chain-rule factor of $2$.",
+        "You get $f''(x) = -4\\sin(2x)$. Evaluate the sine at $2 \\cdot \\frac{\\pi}{4} = \\frac{\\pi}{2}$."
+      ],
+      "solution": [
+        { "text": "First derivative, with the chain rule.", "math": "f'(x) = 2\\cos(2x)" },
+        { "text": "Second derivative, with the chain rule again.", "math": "f''(x) = -4\\sin(2x)" },
+        { "text": "Evaluate at $x = \\frac{\\pi}{4}$.", "math": "f''\\left(\\tfrac{\\pi}{4}\\right) = -4\\sin\\left(\\tfrac{\\pi}{2}\\right) = -4" }
+      ]
+    },
+    {
+      "id": "u3-q031",
+      "skillId": "u3-higher-order",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Let $f(x) = \\sin x$. Find $f^{(74)}(x)$, the $74$th derivative of $f$.</p>",
+      "choices": ["$-\\sin x$", "$\\sin x$", "$\\cos x$", "$-\\cos x$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from treating an even derivative count as returning the original function; the cycle length is $4$, not $2$, and $74$ leaves remainder $2$ when divided by $4$.",
+        "This is $f^{(73)}(x)$, one differentiation short; check the remainder of $74$ divided by $4$.",
+        "This is $f^{(75)}(x)$, one differentiation past; check the remainder of $74$ divided by $4$."
+      ],
+      "hints": [
+        "Compute the first four derivatives of $\\sin x$ and observe that the list repeats with period $4$.",
+        "Reduce $74$ modulo $4$; the remainder tells you which entry of the cycle you land on."
+      ],
+      "solution": [
+        { "text": "The derivatives of $\\sin x$ cycle with period $4$.", "math": "\\sin x \\to \\cos x \\to -\\sin x \\to -\\cos x \\to \\sin x" },
+        { "text": "Reduce the order modulo $4$: $74 = 4(18) + 2$, so the $74$th derivative equals the $2$nd derivative.", "math": "f^{(74)}(x) = f^{(2)}(x) = -\\sin x" }
+      ]
+    },
+    {
+      "id": "u3-q032",
+      "skillId": "u3-higher-order",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>For the circle $x^2 + y^2 = 25$, find $\\dfrac{d^2y}{dx^2}$ in terms of $x$ and $y$, simplified using the original equation.</p>",
+      "choices": ["$-\\dfrac{25}{y^3}$", "$\\dfrac{25}{y^3}$", "$-\\dfrac{1}{y}$", "$-\\dfrac{y + x^2}{y^2}$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This choice comes from a sign slip while differentiating $-\\frac{x}{y}$ with the quotient rule; the leading negative sign carries through to the final answer.",
+        "This choice comes from treating $y$ as a constant when differentiating $-\\frac{x}{y}$; the second differentiation must again apply the chain rule to $y$.",
+        "This choice comes from substituting $\\frac{dy}{dx} = -x$ instead of $-\\frac{x}{y}$ during the second differentiation."
+      ],
+      "hints": [
+        "First find $\\frac{dy}{dx}$ by implicit differentiation, then differentiate that expression again with respect to $x$, remembering that $y$ still depends on $x$.",
+        "When the second differentiation produces a $\\frac{dy}{dx}$, substitute the expression you found in the first step.",
+        "After substituting, combine the numerator over a common denominator and replace $x^2 + y^2$ with $25$."
+      ],
+      "solution": [
+        { "text": "Find the first derivative.", "math": "2x + 2y\\frac{dy}{dx} = 0 \\implies \\frac{dy}{dx} = -\\frac{x}{y}" },
+        { "text": "Differentiate $-\\frac{x}{y}$ with the quotient rule, treating $y$ as a function of $x$.", "math": "\\frac{d^2y}{dx^2} = -\\frac{y - x\\frac{dy}{dx}}{y^2}" },
+        { "text": "Substitute $\\frac{dy}{dx} = -\\frac{x}{y}$.", "math": "\\frac{d^2y}{dx^2} = -\\frac{y + \\frac{x^2}{y}}{y^2} = -\\frac{y^2 + x^2}{y^3}" },
+        { "text": "Use the original equation $x^2 + y^2 = 25$.", "math": "\\frac{d^2y}{dx^2} = -\\frac{25}{y^3}" }
+      ]
+    }
+  ],
+  "masteryCheck": { "questionCount": 8, "passCount": 7 }
+}

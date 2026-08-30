@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax check
+        run: |
+          node --check server.js
+          node --check public/app.js
+          node --check public/engine.js
+          node --check public/viz.js
+          node --check scripts/validate-content.mjs
+
+      - name: Engine unit tests
+        run: node --test test/engine.test.mjs
+
+      # Units land incrementally while the curriculum is authored; validate
+      # every unit file that exists rather than failing on the ones to come.
+      - name: Validate curriculum content
+        run: |
+          present=$(ls content/unit-*.json 2>/dev/null | xargs -r -n1 basename | sed 's/\.json$//')
+          if [ -n "$present" ]; then
+            node scripts/validate-content.mjs $present
+          else
+            echo "No unit content files yet — skipping."
+          fi
