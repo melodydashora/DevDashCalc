@@ -1,0 +1,18 @@
+# Dependencies are never installed for this app (zero-dependency by design),
+# but Replit and editors may create these directories anyway.
+node_modules/
+*.tsbuildinfo
+
+# Leftovers from an earlier Replit-Agent scaffold that lived in this workspace.
+# They are not part of Calc Coach.
+artifacts/
+lib/
+
+# Replit / tooling state
+.cache/
+.config/
+.local/
+.conversation/
+.agents/
+.upm/
+.breakpoints
