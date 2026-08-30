@@ -1,0 +1,1798 @@
+{
+ "id": "unit-06",
+ "number": 6,
+ "title": "Integration and Accumulation of Change",
+ "overview": "This unit builds the definite integral from accumulation: the net change of a quantity over an interval is the signed area under the graph of its rate. You will approximate that area with Riemann sums and trapezoids, define the definite integral as a limit of those sums, and use the Fundamental Theorem of Calculus to connect integrals with antiderivatives and to analyze accumulation functions. You will then assemble a library of antiderivatives and the techniques that extend it: substitution, long division and completing the square, and the BC-only methods of integration by parts, partial fractions, and improper integrals. This unit carries the largest weight of any unit on the BC exam, and its skills are used in every unit that follows.",
+ "skills": [
+  {
+   "id": "u6-riemann-sums",
+   "name": "Accumulation, Riemann sums, and trapezoidal approximations",
+   "core": true
+  },
+  {
+   "id": "u6-definite-integral-limit-of-sum",
+   "name": "The definite integral as a limit of Riemann sums",
+   "core": false
+  },
+  {
+   "id": "u6-ftc-accumulation",
+   "name": "The Fundamental Theorem of Calculus, accumulation functions, and properties of definite integrals",
+   "core": true
+  },
+  {
+   "id": "u6-antiderivatives",
+   "name": "Antiderivatives and the basic integral library",
+   "core": true
+  },
+  {
+   "id": "u6-u-substitution",
+   "name": "Substitution, long division, and completing the square",
+   "core": true
+  },
+  {
+   "id": "u6-integration-by-parts",
+   "name": "Integration by parts (BC)",
+   "core": true
+  },
+  {
+   "id": "u6-partial-fractions",
+   "name": "Linear partial fractions (BC)",
+   "core": false
+  },
+  {
+   "id": "u6-improper-integral-limits",
+   "name": "Improper integrals and convergence (BC)",
+   "core": true
+  }
+ ],
+ "lessons": [
+  {
+   "id": "u6-l1",
+   "title": "Accumulation and Riemann sums",
+   "skillIds": [
+    "u6-riemann-sums",
+    "u6-definite-integral-limit-of-sum"
+   ],
+   "estMinutes": 20,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A <strong>rate of change</strong> states how fast a quantity changes per unit of its input, in units such as liters per minute or meters per second. When a rate $r$ is constant over an interval of length $\\Delta t$, the total change of the quantity over that interval is the product $r \\cdot \\Delta t$. On a graph of $r$ against $t$, that product is the area of a rectangle with base $\\Delta t$ and height $r$.</p><p>When the rate varies, the total change is still an area. The <strong>net change</strong> of the quantity from $t = a$ to $t = b$ equals the <strong>signed area</strong> between the graph of $r$ and the $t$-axis on $[a, b]$, where regions above the axis count as positive and regions below the axis count as negative. This signed area is written as the <strong>definite integral</strong> $\\int_a^b r(t)\\,dt$. The symbol is defined precisely at the end of this lesson; until then, read it as the signed area under $r$ from $a$ to $b$.</p><p>The units of $\\int_a^b r(t)\\,dt$ are the units of $r$ multiplied by the units of $t$. If $r$ is in liters per minute and $t$ is in minutes, the integral is in liters. The integral of a rate is an amount, not a rate. If a tank holds $A(0)$ liters at time $0$ and water enters at rate $r(t)$, then the amount at time $b$ is</p><p>$$A(b) = A(0) + \\int_0^b r(t)\\,dt$$</p><p>The integral gives the change; the starting amount is added separately. Exam questions test this distinction directly by asking for the amount at a time rather than the change over an interval.</p>"
+    },
+    {
+     "type": "concept",
+     "html": "<p>A <strong>Riemann sum</strong> approximates the signed area under a function $f$ on $[a, b]$ by cutting the interval into subintervals and replacing $f$ on each subinterval by one sample value. If the $k$-th subinterval has width $\\Delta x_k$ and the sample point is $x_k^*$, the sum is $\\sum_k f(x_k^*)\\,\\Delta x_k$, a total of rectangle areas. The subintervals do not need equal widths. When the data comes from a table, the widths are the gaps between consecutive table entries.</p><p>Three sampling rules appear on the exam.</p><ul><li><strong>Left Riemann sum</strong>: the sample point is the left endpoint of each subinterval.</li><li><strong>Right Riemann sum</strong>: the sample point is the right endpoint.</li><li><strong>Midpoint Riemann sum</strong>: the sample point is the midpoint. From a table, this requires entries at the midpoints, so a midpoint sum with $n$ subintervals normally uses every other entry of a table that has $2n$ gaps.</li></ul><p>The <strong>trapezoidal sum</strong> replaces each rectangle by a trapezoid whose top edge joins the two endpoint values. Its area on one subinterval is $\\frac{f(x_{k-1}) + f(x_k)}{2}\\,\\Delta x_k$: the average of the endpoint values times the width. When the widths are equal, the trapezoidal sum equals the average of the left and right sums.</p><p>Whether an approximation is too large or too small is decided by the shape of $f$.</p><ul><li>If $f$ is <strong>increasing</strong> on the interval, the left sum is an underestimate and the right sum is an overestimate. If $f$ is decreasing, both directions reverse.</li><li>If $f$ is <strong>concave up</strong>, the trapezoidal sum is an overestimate, because each chord lies above the curve, and the midpoint sum is an underestimate, because the tangent line at the midpoint lies below the curve and the midpoint rectangle has the same area as the trapezoid under that tangent. If $f$ is concave down, both directions reverse.</li></ul><p>Monotonicity controls the left and right sums; concavity controls the trapezoidal and midpoint sums. A complete justification names the property and the direction it produces, in this form: because $f$ is increasing on $[0, 8]$, every left rectangle lies below the graph, so the left Riemann sum is an underestimate.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Left and trapezoidal approximations from a table of a rate",
+     "steps": [
+      {
+       "text": "Sand is delivered to a beach at a rate $R(t)$ cubic meters per hour. The table gives $R(t)$ at selected times $t$ in hours: $R(0) = 5$, $R(2) = 9$, $R(3) = 8$, $R(6) = 2$. The three subintervals have widths $2$, $1$, and $3$."
+      },
+      {
+       "text": "For the left Riemann sum, multiply each width by the value at the left end of its subinterval.",
+       "math": "L = 5 \\cdot 2 + 9 \\cdot 1 + 8 \\cdot 3 = 10 + 9 + 24 = 43"
+      },
+      {
+       "text": "For the trapezoidal sum, multiply each width by the average of the two endpoint values.",
+       "math": "T = \\frac{5 + 9}{2} \\cdot 2 + \\frac{9 + 8}{2} \\cdot 1 + \\frac{8 + 2}{2} \\cdot 3 = 14 + 8.5 + 15 = 37.5"
+      },
+      {
+       "text": "State the meaning with units: each sum approximates $\\int_0^6 R(t)\\,dt$, the total number of cubic meters of sand delivered between $t = 0$ and $t = 6$ hours. The two estimates differ because $R$ is not monotone on the table, so neither is guaranteed to be an overestimate or an underestimate."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q001",
+      "u6-q002",
+      "u6-q003"
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>A Riemann sum is a fold with a running total. With arrays <code>x</code> of subinterval endpoints and <code>f</code> of sample values, the left sum is <code>f.slice(0, -1).reduce((acc, v, k) => acc + v * (x[k+1] - x[k]), 0)</code>. The right sum uses <code>f[k+1]</code>, and the trapezoidal sum uses the average <code>(f[k] + f[k+1]) / 2</code>. Unequal widths from a table are handled by the <code>x[k+1] - x[k]</code> factor; nothing else changes.</p><p>Where the analogy holds: every table-based approximation on the exam is literally this loop, and writing the loop is a reliable way to check an answer. The choice of sample point is a one-line change, and the over/under reasoning is a statement about which rule the loop used.</p><p>Where it breaks: any run of the loop uses finitely many steps and its result depends on the sampling rule. The definite integral is the single value that all of these runs approach as the widths shrink to $0$, and it does not depend on the rule. No finite run computes the integral exactly; the integral is the limit, not any one output. A second difference is numeric: a floating-point accumulator collects rounding error that grows with the number of steps, while the mathematical limit has no rounding error at all.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q004",
+      "u6-q005",
+      "u6-q006"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>With $n$ subintervals of equal width on $[a, b]$, the width is $\\Delta x = \\frac{b - a}{n}$ and the $k$-th right endpoint is $x_k = a + k\\,\\Delta x$. The right Riemann sum in <strong>summation notation</strong> is $\\sum_{k=1}^{n} f(a + k\\,\\Delta x)\\,\\Delta x$. The <strong>definite integral</strong> of $f$ from $a$ to $b$ is defined as the limit of these sums as the number of subintervals grows without bound:</p><p>$$\\int_a^b f(x)\\,dx = \\lim_{n \\to \\infty} \\sum_{k=1}^{n} f\\!\\left(a + k\\,\\frac{b - a}{n}\\right)\\frac{b - a}{n}$$</p><p>For a continuous $f$ this limit exists, and it has the same value whichever sample points are used. The number $a$ is the <strong>lower limit of integration</strong>, $b$ is the <strong>upper limit</strong>, and $f$ is the <strong>integrand</strong>.</p><p>To translate a limit of a sum into an integral, read the pieces in this order: the factor that is a constant over $n$ is $\\Delta x$, so its numerator is $b - a$; the constant added inside the function is $a$; then $b = a + (b - a)$; the pattern applied to $a + k\\,\\Delta x$ is $f$. For example,</p><p>$$\\lim_{n \\to \\infty} \\sum_{k=1}^{n} \\frac{2}{n}\\left(3 + \\frac{2k}{n}\\right)^2 = \\int_3^5 x^2\\,dx$$</p><p>because $\\Delta x = \\frac{2}{n}$ gives $b - a = 2$, the constant $3$ is $a$, and the pattern is squaring. The same sum can also be read as $\\int_0^2 (3 + x)^2\\,dx$ with $a = 0$; both readings give the same number, and a multiple-choice item includes only one of them. Translating in the other direction, $\\int_2^5 x^3\\,dx$ becomes $\\lim_{n \\to \\infty} \\sum_{k=1}^{n} \\frac{3}{n}\\left(2 + \\frac{3k}{n}\\right)^3$.</p><p>When the integrand describes a familiar shape, evaluate the integral by geometry. For $f(x) = \\sqrt{9 - x^2}$ on $[-3, 3]$ the graph is the upper half of a circle of radius $3$, so $\\int_{-3}^{3} \\sqrt{9 - x^2}\\,dx = \\frac{1}{2}\\pi(3)^2 = \\frac{9\\pi}{2}$. Triangles, rectangles, and semicircles appear this way on the exam, and a limit of a sum whose integrand is one of these shapes is evaluated by recognizing the shape.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q007",
+      "u6-q008"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u6-l2",
+   "title": "The Fundamental Theorem of Calculus and accumulation functions",
+   "skillIds": [
+    "u6-ftc-accumulation"
+   ],
+   "estMinutes": 22,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>An <strong>accumulation function</strong> has the form $g(x) = \\int_a^x f(t)\\,dt$: the lower limit $a$ is fixed, the upper limit is the variable $x$, and $t$ is a placeholder variable that disappears when the integral is evaluated. The value $g(x)$ is the signed area under $f$ from $a$ to $x$. Two facts follow from the definition: $g(a) = 0$, and for $x < a$ the value $g(x)$ equals the negative of the signed area from $x$ to $a$.</p><p>The <strong>Fundamental Theorem of Calculus, part 1</strong> states: if $f$ is continuous on an interval containing $a$, then $g(x) = \\int_a^x f(t)\\,dt$ is differentiable on that interval and</p><p>$$g'(x) = \\frac{d}{dx}\\int_a^x f(t)\\,dt = f(x)$$</p><p>The reason is the shape of the extra area. Moving the upper limit from $x$ to $x + h$ adds a thin strip of width $h$ and height close to $f(x)$, so the change in $g$ is close to $f(x)\\,h$, and the difference quotient approaches $f(x)$. The lower limit is a constant and contributes nothing to the derivative.</p><p>When the upper limit is a function $u(x)$, the chain rule applies, because $\\int_a^{u(x)} f(t)\\,dt$ is the composition $g(u(x))$:</p><p>$$\\frac{d}{dx}\\int_a^{u(x)} f(t)\\,dt = f(u(x))\\cdot u'(x)$$</p><p>When both limits vary, split the integral at any constant $c$ and apply the rule to each piece, remembering that reversing limits changes the sign:</p><p>$$\\frac{d}{dx}\\int_{v(x)}^{u(x)} f(t)\\,dt = f(u(x))\\,u'(x) - f(v(x))\\,v'(x)$$</p><p>The theorem does not require an antiderivative of $f$. It applies to integrands such as $\\cos(t^2)$ and $e^{-t^2}$ that have no elementary antiderivative, and exam items use such integrands on purpose so that differentiating is the only route.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Differentiate $h(x) = \\int_2^{\\sin x} e^{t^2}\\,dt$ and evaluate $h'(0)$",
+     "steps": [
+      {
+       "text": "The upper limit is $u(x) = \\sin x$, the lower limit is the constant $2$, and the integrand is $f(t) = e^{t^2}$. The integrand has no elementary antiderivative, so evaluating the integral first is not an option."
+      },
+      {
+       "text": "Apply the Fundamental Theorem of Calculus, part 1, with the chain rule: substitute the upper limit into the integrand and multiply by the derivative of the upper limit.",
+       "math": "h'(x) = e^{(\\sin x)^2}\\cdot \\cos x = e^{\\sin^2 x}\\cos x"
+      },
+      {
+       "text": "Evaluate at $x = 0$, where $\\sin 0 = 0$ and $\\cos 0 = 1$.",
+       "math": "h'(0) = e^{0}\\cdot 1 = 1"
+      },
+      {
+       "text": "Note that $h(0) = \\int_2^0 e^{t^2}\\,dt$ is a negative number (the limits run backward across a positive integrand), while $h'(0) = 1$ is positive. The value of an accumulation function and its rate of change are separate quantities."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q009",
+      "u6-q010",
+      "u6-q014"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Because $g' = f$, every conclusion about the shape of $g$ is read from the sign and direction of $f$. The rules are the ones from Unit 5 applied with $f$ in the role of the derivative.</p><ul><li>$g$ is increasing where $f > 0$ and decreasing where $f < 0$.</li><li>$g$ has a relative maximum where $f$ changes from positive to negative, and a relative minimum where $f$ changes from negative to positive.</li><li>$g'' = f'$, so $g$ is concave up where $f$ is increasing and concave down where $f$ is decreasing.</li><li>$g$ has a point of inflection where $f$ changes from increasing to decreasing or from decreasing to increasing. A zero of $f$ is not, by itself, an inflection point of $g$.</li></ul><p>Values of $g$ come from signed areas. Suppose the graph of $f$ consists of two line segments, from $(0, 3)$ to $(2, 3)$ and from $(2, 3)$ to $(5, -3)$, and $g(x) = \\int_0^x f(t)\\,dt$. Then $g(2) = 3 \\cdot 2 = 6$, a rectangle. The second segment crosses the axis at $x = 3.5$, so $g(3.5) = 6 + \\frac{1}{2}(1.5)(3) = 8.25$, and $g(5) = 8.25 - \\frac{1}{2}(1.5)(3) = 6$. Since $f$ changes from positive to negative at $x = 3.5$, the absolute maximum of $g$ on $[0, 5]$ is $g(3.5) = 8.25$.</p><p>A complete justification on the exam reads: $g$ has a relative maximum at $x = 3.5$ because $g'(x) = f(x)$ changes sign from positive to negative there. Naming $g' = f$ is the step that earns the reasoning point.</p><p>For absolute extrema of $g$ on a closed interval, use the candidates test: evaluate $g$ at the endpoints and at every interior point where $f$ changes sign, then compare. When the graph of $f$ includes a semicircle, its area is $\\frac{1}{2}\\pi r^2$, and a quarter circle contributes $\\frac{1}{4}\\pi r^2$; leave $\\pi$ in the answer unless a decimal is requested.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>An accumulation function is a prefix-sum array. Given samples <code>f[0..n]</code> with spacing <code>dx</code>, define <code>g[i] = g[i-1] + f[i] * dx</code> with <code>g[0] = 0</code>. The Fundamental Theorem is the statement that the difference of consecutive prefix sums returns the original element: <code>(g[i] - g[i-1]) / dx === f[i]</code>. Reading $g$ from a graph of $f$ is computing prefix sums of areas, the lower limit $a$ is the index where the prefix sum is $0$, and the identity $\\int_a^b f = g(b) - g(a)$ is the standard range-sum query on a prefix array.</p><p>Where the analogy holds: increasing where $f > 0$, maxima where $f$ crosses from positive to negative, and the range-query property are all exact for prefix sums too, and thinking in prefix sums is a fast way to sanity-check a graph-reading answer.</p><p>Where it breaks: a prefix sum is exact on a discrete array, but the continuous $g$ has extra structure the array lacks. It is defined for $x < a$ by running the sum backward with a sign flip, which an array with a first index does not do. Its derivative equals $f(x)$ only where $f$ is continuous: at a jump in $f$, $g$ is still continuous but has a corner and no derivative, while the discrete difference quotient is always defined. And concavity of $g$ is a statement about $f'$, one level beyond what a single difference of prefix sums shows.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q011",
+      "u6-q012"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Definite integrals obey algebraic rules that follow from the signed-area definition. For integrable $f$ and $g$ and constants $c$, $k$:</p><ul><li>$\\int_a^a f(x)\\,dx = 0$.</li><li>Reversing the limits changes the sign: $\\int_b^a f(x)\\,dx = -\\int_a^b f(x)\\,dx$.</li><li>Additivity over intervals: $\\int_a^b f(x)\\,dx + \\int_b^c f(x)\\,dx = \\int_a^c f(x)\\,dx$, valid for any ordering of $a$, $b$, $c$.</li><li>Constant multiples and sums: $\\int_a^b \\big(k f(x) + g(x)\\big)\\,dx = k\\int_a^b f(x)\\,dx + \\int_a^b g(x)\\,dx$. A constant integrand integrates to the constant times the width: $\\int_a^b k\\,dx = k(b - a)$.</li><li>Symmetry: if $f$ is <strong>even</strong>, meaning $f(-x) = f(x)$, then $\\int_{-a}^{a} f(x)\\,dx = 2\\int_0^a f(x)\\,dx$. If $f$ is <strong>odd</strong>, meaning $f(-x) = -f(x)$, then $\\int_{-a}^{a} f(x)\\,dx = 0$.</li></ul><p>Exam items give a few integral values and ask for another. If $\\int_0^4 f(x)\\,dx = 7$ and $\\int_2^4 f(x)\\,dx = 3$, then additivity gives $\\int_0^2 f(x)\\,dx = 7 - 3 = 4$, and reversal with a constant multiple gives $\\int_4^0 3f(x)\\,dx = -3 \\cdot 7 = -21$.</p><p>The <strong>Fundamental Theorem of Calculus, part 2</strong> evaluates definite integrals without limits of sums. An <strong>antiderivative</strong> of $f$ is any function $F$ with $F' = f$. If $f$ is continuous on $[a, b]$ and $F$ is any antiderivative of $f$, then</p><p>$$\\int_a^b f(x)\\,dx = F(b) - F(a)$$</p><p>The difference is often written with a bracket, $\\big[F(x)\\big]_a^b$. Any antiderivative works, because the constant that distinguishes one antiderivative from another cancels in the subtraction. For example, using the reversed power rule $\\frac{d}{dx}\\, x^{n+1} = (n+1)x^n$,</p><p>$$\\int_1^4 \\left(3\\sqrt{x} - \\frac{2}{x^2}\\right)dx = \\Big[\\,2x^{3/2} + \\frac{2}{x}\\,\\Big]_1^4 = \\left(16 + \\tfrac{1}{2}\\right) - (2 + 2) = 12.5$$</p><p>The next lesson builds the full library of antiderivatives that part 2 relies on. Part 1 and part 2 are two directions of the same relationship: part 1 says differentiating an integral returns the integrand, and part 2 says integrating a derivative returns the net change of the function, $\\int_a^b F'(x)\\,dx = F(b) - F(a)$. That second form is the exam's <strong>net change theorem</strong>: the integral of a rate over an interval is the change in the amount.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q013"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u6-l3",
+   "title": "Antiderivatives and indefinite integrals",
+   "skillIds": [
+    "u6-antiderivatives"
+   ],
+   "estMinutes": 18,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>A function $F$ is an <strong>antiderivative</strong> of $f$ on an interval if $F'(x) = f(x)$ for every $x$ in the interval. If $F$ is one antiderivative, then every antiderivative has the form $F(x) + C$ for some constant $C$, because two functions with the same derivative on an interval differ by a constant (a consequence of the Mean Value Theorem). The collection of all antiderivatives is the <strong>indefinite integral</strong>, written $\\int f(x)\\,dx = F(x) + C$. The $+ C$ is part of the answer; an indefinite integral without it is incomplete.</p><p>Every derivative rule read backward is an antiderivative rule. The indefinite integral is linear: $\\int \\big(k f(x) + g(x)\\big)dx = k\\int f(x)\\,dx + \\int g(x)\\,dx$. The basic library, each entry verifiable by differentiating the right side, is:</p><table><thead><tr><th>Integrand</th><th>Antiderivative</th><th>Integrand</th><th>Antiderivative</th></tr></thead><tbody><tr><td>$x^n$, $n \\neq -1$</td><td>$\\dfrac{x^{n+1}}{n+1}$</td><td>$\\dfrac{1}{x}$</td><td>$\\ln|x|$</td></tr><tr><td>$e^x$</td><td>$e^x$</td><td>$a^x$</td><td>$\\dfrac{a^x}{\\ln a}$</td></tr><tr><td>$\\sin x$</td><td>$-\\cos x$</td><td>$\\cos x$</td><td>$\\sin x$</td></tr><tr><td>$\\sec^2 x$</td><td>$\\tan x$</td><td>$\\sec x \\tan x$</td><td>$\\sec x$</td></tr><tr><td>$\\csc^2 x$</td><td>$-\\cot x$</td><td>$\\csc x \\cot x$</td><td>$-\\csc x$</td></tr><tr><td>$\\dfrac{1}{1 + x^2}$</td><td>$\\arctan x$</td><td>$\\dfrac{1}{\\sqrt{1 - x^2}}$</td><td>$\\arcsin x$</td></tr></tbody></table><p>Three entries need care. The power rule fails at $n = -1$ because division by $n + 1 = 0$ is undefined; the antiderivative of $\\frac{1}{x}$ is $\\ln|x|$, with the absolute value so that the formula also holds for negative $x$. The antiderivative of $a^x$ divides by $\\ln a$, while the derivative multiplies by it. And the sign pattern for trigonometric functions is the reverse of the derivative pattern: $\\int \\sin x\\,dx = -\\cos x + C$ because $\\frac{d}{dx}(-\\cos x) = \\sin x$.</p><p>Many integrands must be rewritten before the library applies: expand products, split a fraction into separate terms over a one-term denominator, convert roots and reciprocals to powers, and use identities such as $\\tan^2 x = \\sec^2 x - 1$. Rewriting is algebra, and it happens before any integration rule is used.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find $\\int \\dfrac{2x^3 - x + 5}{x^2}\\,dx$",
+     "steps": [
+      {
+       "text": "The denominator is a single term, so split the fraction term by term and write each piece as a power of $x$.",
+       "math": "\\frac{2x^3 - x + 5}{x^2} = 2x - \\frac{1}{x} + 5x^{-2}"
+      },
+      {
+       "text": "Integrate each term with the library: the power rule for $2x$ and $5x^{-2}$, and the logarithm for $\\frac{1}{x}$.",
+       "math": "\\int \\left(2x - \\frac{1}{x} + 5x^{-2}\\right)dx = x^2 - \\ln|x| + \\frac{5x^{-1}}{-1} + C"
+      },
+      {
+       "text": "Simplify and add the constant once.",
+       "math": "= x^2 - \\ln|x| - \\frac{5}{x} + C"
+      },
+      {
+       "text": "Check by differentiating: $\\frac{d}{dx}\\left(x^2 - \\ln|x| - \\frac{5}{x}\\right) = 2x - \\frac{1}{x} + \\frac{5}{x^2}$, which matches the original integrand after the same split. Checking by differentiation is always available and catches sign and coefficient errors."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q015",
+      "u6-q016"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>With the library in place, part 2 of the Fundamental Theorem evaluates definite integrals: find one antiderivative, evaluate it at the upper limit, subtract its value at the lower limit. No $+ C$ is needed for a definite integral, because it cancels in the subtraction.</p><p>Trigonometric and inverse trigonometric values must be exact at the standard angles. For example, $\\int_0^{\\pi/3}\\big(2\\cos x + \\sec^2 x\\big)dx = \\big[2\\sin x + \\tan x\\big]_0^{\\pi/3} = \\big(\\sqrt{3} + \\sqrt{3}\\big) - (0 + 0) = 2\\sqrt{3}$. The values $\\arctan 1 = \\frac{\\pi}{4}$, $\\arctan\\sqrt{3} = \\frac{\\pi}{3}$, $\\arcsin\\frac{1}{2} = \\frac{\\pi}{6}$, and $\\arcsin 1 = \\frac{\\pi}{2}$ appear repeatedly with the two inverse-trigonometric entries.</p><p>An <strong>initial condition</strong> selects one antiderivative from the family. If $f'(x) = e^x + 4x$ and $f(0) = 3$, then $f(x) = e^x + 2x^2 + C$, and substituting $x = 0$ gives $1 + 0 + C = 3$, so $C = 2$ and $f(x) = e^x + 2x^2 + 2$. The condition is applied after integrating, to the antiderivative, never to the derivative.</p><p>Identities convert integrands that are not in the library into ones that are. The most common on the exam is $\\tan^2 x = \\sec^2 x - 1$, so $\\int \\tan^2 x\\,dx = \\tan x - x + C$. Applying the power rule to $\\tan x$ as if it were a variable, producing $\\frac{1}{3}\\tan^3 x$, is a frequent error; the power rule applies only to powers of the integration variable itself.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q017",
+      "u6-q018",
+      "u6-q020"
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Differentiation is a lossy transformation. The map <code>diff: f -> f'</code> is not injective: every function in the family <code>f + C</code> maps to the same <code>f'</code>. Antidifferentiation is the inverse image of that map, so it returns a whole family, and the $+ C$ is the explicit marker of the one real number that <code>diff</code> discarded. An initial condition is the extra key that recovers it, the same way a value that was normalized away must be supplied separately to reconstruct the original record.</p><p>Where the analogy holds: on a single interval, the loss is exactly one constant, and one initial condition determines the antiderivative uniquely. Checking an antiderivative by differentiating it is running the forward transformation on your candidate and comparing with the input, which is the cheap direction, exactly as verifying a solution is cheaper than finding it.</p><p>Where it breaks: unlike a hash, the inverse always exists for a continuous integrand. The Fundamental Theorem guarantees an antiderivative of any continuous $f$, namely $\\int_a^x f(t)\\,dt$, even when no closed-form expression exists, the way a function can be provably computable with no short source code available. And on a domain with a gap, such as the domain of $\\frac{1}{x}$, the lost information is one constant per connected piece, not one constant overall; the single $+ C$ is a convention that assumes you are working on one interval.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find $f(2)$ given $f'(x) = 6x^2 - \\dfrac{1}{x}$ and $f(1) = 4$",
+     "steps": [
+      {
+       "text": "Integrate $f'$ to obtain the family of antiderivatives.",
+       "math": "f(x) = \\int \\left(6x^2 - \\frac{1}{x}\\right)dx = 2x^3 - \\ln|x| + C"
+      },
+      {
+       "text": "Apply the initial condition to the antiderivative at $x = 1$, using $\\ln 1 = 0$.",
+       "math": "f(1) = 2 - 0 + C = 4 \\implies C = 2"
+      },
+      {
+       "text": "Evaluate the particular antiderivative at $x = 2$.",
+       "math": "f(2) = 2(8) - \\ln 2 + 2 = 18 - \\ln 2 \\approx 17.307"
+      },
+      {
+       "text": "An equivalent route uses the net change theorem: $f(2) = f(1) + \\int_1^2 f'(x)\\,dx = 4 + \\big[2x^3 - \\ln x\\big]_1^2 = 4 + (16 - \\ln 2) - 2 = 18 - \\ln 2$. Both routes are acceptable on the exam."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q019"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u6-l4",
+   "title": "Substitution, long division, and completing the square",
+   "skillIds": [
+    "u6-u-substitution"
+   ],
+   "estMinutes": 20,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p><strong>Substitution</strong> is the chain rule read backward. The chain rule says $\\frac{d}{dx} F(u(x)) = F'(u(x))\\,u'(x)$, so any integrand of the form $f(u(x))\\,u'(x)$ has antiderivative $F(u(x))$, where $F$ is an antiderivative of $f$. The procedure is:</p><ol><li>Choose an inner function $u = u(x)$, usually the inside of a composition: the argument of a power, root, exponential, or trigonometric function, or a denominator.</li><li>Compute $du = u'(x)\\,dx$ and check that $u'(x)$ appears as a factor of the integrand, possibly up to a constant multiple.</li><li>Rewrite the entire integral in terms of $u$ and $du$. No $x$ may remain.</li><li>Integrate with the library, then replace $u$ by $u(x)$.</li></ol><p>A missing constant factor is supplied by algebra. For $\\int x\\cos(x^2)\\,dx$ with $u = x^2$, $du = 2x\\,dx$, so $x\\,dx = \\frac{1}{2}\\,du$ and the integral becomes $\\frac{1}{2}\\int \\cos u\\,du = \\frac{1}{2}\\sin(x^2) + C$. A missing non-constant factor cannot be supplied: $\\int \\cos(x^2)\\,dx$ has no elementary antiderivative, and the substitution $u = x^2$ fails for it because $\\frac{du}{2x}$ leaves an $x$ behind.</p><p>For a <strong>definite integral</strong>, there are two correct ways to finish. Either convert the limits to $u$-values, $x = a$ becomes $u = u(a)$ and $x = b$ becomes $u = u(b)$, and evaluate entirely in $u$; or find the antiderivative in $x$ and use the original limits. The error to avoid is mixing them: evaluating a $u$-antiderivative at $x$-limits. Converting the limits is faster and is the form the exam expects in a set-up question: with $u = x^2 + 1$, $\\int_1^2 x(x^2 + 1)^3\\,dx = \\frac{1}{2}\\int_2^5 u^3\\,du$.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Evaluate $\\int_0^1 x^2 e^{x^3}\\,dx$",
+     "steps": [
+      {
+       "text": "The exponent $x^3$ is the inner function, and its derivative $3x^2$ appears up to the constant $3$. Choose $u = x^3$.",
+       "math": "u = x^3, \\qquad du = 3x^2\\,dx, \\qquad x^2\\,dx = \\tfrac{1}{3}\\,du"
+      },
+      {
+       "text": "Convert the limits: $x = 0$ gives $u = 0$, and $x = 1$ gives $u = 1$.",
+       "math": "\\int_0^1 x^2 e^{x^3}\\,dx = \\frac{1}{3}\\int_0^1 e^{u}\\,du"
+      },
+      {
+       "text": "Integrate in $u$ and evaluate at the $u$-limits.",
+       "math": "\\frac{1}{3}\\big[e^{u}\\big]_0^1 = \\frac{1}{3}(e - 1)"
+      },
+      {
+       "text": "The limits happened to be unchanged here because $u(0) = 0$ and $u(1) = 1$; that is a coincidence of this example, not a rule. The answer $\\frac{e - 1}{3} \\approx 0.573$ is exact in the first form."
+      }
+     ]
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Substitution is a change of coordinates, like re-indexing a loop. If a loop runs <code>for x from a to b</code> and you rewrite it to run over <code>u = g(x)</code>, two things must change together: the bounds become <code>g(a)</code> and <code>g(b)</code>, and each step must be weighted by the local stretch factor <code>g'(x)</code>, because equal steps in <code>u</code> are not equal steps in <code>x</code>. The $du = g'(x)\\,dx$ relation is that weight. Dropping it is a wrong-weighting bug; leaving the old bounds is an off-by-range bug. Both produce a number, so neither is caught by the code running without error.</p><p>Where the analogy holds: the re-indexing is exact when $g$ is differentiable and one-to-one on the interval, and then the two loops accumulate the same total, which is what a substitution with converted limits claims.</p><p>Where it breaks: the substitution is symbolic, so a poor choice of $u$ costs nothing but time, and the check is algebraic rather than at runtime. Also, calculus permits a $g$ that is not one-to-one: with $u = x^2$ on $[-1, 1]$ the $u$-limits both equal $1$ and the converted integral is $0$. That is the correct value of $\\int_{-1}^{1} x\\cos(x^2)\\,dx$, an odd integrand on a symmetric interval, but only because the $du$ factor carries the sign; a re-indexed loop without the weight would not produce it.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q021",
+      "u6-q022",
+      "u6-q023"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>Two algebraic rewrites handle rational integrands that substitution does not reach.</p><p><strong>Long division.</strong> A rational function is <strong>improper</strong> when the degree of the numerator is at least the degree of the denominator. Divide first: the quotient is a polynomial, and the remainder over the divisor is a proper fraction that the library or a substitution handles. For $\\int \\frac{2x^2 + 1}{x + 1}\\,dx$, dividing gives $2x^2 + 1 = (x + 1)(2x - 2) + 3$, so</p><p>$$\\int \\frac{2x^2 + 1}{x + 1}\\,dx = \\int \\left(2x - 2 + \\frac{3}{x + 1}\\right)dx = x^2 - 2x + 3\\ln|x + 1| + C$$</p><p>The remainder is found by evaluating the numerator at the zero of a linear divisor: at $x = -1$, $2(1) + 1 = 3$. For a linear divisor, division can also be done by adding and subtracting inside the numerator.</p><p><strong>Completing the square.</strong> When the denominator is an irreducible quadratic, meaning it has no real roots, write it as $(x + h)^2 + a^2$ and substitute $u = x + h$. The result is the arctangent form</p><p>$$\\int \\frac{du}{u^2 + a^2} = \\frac{1}{a}\\arctan\\frac{u}{a} + C$$</p><p>which is the library entry $\\int \\frac{dx}{1 + x^2}$ with a scale factor; verify it by differentiating. If the numerator contains a multiple of $u$, split it off: the $u$ part integrates to a logarithm by substitution, and the constant part goes to arctangent. A square root of $a^2 - (x + h)^2$ in a denominator leads to $\\arcsin\\frac{x + h}{a}$ the same way. The decision is made by the denominator: factorable into distinct linear factors means partial fractions (Lesson 5, BC only); not factorable means complete the square.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find $\\int \\dfrac{dx}{x^2 + 6x + 13}$",
+     "steps": [
+      {
+       "text": "The discriminant $36 - 52$ is negative, so the denominator does not factor over the real numbers. Complete the square by taking half of the $x$-coefficient and squaring it.",
+       "math": "x^2 + 6x + 13 = (x^2 + 6x + 9) + 4 = (x + 3)^2 + 2^2"
+      },
+      {
+       "text": "Substitute $u = x + 3$, so $du = dx$, and recognize the arctangent form with $a = 2$.",
+       "math": "\\int \\frac{dx}{(x + 3)^2 + 4} = \\int \\frac{du}{u^2 + 2^2} = \\frac{1}{2}\\arctan\\frac{u}{2} + C"
+      },
+      {
+       "text": "Return to $x$.",
+       "math": "\\frac{1}{2}\\arctan\\frac{x + 3}{2} + C"
+      },
+      {
+       "text": "Check by differentiating: $\\frac{d}{dx}\\left[\\frac{1}{2}\\arctan\\frac{x + 3}{2}\\right] = \\frac{1}{2}\\cdot\\frac{1}{1 + \\left(\\frac{x + 3}{2}\\right)^2}\\cdot\\frac{1}{2} = \\frac{1}{4 + (x + 3)^2}$, which is the original integrand."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q024",
+      "u6-q025"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u6-l5",
+   "title": "Integration by parts and partial fractions (BC)",
+   "skillIds": [
+    "u6-integration-by-parts",
+    "u6-partial-fractions"
+   ],
+   "estMinutes": 24,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>Integration by parts and partial fractions are BC-only topics; they are not tested on the AB exam, and Calc Coach includes them because this course prepares for BC.</p><p><strong>Integration by parts</strong> is the product rule read backward. From $\\frac{d}{dx}(uv) = u\\,v' + v\\,u'$, integrating both sides and rearranging gives</p><p>$$\\int u\\,dv = uv - \\int v\\,du$$</p><p>To use it, split the integrand into a factor $u$ that you will differentiate and a factor $dv$ (including $dx$) that you will integrate, compute $du$ and $v$, and assemble the right side. The method succeeds when the new integral $\\int v\\,du$ is simpler than the original. A reliable order of preference for $u$ is the list <strong>LIATE</strong>: Logarithmic, Inverse trigonometric, Algebraic (polynomial), Trigonometric, Exponential. Choose $u$ as the factor that appears earliest in that list; the rest of the integrand is $dv$. Logarithms and inverse trigonometric functions become simpler when differentiated and are hard to integrate, which is why they lead.</p><p>Two standard applications:</p><ul><li>$\\int \\ln x\\,dx$: take $u = \\ln x$ and $dv = dx$, so $du = \\frac{1}{x}\\,dx$ and $v = x$. Then $\\int \\ln x\\,dx = x\\ln x - \\int x\\cdot\\frac{1}{x}\\,dx = x\\ln x - x + C$. The same choice handles $\\arctan x$ and $\\arcsin x$.</li><li>$\\int x^n e^{x}\\,dx$, $\\int x^n \\sin x\\,dx$, $\\int x^n \\cos x\\,dx$: take $u = x^n$. Each application lowers the power by one, so $n$ applications are needed. This is <strong>repeated integration by parts</strong>.</li></ul><p>For a definite integral, the formula becomes $\\int_a^b u\\,dv = \\big[uv\\big]_a^b - \\int_a^b v\\,du$, with the boundary term evaluated at both limits. Checking a parts result by differentiating it is fast and catches the most common error, a sign slip in $-\\int v\\,du$.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Find $\\int x^2 e^{x}\\,dx$ by repeated integration by parts",
+     "steps": [
+      {
+       "text": "By LIATE, the algebraic factor $x^2$ is $u$ and $e^x\\,dx$ is $dv$.",
+       "math": "u = x^2, \\quad dv = e^x\\,dx, \\quad du = 2x\\,dx, \\quad v = e^x"
+      },
+      {
+       "text": "Apply the formula once. The remaining integral has a lower power of $x$.",
+       "math": "\\int x^2 e^x\\,dx = x^2 e^x - \\int 2x\\,e^x\\,dx"
+      },
+      {
+       "text": "Apply the formula to the remaining integral with $u = 2x$, $dv = e^x\\,dx$, $du = 2\\,dx$, $v = e^x$.",
+       "math": "\\int 2x\\,e^x\\,dx = 2x\\,e^x - \\int 2e^x\\,dx = 2x\\,e^x - 2e^x + C"
+      },
+      {
+       "text": "Substitute back, distributing the minus sign across the whole second result.",
+       "math": "\\int x^2 e^x\\,dx = x^2 e^x - 2x\\,e^x + 2e^x + C"
+      },
+      {
+       "text": "Check: differentiating $(x^2 - 2x + 2)e^x$ gives $(2x - 2)e^x + (x^2 - 2x + 2)e^x = x^2 e^x$."
+      }
+     ]
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q027",
+      "u6-q028"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>For $\\int e^x \\cos x\\,dx$ and $\\int e^x \\sin x\\,dx$, neither factor becomes simpler under differentiation, and integration by parts applied twice returns the original integral. The method still succeeds, because the returned copy can be moved to the other side and solved for algebraically. Name the integral $I$ and keep the same choice of $u$ (trigonometric or exponential) in both applications.</p><p>$$I = \\int e^x \\cos x\\,dx$$</p><p>First application with $u = \\cos x$, $dv = e^x\\,dx$: $I = e^x\\cos x + \\int e^x \\sin x\\,dx$. Second application on the new integral with $u = \\sin x$, $dv = e^x\\,dx$: $\\int e^x \\sin x\\,dx = e^x \\sin x - \\int e^x \\cos x\\,dx = e^x \\sin x - I$. Substituting,</p><p>$$I = e^x\\cos x + e^x\\sin x - I \\implies 2I = e^x(\\cos x + \\sin x) \\implies I = \\frac{e^x(\\sin x + \\cos x)}{2} + C$$</p><p>The constant is added when $I$ is isolated. The companion result, obtained the same way or by differentiating a guess, is $\\int e^x \\sin x\\,dx = \\frac{e^x(\\sin x - \\cos x)}{2} + C$. Both are confirmed by differentiation: the derivative of $\\frac{e^x(\\sin x + \\cos x)}{2}$ is $\\frac{e^x(\\sin x + \\cos x) + e^x(\\cos x - \\sin x)}{2} = e^x\\cos x$. The two results differ only by a sign inside the parentheses, and a sign error here is the most common way to lose the point, so the differentiation check is worth the time.</p><p>Switching the roles of $u$ and $dv$ between the two applications undoes the first step and returns $I = I$, which is true and useless. Keeping the same role assignment is the essential discipline.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>Integration by parts moves a derivative from one factor to the other at the cost of a boundary term. The discrete version is summation by parts: $\\sum_{k=0}^{n-1} a_k (b_{k+1} - b_k) = a_n b_n - a_0 b_0 - \\sum_{k=0}^{n-1} b_{k+1}(a_{k+1} - a_k)$, which is the identity you get by telescoping the product $a_k b_k$. In both versions the strategy is the same one you use when restructuring a loop: transfer the expensive operation, differencing, onto the array where it is cheap, and pay a fixed cost at the ends.</p><p>Where the analogy holds: LIATE is a heuristic about which factor is cheap to difference, exactly as choosing which array to difference is a cost decision, and the discrete identity is derived from the product difference the same way the continuous one is derived from the product rule.</p><p>Where it breaks: the discrete formula carries an index shift, $b_{k+1}$ rather than $b_k$, that has no continuous counterpart, so the two formulas are not term-for-term identical. And the returning case for $e^x \\cos x$ is not a recursive call that reaches a base case; it is an equation $I = A - I$ in the unknown expression $I$, solved by algebra. A program that evaluated the recursion directly would never terminate; the termination comes from treating $I$ as a symbol, which is an operation on expressions rather than on values.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q029",
+      "u6-q030",
+      "u6-q031"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p><strong>Partial fractions</strong> rewrite a proper rational function whose denominator factors into distinct linear factors as a sum of simpler fractions with constant numerators, each of which integrates to a logarithm. The BC exam tests only non-repeated linear factors.</p><p>The procedure for $\\int \\frac{x + 5}{x^2 + x - 2}\\,dx$:</p><ol><li>Confirm the fraction is proper (numerator degree $1$ is less than denominator degree $2$). If it is not, divide first.</li><li>Factor the denominator: $x^2 + x - 2 = (x + 2)(x - 1)$.</li><li>Write the decomposition with unknown constants, one per factor: $\\dfrac{x + 5}{(x + 2)(x - 1)} = \\dfrac{A}{x + 2} + \\dfrac{B}{x - 1}$.</li><li>Clear denominators: $x + 5 = A(x - 1) + B(x + 2)$. This must hold for every $x$, so substitute the zero of each factor. At $x = 1$: $6 = 3B$, so $B = 2$. At $x = -2$: $3 = -3A$, so $A = -1$.</li><li>Integrate term by term: $\\int \\left(\\dfrac{-1}{x + 2} + \\dfrac{2}{x - 1}\\right)dx = -\\ln|x + 2| + 2\\ln|x - 1| + C$.</li></ol><p>For a definite integral, evaluate each logarithm at both limits and combine with the logarithm rules $\\ln p - \\ln q = \\ln\\frac{p}{q}$ and $k\\ln p = \\ln p^k$ when a single logarithm is requested. For example, $\\int_2^3 \\frac{x + 5}{x^2 + x - 2}\\,dx = \\big[-\\ln|x + 2| + 2\\ln|x - 1|\\big]_2^3 = (-\\ln 5 + 2\\ln 2) - (-\\ln 4 + 0) = \\ln\\frac{16}{5}$.</p><p>A check is available at every stage: recombining the decomposed fractions over the common denominator must reproduce the original numerator, and differentiating the final answer must reproduce the integrand. Partial fractions also appear in Unit 7 when solving the logistic differential equation, where the decomposition of $\\frac{1}{P(M - P)}$ is the central step.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q032",
+      "u6-q033"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "u6-l6",
+   "title": "Improper integrals and choosing a technique (BC)",
+   "skillIds": [
+    "u6-improper-integral-limits"
+   ],
+   "estMinutes": 22,
+   "sections": [
+    {
+     "type": "concept",
+     "html": "<p>Improper integrals are a BC-only topic; the AB exam does not test them.</p><p>A definite integral as defined in Lesson 1 requires a bounded interval and a bounded integrand. An <strong>improper integral</strong> relaxes one of those conditions and is defined as a limit of ordinary definite integrals. When the interval is unbounded,</p><p>$$\\int_a^{\\infty} f(x)\\,dx = \\lim_{b \\to \\infty} \\int_a^b f(x)\\,dx$$</p><p>with the analogous definition for $\\int_{-\\infty}^{b}$, and $\\int_{-\\infty}^{\\infty}$ split at any finite point into two limits, both of which must exist. The improper integral <strong>converges</strong> if the limit exists as a finite number and <strong>diverges</strong> otherwise. The limit is part of the definition, and on the exam the limit notation must be written: an evaluation that substitutes $\\infty$ into an antiderivative as if it were a number does not earn the point.</p><p>The <strong>p-integrals</strong> on $[1, \\infty)$ are the reference family. For $p \\neq 1$, $\\int_1^b x^{-p}\\,dx = \\frac{b^{1 - p} - 1}{1 - p}$. As $b \\to \\infty$, $b^{1 - p} \\to 0$ when $p > 1$ and grows without bound when $p < 1$. For $p = 1$ the antiderivative is $\\ln b$, which also grows without bound. Therefore</p><p>$$\\int_1^{\\infty} \\frac{dx}{x^p} \\text{ converges to } \\frac{1}{p - 1} \\text{ when } p > 1 \\text{ and diverges when } p \\leq 1$$</p><p>The boundary case $p = 1$ diverges even though $\\frac{1}{x} \\to 0$; an integrand that tends to $0$ is necessary for convergence but not sufficient. Exponential decay always converges: $\\int_0^{\\infty} e^{-kx}\\,dx = \\frac{1}{k}$ for $k > 0$, because $e^{-kb} \\to 0$. Integrals that need integration by parts first, such as $\\int_1^{\\infty} \\frac{\\ln x}{x^2}\\,dx$, produce limits such as $\\lim_{b \\to \\infty} \\frac{\\ln b}{b}$, which are evaluated by L'Hôpital's rule from Unit 4.</p>"
+    },
+    {
+     "type": "worked-example",
+     "title": "Evaluate $\\int_0^{\\infty} 3e^{-3x}\\,dx$ or show that it diverges",
+     "steps": [
+      {
+       "text": "Replace the infinite limit with a variable $b$ and write the integral as a limit.",
+       "math": "\\int_0^{\\infty} 3e^{-3x}\\,dx = \\lim_{b \\to \\infty} \\int_0^b 3e^{-3x}\\,dx"
+      },
+      {
+       "text": "Evaluate the finite integral with the antiderivative $-e^{-3x}$ (check: its derivative is $3e^{-3x}$).",
+       "math": "\\int_0^b 3e^{-3x}\\,dx = \\big[-e^{-3x}\\big]_0^b = -e^{-3b} + 1"
+      },
+      {
+       "text": "Take the limit, using $e^{-3b} \\to 0$ as $b \\to \\infty$.",
+       "math": "\\lim_{b \\to \\infty}\\left(1 - e^{-3b}\\right) = 1"
+      },
+      {
+       "text": "The limit is finite, so the improper integral converges and its value is $1$. The written justification is the limit statement itself: the integral equals $1$ because $\\lim_{b \\to \\infty}\\left(1 - e^{-3b}\\right) = 1$."
+      }
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The second kind of improper integral has a bounded interval but an integrand that is unbounded at an endpoint, such as $\\frac{1}{\\sqrt{x}}$ at $x = 0$. The definition again uses a limit, now one-sided:</p><p>$$\\int_0^b f(x)\\,dx = \\lim_{c \\to 0^{+}} \\int_c^b f(x)\\,dx \\quad \\text{when } f \\text{ is unbounded near } 0$$</p><p>If the unbounded point is at the upper endpoint, the limit approaches it from the left. If it is in the interior, split the integral there and require both pieces to converge. An unbounded integrand does not force divergence. For example, $\\int_0^1 \\frac{dx}{\\sqrt{x}} = \\lim_{c \\to 0^+}\\big[2\\sqrt{x}\\big]_c^1 = \\lim_{c \\to 0^+}(2 - 2\\sqrt{c}) = 2$, a finite area under an unbounded curve.</p><p>The p-integrals near $0$ behave opposite to the p-integrals near infinity:</p><table><thead><tr><th>Integral</th><th>Converges when</th><th>Diverges when</th></tr></thead><tbody><tr><td>$\\displaystyle\\int_1^{\\infty} \\frac{dx}{x^p}$</td><td>$p > 1$</td><td>$p \\leq 1$</td></tr><tr><td>$\\displaystyle\\int_0^{1} \\frac{dx}{x^p}$</td><td>$p < 1$</td><td>$p \\geq 1$</td></tr></tbody></table><p>The reason is the same computation: $x^{1 - p}$ tends to $0$ as $x \\to 0^+$ exactly when $1 - p > 0$. The case $p = 1$ diverges at both ends, since $\\ln x \\to -\\infty$ as $x \\to 0^+$. A useful summary: near infinity, faster decay (larger $p$) is needed for convergence; near $0$, a milder blow-up (smaller $p$) is needed.</p><p>On the exam, always identify why an integral is improper before evaluating it. An integral such as $\\int_{-1}^{1} \\frac{dx}{x^2}$ looks ordinary, but the integrand is unbounded at the interior point $x = 0$; the antiderivative $-\\frac{1}{x}$ evaluated at the endpoints gives $-2$, a negative number for a positive integrand, and the correct conclusion is that the integral diverges because $\\int_0^1 \\frac{dx}{x^2}$ has $p = 2 \\geq 1$.</p>"
+    },
+    {
+     "type": "coder-note",
+     "html": "<p>An improper integral is the limit of a loop that never terminates on its own. Integrate to $b$, report the running total, increase $b$, repeat. Convergence means the reported totals eventually stay within any chosen tolerance of one value, which is a stopping criterion you can state but the loop cannot verify for itself, because it never sees the whole tail. Numerically integrating $e^{-3x}$ out to larger and larger $b$ and watching the increments shrink is a faithful picture of the definition, and it is a useful way to build intuition for why a tail must decay faster than $\\frac{1}{x}$.</p><p>Where the analogy breaks: observation cannot decide convergence. The tail of $\\frac{1}{x}$ diverges, but its running total grows like $\\ln b$, so slowly that at $b = 10^{9}$ it is only about $20.7$. The tail of $\\frac{1}{x^{1.01}}$ converges to $100$, but it is still far from $100$ at any $b$ a program can reach. Two loops with opposite verdicts look nearly the same in any finite run. Convergence is settled by the limit of the antiderivative, which is an analytic statement about $b^{1 - p}$, not by output. Floating point adds a second illusion: $e^{-3b}$ underflows to exactly $0$ for moderate $b$, which happens to give the right value here for the wrong reason, while $\\frac{1}{\\sqrt{x}}$ near $0$ overflows a midpoint sum's first term if the grid touches $0$, so the singular endpoint must be handled by the limit, not by the grid.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q034",
+      "u6-q035",
+      "u6-q036"
+     ]
+    },
+    {
+     "type": "concept",
+     "html": "<p>The exam expects you to choose a technique quickly. Run this checklist in order and stop at the first item that applies.</p><ol><li><strong>Algebra first.</strong> Expand products, split a fraction over a one-term denominator, rewrite roots and reciprocals as powers, and apply identities such as $\\tan^2 x = \\sec^2 x - 1$. If the result is in the library, integrate directly. Also check the limits: an infinite limit or an unbounded integrand means the integral is improper, and the limit must be written before any technique is applied.</li><li><strong>Substitution.</strong> Look for an inner function whose derivative, up to a constant factor, appears as a factor of the integrand. Typical signs: $x\\,dx$ next to a function of $x^2$, $\\frac{1}{x}\\,dx$ next to a function of $\\ln x$, $\\cos x\\,dx$ next to a function of $\\sin x$, and any denominator whose derivative is the numerator, which gives a logarithm.</li><li><strong>Rational functions.</strong> If the numerator degree is at least the denominator degree, divide. Then factor the denominator: distinct linear factors mean partial fractions; an irreducible quadratic means completing the square and the arctangent form.</li><li><strong>Integration by parts.</strong> A product of two functions of different types, or a single logarithm or inverse trigonometric function, is handled by parts with $u$ chosen by LIATE. If both factors keep their type under differentiation, as with $e^x \\sin x$, expect the integral to return and solve for it.</li></ol><p>Applying the checklist to $\\int x e^{x^2}\\,dx$: item 1 does not apply; item 2 does, with $u = x^2$, because $x\\,dx = \\frac{1}{2}\\,du$. Parts would also work but is slower. For $\\int x e^{x}\\,dx$, item 2 fails, because $u = x$ gives nothing and $u = e^x$ needs an $e^x$ factor; item 4 applies. For $\\int \\frac{x^2}{x^2 + 1}\\,dx$, item 3 says divide: the integrand equals $1 - \\frac{1}{x^2 + 1}$, so the answer is $x - \\arctan x + C$. For $\\int \\frac{1}{x^2 + 1}\\,dx$, item 1 applies: it is a library entry, and the substitution $u = x^2 + 1$ fails because no $x$ factor is present to absorb $du$.</p><p>Some integrands have no elementary antiderivative at all: $e^{-x^2}$, $\\sin(x^2)$, $\\frac{\\sin x}{x}$, and $\\sqrt{1 + x^3}$ are the ones that appear on the exam. For these, the definite integral is evaluated on the calculator in the calculator sections, and in every section the Fundamental Theorem still differentiates an accumulation function built from them. Recognizing that no technique applies is itself part of item 1.</p>"
+    },
+    {
+     "type": "checkpoint",
+     "questionIds": [
+      "u6-q026",
+      "u6-q037",
+      "u6-q038"
+     ]
+    }
+   ]
+  }
+ ],
+ "questions": [
+  {
+   "id": "u6-q001",
+   "skillId": "u6-riemann-sums",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Water flows into a tank at a rate of $r(t)$ liters per minute, where $t$ is measured in minutes. Which of the following is represented by $\\int_0^{10} r(t)\\,dt$?</p>",
+   "choices": [
+    "The number of liters of water that flowed into the tank during the first $10$ minutes",
+    "The number of liters of water in the tank at $t = 10$ minutes",
+    "The rate, in liters per minute, at which water is flowing into the tank at $t = 10$ minutes",
+    "The average rate, in liters per minute, at which water flowed into the tank during the first $10$ minutes"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from treating the integral of the rate as the total amount present. The integral gives the change in the amount over the interval; the amount at $t = 10$ also requires the amount that was in the tank at $t = 0$.",
+    "This choice comes from reading the integral as a value of the rate. The rate at $t = 10$ is $r(10)$, in liters per minute; the integral has units of liters, because the units of $r$ are multiplied by the units of $t$.",
+    "This choice comes from confusing the integral with the average value of the rate. The average rate over the interval is $\\frac{1}{10}\\int_0^{10} r(t)\\,dt$; the integral alone is the total, in liters."
+   ],
+   "hints": [
+    "Multiply the units of $r$ by the units of $t$ to find the units of the integral, then decide which choices have those units.",
+    "The integral of a rate over an interval is the net change of the quantity over that interval. Compare that to the amount present at a single time."
+   ],
+   "solution": [
+    {
+     "text": "The integrand $r(t)$ is in liters per minute and $dt$ is in minutes, so the integral is in liters. That rules out the two choices that describe a rate."
+    },
+    {
+     "text": "The integral of a rate over $[0, 10]$ is the net change in the quantity over that interval: the number of liters that entered the tank between $t = 0$ and $t = 10$."
+    },
+    {
+     "text": "The amount in the tank at $t = 10$ would be the starting amount plus this integral, so the integral alone does not represent the amount present. The integral represents the liters that flowed in during the first $10$ minutes."
+    }
+   ]
+  },
+  {
+   "id": "u6-q002",
+   "skillId": "u6-riemann-sums",
+   "difficulty": 1,
+   "type": "numeric",
+   "prompt": "<p>A particle moves along a line with velocity $v(t)$ meters per second. Selected values of $v$ are given in the table.</p><table><thead><tr><th>$t$ (seconds)</th><th>$0$</th><th>$2$</th><th>$5$</th><th>$8$</th></tr></thead><tbody><tr><td>$v(t)$ (meters per second)</td><td>$4$</td><td>$6$</td><td>$3$</td><td>$5$</td></tr></tbody></table><p>Use a left Riemann sum with the three subintervals indicated by the table to approximate $\\int_0^8 v(t)\\,dt$. Give the exact value of the approximation, in meters.</p>",
+   "answer": 35,
+   "tolerance": 0.001,
+   "hints": [
+    "The three subintervals are $[0, 2]$, $[2, 5]$, and $[5, 8]$. Their widths are not all equal; read each width from the table.",
+    "A left Riemann sum uses the value of $v$ at the left endpoint of each subinterval as the rectangle height. Multiply each height by its width and add."
+   ],
+   "solution": [
+    {
+     "text": "The subinterval widths are $2 - 0 = 2$, $5 - 2 = 3$, and $8 - 5 = 3$."
+    },
+    {
+     "text": "The left endpoints are $t = 0$, $t = 2$, and $t = 5$, with values $4$, $6$, and $3$.",
+     "math": "L = 4 \\cdot 2 + 6 \\cdot 3 + 3 \\cdot 3 = 8 + 18 + 9"
+    },
+    {
+     "text": "The approximation is $35$ meters. Because $v$ is in meters per second and $t$ in seconds, the integral approximates the particle's displacement over the eight seconds.",
+     "math": "L = 35"
+    }
+   ]
+  },
+  {
+   "id": "u6-q003",
+   "skillId": "u6-riemann-sums",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Sand is added to a stockpile at a rate of $R(t)$ cubic meters per hour, where $t$ is measured in hours. Selected values of $R$ are given in the table.</p><table><thead><tr><th>$t$ (hours)</th><th>$1$</th><th>$3$</th><th>$4$</th><th>$7$</th></tr></thead><tbody><tr><td>$R(t)$ (cubic meters per hour)</td><td>$10$</td><td>$6$</td><td>$8$</td><td>$2$</td></tr></tbody></table><p>Use a trapezoidal sum with the three subintervals indicated by the table to approximate the total number of cubic meters of sand added to the stockpile from $t = 1$ to $t = 7$. Give the exact value of the approximation.</p>",
+   "answer": 38,
+   "tolerance": 0.001,
+   "hints": [
+    "The total amount added is $\\int_1^7 R(t)\\,dt$. The three subintervals have widths $2$, $1$, and $3$.",
+    "On each subinterval, a trapezoid's area is the average of the two endpoint values of $R$ multiplied by the width of the subinterval. Add the three areas."
+   ],
+   "solution": [
+    {
+     "text": "The quantity to approximate is $\\int_1^7 R(t)\\,dt$, in cubic meters. The widths are $3 - 1 = 2$, $4 - 3 = 1$, and $7 - 4 = 3$."
+    },
+    {
+     "text": "Form one trapezoid per subinterval using the average of the endpoint values.",
+     "math": "T = \\frac{10 + 6}{2}\\cdot 2 + \\frac{6 + 8}{2}\\cdot 1 + \\frac{8 + 2}{2}\\cdot 3"
+    },
+    {
+     "text": "Evaluate each term and add.",
+     "math": "T = 16 + 7 + 15 = 38"
+    },
+    {
+     "text": "Approximately $38$ cubic meters of sand were added between $t = 1$ and $t = 7$ hours."
+    }
+   ]
+  },
+  {
+   "id": "u6-q004",
+   "skillId": "u6-riemann-sums",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Let $f(x) = x^2$. Which of the following is the midpoint Riemann sum approximation of $\\int_0^4 f(x)\\,dx$ using four subintervals of equal width?</p>",
+   "choices": [
+    "$14$",
+    "$21$",
+    "$22$",
+    "$30$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from sampling at the left endpoints $0, 1, 2, 3$, which gives the left Riemann sum $0 + 1 + 4 + 9 = 14$. The midpoint sum samples at the centers of the subintervals.",
+    null,
+    "This choice comes from the trapezoidal sum, $\\frac{0 + 1}{2} + \\frac{1 + 4}{2} + \\frac{4 + 9}{2} + \\frac{9 + 16}{2} = 22$, which averages endpoint values instead of sampling at the midpoints.",
+    "This choice comes from sampling at the right endpoints $1, 2, 3, 4$, which gives the right Riemann sum $1 + 4 + 9 + 16 = 30$. The midpoint sum samples at the centers of the subintervals."
+   ],
+   "hints": [
+    "With four equal subintervals on $[0, 4]$, each has width $1$. Write down the four subintervals and find the center of each.",
+    "Evaluate $f$ at each of the four midpoints, multiply each value by the width $1$, and add."
+   ],
+   "solution": [
+    {
+     "text": "The width is $\\Delta x = \\frac{4 - 0}{4} = 1$, and the subintervals are $[0, 1]$, $[1, 2]$, $[2, 3]$, $[3, 4]$ with midpoints $0.5$, $1.5$, $2.5$, $3.5$."
+    },
+    {
+     "text": "Evaluate $f(x) = x^2$ at the midpoints.",
+     "math": "f(0.5) = 0.25, \\quad f(1.5) = 2.25, \\quad f(2.5) = 6.25, \\quad f(3.5) = 12.25"
+    },
+    {
+     "text": "Multiply each value by the width $1$ and add.",
+     "math": "M = (0.25 + 2.25 + 6.25 + 12.25)\\cdot 1 = 21"
+    },
+    {
+     "text": "For comparison, the exact value is $\\int_0^4 x^2\\,dx = \\frac{64}{3} \\approx 21.33$. The midpoint sum is an underestimate, as expected for a concave-up integrand."
+    }
+   ]
+  },
+  {
+   "id": "u6-q005",
+   "skillId": "u6-riemann-sums",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>The function $f$ is continuous, increasing, and concave down on the interval $[a, b]$. Riemann sums and a trapezoidal sum for $\\int_a^b f(x)\\,dx$ are computed using the same subintervals. Consider the statements:</p><ul><li>I. The left Riemann sum is less than $\\int_a^b f(x)\\,dx$.</li><li>II. The trapezoidal sum is greater than $\\int_a^b f(x)\\,dx$.</li><li>III. The midpoint Riemann sum is greater than $\\int_a^b f(x)\\,dx$.</li></ul><p>Which of the statements must be true?</p>",
+   "choices": [
+    "I only",
+    "I and II only",
+    "I and III only",
+    "I, II, and III"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from treating the midpoint sum as having no predictable direction. Concavity decides it: when $f$ is concave down, the tangent line at each midpoint lies above the curve, and the midpoint rectangle has the same area as the trapezoid under that tangent, so the midpoint sum is an overestimate.",
+    "This choice comes from swapping the concavity rules for the trapezoidal and midpoint sums. When $f$ is concave down, each chord lies below the curve, so the trapezoidal sum is an underestimate, and the midpoint sum is the overestimate.",
+    null,
+    "This choice comes from treating both the trapezoidal and midpoint sums as overestimates. For a concave-down function they move in opposite directions: chords lie below the curve, so the trapezoidal sum is an underestimate."
+   ],
+   "hints": [
+    "Two separate properties are given. Monotonicity (increasing) controls the left and right sums; concavity controls the trapezoidal and midpoint sums.",
+    "For a concave-down graph, decide whether a chord joining two points on the curve lies above or below the curve, and whether a tangent line lies above or below the curve. The trapezoidal sum uses chords; the midpoint sum has the same area as the trapezoid under the midpoint tangent."
+   ],
+   "solution": [
+    {
+     "text": "Statement I: because $f$ is increasing, the value at each left endpoint is the smallest value on its subinterval, so every left rectangle lies below the graph and the left sum is an underestimate. True."
+    },
+    {
+     "text": "Statement II: because $f$ is concave down, the chord joining the endpoints of each subinterval lies below the curve, so each trapezoid is smaller than the region under the curve and the trapezoidal sum is an underestimate. False."
+    },
+    {
+     "text": "Statement III: because $f$ is concave down, the tangent line at each midpoint lies above the curve. The midpoint rectangle has the same area as the trapezoid under that tangent line, so the midpoint sum is an overestimate. True."
+    },
+    {
+     "text": "Statements I and III must be true."
+    }
+   ]
+  },
+  {
+   "id": "u6-q006",
+   "skillId": "u6-riemann-sums",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>A tank contains $500$ gallons of water at time $t = 0$. Water is pumped out of the tank at a rate of $r(t)$ gallons per minute, where $t$ is measured in minutes. Selected values of $r$ are given in the table.</p><table><thead><tr><th>$t$ (minutes)</th><th>$0$</th><th>$3$</th><th>$5$</th><th>$9$</th><th>$12$</th></tr></thead><tbody><tr><td>$r(t)$ (gallons per minute)</td><td>$8$</td><td>$10$</td><td>$12$</td><td>$6$</td><td>$4$</td></tr></tbody></table><p>Use a right Riemann sum with the four subintervals indicated by the table to approximate the amount of water in the tank at $t = 12$ minutes. Give the exact value of this approximation, in gallons.</p>",
+   "answer": 410,
+   "tolerance": 0.001,
+   "hints": [
+    "The amount in the tank at $t = 12$ is the starting amount minus the total pumped out, and the total pumped out is $\\int_0^{12} r(t)\\,dt$.",
+    "A right Riemann sum uses the value of $r$ at the right endpoint of each subinterval. The widths are $3$, $2$, $4$, and $3$.",
+    "After computing the sum, subtract it from $500$; the sum is water leaving, not water present."
+   ],
+   "solution": [
+    {
+     "text": "The total amount pumped out during the twelve minutes is $\\int_0^{12} r(t)\\,dt$, in gallons. The subintervals are $[0, 3]$, $[3, 5]$, $[5, 9]$, $[9, 12]$ with widths $3$, $2$, $4$, $3$."
+    },
+    {
+     "text": "The right endpoints are $t = 3, 5, 9, 12$ with values $10, 12, 6, 4$.",
+     "math": "R = 10 \\cdot 3 + 12 \\cdot 2 + 6 \\cdot 4 + 4 \\cdot 3 = 30 + 24 + 24 + 12 = 90"
+    },
+    {
+     "text": "The approximation says about $90$ gallons were pumped out. The water is leaving the tank, so the amount at $t = 12$ is the starting amount minus this total.",
+     "math": "500 - 90 = 410"
+    },
+    {
+     "text": "Approximately $410$ gallons remain in the tank at $t = 12$ minutes."
+    }
+   ]
+  },
+  {
+   "id": "u6-q007",
+   "skillId": "u6-definite-integral-limit-of-sum",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Which of the following definite integrals is equal to $\\displaystyle\\lim_{n \\to \\infty} \\sum_{k=1}^{n} \\frac{3}{n}\\sqrt{1 + \\frac{3k}{n}}$?</p>",
+   "choices": [
+    "$\\displaystyle\\int_0^3 \\sqrt{x}\\,dx$",
+    "$\\displaystyle\\int_1^4 \\sqrt{x}\\,dx$",
+    "$\\displaystyle\\int_1^4 \\sqrt{1 + x}\\,dx$",
+    "$\\displaystyle\\int_0^1 \\sqrt{1 + 3x}\\,dx$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from reading $\\Delta x = \\frac{3}{n}$ correctly but dropping the constant $1$ inside the square root. That constant is the lower limit $a$, so the interval starts at $1$, not at $0$.",
+    null,
+    "This choice comes from using the $1$ inside the root both as the lower limit and as part of the integrand. Once $x_k = 1 + \\frac{3k}{n}$ is identified as the sample point, the integrand is $\\sqrt{x_k}$, with no extra $1$.",
+    "This choice comes from reading $\\Delta x$ as $\\frac{1}{n}$ with $x_k = \\frac{k}{n}$ on $[0, 1]$. That reading requires the factor $3$ to stay in front of the integral: $3\\int_0^1 \\sqrt{1 + 3x}\\,dx$. Without it, the value is one third of the correct one."
+   ],
+   "hints": [
+    "In a right Riemann sum, the factor $\\frac{b - a}{n}$ is $\\Delta x$ and the sample point is $x_k = a + k\\,\\Delta x$. Match the pieces of the given sum to this pattern.",
+    "The constant added to $\\frac{3k}{n}$ inside the root is $a$. Then $b = a + 3$, and the function being applied to $x_k$ is the integrand."
+   ],
+   "solution": [
+    {
+     "text": "The factor $\\frac{3}{n}$ is $\\Delta x = \\frac{b - a}{n}$, so $b - a = 3$."
+    },
+    {
+     "text": "Inside the root, $1 + \\frac{3k}{n}$ has the form $a + k\\,\\Delta x$ with $a = 1$, so $x_k = 1 + \\frac{3k}{n}$ and $b = 1 + 3 = 4$."
+    },
+    {
+     "text": "The function applied to $x_k$ is the square root, so the integrand is $\\sqrt{x}$.",
+     "math": "\\lim_{n \\to \\infty} \\sum_{k=1}^{n} \\frac{3}{n}\\sqrt{1 + \\frac{3k}{n}} = \\int_1^4 \\sqrt{x}\\,dx"
+    }
+   ]
+  },
+  {
+   "id": "u6-q008",
+   "skillId": "u6-definite-integral-limit-of-sum",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\lim_{n \\to \\infty} \\sum_{k=1}^{n} \\frac{4}{n}\\sqrt{16 - \\left(\\frac{4k}{n}\\right)^2}$. Round to three decimal places.</p>",
+   "answer": 12.566,
+   "tolerance": 0.005,
+   "hints": [
+    "First translate the limit of the sum into a definite integral: identify $\\Delta x$, the lower limit $a$, and the integrand from the pattern $f(a + k\\,\\Delta x)\\,\\Delta x$.",
+    "The integrand you obtain describes part of a circle. Sketch the region under its graph on the interval and use a geometric area formula rather than an antiderivative.",
+    "Identify the radius of the circle and what fraction of the full circle the region is."
+   ],
+   "solution": [
+    {
+     "text": "The factor $\\frac{4}{n}$ is $\\Delta x$, and $\\frac{4k}{n} = 0 + k\\,\\Delta x$ is the sample point, so $a = 0$ and $b = 4$. The integrand is the pattern applied to $x_k$.",
+     "math": "\\lim_{n \\to \\infty} \\sum_{k=1}^{n} \\frac{4}{n}\\sqrt{16 - \\left(\\frac{4k}{n}\\right)^2} = \\int_0^4 \\sqrt{16 - x^2}\\,dx"
+    },
+    {
+     "text": "The graph of $y = \\sqrt{16 - x^2}$ is the upper half of the circle $x^2 + y^2 = 16$ of radius $4$ centered at the origin. On $[0, 4]$ it bounds one quarter of that circle."
+    },
+    {
+     "text": "Compute the quarter-circle area.",
+     "math": "\\int_0^4 \\sqrt{16 - x^2}\\,dx = \\frac{1}{4}\\pi(4)^2 = 4\\pi \\approx 12.566"
+    }
+   ]
+  },
+  {
+   "id": "u6-q009",
+   "skillId": "u6-ftc-accumulation",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Let $g(x) = \\displaystyle\\int_2^x \\sqrt{1 + t^3}\\,dt$. Which of the following is $g'(x)$?</p>",
+   "choices": [
+    "$\\sqrt{1 + x^3}$",
+    "$\\sqrt{1 + x^3} - 3$",
+    "$\\dfrac{3x^2}{2\\sqrt{1 + x^3}}$",
+    "$-\\sqrt{1 + x^3}$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from subtracting the integrand's value at the lower limit, $\\sqrt{1 + 2^3} = 3$. The lower limit is a constant, so it contributes a constant to $g$ and nothing to $g'$.",
+    "This choice comes from differentiating the integrand. The Fundamental Theorem says the derivative of $\\int_a^x f(t)\\,dt$ is $f(x)$ itself, with no further differentiation.",
+    "This choice comes from a sign associated with the lower limit. A negative sign would appear only if $x$ were the lower limit of integration; here $x$ is the upper limit."
+   ],
+   "hints": [
+    "The Fundamental Theorem of Calculus, part 1, gives the derivative of an accumulation function whose upper limit is $x$ directly from the integrand.",
+    "Replace the placeholder variable $t$ in the integrand by $x$. The constant lower limit $2$ does not affect the derivative."
+   ],
+   "solution": [
+    {
+     "text": "The integrand $f(t) = \\sqrt{1 + t^3}$ is continuous, the lower limit is the constant $2$, and the upper limit is $x$, so part 1 of the Fundamental Theorem applies.",
+     "math": "g'(x) = \\frac{d}{dx}\\int_2^x \\sqrt{1 + t^3}\\,dt = \\sqrt{1 + x^3}"
+    },
+    {
+     "text": "No chain rule factor appears because the upper limit is $x$ itself, whose derivative is $1$. The lower limit contributes nothing to $g'$; it only fixes $g(2) = 0$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q010",
+   "skillId": "u6-ftc-accumulation",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Let $h(x) = \\displaystyle\\int_0^{x^2} \\cos(t^2)\\,dt$. Which of the following is $h'(x)$?</p>",
+   "choices": [
+    "$\\cos(x^4)$",
+    "$2x\\cos(x^4)$",
+    "$2x\\cos(x^2)$",
+    "$\\cos(x^4) - 1$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from omitting the chain rule factor. The upper limit is $x^2$, not $x$, so the derivative of the upper limit, $2x$, must multiply the integrand.",
+    null,
+    "This choice comes from substituting $x$ rather than the upper limit $x^2$ into the integrand. The integrand must be evaluated at the upper limit: $\\cos\\big((x^2)^2\\big) = \\cos(x^4)$.",
+    "This choice comes from subtracting the integrand's value at the lower limit, $\\cos(0) = 1$, and omitting the chain rule factor. A constant lower limit contributes nothing to the derivative."
+   ],
+   "hints": [
+    "The integrand $\\cos(t^2)$ has no elementary antiderivative, so evaluating the integral first is not possible. Use the Fundamental Theorem of Calculus with the chain rule instead.",
+    "Write $h(x) = g(u(x))$ with $g(u) = \\int_0^{u} \\cos(t^2)\\,dt$ and $u(x) = x^2$. Then $h'(x) = g'(u(x))\\cdot u'(x)$."
+   ],
+   "solution": [
+    {
+     "text": "Let $u(x) = x^2$ and $g(u) = \\int_0^{u} \\cos(t^2)\\,dt$, so $h(x) = g(u(x))$. By part 1 of the Fundamental Theorem, $g'(u) = \\cos(u^2)$."
+    },
+    {
+     "text": "Apply the chain rule: evaluate the integrand at the upper limit and multiply by the derivative of the upper limit.",
+     "math": "h'(x) = \\cos\\big((x^2)^2\\big)\\cdot 2x = 2x\\cos(x^4)"
+    }
+   ]
+  },
+  {
+   "id": "u6-q011",
+   "skillId": "u6-ftc-accumulation",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The graph of the function $f$ consists of three line segments: from $(0, 4)$ to $(2, 4)$, from $(2, 4)$ to $(5, -2)$, and from $(5, -2)$ to $(7, -2)$. Let $g(x) = \\displaystyle\\int_0^x f(t)\\,dt$. Find $g(7)$. Give the exact value.</p>",
+   "answer": 7,
+   "tolerance": 0.001,
+   "hints": [
+    "The value $g(7)$ is the signed area between the graph of $f$ and the $t$-axis from $t = 0$ to $t = 7$. Regions below the axis count as negative.",
+    "The middle segment crosses the axis. Find where it crosses, then split the middle region into a triangle above the axis and a triangle below it.",
+    "Add the areas: a rectangle on $[0, 2]$, two triangles on $[2, 5]$ with opposite signs, and a rectangle below the axis on $[5, 7]$."
+   ],
+   "solution": [
+    {
+     "text": "On $[0, 2]$, $f = 4$, so the region is a rectangle of area $4 \\cdot 2 = 8$."
+    },
+    {
+     "text": "On $[2, 5]$, the segment from $(2, 4)$ to $(5, -2)$ has slope $-2$ and crosses the axis where $4 - 2(t - 2) = 0$, at $t = 4$. From $2$ to $4$ the region is a triangle above the axis with base $2$ and height $4$, area $4$. From $4$ to $5$ it is a triangle below the axis with base $1$ and height $2$, signed area $-1$."
+    },
+    {
+     "text": "On $[5, 7]$, $f = -2$, so the region is a rectangle below the axis with signed area $-2 \\cdot 2 = -4$."
+    },
+    {
+     "text": "Add the signed areas.",
+     "math": "g(7) = 8 + 4 - 1 - 4 = 7"
+    }
+   ]
+  },
+  {
+   "id": "u6-q012",
+   "skillId": "u6-ftc-accumulation",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>The graph of the function $f$ consists of three line segments: from $(0, -2)$ to $(1, 0)$, from $(1, 0)$ to $(3, 4)$, and from $(3, 4)$ to $(6, -2)$. Let $g(x) = \\displaystyle\\int_0^x f(t)\\,dt$ for $0 \\leq x \\leq 6$. Consider the statements:</p><ul><li>I. $g$ has a relative minimum at $x = 1$.</li><li>II. The graph of $g$ has a point of inflection at $x = 3$.</li><li>III. $g$ is increasing on the interval $(3, 6)$.</li></ul><p>Which of the statements must be true?</p>",
+   "choices": [
+    "I only",
+    "I and II only",
+    "I and III only",
+    "I, II, and III"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from requiring $f(3) = 0$ for an inflection point of $g$. Inflection points of $g$ occur where $g'' = f'$ changes sign, that is, where $f$ changes from increasing to decreasing, which happens at $x = 3$ regardless of the value $f(3) = 4$.",
+    null,
+    "This choice comes from treating $f > 0$ on part of $(3, 6)$ as sufficient for $g$ to increase on all of it, and from omitting the inflection point. The third segment crosses the axis at $x = 5$, so $g' = f < 0$ on $(5, 6)$ and $g$ decreases there.",
+    "This choice comes from treating $g$ as increasing on all of $(3, 6)$. The third segment reaches $0$ at $x = 5$ and is negative on $(5, 6)$, so $g$ decreases on $(5, 6)$ and statement III is false."
+   ],
+   "hints": [
+    "By the Fundamental Theorem, $g'(x) = f(x)$. Every statement about increasing, extrema, and concavity of $g$ is a statement about the sign or direction of $f$.",
+    "For statement I, check the sign of $f$ just left and just right of $x = 1$. For statement II, check whether $f$ changes from increasing to decreasing at $x = 3$. For statement III, find where the third segment crosses the axis."
+   ],
+   "solution": [
+    {
+     "text": "Since $g' = f$, extrema of $g$ occur where $f$ changes sign. On $(0, 1)$ the first segment is negative and on $(1, 3)$ the second is positive, so $f$ changes from negative to positive at $x = 1$ and $g$ has a relative minimum there. Statement I is true."
+    },
+    {
+     "text": "Since $g'' = f'$, the graph of $g$ has an inflection point where $f$ changes from increasing to decreasing. The second segment has slope $2$ and the third has slope $-2$, so $f$ changes from increasing to decreasing at $x = 3$ and $g$ changes from concave up to concave down. Statement II is true."
+    },
+    {
+     "text": "The third segment, $f(t) = 4 - 2(t - 3)$, equals $0$ at $t = 5$ and is negative on $(5, 6)$. So $g' = f < 0$ on $(5, 6)$ and $g$ is decreasing there. Statement III is false."
+    },
+    {
+     "text": "Statements I and II must be true."
+    }
+   ]
+  },
+  {
+   "id": "u6-q013",
+   "skillId": "u6-ftc-accumulation",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>The functions $f$ and $g$ are continuous, with $\\displaystyle\\int_1^5 f(x)\\,dx = 8$, $\\displaystyle\\int_1^3 f(x)\\,dx = 2$, and $\\displaystyle\\int_3^5 g(x)\\,dx = -4$. What is the value of $\\displaystyle\\int_5^3 \\big(2f(x) - g(x)\\big)\\,dx$?</p>",
+   "choices": [
+    "$16$",
+    "$-16$",
+    "$-8$",
+    "$-20$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from evaluating $\\int_3^5 \\big(2f - g\\big)\\,dx = 16$ without reversing the sign. The requested integral runs from $5$ to $3$, and reversing the limits changes the sign.",
+    null,
+    "This choice comes from subtracting $4$ rather than subtracting $-4$: since $\\int_3^5 g = -4$, the expression $2\\int_3^5 f - \\int_3^5 g$ equals $12 + 4 = 16$ before the sign reversal, not $12 - 4 = 8$.",
+    "This choice comes from using $\\int_1^5 f = 8$ in place of $\\int_3^5 f$. The interval $[3, 5]$ is only part of $[1, 5]$; additivity gives $\\int_3^5 f = 8 - 2 = 6$."
+   ],
+   "hints": [
+    "Use additivity to find $\\int_3^5 f(x)\\,dx$ from the two given integrals of $f$.",
+    "Compute $\\int_3^5 \\big(2f(x) - g(x)\\big)\\,dx$ using the constant-multiple and difference rules, then apply the rule for reversed limits."
+   ],
+   "solution": [
+    {
+     "text": "By additivity over intervals, $\\int_1^5 f = \\int_1^3 f + \\int_3^5 f$.",
+     "math": "\\int_3^5 f(x)\\,dx = 8 - 2 = 6"
+    },
+    {
+     "text": "Apply linearity on $[3, 5]$.",
+     "math": "\\int_3^5 \\big(2f(x) - g(x)\\big)\\,dx = 2(6) - (-4) = 16"
+    },
+    {
+     "text": "Reversing the limits of integration changes the sign.",
+     "math": "\\int_5^3 \\big(2f(x) - g(x)\\big)\\,dx = -16"
+    }
+   ]
+  },
+  {
+   "id": "u6-q014",
+   "skillId": "u6-ftc-accumulation",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Let $H(x) = \\displaystyle\\int_{x}^{x^2} \\sqrt{1 + t^2}\\,dt$. Find $H'(2)$. Round to three decimal places.</p>",
+   "answer": 14.256,
+   "tolerance": 0.005,
+   "hints": [
+    "Both limits depend on $x$. Split the integral at a constant, for example $H(x) = \\int_0^{x^2} \\sqrt{1 + t^2}\\,dt - \\int_0^{x} \\sqrt{1 + t^2}\\,dt$, and differentiate each piece.",
+    "For the piece with upper limit $x^2$, evaluate the integrand at $x^2$ and multiply by $2x$. For the piece with upper limit $x$, evaluate the integrand at $x$.",
+    "Substitute $x = 2$ only after differentiating, and keep the square roots exact until the final rounding."
+   ],
+   "solution": [
+    {
+     "text": "Split at the constant $0$ so that each piece has a constant lower limit.",
+     "math": "H(x) = \\int_0^{x^2} \\sqrt{1 + t^2}\\,dt - \\int_0^{x} \\sqrt{1 + t^2}\\,dt"
+    },
+    {
+     "text": "Differentiate each piece with the Fundamental Theorem and the chain rule: the first upper limit $x^2$ has derivative $2x$, the second upper limit $x$ has derivative $1$.",
+     "math": "H'(x) = \\sqrt{1 + (x^2)^2}\\cdot 2x - \\sqrt{1 + x^2}\\cdot 1 = 2x\\sqrt{1 + x^4} - \\sqrt{1 + x^2}"
+    },
+    {
+     "text": "Substitute $x = 2$.",
+     "math": "H'(2) = 4\\sqrt{17} - \\sqrt{5} \\approx 16.492 - 2.236 = 14.256"
+    }
+   ]
+  },
+  {
+   "id": "u6-q015",
+   "skillId": "u6-antiderivatives",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int \\left(4x^3 - 6x + \\frac{1}{x}\\right)dx$.</p>",
+   "choices": [
+    "$x^4 - 3x^2 + \\ln|x| + C$",
+    "$x^4 - 6x^2 + \\ln|x| + C$",
+    "$x^4 - 3x^2 - \\dfrac{1}{x^2} + C$",
+    "$12x^2 - 6 - \\dfrac{1}{x^2} + C$"
+   ],
+   "answerIndex": 0,
+   "misconceptions": [
+    null,
+    "This choice comes from integrating $-6x$ as $-6x^2$ without dividing by the new exponent $2$. The power rule for antiderivatives divides by $n + 1$: $\\int -6x\\,dx = -3x^2$.",
+    "This choice comes from treating $\\frac{1}{x}$ with the power rule in the wrong direction; $-\\frac{1}{x^2}$ is the derivative of $\\frac{1}{x}$, not an antiderivative. The antiderivative of $\\frac{1}{x}$ is $\\ln|x|$.",
+    "This choice comes from differentiating each term instead of integrating. An antiderivative is a function whose derivative is the integrand, so the powers must go up, not down."
+   ],
+   "hints": [
+    "Integrate term by term. For each power of $x$ other than $x^{-1}$, raise the exponent by $1$ and divide by the new exponent.",
+    "The term $\\frac{1}{x} = x^{-1}$ is the exception to the power rule; recall which function has derivative $\\frac{1}{x}$."
+   ],
+   "solution": [
+    {
+     "text": "Apply the power rule to the first two terms: $\\int 4x^3\\,dx = x^4$ and $\\int -6x\\,dx = -3x^2$."
+    },
+    {
+     "text": "The term $\\frac{1}{x}$ has antiderivative $\\ln|x|$, since $\\frac{d}{dx}\\ln|x| = \\frac{1}{x}$ for all $x \\neq 0$.",
+     "math": "\\int \\left(4x^3 - 6x + \\frac{1}{x}\\right)dx = x^4 - 3x^2 + \\ln|x| + C"
+    },
+    {
+     "text": "Check by differentiating: $\\frac{d}{dx}\\big(x^4 - 3x^2 + \\ln|x|\\big) = 4x^3 - 6x + \\frac{1}{x}$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q016",
+   "skillId": "u6-antiderivatives",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int 5^x\\,dx$.</p>",
+   "choices": [
+    "$5^x \\ln 5 + C$",
+    "$\\dfrac{5^x}{\\ln 5} + C$",
+    "$\\dfrac{5^{x+1}}{x + 1} + C$",
+    "$x \\cdot 5^{x-1} + C$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from the derivative rule $\\frac{d}{dx}5^x = 5^x\\ln 5$. An antiderivative must undo that multiplication, so it divides by $\\ln 5$.",
+    null,
+    "This choice comes from applying the power rule to an exponential. The power rule applies to $x^n$, where the variable is the base; in $5^x$ the variable is the exponent, and the rule does not apply.",
+    "This choice comes from applying the power rule with the roles of base and exponent confused. The derivative of $x^5$ is $5x^4$; the function here is $5^x$, an exponential, whose antiderivative involves $\\ln 5$."
+   ],
+   "hints": [
+    "Start from the derivative of $5^x$. Recall that $\\frac{d}{dx}a^x = a^x \\ln a$.",
+    "Find the constant $k$ that makes $\\frac{d}{dx}\\big(k \\cdot 5^x\\big) = 5^x$."
+   ],
+   "solution": [
+    {
+     "text": "Since $\\frac{d}{dx}5^x = 5^x\\ln 5$, dividing by the constant $\\ln 5$ gives a function whose derivative is exactly $5^x$.",
+     "math": "\\frac{d}{dx}\\left(\\frac{5^x}{\\ln 5}\\right) = \\frac{5^x \\ln 5}{\\ln 5} = 5^x"
+    },
+    {
+     "text": "Therefore the indefinite integral is the family of all such functions.",
+     "math": "\\int 5^x\\,dx = \\frac{5^x}{\\ln 5} + C"
+    }
+   ]
+  },
+  {
+   "id": "u6-q017",
+   "skillId": "u6-antiderivatives",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_0^{\\pi/4} \\big(\\sec^2 x + 2\\sin x\\big)\\,dx$. Round to three decimal places.</p>",
+   "answer": 1.586,
+   "tolerance": 0.005,
+   "hints": [
+    "Find an antiderivative of each term from the basic library: one term is the derivative of $\\tan x$, and the antiderivative of $\\sin x$ carries a negative sign.",
+    "Evaluate the antiderivative at $\\frac{\\pi}{4}$ and at $0$ using exact values, then subtract. Recall $\\tan\\frac{\\pi}{4} = 1$ and $\\cos\\frac{\\pi}{4} = \\frac{\\sqrt{2}}{2}$."
+   ],
+   "solution": [
+    {
+     "text": "An antiderivative of $\\sec^2 x$ is $\\tan x$, and an antiderivative of $2\\sin x$ is $-2\\cos x$, because $\\frac{d}{dx}(-2\\cos x) = 2\\sin x$.",
+     "math": "\\int_0^{\\pi/4} \\big(\\sec^2 x + 2\\sin x\\big)\\,dx = \\Big[\\tan x - 2\\cos x\\Big]_0^{\\pi/4}"
+    },
+    {
+     "text": "Evaluate at the limits with exact values.",
+     "math": "\\left(1 - 2\\cdot\\frac{\\sqrt{2}}{2}\\right) - \\big(0 - 2\\cdot 1\\big) = (1 - \\sqrt{2}) + 2 = 3 - \\sqrt{2}"
+    },
+    {
+     "text": "Round.",
+     "math": "3 - \\sqrt{2} \\approx 1.586"
+    }
+   ]
+  },
+  {
+   "id": "u6-q018",
+   "skillId": "u6-antiderivatives",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_0^1 \\frac{3}{1 + x^2}\\,dx$.</p>",
+   "choices": [
+    "$\\dfrac{3\\pi}{2}$",
+    "$3\\ln 2$",
+    "$\\dfrac{\\pi}{12}$",
+    "$\\dfrac{3\\pi}{4}$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from using $\\arcsin$ as the antiderivative, giving $3\\arcsin 1 = \\frac{3\\pi}{2}$. The function $\\arcsin x$ is the antiderivative of $\\frac{1}{\\sqrt{1 - x^2}}$; the antiderivative of $\\frac{1}{1 + x^2}$ is $\\arctan x$.",
+    "This choice comes from treating $\\ln(1 + x^2)$ as the antiderivative. Its derivative is $\\frac{2x}{1 + x^2}$, which has an $x$ in the numerator that this integrand lacks.",
+    "This choice comes from dividing by $3$ instead of multiplying: the constant factor $3$ multiplies the integral, giving $3\\cdot\\frac{\\pi}{4}$.",
+    null
+   ],
+   "hints": [
+    "The integrand is a constant times a basic library entry. Identify which inverse trigonometric function has derivative $\\frac{1}{1 + x^2}$.",
+    "Factor the $3$ out of the integral, evaluate the antiderivative at $1$ and at $0$, and use exact values for the inverse trigonometric function at those inputs."
+   ],
+   "solution": [
+    {
+     "text": "The antiderivative of $\\frac{1}{1 + x^2}$ is $\\arctan x$, and the constant factor $3$ comes out of the integral.",
+     "math": "\\int_0^1 \\frac{3}{1 + x^2}\\,dx = 3\\Big[\\arctan x\\Big]_0^1"
+    },
+    {
+     "text": "Evaluate with exact values: $\\arctan 1 = \\frac{\\pi}{4}$ and $\\arctan 0 = 0$.",
+     "math": "3\\left(\\frac{\\pi}{4} - 0\\right) = \\frac{3\\pi}{4}"
+    }
+   ]
+  },
+  {
+   "id": "u6-q019",
+   "skillId": "u6-antiderivatives",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>The function $f$ satisfies $f'(x) = 2\\cos x + 6x$ and $f(0) = 5$. Find $f(\\pi)$. Round to three decimal places.</p>",
+   "answer": 34.609,
+   "tolerance": 0.005,
+   "hints": [
+    "Integrate $f'(x)$ to obtain $f(x)$ up to a constant $C$.",
+    "Use $f(0) = 5$ to solve for $C$, applying the condition to the antiderivative, not to $f'$. Then evaluate at $x = \\pi$, using $\\sin\\pi = 0$."
+   ],
+   "solution": [
+    {
+     "text": "Integrate term by term.",
+     "math": "f(x) = \\int \\big(2\\cos x + 6x\\big)\\,dx = 2\\sin x + 3x^2 + C"
+    },
+    {
+     "text": "Apply the initial condition at $x = 0$.",
+     "math": "f(0) = 2\\sin 0 + 0 + C = C = 5"
+    },
+    {
+     "text": "Evaluate the particular antiderivative at $x = \\pi$.",
+     "math": "f(\\pi) = 2\\sin\\pi + 3\\pi^2 + 5 = 3\\pi^2 + 5 \\approx 34.609"
+    }
+   ]
+  },
+  {
+   "id": "u6-q020",
+   "skillId": "u6-antiderivatives",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int \\tan^2 x\\,dx$.</p>",
+   "choices": [
+    "$\\dfrac{\\tan^3 x}{3} + C$",
+    "$\\sec^2 x + C$",
+    "$\\tan x - x + C$",
+    "$\\tan x + x + C$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from applying the power rule to $\\tan x$ as if it were the variable of integration. The power rule applies to powers of $x$; differentiating $\\frac{1}{3}\\tan^3 x$ gives $\\tan^2 x \\sec^2 x$, not $\\tan^2 x$.",
+    "This choice comes from confusing a derivative with an antiderivative: $\\sec^2 x$ is the derivative of $\\tan x$, and its own derivative is $2\\sec^2 x\\tan x$, which is not the integrand.",
+    null,
+    "This choice comes from the identity $\\tan^2 x = \\sec^2 x - 1$ with the sign of the $1$ reversed. Integrating $-1$ gives $-x$, so the antiderivative is $\\tan x - x + C$."
+   ],
+   "hints": [
+    "$\\tan^2 x$ is not in the basic library. Use a Pythagorean identity to rewrite it in terms of a function that is.",
+    "The identity $1 + \\tan^2 x = \\sec^2 x$ expresses $\\tan^2 x$ as a difference of two functions whose antiderivatives you know."
+   ],
+   "solution": [
+    {
+     "text": "Rewrite with the identity $\\tan^2 x = \\sec^2 x - 1$.",
+     "math": "\\int \\tan^2 x\\,dx = \\int \\big(\\sec^2 x - 1\\big)\\,dx"
+    },
+    {
+     "text": "Integrate each term from the library: $\\int \\sec^2 x\\,dx = \\tan x$ and $\\int 1\\,dx = x$.",
+     "math": "= \\tan x - x + C"
+    },
+    {
+     "text": "Check: $\\frac{d}{dx}(\\tan x - x) = \\sec^2 x - 1 = \\tan^2 x$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q021",
+   "skillId": "u6-u-substitution",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int x\\cos(x^2)\\,dx$.</p>",
+   "choices": [
+    "$\\sin(x^2) + C$",
+    "$\\dfrac{1}{2}\\sin(x^2) + C$",
+    "$2\\sin(x^2) + C$",
+    "$\\dfrac{x^2}{2}\\sin(x^2) + C$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from omitting the factor $\\frac{1}{2}$ that compensates for $du = 2x\\,dx$. Differentiating $\\sin(x^2)$ gives $2x\\cos(x^2)$, twice the integrand.",
+    null,
+    "This choice comes from multiplying by $2$ instead of dividing: since $du = 2x\\,dx$, the factor $x\\,dx$ equals $\\frac{1}{2}\\,du$, not $2\\,du$.",
+    "This choice comes from integrating the two factors separately and multiplying the results. The integral of a product is not the product of the integrals; the factor $x$ is absorbed into $du$."
+   ],
+   "hints": [
+    "The inner function is $x^2$, and its derivative $2x$ appears as a factor of the integrand up to a constant. Let $u = x^2$.",
+    "Compute $du = 2x\\,dx$, so $x\\,dx = \\frac{1}{2}\\,du$. Rewrite the whole integral in terms of $u$ before integrating."
+   ],
+   "solution": [
+    {
+     "text": "Substitute $u = x^2$, $du = 2x\\,dx$, so $x\\,dx = \\frac{1}{2}\\,du$.",
+     "math": "\\int x\\cos(x^2)\\,dx = \\frac{1}{2}\\int \\cos u\\,du"
+    },
+    {
+     "text": "Integrate in $u$ and return to $x$.",
+     "math": "= \\frac{1}{2}\\sin u + C = \\frac{1}{2}\\sin(x^2) + C"
+    },
+    {
+     "text": "Check: $\\frac{d}{dx}\\left[\\frac{1}{2}\\sin(x^2)\\right] = \\frac{1}{2}\\cos(x^2)\\cdot 2x = x\\cos(x^2)$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q022",
+   "skillId": "u6-u-substitution",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Using the substitution $u = x^2 + 1$, the integral $\\displaystyle\\int_1^2 x\\big(x^2 + 1\\big)^3\\,dx$ is equal to which of the following?</p>",
+   "choices": [
+    "$\\displaystyle\\int_2^5 u^3\\,du$",
+    "$\\displaystyle\\frac{1}{2}\\int_1^2 u^3\\,du$",
+    "$\\displaystyle\\frac{1}{2}\\int_2^5 u^3\\,du$",
+    "$\\displaystyle 2\\int_2^5 u^3\\,du$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from converting the limits correctly but omitting the factor $\\frac{1}{2}$. Since $du = 2x\\,dx$, the factor $x\\,dx$ in the integrand equals $\\frac{1}{2}\\,du$.",
+    "This choice comes from keeping the original $x$-limits on an integral written in $u$. When the variable changes, the limits must change to $u(1) = 2$ and $u(2) = 5$.",
+    null,
+    "This choice comes from multiplying by $2$ instead of dividing by $2$ when replacing $x\\,dx$: from $du = 2x\\,dx$ it follows that $x\\,dx = \\frac{1}{2}\\,du$."
+   ],
+   "hints": [
+    "Compute $du$ from $u = x^2 + 1$ and solve for $x\\,dx$ in terms of $du$.",
+    "Convert both limits: substitute $x = 1$ and $x = 2$ into $u = x^2 + 1$. The new integral must contain no $x$ anywhere, including in its limits."
+   ],
+   "solution": [
+    {
+     "text": "With $u = x^2 + 1$, $du = 2x\\,dx$, so $x\\,dx = \\frac{1}{2}\\,du$."
+    },
+    {
+     "text": "Convert the limits: $x = 1$ gives $u = 2$ and $x = 2$ gives $u = 5$.",
+     "math": "\\int_1^2 x\\big(x^2 + 1\\big)^3\\,dx = \\frac{1}{2}\\int_2^5 u^3\\,du"
+    },
+    {
+     "text": "Both integrals equal $\\frac{1}{2}\\cdot\\frac{5^4 - 2^4}{4} = \\frac{609}{8} = 76.125$, which confirms the set-up."
+    }
+   ]
+  },
+  {
+   "id": "u6-q023",
+   "skillId": "u6-u-substitution",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_0^2 \\frac{2x}{x^2 + 1}\\,dx$. Round to three decimal places.</p>",
+   "answer": 1.609,
+   "tolerance": 0.005,
+   "hints": [
+    "The numerator is the derivative of the denominator. Let $u$ be the denominator.",
+    "After substituting, convert the limits to $u$-values and integrate $\\frac{1}{u}$, which gives a natural logarithm."
+   ],
+   "solution": [
+    {
+     "text": "Substitute $u = x^2 + 1$, $du = 2x\\,dx$. The limits become $u(0) = 1$ and $u(2) = 5$.",
+     "math": "\\int_0^2 \\frac{2x}{x^2 + 1}\\,dx = \\int_1^5 \\frac{du}{u}"
+    },
+    {
+     "text": "Integrate and evaluate at the $u$-limits.",
+     "math": "\\Big[\\ln|u|\\Big]_1^5 = \\ln 5 - \\ln 1 = \\ln 5"
+    },
+    {
+     "text": "Round.",
+     "math": "\\ln 5 \\approx 1.609"
+    }
+   ]
+  },
+  {
+   "id": "u6-q024",
+   "skillId": "u6-u-substitution",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int \\frac{x^2 + 3}{x - 1}\\,dx$.</p>",
+   "choices": [
+    "$\\dfrac{x^2}{2} + x + 3\\ln|x - 1| + C$",
+    "$\\dfrac{x^2}{2} + x + 4\\ln|x - 1| + C$",
+    "$\\dfrac{x^3/3 + 3x}{x^2/2 - x} + C$",
+    "$(x^2 + 3)\\ln|x - 1| + C$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from taking the remainder of the division to be the constant term $3$ of the numerator. The remainder is the numerator evaluated at the zero of the divisor: $1^2 + 3 = 4$.",
+    null,
+    "This choice comes from integrating the numerator and the denominator separately. The integral of a quotient is not the quotient of the integrals; the fraction must be simplified by division first.",
+    "This choice comes from treating the numerator as a constant multiplying $\\frac{1}{x - 1}$. The numerator depends on $x$, so it cannot be moved outside the integral."
+   ],
+   "hints": [
+    "The degree of the numerator is at least the degree of the denominator, so the fraction is improper. Divide first.",
+    "Write $x^2 + 3 = (x - 1)(x + 1) + r$ and find the constant $r$. Then the integrand splits into a polynomial plus $\\frac{r}{x - 1}$."
+   ],
+   "solution": [
+    {
+     "text": "Divide: $x^2 + 3 = (x - 1)(x + 1) + 4$, because $(x - 1)(x + 1) = x^2 - 1$ and $x^2 + 3 - (x^2 - 1) = 4$. Equivalently, the remainder is the numerator at $x = 1$.",
+     "math": "\\frac{x^2 + 3}{x - 1} = x + 1 + \\frac{4}{x - 1}"
+    },
+    {
+     "text": "Integrate the polynomial part with the power rule and the remainder term with the logarithm (the substitution $u = x - 1$ has $du = dx$).",
+     "math": "\\int \\left(x + 1 + \\frac{4}{x - 1}\\right)dx = \\frac{x^2}{2} + x + 4\\ln|x - 1| + C"
+    },
+    {
+     "text": "Check: $\\frac{d}{dx}\\left[\\frac{x^2}{2} + x + 4\\ln|x - 1|\\right] = x + 1 + \\frac{4}{x - 1} = \\frac{(x + 1)(x - 1) + 4}{x - 1} = \\frac{x^2 + 3}{x - 1}$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q025",
+   "skillId": "u6-u-substitution",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_1^3 \\frac{dx}{x^2 - 2x + 5}$. Round to three decimal places.</p>",
+   "answer": 0.393,
+   "tolerance": 0.005,
+   "hints": [
+    "The denominator has no real roots, so it does not factor. Complete the square to write it as $(x - h)^2 + a^2$.",
+    "Substitute $u = x - h$, convert the limits, and use $\\int \\frac{du}{u^2 + a^2} = \\frac{1}{a}\\arctan\\frac{u}{a} + C$.",
+    "Evaluate the arctangent at the converted limits using exact values before rounding."
+   ],
+   "solution": [
+    {
+     "text": "Complete the square in the denominator.",
+     "math": "x^2 - 2x + 5 = (x^2 - 2x + 1) + 4 = (x - 1)^2 + 2^2"
+    },
+    {
+     "text": "Substitute $u = x - 1$, $du = dx$. The limits become $u(1) = 0$ and $u(3) = 2$.",
+     "math": "\\int_1^3 \\frac{dx}{(x - 1)^2 + 4} = \\int_0^2 \\frac{du}{u^2 + 4}"
+    },
+    {
+     "text": "Apply the arctangent form with $a = 2$ and evaluate.",
+     "math": "\\left[\\frac{1}{2}\\arctan\\frac{u}{2}\\right]_0^2 = \\frac{1}{2}\\left(\\arctan 1 - \\arctan 0\\right) = \\frac{1}{2}\\cdot\\frac{\\pi}{4} = \\frac{\\pi}{8}"
+    },
+    {
+     "text": "Round.",
+     "math": "\\frac{\\pi}{8} \\approx 0.393"
+    }
+   ]
+  },
+  {
+   "id": "u6-q026",
+   "skillId": "u6-u-substitution",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Which of the following integrals is evaluated completely by the substitution $u = x^2 + 1$, with no other technique needed after the substitution?</p>",
+   "choices": [
+    "$\\displaystyle\\int \\frac{1}{x^2 + 1}\\,dx$",
+    "$\\displaystyle\\int \\frac{x}{x^2 + 1}\\,dx$",
+    "$\\displaystyle\\int \\frac{x^2}{x^2 + 1}\\,dx$",
+    "$\\displaystyle\\int x\\ln\\big(x^2 + 1\\big)\\,dx$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from matching the denominator to $u$ without checking for $du$. Since $du = 2x\\,dx$, the substitution needs a factor of $x$ in the integrand, and there is none. This integral is the library entry $\\arctan x + C$ and needs no substitution.",
+    null,
+    "This choice comes from seeing $x^2$ in the numerator as a match for $u$. The differential requires $x\\,dx$, not $x^2\\,dx$. Because the numerator degree equals the denominator degree, this integral is handled by dividing first: $\\frac{x^2}{x^2 + 1} = 1 - \\frac{1}{x^2 + 1}$.",
+    "This choice comes from stopping after the substitution succeeds as a first step. With $u = x^2 + 1$ the integral becomes $\\frac{1}{2}\\int \\ln u\\,du$, which still requires integration by parts, so substitution alone does not finish it."
+   ],
+   "hints": [
+    "For $u = x^2 + 1$, $du = 2x\\,dx$. In each integrand, check whether an $x\\,dx$ factor is available and whether anything is left over after the substitution.",
+    "After substituting, look at the resulting integral in $u$ alone. Decide whether it is a basic library entry or whether it needs a further technique."
+   ],
+   "solution": [
+    {
+     "text": "With $u = x^2 + 1$, $du = 2x\\,dx$, so the substitution needs an $x\\,dx$ factor and nothing else left over."
+    },
+    {
+     "text": "In $\\int \\frac{x}{x^2 + 1}\\,dx$, the factor $x\\,dx = \\frac{1}{2}\\,du$ is present, giving $\\frac{1}{2}\\int \\frac{du}{u} = \\frac{1}{2}\\ln\\big(x^2 + 1\\big) + C$. The substitution finishes the problem."
+    },
+    {
+     "text": "The other three fail the test: $\\int \\frac{dx}{x^2 + 1}$ has no $x$ factor (it is the library entry $\\arctan x$); $\\int \\frac{x^2}{x^2 + 1}\\,dx$ has an $x^2$ factor rather than $x$ and needs division first; and $\\int x\\ln(x^2 + 1)\\,dx$ becomes $\\frac{1}{2}\\int \\ln u\\,du$, which still needs integration by parts."
+    }
+   ]
+  },
+  {
+   "id": "u6-q027",
+   "skillId": "u6-integration-by-parts",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int x e^{x}\\,dx$.</p>",
+   "choices": [
+    "$x e^{x} + C$",
+    "$\\dfrac{x^2}{2}e^{x} + C$",
+    "$x e^{x} - e^{x} + C$",
+    "$x e^{x} + e^{x} + C$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from treating $x$ as a constant multiplier of $e^x$. Differentiating $x e^x$ by the product rule gives $x e^x + e^x$, not $x e^x$.",
+    "This choice comes from integrating the two factors separately and multiplying the results. The integral of a product is not the product of the integrals; the product rule, read backward as integration by parts, is required.",
+    null,
+    "This choice comes from a sign slip in the parts formula. The formula is $uv - \\int v\\,du$; with $u = x$ and $v = e^x$, the second term is $-\\int e^x\\,dx = -e^x$."
+   ],
+   "hints": [
+    "The integrand is a product of an algebraic factor and an exponential factor. By LIATE, the algebraic factor is $u$.",
+    "Set $u = x$, $dv = e^x\\,dx$, find $du$ and $v$, and apply $\\int u\\,dv = uv - \\int v\\,du$."
+   ],
+   "solution": [
+    {
+     "text": "Choose $u = x$ and $dv = e^x\\,dx$, so $du = dx$ and $v = e^x$."
+    },
+    {
+     "text": "Apply the parts formula.",
+     "math": "\\int x e^x\\,dx = x e^x - \\int e^x\\,dx = x e^x - e^x + C"
+    },
+    {
+     "text": "Check: $\\frac{d}{dx}\\big(x e^x - e^x\\big) = e^x + x e^x - e^x = x e^x$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q028",
+   "skillId": "u6-integration-by-parts",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_1^4 \\ln x\\,dx$. Round to three decimal places.</p>",
+   "answer": 2.545,
+   "tolerance": 0.005,
+   "hints": [
+    "Although $\\ln x$ appears alone, it can be written as the product $\\ln x \\cdot 1$. Take $u = \\ln x$ and $dv = dx$.",
+    "With $du = \\frac{1}{x}\\,dx$ and $v = x$, the parts formula produces a boundary term $\\big[x\\ln x\\big]_1^4$ and a simple remaining integral.",
+    "Use $\\ln 1 = 0$ when evaluating at the lower limit, and keep $\\ln 4$ exact until the final rounding."
+   ],
+   "solution": [
+    {
+     "text": "Choose $u = \\ln x$, $dv = dx$, so $du = \\frac{1}{x}\\,dx$ and $v = x$."
+    },
+    {
+     "text": "Apply the parts formula for a definite integral.",
+     "math": "\\int_1^4 \\ln x\\,dx = \\Big[x\\ln x\\Big]_1^4 - \\int_1^4 x\\cdot\\frac{1}{x}\\,dx = \\Big[x\\ln x\\Big]_1^4 - \\int_1^4 1\\,dx"
+    },
+    {
+     "text": "Evaluate both parts.",
+     "math": "\\big(4\\ln 4 - 1\\cdot\\ln 1\\big) - (4 - 1) = 4\\ln 4 - 3"
+    },
+    {
+     "text": "Round.",
+     "math": "4\\ln 4 - 3 \\approx 5.545 - 3 = 2.545"
+    }
+   ]
+  },
+  {
+   "id": "u6-q029",
+   "skillId": "u6-integration-by-parts",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int x\\sec^2 x\\,dx$.</p>",
+   "choices": [
+    "$x\\tan x - \\ln|\\cos x| + C$",
+    "$x\\tan x + \\ln|\\cos x| + C$",
+    "$\\dfrac{x^2}{2}\\tan x + C$",
+    "$x\\tan x - \\sec^2 x + C$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from using $\\ln|\\cos x|$ as the antiderivative of $\\tan x$. In fact $\\int \\tan x\\,dx = -\\ln|\\cos x| + C$, so subtracting it in the parts formula yields $+\\ln|\\cos x|$.",
+    null,
+    "This choice comes from integrating the two factors separately and multiplying. The integral of a product is not the product of the integrals.",
+    "This choice comes from subtracting the derivative of $v = \\tan x$ instead of its integral. The parts formula subtracts $\\int v\\,du = \\int \\tan x\\,dx$."
+   ],
+   "hints": [
+    "The algebraic factor $x$ is $u$ by LIATE, and $\\sec^2 x\\,dx$ is $dv$, because $\\sec^2 x$ is the derivative of a library function.",
+    "After applying $uv - \\int v\\,du$, the remaining integral is $\\int \\tan x\\,dx$. Evaluate it by writing $\\tan x = \\frac{\\sin x}{\\cos x}$ and substituting $w = \\cos x$; keep careful track of the sign."
+   ],
+   "solution": [
+    {
+     "text": "Choose $u = x$ and $dv = \\sec^2 x\\,dx$, so $du = dx$ and $v = \\tan x$.",
+     "math": "\\int x\\sec^2 x\\,dx = x\\tan x - \\int \\tan x\\,dx"
+    },
+    {
+     "text": "Evaluate the remaining integral with $w = \\cos x$, $dw = -\\sin x\\,dx$.",
+     "math": "\\int \\tan x\\,dx = \\int \\frac{\\sin x}{\\cos x}\\,dx = -\\int \\frac{dw}{w} = -\\ln|\\cos x| + C"
+    },
+    {
+     "text": "Substitute back, noting that subtracting a negative gives a plus.",
+     "math": "\\int x\\sec^2 x\\,dx = x\\tan x + \\ln|\\cos x| + C"
+    },
+    {
+     "text": "Check: $\\frac{d}{dx}\\big(x\\tan x + \\ln|\\cos x|\\big) = \\tan x + x\\sec^2 x - \\frac{\\sin x}{\\cos x} = x\\sec^2 x$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q030",
+   "skillId": "u6-integration-by-parts",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int x^2\\cos x\\,dx$.</p>",
+   "choices": [
+    "$x^2\\sin x - 2x\\cos x + 2\\sin x + C$",
+    "$x^2\\sin x + 2x\\cos x + C$",
+    "$\\dfrac{x^3}{3}\\sin x + C$",
+    "$x^2\\sin x + 2x\\cos x - 2\\sin x + C$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from a sign error when substituting the result of the second application back into the first. The second application gives $\\int 2x\\sin x\\,dx = -2x\\cos x + 2\\sin x$, and subtracting that whole expression flips both of its signs.",
+    "This choice comes from stopping after the second parts step without integrating the final $\\int 2\\cos x\\,dx$ term. The leftover integral contributes $-2\\sin x$.",
+    "This choice comes from integrating the two factors separately and multiplying. The integral of a product is not the product of the integrals.",
+    null
+   ],
+   "hints": [
+    "The power $x^2$ requires two applications of integration by parts, each lowering the power by one. Take $u = x^2$ first.",
+    "After the first application you should have $x^2\\sin x - \\int 2x\\sin x\\,dx$. Apply parts again to the remaining integral with $u = 2x$, and distribute the minus sign across the entire result.",
+    "Differentiate your candidate answer to confirm it returns $x^2\\cos x$."
+   ],
+   "solution": [
+    {
+     "text": "First application: $u = x^2$, $dv = \\cos x\\,dx$, $du = 2x\\,dx$, $v = \\sin x$.",
+     "math": "\\int x^2\\cos x\\,dx = x^2\\sin x - \\int 2x\\sin x\\,dx"
+    },
+    {
+     "text": "Second application on the remaining integral: $u = 2x$, $dv = \\sin x\\,dx$, $du = 2\\,dx$, $v = -\\cos x$.",
+     "math": "\\int 2x\\sin x\\,dx = -2x\\cos x + \\int 2\\cos x\\,dx = -2x\\cos x + 2\\sin x + C"
+    },
+    {
+     "text": "Substitute back and distribute the minus sign.",
+     "math": "\\int x^2\\cos x\\,dx = x^2\\sin x + 2x\\cos x - 2\\sin x + C"
+    },
+    {
+     "text": "Check: $\\frac{d}{dx}\\big(x^2\\sin x + 2x\\cos x - 2\\sin x\\big) = 2x\\sin x + x^2\\cos x + 2\\cos x - 2x\\sin x - 2\\cos x = x^2\\cos x$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q031",
+   "skillId": "u6-integration-by-parts",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int e^{x}\\sin x\\,dx$.</p>",
+   "choices": [
+    "$\\dfrac{e^{x}(\\sin x + \\cos x)}{2} + C$",
+    "$\\dfrac{e^{x}(\\sin x - \\cos x)}{2} + C$",
+    "$\\dfrac{e^{x}(\\cos x - \\sin x)}{2} + C$",
+    "$-e^{x}\\cos x + C$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from a sign slip when the second parts result is substituted. Differentiating it gives $e^x\\cos x$, so it is the antiderivative of $e^x\\cos x$, not of $e^x\\sin x$.",
+    null,
+    "This choice comes from moving the returning copy of the integral to the wrong side when solving $I = A - I$. Differentiating it gives $-e^x\\sin x$, the negative of the integrand.",
+    "This choice comes from stopping after the first application of parts and dropping the remaining integral $\\int e^x\\cos x\\,dx$, which is not zero."
+   ],
+   "hints": [
+    "Apply integration by parts twice with the same type of choice for $u$ each time (for example, $u$ is the trigonometric factor both times). The original integral will reappear.",
+    "Name the original integral $I$. After two applications you will have an equation of the form $I = (\\text{expression}) - I$. Solve it for $I$.",
+    "Differentiate your candidate answer; the result must be exactly $e^x\\sin x$."
+   ],
+   "solution": [
+    {
+     "text": "Let $I = \\int e^x\\sin x\\,dx$. First application with $u = \\sin x$, $dv = e^x\\,dx$, $du = \\cos x\\,dx$, $v = e^x$.",
+     "math": "I = e^x\\sin x - \\int e^x\\cos x\\,dx"
+    },
+    {
+     "text": "Second application on $\\int e^x\\cos x\\,dx$ with $u = \\cos x$, $dv = e^x\\,dx$, $du = -\\sin x\\,dx$, $v = e^x$.",
+     "math": "\\int e^x\\cos x\\,dx = e^x\\cos x + \\int e^x\\sin x\\,dx = e^x\\cos x + I"
+    },
+    {
+     "text": "Substitute and solve for $I$.",
+     "math": "I = e^x\\sin x - e^x\\cos x - I \\implies 2I = e^x(\\sin x - \\cos x) \\implies I = \\frac{e^x(\\sin x - \\cos x)}{2} + C"
+    },
+    {
+     "text": "Check: $\\frac{d}{dx}\\left[\\frac{e^x(\\sin x - \\cos x)}{2}\\right] = \\frac{e^x(\\sin x - \\cos x) + e^x(\\cos x + \\sin x)}{2} = e^x\\sin x$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q032",
+   "skillId": "u6-partial-fractions",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Find $\\displaystyle\\int \\frac{5x + 4}{(x - 1)(x + 2)}\\,dx$.</p>",
+   "choices": [
+    "$2\\ln|x - 1| + 3\\ln|x + 2| + C$",
+    "$3\\ln|x - 1| - 2\\ln|x + 2| + C$",
+    "$3\\ln|x - 1| + 2\\ln|x + 2| + C$",
+    "$(5x + 4)\\ln|(x - 1)(x + 2)| + C$"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from assigning the constants to the wrong factors. Substituting $x = 1$ into $5x + 4 = A(x + 2) + B(x - 1)$ gives $9 = 3A$, so $A = 3$ goes with $x - 1$.",
+    "This choice comes from a sign error in solving for $B$: at $x = -2$, $5(-2) + 4 = -6$ and $B(-2 - 1) = -3B$, so $-6 = -3B$ gives $B = 2$, not $-2$.",
+    null,
+    "This choice comes from treating the numerator as a constant and integrating $\\frac{1}{(x - 1)(x + 2)}$ as a single logarithm. The numerator depends on $x$, and a product in a denominator does not integrate to the logarithm of the product."
+   ],
+   "hints": [
+    "The fraction is proper and the denominator is a product of distinct linear factors. Write it as $\\frac{A}{x - 1} + \\frac{B}{x + 2}$.",
+    "Clear denominators to get $5x + 4 = A(x + 2) + B(x - 1)$, then substitute $x = 1$ and $x = -2$ to find $A$ and $B$ one at a time."
+   ],
+   "solution": [
+    {
+     "text": "Set up the decomposition and clear denominators.",
+     "math": "\\frac{5x + 4}{(x - 1)(x + 2)} = \\frac{A}{x - 1} + \\frac{B}{x + 2} \\implies 5x + 4 = A(x + 2) + B(x - 1)"
+    },
+    {
+     "text": "Substitute the zero of each factor. At $x = 1$: $9 = 3A$, so $A = 3$. At $x = -2$: $-6 = -3B$, so $B = 2$."
+    },
+    {
+     "text": "Integrate each term to a logarithm.",
+     "math": "\\int \\left(\\frac{3}{x - 1} + \\frac{2}{x + 2}\\right)dx = 3\\ln|x - 1| + 2\\ln|x + 2| + C"
+    },
+    {
+     "text": "Check by recombining: $\\frac{3(x + 2) + 2(x - 1)}{(x - 1)(x + 2)} = \\frac{5x + 4}{(x - 1)(x + 2)}$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q033",
+   "skillId": "u6-partial-fractions",
+   "difficulty": 3,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_3^5 \\frac{dx}{x^2 - x - 2}$. Round to three decimal places.</p>",
+   "answer": 0.231,
+   "tolerance": 0.005,
+   "hints": [
+    "Factor the denominator into two linear factors and confirm that neither factor is zero on $[3, 5]$, so the integral is an ordinary definite integral.",
+    "Decompose $\\frac{1}{(x - 2)(x + 1)}$ into $\\frac{A}{x - 2} + \\frac{B}{x + 1}$; the constants are fractions with denominator $3$.",
+    "After integrating to logarithms, evaluate at both limits and combine the logarithms with $\\ln p - \\ln q = \\ln\\frac{p}{q}$ before rounding."
+   ],
+   "solution": [
+    {
+     "text": "Factor and decompose.",
+     "math": "\\frac{1}{x^2 - x - 2} = \\frac{1}{(x - 2)(x + 1)} = \\frac{A}{x - 2} + \\frac{B}{x + 1}, \\qquad 1 = A(x + 1) + B(x - 2)"
+    },
+    {
+     "text": "At $x = 2$: $1 = 3A$, so $A = \\frac{1}{3}$. At $x = -1$: $1 = -3B$, so $B = -\\frac{1}{3}$."
+    },
+    {
+     "text": "Integrate and evaluate. Neither factor vanishes on $[3, 5]$, so no absolute values are needed after substitution.",
+     "math": "\\frac{1}{3}\\Big[\\ln(x - 2) - \\ln(x + 1)\\Big]_3^5 = \\frac{1}{3}\\big[(\\ln 3 - \\ln 6) - (\\ln 1 - \\ln 4)\\big]"
+    },
+    {
+     "text": "Simplify with logarithm rules and round.",
+     "math": "\\frac{1}{3}\\left(\\ln\\frac{3}{6} + \\ln 4\\right) = \\frac{1}{3}\\ln 2 \\approx 0.231"
+    }
+   ]
+  },
+  {
+   "id": "u6-q034",
+   "skillId": "u6-improper-integral-limits",
+   "difficulty": 1,
+   "type": "mc",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_1^{\\infty} \\frac{dx}{x^3}$, or determine that it diverges.</p>",
+   "choices": [
+    "The integral diverges",
+    "$\\dfrac{1}{2}$",
+    "$1$",
+    "$-\\dfrac{1}{2}$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from treating every integral over an infinite interval as divergent. The p-integral $\\int_1^\\infty x^{-p}\\,dx$ converges when $p > 1$, and here $p = 3$.",
+    null,
+    "This choice comes from using $-\\frac{1}{x}$ as the antiderivative, which is the antiderivative of $\\frac{1}{x^2}$. The antiderivative of $x^{-3}$ is $\\frac{x^{-2}}{-2} = -\\frac{1}{2x^2}$.",
+    "This choice comes from subtracting the limits in the wrong order. The antiderivative $-\\frac{1}{2x^2}$ tends to $0$ as $x \\to \\infty$ and equals $-\\frac{1}{2}$ at $x = 1$, so the value is $0 - \\left(-\\frac{1}{2}\\right) = \\frac{1}{2}$."
+   ],
+   "hints": [
+    "Write the integral as $\\lim_{b \\to \\infty}\\int_1^b x^{-3}\\,dx$ and find an antiderivative of $x^{-3}$ with the power rule.",
+    "Evaluate the antiderivative at $b$ and at $1$, then take the limit as $b \\to \\infty$. Decide whether the limit is finite."
+   ],
+   "solution": [
+    {
+     "text": "Write the improper integral as a limit and integrate with the power rule.",
+     "math": "\\int_1^{\\infty} x^{-3}\\,dx = \\lim_{b \\to \\infty}\\int_1^b x^{-3}\\,dx = \\lim_{b \\to \\infty}\\left[-\\frac{1}{2x^2}\\right]_1^b"
+    },
+    {
+     "text": "Evaluate at the limits and take the limit.",
+     "math": "\\lim_{b \\to \\infty}\\left(-\\frac{1}{2b^2} + \\frac{1}{2}\\right) = 0 + \\frac{1}{2} = \\frac{1}{2}"
+    },
+    {
+     "text": "The limit is finite, so the integral converges to $\\frac{1}{2}$. This agrees with the p-integral rule: $p = 3 > 1$ and the value is $\\frac{1}{p - 1} = \\frac{1}{2}$."
+    }
+   ]
+  },
+  {
+   "id": "u6-q035",
+   "skillId": "u6-improper-integral-limits",
+   "difficulty": 2,
+   "type": "numeric",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_0^{\\infty} \\frac{dx}{1 + x^2}$. Round to three decimal places.</p>",
+   "answer": 1.571,
+   "tolerance": 0.005,
+   "hints": [
+    "Replace the infinite limit by $b$ and write the integral as a limit as $b \\to \\infty$.",
+    "The antiderivative of $\\frac{1}{1 + x^2}$ is an inverse trigonometric function. Determine its limit as its input grows without bound.",
+    "Recall the horizontal asymptote of $y = \\arctan x$ as $x \\to \\infty$."
+   ],
+   "solution": [
+    {
+     "text": "Write the improper integral as a limit and integrate.",
+     "math": "\\int_0^{\\infty} \\frac{dx}{1 + x^2} = \\lim_{b \\to \\infty}\\Big[\\arctan x\\Big]_0^b = \\lim_{b \\to \\infty}\\big(\\arctan b - \\arctan 0\\big)"
+    },
+    {
+     "text": "As $b \\to \\infty$, $\\arctan b \\to \\frac{\\pi}{2}$, and $\\arctan 0 = 0$.",
+     "math": "\\lim_{b \\to \\infty}\\arctan b - 0 = \\frac{\\pi}{2}"
+    },
+    {
+     "text": "The integral converges. Round.",
+     "math": "\\frac{\\pi}{2} \\approx 1.571"
+    }
+   ]
+  },
+  {
+   "id": "u6-q036",
+   "skillId": "u6-improper-integral-limits",
+   "difficulty": 2,
+   "type": "mc",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_0^{4} \\frac{dx}{\\sqrt{x}}$, or determine that it diverges.</p>",
+   "choices": [
+    "$2$",
+    "$1$",
+    "The integral diverges",
+    "$4$"
+   ],
+   "answerIndex": 3,
+   "misconceptions": [
+    "This choice comes from using $\\sqrt{x}$ as the antiderivative of $x^{-1/2}$. The power rule gives $\\frac{x^{1/2}}{1/2} = 2\\sqrt{x}$, and $2\\sqrt{4} = 4$.",
+    "This choice comes from multiplying by $\\frac{1}{2}$ instead of dividing by it in the power rule, producing $\\frac{1}{2}\\sqrt{x}$ as the antiderivative. Dividing by the new exponent $\\frac{1}{2}$ gives $2\\sqrt{x}$.",
+    "This choice comes from treating an integrand that is unbounded at an endpoint as automatically divergent. Near $0$, $\\int_0^1 x^{-p}\\,dx$ converges when $p < 1$, and here $p = \\frac{1}{2}$.",
+    null
+   ],
+   "hints": [
+    "The integrand is unbounded as $x \\to 0^+$, so the integral is improper at the lower limit. Write it as $\\lim_{c \\to 0^+}\\int_c^4 x^{-1/2}\\,dx$.",
+    "Find the antiderivative of $x^{-1/2}$ with the power rule, evaluate at $4$ and at $c$, and take the limit as $c \\to 0^+$."
+   ],
+   "solution": [
+    {
+     "text": "The integrand $\\frac{1}{\\sqrt{x}}$ is unbounded near $x = 0$, so the integral is defined by a one-sided limit.",
+     "math": "\\int_0^4 \\frac{dx}{\\sqrt{x}} = \\lim_{c \\to 0^+}\\int_c^4 x^{-1/2}\\,dx = \\lim_{c \\to 0^+}\\Big[2\\sqrt{x}\\Big]_c^4"
+    },
+    {
+     "text": "Evaluate and take the limit.",
+     "math": "\\lim_{c \\to 0^+}\\big(2\\sqrt{4} - 2\\sqrt{c}\\big) = 4 - 0 = 4"
+    },
+    {
+     "text": "The limit is finite, so the integral converges to $4$. An unbounded integrand can still enclose a finite area."
+    }
+   ]
+  },
+  {
+   "id": "u6-q037",
+   "skillId": "u6-improper-integral-limits",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Consider the improper integrals:</p><ul><li>I. $\\displaystyle\\int_1^{\\infty} \\frac{dx}{\\sqrt{x}}$</li><li>II. $\\displaystyle\\int_1^{\\infty} \\frac{dx}{x^{1.01}}$</li><li>III. $\\displaystyle\\int_0^{1} \\frac{dx}{\\sqrt{x}}$</li></ul><p>Which of the integrals converge?</p>",
+   "choices": [
+    "II only",
+    "I and II only",
+    "II and III only",
+    "I, II, and III"
+   ],
+   "answerIndex": 2,
+   "misconceptions": [
+    "This choice comes from applying the rule for $[1, \\infty)$, which needs $p > 1$, to the interval $[0, 1]$ as well. Near $0$ the rule is reversed: $\\int_0^1 x^{-p}\\,dx$ converges exactly when $p < 1$, and $p = \\frac{1}{2}$ qualifies.",
+    "This choice comes from reversing the p-integral rules at both ends. On $[1, \\infty)$, $p = \\frac{1}{2}$ diverges because $2\\sqrt{b}$ grows without bound; on $[0, 1]$, $p = \\frac{1}{2}$ converges because $2\\sqrt{c} \\to 0$.",
+    null,
+    "This choice comes from treating every p-integral as convergent. On $[1, \\infty)$, the antiderivative of $x^{-1/2}$ is $2\\sqrt{x}$, which grows without bound as $x \\to \\infty$, so integral I diverges."
+   ],
+   "hints": [
+    "Each integral has the form $\\int x^{-p}\\,dx$. Identify $p$ for each and note whether the integral is improper at infinity or at $0$.",
+    "The two kinds have opposite rules: on $[1, \\infty)$ convergence needs $p > 1$; on $[0, 1]$ convergence needs $p < 1$. Confirm each verdict by writing the limit of the antiderivative $\\frac{x^{1 - p}}{1 - p}$."
+   ],
+   "solution": [
+    {
+     "text": "Integral I has $p = \\frac{1}{2}$ on $[1, \\infty)$. The antiderivative is $2\\sqrt{x}$, and $\\lim_{b \\to \\infty}\\big(2\\sqrt{b} - 2\\big)$ does not exist as a finite number. Integral I diverges."
+    },
+    {
+     "text": "Integral II has $p = 1.01 > 1$ on $[1, \\infty)$. The antiderivative is $\\frac{x^{-0.01}}{-0.01} = -100x^{-0.01}$, and $b^{-0.01} \\to 0$, so the integral converges to $100$. Integral II converges."
+    },
+    {
+     "text": "Integral III has $p = \\frac{1}{2} < 1$ on $[0, 1]$. It equals $\\lim_{c \\to 0^+}\\big(2 - 2\\sqrt{c}\\big) = 2$. Integral III converges."
+    },
+    {
+     "text": "Integrals II and III converge."
+    }
+   ]
+  },
+  {
+   "id": "u6-q038",
+   "skillId": "u6-improper-integral-limits",
+   "difficulty": 3,
+   "type": "mc",
+   "prompt": "<p>Evaluate $\\displaystyle\\int_1^{\\infty} \\frac{\\ln x}{x^2}\\,dx$, or determine that it diverges.</p>",
+   "choices": [
+    "The integral diverges, because $\\ln x$ is unbounded",
+    "$1$",
+    "$-1$",
+    "$0$"
+   ],
+   "answerIndex": 1,
+   "misconceptions": [
+    "This choice comes from treating an unbounded factor in the integrand as sufficient for divergence. The factor $\\frac{1}{x^2}$ decays faster than $\\ln x$ grows, and $\\lim_{b \\to \\infty}\\frac{\\ln b}{b} = 0$ by L'Hôpital's rule, so the limit is finite.",
+    null,
+    "This choice comes from a sign error at the lower limit. The antiderivative $-\\frac{\\ln x}{x} - \\frac{1}{x}$ equals $-1$ at $x = 1$, and subtracting $-1$ gives $+1$.",
+    "This choice comes from evaluating only the limit at infinity, which is $0$, and omitting the value of the antiderivative at the lower limit $x = 1$."
+   ],
+   "hints": [
+    "Find an antiderivative of $\\frac{\\ln x}{x^2}$ with integration by parts, taking $u = \\ln x$ and $dv = x^{-2}\\,dx$.",
+    "Write the improper integral as $\\lim_{b \\to \\infty}$ of the antiderivative evaluated from $1$ to $b$. The term $\\frac{\\ln b}{b}$ requires L'Hôpital's rule.",
+    "Do not drop the lower-limit value; evaluate the antiderivative at $x = 1$ carefully, using $\\ln 1 = 0$."
+   ],
+   "solution": [
+    {
+     "text": "Integrate by parts with $u = \\ln x$, $dv = x^{-2}\\,dx$, $du = \\frac{1}{x}\\,dx$, $v = -\\frac{1}{x}$.",
+     "math": "\\int \\frac{\\ln x}{x^2}\\,dx = -\\frac{\\ln x}{x} + \\int \\frac{1}{x^2}\\,dx = -\\frac{\\ln x}{x} - \\frac{1}{x} + C"
+    },
+    {
+     "text": "Write the improper integral as a limit and evaluate at both limits.",
+     "math": "\\lim_{b \\to \\infty}\\left[-\\frac{\\ln x}{x} - \\frac{1}{x}\\right]_1^b = \\lim_{b \\to \\infty}\\left(-\\frac{\\ln b}{b} - \\frac{1}{b}\\right) - \\big(0 - 1\\big)"
+    },
+    {
+     "text": "By L'Hôpital's rule, $\\lim_{b \\to \\infty}\\frac{\\ln b}{b} = \\lim_{b \\to \\infty}\\frac{1/b}{1} = 0$, and $\\frac{1}{b} \\to 0$.",
+     "math": "(0 - 0) + 1 = 1"
+    },
+    {
+     "text": "The limit is finite, so the integral converges to $1$. The unbounded factor $\\ln x$ does not cause divergence because $\\frac{1}{x^2}$ decays fast enough."
+    }
+   ]
+  }
+ ],
+ "masteryCheck": {
+  "questionCount": 8,
+  "passCount": 7
+ }
+}
