@@ -68,7 +68,7 @@ Breaking any of these is a regression even if the code works:
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # 14 engine tests (node --test)
+npm test             # 16 engine tests (node --test)
 npm run validate     # schema-validate all curriculum units
 ```
 

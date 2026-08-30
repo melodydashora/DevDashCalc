@@ -47,7 +47,7 @@ function mountTutor(container, unit, q, ctx) {
   $('.tutor-open', container).addEventListener('click', () => {
     container.innerHTML = `<div class="tutor-panel">
       <h3>Tutor</h3>
-      <p class="viz-note">The tutor sees this question, the verified solution, and your answer — nothing else. It explains; the app's verified solution stays the authority.</p>
+      <p class="viz-note">The tutor sees this question, the verified solution, your answer, and a count of your earlier attempts on this question and skill — nothing else, never your name. It explains; the app's verified solution stays the authority.</p>
       <div class="tutor-log" aria-live="polite"></div>
       <p class="tutor-status"></p>
       <div class="numeric-row tutor-ask-row" hidden>
@@ -83,6 +83,8 @@ function mountTutor(container, unit, q, ctx) {
           body: JSON.stringify({
             unitId: unit.id, questionId: q.id,
             learnerAnswer: ctx.learnerAnswer, correct: ctx.correct,
+            chosenIndex: ctx.chosenIndex,
+            history: ctx.history,
             followUp: followUp || undefined,
             transcript,
           }),
@@ -316,8 +318,16 @@ function mountQuestion(container, unit, q, opts, done) {
     container.querySelectorAll('.choice').forEach((b) => { b.disabled = true; });
     const numIn = $('#num-in', container); if (numIn) numIn.disabled = true;
 
+    // History is read before this answer is recorded, so it describes earlier attempts only.
+    const qh = E.questionHistory(S, q);
+    const sh = E.skillHistory(S, q.skillId);
+    const history = {
+      attempts: qh.attempts, wrongCount: qh.wrongCount,
+      priorWrongChoices: qh.priorWrongChoices.map((c) => ({ index: c.index, count: c.count })),
+      skillScore: sh.score, recentTotal: sh.recentTotal, recentWrong: sh.recentWrong, recentWithHints: sh.recentWithHints,
+    };
     if (countsTowardMastery) {
-      E.recordAnswer(S, { skillId: q.skillId, questionId: q.id, correct: grade.correct, hintsUsed, difficulty: q.difficulty, now: Date.now() });
+      E.recordAnswer(S, { skillId: q.skillId, questionId: q.id, correct: grade.correct, hintsUsed, difficulty: q.difficulty, now: Date.now(), choice: q.type === 'mc' ? selected : null });
       save();
     }
 
@@ -369,7 +379,7 @@ function mountQuestion(container, unit, q, opts, done) {
       const learnerAnswer = q.type === 'mc'
         ? (selected !== null ? `choice ${'ABCDE'[selected]} (${q.choices[selected]})` : '(none)')
         : String(response);
-      mountTutor(tutorSlot, unit, q, { learnerAnswer, correct: grade.correct });
+      mountTutor(tutorSlot, unit, q, { learnerAnswer, correct: grade.correct, chosenIndex: q.type === 'mc' ? selected : null, history });
     }
     $('.next-btn', fbArea).addEventListener('click', () => done({ correct: grade.correct, hintsUsed, response }));
     $('.next-btn', fbArea).focus();
@@ -425,6 +435,25 @@ function viewHome() {
 }
 
 // ---------------------------------------------------------------- views: unit
+// Recurring errors, stated plainly. Shown on every unit page in the same place
+// so the learner always knows where to look; the empty state says what would appear.
+function patternsHtml(unit) {
+  const p = E.unitPatterns(S, unit);
+  if (!p.repeated.length && !p.skills.length) {
+    return `<p>Nothing repeated yet. This section lists any wrong choice you have picked more than once on the same question, with the specific error it comes from, and any skill with several wrong answers among its last ${E.RECENT_WINDOW}.</p>`;
+  }
+  const skillName = (id) => esc(unit.skills.find((s) => s.id === id)?.name || id);
+  const repeated = p.repeated.map(({ question, choices }) => `<li>
+      <strong>${skillName(question.skillId)}</strong> — question ${esc(question.id)}:
+      ${choices.map((c) => `choice ${'ABCDE'[c.index]} picked ${c.count} times. ${c.misconception ? `This choice comes from: ${c.misconception}` : ''}`).join(' ')}
+      <details><summary>Show the question</summary>${question.prompt}</details>
+    </li>`).join('');
+  const skills = p.skills.map((x) => `<li><strong>${esc(x.skill.name)}</strong>: ${x.recentWrong} of the last ${x.recentTotal} answers were wrong (mastery ${x.score} / 100). Practice serves this skill first until it recovers.</li>`).join('');
+  return `${repeated ? `<p><strong>Same wrong choice, more than once:</strong></p><ul class="rules-list">${repeated}</ul>` : ''}
+    ${skills ? `<p><strong>Skills with several recent wrong answers:</strong></p><ul class="rules-list">${skills}</ul>` : ''}
+    <p class="session-progress">These are counts, not judgments. They exist so the specific error can be named and practiced.</p>`;
+}
+
 function viewUnit(requestedId) {
   const unit = CONTENT.units.get(requestedId);
   const m = CONTENT.manifest;
@@ -459,6 +488,8 @@ function viewUnit(requestedId) {
     <div class="card">${skillBars(unit)}
       <p class="session-progress">Mastery is earned by answering correctly without hints, including at difficulty 2 or higher. Wrong answers lower the score — that is expected and recoverable.</p>
     </div>
+    <h2>Patterns in your answers</h2>
+    <div class="card">${patternsHtml(unit)}</div>
     <h2>Interactive explorers</h2>
     <div class="card">
       <p>Each explorer is a picture you drive with a slider — nothing moves unless you move it. Open one, drag, and watch the numbers and the graph tell the same story.</p>
@@ -869,6 +900,7 @@ function viewSettings() {
         <li>Mastery per skill is 0–100. Correct without hints raises it the most; hints give half credit; wrong answers lower it. Recent answers count more than old ones.</li>
         <li>A skill can only reach mastery (${E.MASTERY_THRESHOLD}) with correct answers at difficulty 2 or higher.</li>
         <li>The Mastery Check opens when all core skills reach ${E.MASTERY_THRESHOLD}, and passing it unlocks the next unit. Units never re-lock.</li>
+        <li>The app counts which wrong choice you picked on each question. Each unit page lists any choice picked twice or more under "Patterns in your answers", and the tutor (when enabled) is told those counts. These counts change nothing about scoring.</li>
         <li>Keyboard: Tab moves between controls, Enter or Space activates, Enter submits a typed answer.</li>
       </ul>
     </div>

@@ -91,7 +91,35 @@ Task:
 - When shown the learner's incorrect answer, first diagnose the specific step where their likely reasoning diverged from the correct path, based on the answer they actually gave. Name that step plainly, without blame language, then explain the correct step. Do not restate the entire solution; the app already shows it.
 - When shown a correct answer with a question, answer the question directly.
 - For follow-up questions, stay on this problem and its concept. If asked about something unrelated to calculus, say plainly that you only discuss calculus here, and invite a calculus question.
-- Feedback is information, never judgment. Say "this choice comes from ..." rather than "you made the mistake of ...".`;
+- Feedback is information, never judgment. Say "this choice comes from ..." rather than "you made the mistake of ...".
+- Learner history, when provided, is factual and describes attempts before this one. If the same wrong choice was picked before, say so plainly, name the specific error behind it (the stored misconception note is provided), and address that error first. Do not speculate beyond what the history states.`;
+
+// Turns the client's attempt counts into plain sentences. Every number is
+// re-validated here and misconception text is taken from the stored content,
+// never from the client.
+function historyLines(q, history, chosenIndex, correct) {
+  const lines = [];
+  const n = (v, max = 100000) => (Number.isInteger(v) && v >= 0 && v <= max ? v : null);
+  const label = (i) => 'ABCDE'[i];
+  const isMc = q.type === 'mc';
+  if (isMc && !correct && n(chosenIndex, 4) !== null && chosenIndex < q.choices.length && q.misconceptions?.[chosenIndex]) {
+    lines.push(`Stored misconception note for the learner's choice ${label(chosenIndex)}: ${q.misconceptions[chosenIndex]}`);
+  }
+  if (!history || typeof history !== 'object') return lines;
+  const attempts = n(history.attempts), wrong = n(history.wrongCount) ?? 0;
+  if (attempts === null || attempts === 0) {
+    lines.push('This was the learner\'s first attempt at this question.');
+  } else {
+    const picks = (Array.isArray(history.priorWrongChoices) ? history.priorWrongChoices : [])
+      .map((c) => ({ index: n(c?.index, 4), count: n(c?.count) }))
+      .filter((c) => isMc && c.index !== null && c.count && c.index < q.choices.length)
+      .map((c) => `${label(c.index)} (${c.count} time${c.count === 1 ? '' : 's'})`);
+    lines.push(`Learner history on this question before this attempt: ${attempts} attempt${attempts === 1 ? '' : 's'}, ${wrong} wrong${picks.length ? `; wrong choices picked before: ${picks.join(', ')}` : ''}.`);
+  }
+  const score = n(history.skillScore, 100), rt = n(history.recentTotal, 50), rw = n(history.recentWrong, 50) ?? 0, rh = n(history.recentWithHints, 50) ?? 0;
+  if (score !== null && rt) lines.push(`Learner history on this skill: mastery ${score} of 100; of the last ${rt} answer${rt === 1 ? '' : 's'} on it, ${rw} wrong and ${rh} correct only with hints.`);
+  return lines;
+}
 
 async function handleTutor(req, res, url) {
   if (req.method === 'GET') return sendJson(res, 200, { available: Boolean(process.env.ANTHROPIC_API_KEY), model: TUTOR_MODEL });
@@ -101,7 +129,7 @@ async function handleTutor(req, res, url) {
 
   let body;
   try { body = JSON.parse(await readBody(req)); } catch { return sendJson(res, 400, { error: 'body must be valid JSON' }); }
-  const { unitId, questionId, learnerAnswer, correct, followUp, transcript } = body || {};
+  const { unitId, questionId, learnerAnswer, correct, followUp, transcript, chosenIndex, history } = body || {};
 
   // Ground the tutor in the verified content straight from disk.
   let unit;
@@ -121,7 +149,8 @@ async function handleTutor(req, res, url) {
     q.type === 'mc' ? `Choices: ${q.choices.map((c, i) => `${'ABCDE'[i]}. ${c}`).join('  ')}` : '',
     `Verified ${answerText}`,
     `Verified solution steps: ${q.solution.map((s, i) => `(${i + 1}) ${s.text}${s.math ? ` [${s.math}]` : ''}`).join(' ')}`,
-    `The learner answered: ${String(learnerAnswer ?? '(no answer)')} — this was ${correct ? 'correct' : 'not correct'}.`,
+    `The learner answered: ${String(learnerAnswer ?? '(no answer)').slice(0, 500)} — this was ${correct ? 'correct' : 'not correct'}.`,
+    ...historyLines(q, history, chosenIndex, Boolean(correct)),
   ].filter(Boolean).join('\n');
 
   // Rebuild the short per-question conversation; the client keeps it in memory.
