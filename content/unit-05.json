@@ -1,0 +1,1056 @@
+{
+  "id": "unit-05",
+  "number": 5,
+  "title": "Analytical Applications of Differentiation",
+  "overview": "This unit turns derivative computations into conclusions about the shape and behavior of a function. You will use the Mean Value Theorem and the Extreme Value Theorem to justify claims, locate and classify extrema with the first derivative test, the candidates test, and the second derivative test, and determine concavity and points of inflection. You will also connect the graphs of a function and its first two derivatives, sketch curves from derivative information, solve optimization word problems, and analyze the behavior of implicitly defined curves.",
+  "skills": [
+    { "id": "u5-mvt-evt", "name": "The Mean Value Theorem and the Extreme Value Theorem: hypotheses and conclusions", "core": true },
+    { "id": "u5-critical-increasing", "name": "Critical points and intervals of increase and decrease", "core": true },
+    { "id": "u5-extrema-tests", "name": "The first derivative test and the candidates test for extrema", "core": true },
+    { "id": "u5-concavity", "name": "Concavity, points of inflection, and the second derivative test", "core": true },
+    { "id": "u5-graph-connections", "name": "Connecting the graphs of f, f', and f'' and sketching curves", "core": true },
+    { "id": "u5-optimization", "name": "Optimization word problems", "core": true },
+    { "id": "u5-implicit-behavior", "name": "Behavior of implicitly defined relations", "core": false }
+  ],
+  "lessons": [
+    {
+      "id": "u5-l1",
+      "title": "The Mean Value Theorem and the Extreme Value Theorem",
+      "skillIds": ["u5-mvt-evt"],
+      "estMinutes": 16,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>The <strong>Extreme Value Theorem</strong> (EVT) states: if a function $f$ is continuous on a closed interval $[a, b]$, then $f$ attains an absolute maximum value and an absolute minimum value somewhere on $[a, b]$. An <strong>absolute maximum value</strong> is a value $f(c)$ with $f(c) \\geq f(x)$ for every $x$ in the interval; the absolute minimum is defined the same way with the inequality reversed.</p><p>Both hypotheses are required. On the open interval $(0, 1)$, the continuous function $f(x) = \\frac{1}{x}$ has no maximum value: as $x$ moves toward $0$, the values grow without bound. On a closed interval, a function with a jump discontinuity can also fail to attain an extreme value. When the interval is closed and the function is continuous, the EVT guarantees that the extreme values exist; it does not say where they are.</p>"
+        },
+        {
+          "type": "concept",
+          "html": "<p>The <strong>Mean Value Theorem</strong> (MVT) states: if $f$ is continuous on the closed interval $[a, b]$ and differentiable on the open interval $(a, b)$, then there is at least one number $c$ in $(a, b)$ with</p><p>$$f'(c) = \\frac{f(b) - f(a)}{b - a}$$</p><p>The right side is the average rate of change of $f$ over $[a, b]$, which is the slope of the secant line through $(a, f(a))$ and $(b, f(b))$. The MVT says the instantaneous rate of change equals that average rate at least once strictly between the endpoints.</p><p>Check both hypotheses before using the theorem. Continuity is needed on the closed interval, endpoints included. Differentiability is needed only on the open interval, so a corner at an endpoint does not block the theorem, but a corner at an interior point does.</p><p>The special case with $f(a) = f(b)$ is called <strong>Rolle's Theorem</strong>: the average rate of change is $0$, so some $c$ in $(a, b)$ has $f'(c) = 0$.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>The MVT is the statement behind this claim: if a file transfer moves $400$ megabytes in $100$ seconds, then at some instant the instantaneous transfer rate was exactly $4$ megabytes per second. The average rate over the interval must be matched exactly at least once, provided the amount-transferred function is continuous in time and differentiable during the transfer.</p><p>Where the analogy holds: the amount transferred as a function of time plays the role of $f$, the average throughput is the secant slope, and the instantaneous rate is $f'$.</p><p>Where it breaks: real telemetry is sampled. A discrete sequence of measurements has no MVT. Between two ticks the rate can jump across the average value without ever equaling it, the same way a variable stepping from $3.9$ to $4.1$ never holds the value $4.0$. The theorem needs a genuinely continuous quantity; its proof depends on the completeness of the real numbers, which an array of samples does not have.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Find the value $c$ guaranteed by the Mean Value Theorem for $f(x) = x^3$ on $[0, 2]$",
+          "steps": [
+            { "text": "Check the hypotheses. The polynomial $x^3$ is continuous on $[0, 2]$ and differentiable on $(0, 2)$, so the MVT applies." },
+            { "text": "Compute the average rate of change over the interval.", "math": "\\frac{f(2) - f(0)}{2 - 0} = \\frac{8 - 0}{2} = 4" },
+            { "text": "Set the derivative equal to the average rate and solve.", "math": "f'(c) = 3c^2 = 4 \\implies c^2 = \\frac{4}{3}" },
+            { "text": "Keep only the solution inside the open interval $(0, 2)$; the negative square root is outside.", "math": "c = \\frac{2}{\\sqrt{3}} = \\frac{2\\sqrt{3}}{3} \\approx 1.155" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q001", "u5-q002"]
+        },
+        {
+          "type": "concept",
+          "html": "<p>Two exam-relevant consequences follow.</p><p>First, hypothesis failures are testable. The function $f(x) = |x|$ on $[-1, 2]$ is continuous, but it is not differentiable at the interior point $x = 0$, so the MVT does not apply. When a conclusion of the MVT fails for a specific function, the explanation is always a specific failed hypothesis, and the AP exam expects you to name it.</p><p>Second, the MVT converts table data into guarantees. If $f$ is differentiable everywhere and a table gives $f(1) = 3$ and $f(4) = 12$, then some $c$ in $(1, 4)$ satisfies $f'(c) = \\frac{12 - 3}{4 - 1} = 3$. A complete justification names the theorem and states that its hypotheses hold: continuity on the closed interval and differentiability on the open interval.</p>"
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q003", "u5-q004", "u5-q005"]
+        }
+      ]
+    },
+    {
+      "id": "u5-l2",
+      "title": "Critical points and intervals of increase and decrease",
+      "skillIds": ["u5-critical-increasing"],
+      "estMinutes": 15,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>A <strong>critical point</strong> of a function $f$ is a number $c$ in the domain of $f$ where $f'(c) = 0$ or $f'(c)$ does not exist. Critical points are the only interior locations where a relative maximum or minimum can occur; this fact is the reason the tests in this unit examine critical points first.</p><p>Both parts of the definition matter. For $f(x) = x^{2/3}$, the derivative $f'(x) = \\frac{2}{3}x^{-1/3}$ is undefined at $x = 0$, and $x = 0$ is in the domain of $f$, so $x = 0$ is a critical point; the graph has a minimum there with no horizontal tangent. For $f(x) = \\frac{1}{x}$, the derivative is undefined at $x = 0$, but $0$ is not in the domain of $f$, so it is not a critical point.</p><p>A critical point is a candidate, not a conclusion. The function $f(x) = x^3$ has $f'(0) = 0$, and $x = 0$ is neither a maximum nor a minimum.</p>"
+        },
+        {
+          "type": "concept",
+          "html": "<p>On an interval, if $f'(x) > 0$ for every $x$ in the interval, then $f$ is <strong>increasing</strong> there; if $f'(x) < 0$ throughout, $f$ is <strong>decreasing</strong>. The standard procedure, called a <strong>sign chart</strong>, is:</p><ol><li>Compute $f'$ and factor it.</li><li>Find all critical points and any domain breaks; these cut the number line into intervals.</li><li>Determine the sign of $f'$ on each interval, either by testing one point or by reading the signs of the factors.</li><li>Conclude: increasing where $f'$ is positive, decreasing where $f'$ is negative.</li></ol><p>The sign of $f'$ can only change at a critical point or a domain break, so one test point per interval is enough. A factor with an even exponent, such as $(x-1)^2$, is nonnegative everywhere, so $f'$ does not change sign at its zero; checking for the sign change instead of assuming it prevents a common error.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>A sign chart is interval partitioning followed by constant propagation. The zeros of $f'$ partition the number line into segments, and within one segment the predicate <code>fprime(x) &gt; 0</code> evaluates to the same boolean for every $x$, so you evaluate it once per segment, like caching a pure function's result for an entire equivalence class of inputs. That is why one test point per interval suffices.</p><p>Where the analogy holds exactly: the partition boundaries are precisely the places the boolean can flip, namely zeros of $f'$ and domain breaks, the way a piecewise-constant config value can only change at declared boundaries.</p><p>Where it breaks: the guarantee comes from the Intermediate Value Theorem applied to a continuous $f'$, not from any programming principle. If $f'$ has a discontinuity you did not include as a boundary, the cached boolean can be wrong inside a segment. The mathematics forces you to enumerate the boundaries correctly; there is no runtime check that catches a missed one.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Intervals of increase and decrease for $f(x) = 2x^3 - 3x^2 - 12x$",
+          "steps": [
+            { "text": "Differentiate and factor.", "math": "f'(x) = 6x^2 - 6x - 12 = 6(x - 2)(x + 1)" },
+            { "text": "Set $f'(x) = 0$. The critical points are $x = -1$ and $x = 2$, which cut the line into three intervals." },
+            { "text": "Test the sign of $f'$ on each interval.", "math": "f'(-2) = 6(-4)(-1) > 0, \\quad f'(0) = 6(-2)(1) < 0, \\quad f'(3) = 6(1)(4) > 0" },
+            { "text": "Conclude from the signs.", "math": "\\text{increasing on } (-\\infty, -1) \\text{ and } (2, \\infty), \\quad \\text{decreasing on } (-1, 2)" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q006", "u5-q007", "u5-q008"]
+        },
+        {
+          "type": "concept",
+          "html": "<p>Critical points from an undefined derivative appear with roots, fractional exponents, and absolute values. Work them the same way: the points where $f'$ is zero or undefined, together with domain breaks, are the interval boundaries for the sign chart.</p><p>For products with exponentials, remember that $e^{u}$ is positive for every real $u$, so a factor of $e^{-x}$ never contributes a zero or a sign change. For $f(x) = x e^{-x}$, the derivative $f'(x) = e^{-x}(1 - x)$ is zero only where $1 - x = 0$.</p>"
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q009", "u5-q010"]
+        }
+      ]
+    },
+    {
+      "id": "u5-l3",
+      "title": "Classifying extrema: the first derivative test and the candidates test",
+      "skillIds": ["u5-extrema-tests"],
+      "estMinutes": 18,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>The <strong>first derivative test</strong> classifies a critical point $c$ of a continuous function by the sign of $f'$ on each side:</p><ul><li>If $f'$ changes from positive to negative at $c$, then $f$ has a <strong>relative maximum</strong> at $c$: the function rises into the point and falls after it.</li><li>If $f'$ changes from negative to positive at $c$, then $f$ has a <strong>relative minimum</strong> at $c$.</li><li>If $f'$ has the same sign on both sides of $c$, then $f$ has no relative extremum at $c$.</li></ul><p>A <strong>relative maximum</strong> (also called a local maximum) at $c$ means $f(c) \\geq f(x)$ for all $x$ near $c$; it is a statement about a neighborhood, not about the whole domain.</p><p>The sign change is the substance of the test. A critical point where $f'$ does not change sign, such as $x = 0$ for $f(x) = x^3$, is not an extremum.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Classify the critical points of $f(x) = x^4 - 2x^2$",
+          "steps": [
+            { "text": "Differentiate and factor completely.", "math": "f'(x) = 4x^3 - 4x = 4x(x - 1)(x + 1)" },
+            { "text": "The critical points are $x = -1$, $x = 0$, and $x = 1$. Build the sign chart with one test point per interval.", "math": "f'(-2) < 0, \\quad f'(-\\tfrac{1}{2}) > 0, \\quad f'(\\tfrac{1}{2}) < 0, \\quad f'(2) > 0" },
+            { "text": "Apply the first derivative test at each critical point: negative to positive at $x = -1$ gives a relative minimum; positive to negative at $x = 0$ gives a relative maximum; negative to positive at $x = 1$ gives a relative minimum." },
+            { "text": "Report the function values when the question asks for them.", "math": "f(-1) = -1, \\quad f(0) = 0, \\quad f(1) = -1" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q011", "u5-q015"]
+        },
+        {
+          "type": "concept",
+          "html": "<p>An <strong>absolute maximum</strong> of $f$ on an interval is the largest value $f$ attains anywhere on that interval. On a closed interval $[a, b]$, the EVT guarantees that a continuous function attains an absolute maximum and minimum, and calculus narrows down where: at a critical point in the interior or at an endpoint. This yields the <strong>candidates test</strong>, also called the closed interval method:</p><ol><li>Find all critical points of $f$ inside $(a, b)$.</li><li>Evaluate $f$ at each interior critical point and at both endpoints $a$ and $b$.</li><li>The largest of these values is the absolute maximum; the smallest is the absolute minimum.</li></ol><p>Two details. First, the test compares function values, so the answer to a value question is $f(c)$, not $c$; read whether the question asks for the value or for its location. Second, no sign analysis is needed for the candidates test. Evaluating and comparing is sufficient, because the EVT guarantees the winner is in the candidate list.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>The candidates test reduces a search over infinitely many points to a maximum over a small array. Calculus proves the absolute extremum of a continuous function on $[a, b]$ must occur at a critical point or an endpoint, so you collect those finitely many candidates, map $f$ over them, and take the largest, like replacing a brute-force scan with a proof that only a few indices can hold the answer. The comparison step really is just <code>candidates.map(f)</code> followed by <code>Math.max</code>; there is no further calculus in it.</p><p>Where the analogy breaks: the reduction is valid only under the theorem's hypotheses. On an open or unbounded interval, or for a discontinuous $f$, the extremum may fail to exist at all, and the candidate list proves nothing, the way an index-based shortcut becomes invalid once the array invariant it relies on is broken. In those cases you must analyze the boundary or limiting behavior directly.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Absolute extrema of $f(x) = x^3 - 6x^2 + 5$ on $[-1, 5]$",
+          "steps": [
+            { "text": "Find the interior critical points.", "math": "f'(x) = 3x^2 - 12x = 3x(x - 4) = 0 \\implies x = 0, \\; x = 4" },
+            { "text": "Both critical points lie inside $(-1, 5)$, so the candidate list is $x = -1, 0, 4, 5$." },
+            { "text": "Evaluate $f$ at every candidate.", "math": "f(-1) = -2, \\quad f(0) = 5, \\quad f(4) = -27, \\quad f(5) = -20" },
+            { "text": "Compare. The absolute maximum value is $5$ at $x = 0$; the absolute minimum value is $-27$ at $x = 4$." }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q012", "u5-q014", "u5-q016"]
+        }
+      ]
+    },
+    {
+      "id": "u5-l4",
+      "title": "Concavity, points of inflection, and the second derivative test",
+      "skillIds": ["u5-concavity"],
+      "estMinutes": 16,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>A differentiable function is <strong>concave up</strong> on an interval when its derivative $f'$ is increasing there, and <strong>concave down</strong> when $f'$ is decreasing. Geometrically, concave up means the graph bends upward and lies above its tangent lines; concave down means it bends downward and lies below them.</p><p>When $f''$ exists, the practical test is the sign of the second derivative: $f''(x) > 0$ on an interval means concave up; $f''(x) < 0$ means concave down. The procedure mirrors the increasing and decreasing sign chart, one derivative higher: compute $f''$, find where it is zero or undefined, and test the sign on each resulting interval.</p><p>Concavity and direction are independent properties. A function can be increasing and concave down at the same time: rising, but at a slowing rate.</p>"
+        },
+        {
+          "type": "concept",
+          "html": "<p>A <strong>point of inflection</strong> is a point on the graph where concavity changes, which means $f''$ changes sign there. The condition $f''(c) = 0$ alone is not sufficient. For $f(x) = x^4$, the second derivative $f''(x) = 12x^2$ is zero at $x = 0$ but positive on both sides, so concavity does not change and there is no inflection point.</p><p>The working procedure: solve $f''(x) = 0$, note where $f''$ is undefined, then verify that the sign of $f''$ actually changes across each candidate. Report an inflection point with both coordinates when the question asks for the point rather than the $x$-value.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>For a metric sampled over time, $f$ is the value, $f'$ is the rate of change, and $f''$ is the change in that rate, the second difference of the series. An error count rising means $f'$ is positive; the count rising ever faster means $f''$ is positive too. A point of inflection is the moment a growth curve switches from speeding up to slowing down, which is the signal you watch when deciding whether an incident is getting worse or beginning to recover, even while the raw count is still climbing.</p><p>Where the analogy holds: the sign of the first difference tracks direction, the sign of the second difference tracks curvature, and the two are independent, exactly as with $f'$ and $f''$.</p><p>Where it breaks: differencing amplifies noise, and a discrete second difference can flip sign on jitter alone. The mathematical objects $f'$ and $f''$ are exact; production dashboards approximate them with smoothing, and the smoothing window changes where the apparent inflection point lands.</p>"
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q017", "u5-q018"]
+        },
+        {
+          "type": "concept",
+          "html": "<p>The <strong>second derivative test</strong> classifies a critical point using concavity. Suppose $f'(c) = 0$ and $f''$ exists near $c$:</p><ul><li>If $f''(c) > 0$, the graph is concave up at $c$, so $f$ has a relative minimum at $c$.</li><li>If $f''(c) < 0$, the graph is concave down at $c$, so $f$ has a relative maximum at $c$.</li><li>If $f''(c) = 0$, the test is <strong>inconclusive</strong>: the point may be a maximum, a minimum, or neither. Fall back to the first derivative test.</li></ul><p>A literal memory anchor: concave up at a flat point means the graph opens upward around it, which is the shape of a minimum.</p><p>The two tests are interchangeable when both apply. The second derivative test is often faster when $f''$ is easy to evaluate; the first derivative test is more general, because it needs no second derivative and it gives a definite answer at any isolated critical point of a continuous function.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Classify the critical points of $f(x) = x^3 - 6x^2 + 9x + 1$ and find its inflection point",
+          "steps": [
+            { "text": "Find the critical points.", "math": "f'(x) = 3x^2 - 12x + 9 = 3(x - 1)(x - 3) = 0 \\implies x = 1, \\; x = 3" },
+            { "text": "Compute the second derivative and evaluate it at each critical point.", "math": "f''(x) = 6x - 12, \\quad f''(1) = -6, \\quad f''(3) = 6" },
+            { "text": "Apply the second derivative test: $f''(1) = -6$ is negative, so $x = 1$ is a relative maximum with $f(1) = 5$; $f''(3) = 6$ is positive, so $x = 3$ is a relative minimum with $f(3) = 1$." },
+            { "text": "Locate the inflection point: $f''(x) = 6x - 12$ changes sign from negative to positive at $x = 2$, and $f(2) = 3$, so the inflection point is $(2, 3)$." }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q019", "u5-q020", "u5-q021"]
+        }
+      ]
+    },
+    {
+      "id": "u5-l5",
+      "title": "Connecting the graphs of f, f', and f'', with implicit relations",
+      "skillIds": ["u5-graph-connections", "u5-implicit-behavior"],
+      "estMinutes": 18,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>Many AP questions show the graph of $f'$ and ask about $f$. The translations are fixed; read them as a table.</p><table><thead><tr><th>Behavior of $f$</th><th>Statement about $f'$</th><th>Statement about $f''$</th></tr></thead><tbody><tr><td>increasing</td><td>$f'$ positive</td><td>no constraint</td></tr><tr><td>decreasing</td><td>$f'$ negative</td><td>no constraint</td></tr><tr><td>relative extremum</td><td>$f'$ zero and changing sign</td><td>no constraint</td></tr><tr><td>concave up</td><td>$f'$ increasing</td><td>$f''$ positive</td></tr><tr><td>concave down</td><td>$f'$ decreasing</td><td>$f''$ negative</td></tr><tr><td>point of inflection</td><td>$f'$ has a relative extremum</td><td>$f''$ zero and changing sign</td></tr></tbody></table><p>The most common misread is treating the graph of $f'$ as if it were the graph of $f$. When the graph on the page is $f'$, height means slope of $f$: where the curve on the page is above the axis, $f$ rises; where the curve on the page peaks, $f$ has its steepest rise, not a maximum.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>Reading the graph of $f'$ to answer questions about $f$ is working one level of indirection away from the data, like reconstructing a counter from a log of its deltas. A log entry (the value of $f'$) being positive means the counter went up at that moment; the entries themselves trending downward means the counter's growth is slowing, which is concave down, even while every entry is still positive.</p><p>Where the analogy holds: it is exact for direction claims, and summing the deltas recovers the counter up to its starting value, matching the fact that $f'$ determines $f$ only up to a constant.</p><p>Where it breaks: a delta log is a discrete sum, so it cannot distinguish a smooth change within one tick from a jump, and it has no notion of the differentiability the calculus statements require. Also, reconstructing exact values of $f$ needs the initial value; graph-reading questions about increase, extrema, and concavity deliberately avoid needing it.</p>"
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q022", "u5-q023"]
+        },
+        {
+          "type": "worked-example",
+          "title": "Sketch-level analysis of $f(x) = x^3 - 3x + 1$",
+          "steps": [
+            { "text": "First derivative: critical points and direction.", "math": "f'(x) = 3x^2 - 3 = 3(x - 1)(x + 1)" },
+            { "text": "The sign of $f'$ is positive, negative, positive across the three intervals, so $f$ increases on $(-\\infty, -1)$, decreases on $(-1, 1)$, and increases on $(1, \\infty)$. The first derivative test gives a relative maximum at $x = -1$ and a relative minimum at $x = 1$.", "math": "f(-1) = 3, \\quad f(1) = -1" },
+            { "text": "Second derivative: concavity and inflection.", "math": "f''(x) = 6x, \\quad \\text{sign change at } x = 0, \\quad f(0) = 1" },
+            { "text": "Assemble the sketch: the graph rises to $(-1, 3)$, falls through the inflection point $(0, 1)$ while switching from concave down to concave up, reaches $(1, -1)$, then rises. End behavior is that of $x^3$: downward to the left, upward to the right." }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q024", "u5-q025", "u5-q026"]
+        },
+        {
+          "type": "concept",
+          "html": "<p>The same analysis applies to implicitly defined relations. From implicit differentiation, $\\frac{dy}{dx}$ is typically a quotient in $x$ and $y$. On the curve:</p><ul><li>The tangent is <strong>horizontal</strong> where the numerator is $0$ and the denominator is not $0$.</li><li>The tangent is <strong>vertical</strong> where the denominator is $0$ and the numerator is not $0$.</li></ul><p>To locate such points, set the appropriate part of the quotient to zero, combine that condition with the original equation, and solve the system. Every candidate must satisfy the original equation; a pair $(x, y)$ that satisfies the tangency condition but not the curve equation is not a point of the curve.</p><p>For concavity, differentiate $\\frac{dy}{dx}$ again with respect to $x$, remembering that $y$ and $\\frac{dy}{dx}$ both depend on $x$; then substitute the point's coordinates and the already-computed value of $\\frac{dy}{dx}$. At a point with a horizontal tangent, the sign of $\\frac{d^2y}{dx^2}$ classifies the point exactly as the second derivative test does for explicit functions.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Horizontal tangent points of $x^2 - xy + y^2 = 9$",
+          "steps": [
+            { "text": "Differentiate both sides with respect to $x$; the $xy$ term needs the product rule.", "math": "2x - y - x\\frac{dy}{dx} + 2y\\frac{dy}{dx} = 0" },
+            { "text": "Solve for the derivative.", "math": "\\frac{dy}{dx} = \\frac{y - 2x}{2y - x}" },
+            { "text": "Horizontal tangents require the numerator to vanish, so $y = 2x$. Substitute into the curve equation.", "math": "x^2 - x(2x) + (2x)^2 = 3x^2 = 9 \\implies x = \\pm\\sqrt{3}" },
+            { "text": "The candidate points are $(\\sqrt{3}, 2\\sqrt{3})$ and $(-\\sqrt{3}, -2\\sqrt{3})$. Check the denominator: $2y - x = 3x$, which is nonzero at both points, so both are genuine horizontal tangent points." }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q032", "u5-q033"]
+        }
+      ]
+    },
+    {
+      "id": "u5-l6",
+      "title": "Optimization word problems",
+      "skillIds": ["u5-optimization"],
+      "estMinutes": 18,
+      "sections": [
+        {
+          "type": "concept",
+          "html": "<p>An <strong>optimization problem</strong> asks for the largest or smallest possible value of a quantity subject to a constraint. A reliable procedure:</p><ol><li>Name the variables and describe the configuration.</li><li>Write the <strong>objective</strong>: the quantity to maximize or minimize, as a formula.</li><li>Write the <strong>constraint</strong>: the equation the variables must satisfy.</li><li>Use the constraint to rewrite the objective as a function of one variable.</li><li>Determine the domain that makes physical sense: lengths nonnegative, quantities within their stated limits.</li><li>Find the critical points of the one-variable objective and classify or compare, using the candidates test on a closed domain or a derivative test on an open one.</li><li>Answer the question actually asked: the optimizing input, the optimal value, or both.</li></ol><p>Step 7 is a real error source. After solving for $x$, reread the problem to see whether it asks for $x$, for another dimension, or for the optimal value of the objective.</p>"
+        },
+        {
+          "type": "coder-note",
+          "html": "<p>An optimization word problem is a small constrained-optimization program. The constraint is an equality you use to eliminate a variable by direct substitution, the way you would inline a definition to reduce a two-parameter function to one parameter. The calculus step then finds the exact argmax of the one-parameter function by solving $f'(x) = 0$, where a numeric approach would run a solver or a grid search.</p><p>Where the analogy holds: the domain restriction in step 5 is input validation, and skipping it produces the same class of bug, an optimum at a physically impossible input such as a negative side length.</p><p>Where it breaks: gradient-based numeric optimizers can stop at any local optimum, and their answer depends on the starting point. The calculus method enumerates every critical point, so, combined with endpoint checks, it certifies the global optimum on the interval, a guarantee no local search gives. The cost is that it only works when you can differentiate and solve symbolically.</p>"
+        },
+        {
+          "type": "worked-example",
+          "title": "Maximum area with $120$ meters of fence and one unfenced side",
+          "steps": [
+            { "text": "A rectangular field borders a straight river; the river side needs no fence, and the other three sides use $120$ meters of fencing. Let $x$ be the length in meters of each side perpendicular to the river; the constraint makes the parallel side $120 - 2x$.", "math": "A(x) = x(120 - 2x) = 120x - 2x^2" },
+            { "text": "The physical domain is $0 \\leq x \\leq 60$; outside it, some side length is negative. Both endpoints give area $0$." },
+            { "text": "Find the critical point.", "math": "A'(x) = 120 - 4x = 0 \\implies x = 30" },
+            { "text": "Classify: $A''(x) = -4$ is negative everywhere, so $x = 30$ gives the maximum, and the endpoint areas are $0$, confirming it is absolute." },
+            { "text": "Answer with the asked quantities: the dimensions are $30$ meters by $60$ meters.", "math": "A(30) = 30 \\cdot 60 = 1800" }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q027", "u5-q028", "u5-q031"]
+        },
+        {
+          "type": "worked-example",
+          "title": "Point on $y = x^2$ closest to $(0, 3)$",
+          "steps": [
+            { "text": "The distance from a point $(x, x^2)$ on the parabola to $(0, 3)$ is the objective. Minimize the squared distance $S$; it avoids the square root and has the same minimizer, because squaring is increasing on nonnegative inputs.", "math": "S(x) = x^2 + (x^2 - 3)^2" },
+            { "text": "Differentiate and factor.", "math": "S'(x) = 2x + 2(x^2 - 3)(2x) = 2x(2x^2 - 5)" },
+            { "text": "The critical points are $x = 0$ and $x = \\pm\\sqrt{5/2}$. Compare values of $S$.", "math": "S(0) = 9, \\qquad S\\left(\\pm\\sqrt{5/2}\\right) = \\frac{5}{2} + \\left(\\frac{5}{2} - 3\\right)^2 = \\frac{11}{4}" },
+            { "text": "The minimum squared distance is $\\frac{11}{4}$, so the closest points are $\\left(\\pm\\sqrt{5/2}, \\frac{5}{2}\\right)$ and the minimum distance is $\\frac{\\sqrt{11}}{2}$." }
+          ]
+        },
+        {
+          "type": "checkpoint",
+          "questionIds": ["u5-q029", "u5-q030"]
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "u5-q001",
+      "skillId": "u5-mvt-evt",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Let $f(x) = x^2$ on the interval $[1, 3]$. Find the value of $c$ whose existence is guaranteed by the Mean Value Theorem.</p>",
+      "choices": ["$c = 2$", "$c = 4$", "$c = \\sqrt{5}$", "No such $c$ is guaranteed, because the hypotheses fail"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This is the average rate of change $\\frac{f(3)-f(1)}{3-1} = 4$ itself; the MVT asks for the $c$ where $f'(c)$ equals that value, so the equation to solve is $2c = 4$.",
+        "This comes from setting $f(c)$ equal to the average of $f(1)$ and $f(3)$; the MVT matches the derivative $f'(c)$ to the average rate of change, not $f(c)$ to an average of values.",
+        "The hypotheses do not fail: $x^2$ is continuous on the closed interval and differentiable on the open interval, so the MVT applies and produces at least one $c$."
+      ],
+      "hints": [
+        "Start by computing the average rate of change of $f$ over $[1, 3]$: the slope of the secant line between the endpoints.",
+        "Set $f'(c) = 2c$ equal to the average rate of change you computed and solve for $c$. Confirm the solution lies in the open interval $(1, 3)$."
+      ],
+      "solution": [
+        { "text": "Compute the average rate of change over the interval.", "math": "\\frac{f(3) - f(1)}{3 - 1} = \\frac{9 - 1}{2} = 4" },
+        { "text": "Set the derivative equal to this value.", "math": "f'(c) = 2c = 4" },
+        { "text": "Solve and check membership in the open interval: $c = 2$ lies in $(1, 3)$.", "math": "c = 2" }
+      ]
+    },
+    {
+      "id": "u5-q002",
+      "skillId": "u5-mvt-evt",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>A function $f$ is defined on the closed interval $[a, b]$. Which pair of hypotheses is exactly what the Mean Value Theorem requires before it guarantees a $c$ in $(a, b)$ with $f'(c) = \\frac{f(b)-f(a)}{b-a}$?</p>",
+      "choices": [
+        "$f$ is continuous on $[a, b]$ and differentiable on $(a, b)$",
+        "$f$ is continuous on $(a, b)$ and differentiable on $[a, b]$",
+        "$f$ is differentiable on $(a, b)$; continuity is not required",
+        "$f$ is continuous on $[a, b]$ and $f(a) = f(b)$"
+      ],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This swaps the two interval types. Continuity is needed up to and including the endpoints, while differentiability is needed only strictly between them; the MVT does not require one-sided derivatives at $a$ and $b$.",
+        "Differentiability on $(a, b)$ gives continuity only on the open interval; the theorem also needs continuity at the endpoints $a$ and $b$, which this choice omits.",
+        "The condition $f(a) = f(b)$ belongs to Rolle's Theorem, the special case whose conclusion is $f'(c) = 0$; the MVT works for any endpoint values but still needs differentiability on $(a, b)$, which this choice omits."
+      ],
+      "hints": [
+        "One hypothesis is about the closed interval including endpoints; the other is about the open interval strictly between them. Match each property to the correct interval type.",
+        "Differentiability at the endpoints themselves is never required, and continuity must extend all the way to the endpoints. Also recall which theorem has the extra condition $f(a) = f(b)$."
+      ],
+      "solution": [
+        { "text": "The MVT hypotheses are: continuity on the closed interval $[a, b]$ and differentiability on the open interval $(a, b)$." },
+        { "text": "Continuity must include the endpoints because the secant slope uses $f(a)$ and $f(b)$; differentiability is only needed strictly inside, where the guaranteed $c$ lives." },
+        { "text": "The condition $f(a) = f(b)$ is not an MVT hypothesis; it defines the special case known as Rolle's Theorem." }
+      ]
+    },
+    {
+      "id": "u5-q003",
+      "skillId": "u5-mvt-evt",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>Let $f(x) = x^3 - 3x$ on $[0, 3]$. Find the value of $c$ in $(0, 3)$ that satisfies the conclusion of the Mean Value Theorem. Round to three decimal places.</p>",
+      "answer": 1.732,
+      "tolerance": 0.005,
+      "hints": [
+        "Compute $f(0)$ and $f(3)$, then form the average rate of change $\\frac{f(3)-f(0)}{3-0}$.",
+        "Set $f'(c) = 3c^2 - 3$ equal to the average rate of change and solve. Keep the root that lies inside $(0, 3)$."
+      ],
+      "solution": [
+        { "text": "Evaluate the endpoints.", "math": "f(0) = 0, \\qquad f(3) = 27 - 9 = 18" },
+        { "text": "Form the average rate of change.", "math": "\\frac{18 - 0}{3 - 0} = 6" },
+        { "text": "Set the derivative equal to it and solve.", "math": "3c^2 - 3 = 6 \\implies c^2 = 3 \\implies c = \\pm\\sqrt{3}" },
+        { "text": "Only the positive root lies in $(0, 3)$.", "math": "c = \\sqrt{3} \\approx 1.732" }
+      ]
+    },
+    {
+      "id": "u5-q004",
+      "skillId": "u5-mvt-evt",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>On $[0, 3]$, the function $f(x) = |x - 1|$ has average rate of change $\\frac{f(3)-f(0)}{3-0} = \\frac{2-1}{3} = \\frac{1}{3}$, yet there is no $c$ with $f'(c) = \\frac{1}{3}$, because $f'$ takes only the values $-1$ and $1$. Which statement explains why this does not contradict the Mean Value Theorem?</p>",
+      "choices": [
+        "$f$ is not differentiable at $x = 1$, so the MVT hypotheses are not satisfied on this interval",
+        "$f$ is not continuous at $x = 1$, so the MVT hypotheses are not satisfied on this interval",
+        "The MVT requires $f(a) = f(b)$, which fails here",
+        "The MVT applies only to functions that are increasing on the whole interval"
+      ],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This confuses the corner with a break: $|x - 1|$ is continuous at every real number. What fails at the corner $x = 1$ is differentiability, because the one-sided slopes $-1$ and $1$ disagree.",
+        "The condition $f(a) = f(b)$ is the hypothesis of Rolle's Theorem, not of the MVT; the MVT applies to any endpoint values when its continuity and differentiability hypotheses hold.",
+        "The MVT has no monotonicity hypothesis; it applies to functions that rise, fall, or both. The failed hypothesis here is differentiability at the interior point $x = 1$."
+      ],
+      "hints": [
+        "The MVT has exactly two hypotheses. Test each one against this specific function on this interval.",
+        "Consider the point $x = 1$, where the graph of $|x - 1|$ has a corner. Decide which property a corner destroys: continuity or differentiability."
+      ],
+      "solution": [
+        { "text": "The MVT requires continuity on $[0, 3]$ and differentiability on $(0, 3)$." },
+        { "text": "$f(x) = |x - 1|$ is continuous everywhere, so the continuity hypothesis holds." },
+        { "text": "At $x = 1$, the slope from the left is $-1$ and from the right is $1$, so $f'(1)$ does not exist. Since $1$ is inside $(0, 3)$, the differentiability hypothesis fails, and the MVT makes no promise for this function on this interval." }
+      ]
+    },
+    {
+      "id": "u5-q005",
+      "skillId": "u5-mvt-evt",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>The function $f$ is continuous on $[0, 8]$ and differentiable on $(0, 8)$, with selected values given in the table.</p><table><thead><tr><th>$x$</th><th>$0$</th><th>$3$</th><th>$5$</th><th>$8$</th></tr></thead><tbody><tr><td>$f(x)$</td><td>$2$</td><td>$8$</td><td>$8$</td><td>$4$</td></tr></tbody></table><p>Consider the statements:</p><ul><li>I. There is a $c$ in $(0, 8)$ with $f'(c) = \\frac{1}{4}$.</li><li>II. There is a $c$ in $(3, 5)$ with $f'(c) = 0$.</li><li>III. $f$ attains an absolute maximum value on $[0, 8]$.</li></ul><p>Which statements must be true?</p>",
+      "choices": ["I only", "I and III only", "II and III only", "I, II, and III"],
+      "answerIndex": 3,
+      "misconceptions": [
+        "Statements II and III also follow: applying the MVT on $[3, 5]$, where the average rate of change is $\\frac{8-8}{2} = 0$, gives II, and the Extreme Value Theorem on the closed interval gives III.",
+        "Statement II also follows: on $[3, 5]$ the average rate of change is $\\frac{8-8}{2} = 0$, so the MVT guarantees a $c$ in $(3, 5)$ with $f'(c) = 0$.",
+        "Statement I also follows: on $[0, 8]$ the average rate of change is $\\frac{4-2}{8-0} = \\frac{1}{4}$, so the MVT guarantees the required $c$.",
+        null
+      ],
+      "hints": [
+        "Test statement I with the MVT applied to the full interval $[0, 8]$: compute the average rate of change from the table.",
+        "For statement II, apply the MVT to the subinterval $[3, 5]$ and use the two equal table values.",
+        "For statement III, identify the theorem whose only hypotheses are continuity and a closed interval."
+      ],
+      "solution": [
+        { "text": "Statement I: the average rate of change on $[0, 8]$ is $\\frac{4 - 2}{8 - 0} = \\frac{1}{4}$; the MVT hypotheses hold there, so some $c$ in $(0, 8)$ has $f'(c) = \\frac{1}{4}$. True." },
+        { "text": "Statement II: on $[3, 5]$ the hypotheses also hold, and the average rate of change is $\\frac{8 - 8}{5 - 3} = 0$, so some $c$ in $(3, 5)$ has $f'(c) = 0$. True." },
+        { "text": "Statement III: $f$ is continuous on the closed interval $[0, 8]$, so the Extreme Value Theorem guarantees an absolute maximum. True." },
+        { "text": "All three statements must be true." }
+      ]
+    },
+    {
+      "id": "u5-q006",
+      "skillId": "u5-critical-increasing",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>Find all critical points of $f(x) = x^3 - 12x$.</p>",
+      "choices": ["$x = 2$ only", "$x = -2$ and $x = 2$", "$x = 0$", "$x = -2\\sqrt{3},\\; 0,\\; 2\\sqrt{3}$"],
+      "answerIndex": 1,
+      "misconceptions": [
+        "Solving $3x^2 - 12 = 0$ gives $x^2 = 4$, which has two real solutions; this choice keeps only the positive square root and drops $x = -2$.",
+        null,
+        "This is where $f''(x) = 6x$ equals zero, a candidate for an inflection point; critical points come from $f'(x) = 3x^2 - 12$.",
+        "These are the zeros of $f$ itself, from solving $x^3 - 12x = 0$; critical points are zeros of the derivative $f'$, not of $f$."
+      ],
+      "hints": [
+        "A critical point of this polynomial is a solution of $f'(x) = 0$. Start by computing $f'$.",
+        "Solve $3x^2 - 12 = 0$. An equation of the form $x^2 = k$ with $k$ positive has two real solutions."
+      ],
+      "solution": [
+        { "text": "Differentiate.", "math": "f'(x) = 3x^2 - 12" },
+        { "text": "Set the derivative to zero and solve.", "math": "3x^2 - 12 = 0 \\implies x^2 = 4 \\implies x = \\pm 2" },
+        { "text": "Both values are in the domain of the polynomial, so the critical points are $x = -2$ and $x = 2$." }
+      ]
+    },
+    {
+      "id": "u5-q007",
+      "skillId": "u5-critical-increasing",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>On which interval or intervals is $f(x) = 3x^4 - 4x^3$ increasing?</p>",
+      "choices": ["$(1, \\infty)$ only", "$(0, \\infty)$", "$(-\\infty, 0)$ and $(1, \\infty)$", "$(-\\infty, 0)$ and $(0, 1)$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This treats $x = 0$ as the place the sign of $f'$ turns positive; in $f'(x) = 12x^2(x - 1)$ the factor $12x^2$ is nonnegative on both sides of $0$, and the factor $x - 1$ keeps $f'$ negative on $(0, 1)$.",
+        "This assumes $f'$ alternates sign at every critical point; the squared factor $x^2$ does not change sign at $x = 0$, so $f'$ is negative on both $(-\\infty, 0)$ and $(0, 1)$.",
+        "On these intervals $f'(x) = 12x^2(x - 1)$ is negative, so $f$ is decreasing there; this choice reads the sign chart with the conclusion reversed."
+      ],
+      "hints": [
+        "Differentiate and factor completely; a common factor of $12x^2$ appears.",
+        "Determine the sign of $12x^2(x - 1)$ on each interval cut by the critical points $x = 0$ and $x = 1$. Note that $12x^2$ is never negative.",
+        "A squared factor does not flip the sign of $f'$ as $x$ passes its zero. Only the factor $x - 1$ changes sign."
+      ],
+      "solution": [
+        { "text": "Differentiate and factor.", "math": "f'(x) = 12x^3 - 12x^2 = 12x^2(x - 1)" },
+        { "text": "The critical points are $x = 0$ and $x = 1$. The factor $12x^2$ is positive except at $x = 0$, so the sign of $f'$ equals the sign of $x - 1$." },
+        { "text": "The factor $x - 1$ is negative for $x$ below $1$ and positive for $x$ above $1$, so $f'$ is negative on $(-\\infty, 0)$ and on $(0, 1)$, and positive on $(1, \\infty)$." },
+        { "text": "$f$ is increasing exactly where $f'$ is positive: on $(1, \\infty)$." }
+      ]
+    },
+    {
+      "id": "u5-q008",
+      "skillId": "u5-critical-increasing",
+      "difficulty": 1,
+      "type": "numeric",
+      "prompt": "<p>Find the $x$-coordinate of the critical point of $f(x) = x^2 - 6x + 5$.</p>",
+      "answer": 3,
+      "hints": [
+        "Compute $f'(x)$ and set it equal to zero.",
+        "Solve $2x - 6 = 0$."
+      ],
+      "solution": [
+        { "text": "Differentiate.", "math": "f'(x) = 2x - 6" },
+        { "text": "Set to zero and solve.", "math": "2x - 6 = 0 \\implies x = 3" }
+      ]
+    },
+    {
+      "id": "u5-q009",
+      "skillId": "u5-critical-increasing",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>Find the $x$-coordinate of the critical point of $f(x) = x e^{-x}$.</p>",
+      "answer": 1,
+      "hints": [
+        "Use the product rule on $x \\cdot e^{-x}$; the derivative of $e^{-x}$ carries a chain-rule factor of $-1$.",
+        "Factor $e^{-x}$ out of the derivative. An exponential is never zero, so only the other factor can vanish."
+      ],
+      "solution": [
+        { "text": "Differentiate with the product rule.", "math": "f'(x) = e^{-x} + x(-e^{-x}) = e^{-x}(1 - x)" },
+        { "text": "Since $e^{-x}$ is positive for every real $x$, the derivative is zero only where $1 - x = 0$.", "math": "x = 1" }
+      ]
+    },
+    {
+      "id": "u5-q010",
+      "skillId": "u5-critical-increasing",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>The derivative of a function $f$ is $f'(x) = (x + 2)(x - 1)^2(x - 3)$. At how many values of $x$ does $f$ have a relative extremum?</p>",
+      "choices": ["$0$", "$2$", "$3$", "$4$"],
+      "answerIndex": 1,
+      "misconceptions": [
+        "This would require $f'$ to keep one sign on the whole line, but testing a point between the outer zeros, such as $f'(0) = (2)(1)(-3)$, shows $f'$ is negative there while it is positive outside $[-2, 3]$.",
+        null,
+        "This counts every zero of $f'$ as an extremum; at $x = 1$ the squared factor $(x - 1)^2$ keeps $f'$ from changing sign, so $f$ has no extremum there.",
+        "This counts the degree of the polynomial $f'$; extrema of $f$ come from sign changes of $f'$, and $f'$ changes sign only at $x = -2$ and $x = 3$."
+      ],
+      "hints": [
+        "The zeros of $f'$ are $x = -2, 1, 3$. An extremum occurs only where $f'$ changes sign, so check the sign of $f'$ on each of the four intervals.",
+        "Pay attention to the exponent on each factor: a factor raised to an even power does not change sign as $x$ crosses its zero."
+      ],
+      "solution": [
+        { "text": "The zeros of $f'$ are $x = -2$, $x = 1$ (from a squared factor), and $x = 3$. Test signs: $f'(-3) = (-1)(16)(-6)$ is positive; $f'(0) = (2)(1)(-3)$ is negative; $f'(2) = (4)(1)(-1)$ is negative; $f'(4) = (6)(9)(1)$ is positive." },
+        { "text": "Sign changes: positive to negative at $x = -2$ (relative maximum), no change at $x = 1$, negative to positive at $x = 3$ (relative minimum)." },
+        { "text": "Relative extrema occur at exactly $2$ values of $x$." }
+      ]
+    },
+    {
+      "id": "u5-q011",
+      "skillId": "u5-extrema-tests",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>The function $f$ is continuous at $x = 2$, and its derivative $f'$ changes sign from positive to negative at $x = 2$. What does $f$ have at $x = 2$?</p>",
+      "choices": ["A relative maximum", "A relative minimum", "A point of inflection", "An absolute maximum"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "A relative minimum corresponds to the opposite sign pattern: $f'$ negative before the point and positive after, so the function falls into the point and rises out of it.",
+        "A point of inflection corresponds to a sign change of $f''$ (a change of concavity), not to a sign change of $f'$.",
+        "The first derivative test gives local information near $x = 2$ only; declaring an absolute maximum requires comparing values across the entire domain, for example with the candidates test."
+      ],
+      "hints": [
+        "Translate the sign of $f'$ into the direction of $f$: positive means rising, negative means falling.",
+        "Describe the shape: the function rises up to $x = 2$ and falls after it. Decide which named feature has that shape, and whether the conclusion is local or global."
+      ],
+      "solution": [
+        { "text": "For $x$ slightly below $2$, $f'$ is positive, so $f$ is increasing; for $x$ slightly above $2$, $f'$ is negative, so $f$ is decreasing." },
+        { "text": "Rising then falling at a point where $f$ is continuous is the first derivative test pattern for a relative maximum. The test says nothing about the whole domain, so no absolute claim follows." }
+      ]
+    },
+    {
+      "id": "u5-q012",
+      "skillId": "u5-extrema-tests",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>Find the absolute maximum value of $f(x) = x^3 - 3x^2 + 1$ on the closed interval $[-1, 4]$.</p>",
+      "answer": 17,
+      "hints": [
+        "Use the candidates test: the absolute maximum on a closed interval occurs at an interior critical point or at an endpoint.",
+        "Solve $f'(x) = 3x^2 - 6x = 0$ for the critical points, then evaluate $f$ at those points and at $x = -1$ and $x = 4$."
+      ],
+      "solution": [
+        { "text": "Find the interior critical points.", "math": "f'(x) = 3x^2 - 6x = 3x(x - 2) = 0 \\implies x = 0, \\; x = 2" },
+        { "text": "Evaluate $f$ at the candidates $x = -1, 0, 2, 4$.", "math": "f(-1) = -3, \\quad f(0) = 1, \\quad f(2) = -3, \\quad f(4) = 17" },
+        { "text": "The largest candidate value is the absolute maximum: $17$, attained at the endpoint $x = 4$." }
+      ]
+    },
+    {
+      "id": "u5-q013",
+      "skillId": "u5-extrema-tests",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>What is the absolute minimum value of $f(x) = x^4 - 8x^2$ on the closed interval $[-1, 3]$?</p>",
+      "choices": ["$-16$", "$-7$", "$0$", "$2$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This is $f(-1)$, the smaller endpoint value; the candidates test also requires the interior critical points, and the critical point $x = 2$ gives the smaller value $f(2) = -16$.",
+        "This is $f(0)$, the value at the critical point $x = 0$; that point is a relative maximum, and comparing all candidate values shows the minimum is elsewhere.",
+        "This is the $x$-coordinate at which the minimum occurs; the question asks for the minimum value, which is $f(2)$."
+      ],
+      "hints": [
+        "Find the critical points from $f'(x) = 4x^3 - 16x$ and keep only those inside $(-1, 3)$.",
+        "Evaluate $f$ at each interior critical point and at both endpoints, then take the smallest value. The question asks for the value of $f$, not the location."
+      ],
+      "solution": [
+        { "text": "Differentiate and factor.", "math": "f'(x) = 4x^3 - 16x = 4x(x - 2)(x + 2)" },
+        { "text": "The zeros are $x = -2, 0, 2$; only $x = 0$ and $x = 2$ lie inside $(-1, 3)$. The candidates are $-1, 0, 2, 3$." },
+        { "text": "Evaluate.", "math": "f(-1) = -7, \\quad f(0) = 0, \\quad f(2) = -16, \\quad f(3) = 9" },
+        { "text": "The smallest value is $-16$, so the absolute minimum value is $-16$, attained at $x = 2$." }
+      ]
+    },
+    {
+      "id": "u5-q014",
+      "skillId": "u5-extrema-tests",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>What is the absolute maximum value of $f(x) = 2x^3 - 15x^2 + 24x$ on the closed interval $[0, 5]$?</p>",
+      "choices": ["$11$", "$0$", "$1$", "$-16$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This is the larger of the two endpoint values, $f(0) = 0$ and $f(5) = -5$; checking only endpoints misses the interior critical point $x = 1$, where $f(1) = 11$ is larger.",
+        "This is the $x$-coordinate of the maximizing point; the question asks for the maximum value, which is $f(1)$.",
+        "This is $f(4) = -16$, the absolute minimum value on the interval, not the maximum."
+      ],
+      "hints": [
+        "Factor the derivative $f'(x) = 6x^2 - 30x + 24$; the quadratic factors over the integers.",
+        "The candidates are the two interior critical points and the endpoints $0$ and $5$. Evaluate $f$ at all four and compare."
+      ],
+      "solution": [
+        { "text": "Differentiate and factor.", "math": "f'(x) = 6x^2 - 30x + 24 = 6(x - 1)(x - 4)" },
+        { "text": "The interior critical points are $x = 1$ and $x = 4$, so the candidate list is $x = 0, 1, 4, 5$." },
+        { "text": "Evaluate.", "math": "f(0) = 0, \\quad f(1) = 11, \\quad f(4) = -16, \\quad f(5) = -5" },
+        { "text": "The absolute maximum value is $11$, attained at $x = 1$." }
+      ]
+    },
+    {
+      "id": "u5-q015",
+      "skillId": "u5-extrema-tests",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>A differentiable function $f$ has $f'(-1) = 0$ and $f'(3) = 0$, with no other zeros of $f'$. The sign of $f'$ is: negative on $(-\\infty, -1)$, positive on $(-1, 3)$, and positive on $(3, \\infty)$. Which statement is true?</p>",
+      "choices": [
+        "$f$ has a relative minimum at $x = -1$ and no relative extremum at $x = 3$",
+        "$f$ has a relative minimum at $x = -1$ and a relative maximum at $x = 3$",
+        "$f$ has a relative maximum at $x = -1$ and a relative minimum at $x = 3$",
+        "$f$ has no relative extrema"
+      ],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This assumes every zero of $f'$ is an extremum; at $x = 3$ the derivative is positive on both sides, so $f$ keeps increasing through that point and has no extremum there.",
+        "This reverses the first derivative test at $x = -1$: the sign of $f'$ goes from negative to positive there, which is the pattern of a minimum, not a maximum.",
+        "An extremum requires a sign change of $f'$, and one does occur: at $x = -1$ the sign changes from negative to positive, so a relative minimum exists there."
+      ],
+      "hints": [
+        "Apply the first derivative test separately at each zero of $f'$: compare the sign of $f'$ just before and just after.",
+        "At $x = 3$, ask whether the sign of $f'$ actually changes. A zero of the derivative without a sign change produces no extremum."
+      ],
+      "solution": [
+        { "text": "At $x = -1$: $f'$ changes from negative to positive, so $f$ falls and then rises, a relative minimum." },
+        { "text": "At $x = 3$: $f'$ is positive on both sides, so $f$ is increasing before and after; the graph flattens momentarily but has no extremum there." }
+      ]
+    },
+    {
+      "id": "u5-q016",
+      "skillId": "u5-extrema-tests",
+      "difficulty": 3,
+      "type": "numeric",
+      "prompt": "<p>Find the absolute minimum value of $f(x) = x - 2\\sin x$ on the closed interval $[0, \\pi]$. Round to three decimal places.</p>",
+      "answer": -0.685,
+      "tolerance": 0.005,
+      "hints": [
+        "Solve $f'(x) = 1 - 2\\cos x = 0$ on $[0, \\pi]$; there is exactly one solution in the interval.",
+        "The equation $\\cos x = \\frac{1}{2}$ has the solution $x = \\frac{\\pi}{3}$ in $[0, \\pi]$. Evaluate $f$ there and at both endpoints, then take the smallest value."
+      ],
+      "solution": [
+        { "text": "Differentiate and solve for critical points in the interval.", "math": "f'(x) = 1 - 2\\cos x = 0 \\implies \\cos x = \\tfrac{1}{2} \\implies x = \\tfrac{\\pi}{3}" },
+        { "text": "Evaluate $f$ at the candidates $0$, $\\frac{\\pi}{3}$, and $\\pi$.", "math": "f(0) = 0, \\quad f(\\tfrac{\\pi}{3}) = \\tfrac{\\pi}{3} - \\sqrt{3}, \\quad f(\\pi) = \\pi" },
+        { "text": "Compute the critical value numerically.", "math": "\\tfrac{\\pi}{3} - \\sqrt{3} \\approx 1.0472 - 1.7321 = -0.6849" },
+        { "text": "The smallest candidate value is $\\frac{\\pi}{3} - \\sqrt{3} \\approx -0.685$, the absolute minimum value." }
+      ]
+    },
+    {
+      "id": "u5-q017",
+      "skillId": "u5-concavity",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>On which interval is $f(x) = x^3 - 3x^2 - 9x$ concave up?</p>",
+      "choices": ["$(1, \\infty)$", "$(-\\infty, 1)$", "$(3, \\infty)$", "$(-1, 3)$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "On this interval $f''(x) = 6x - 6$ is negative, so the graph is concave down; this choice reverses the sign condition.",
+        "The value $x = 3$ is a zero of $f'(x) = 3(x - 3)(x + 1)$, which governs increase and decrease; concavity is read from the sign of $f''$, which changes at $x = 1$.",
+        "These are the zeros of $f'$; between them $f$ is decreasing, which is a direction property, separate from concavity."
+      ],
+      "hints": [
+        "Concavity is determined by the sign of the second derivative. Compute $f''$.",
+        "Solve $6x - 6 > 0$."
+      ],
+      "solution": [
+        { "text": "Compute the second derivative.", "math": "f'(x) = 3x^2 - 6x - 9, \\qquad f''(x) = 6x - 6" },
+        { "text": "The graph is concave up where $f''$ is positive.", "math": "6x - 6 > 0 \\implies x > 1" },
+        { "text": "So $f$ is concave up on $(1, \\infty)$." }
+      ]
+    },
+    {
+      "id": "u5-q018",
+      "skillId": "u5-concavity",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Consider $f(x) = x^4$ at $x = 0$. Which statement is true?</p>",
+      "choices": [
+        "$f''(0) = 0$, but $x = 0$ is not a point of inflection, because $f''$ does not change sign there",
+        "$x = 0$ is a point of inflection because $f''(0) = 0$",
+        "$x = 0$ is a point of inflection because $f'(0) = 0$",
+        "$f$ is concave down on $(-\\infty, 0)$ and concave up on $(0, \\infty)$"
+      ],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "The condition $f''(c) = 0$ marks a candidate only; an inflection point additionally requires $f''$ to change sign, and $f''(x) = 12x^2$ is nonnegative on both sides of $0$.",
+        "A zero of $f'$ marks a critical point, a candidate for a maximum or minimum; inflection points concern $f''$ and concavity, not $f'$.",
+        "Since $f''(x) = 12x^2$ is positive for every nonzero $x$, the graph is concave up on both sides of $0$; the concavity does not switch."
+      ],
+      "hints": [
+        "Compute $f''$ for $f(x) = x^4$ and examine its sign on each side of $x = 0$.",
+        "An inflection point requires a change of concavity, meaning a sign change of $f''$, not merely a zero value of $f''$ at the point."
+      ],
+      "solution": [
+        { "text": "Compute.", "math": "f'(x) = 4x^3, \\qquad f''(x) = 12x^2" },
+        { "text": "$f''(0) = 0$, so $x = 0$ is a candidate. But $12x^2$ is positive for every $x \\neq 0$, so the graph is concave up on both sides." },
+        { "text": "Because concavity does not change, $x = 0$ is not a point of inflection. The graph has a relative minimum there instead." }
+      ]
+    },
+    {
+      "id": "u5-q019",
+      "skillId": "u5-concavity",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Let $f(x) = x^3 - 3x$. Use the second derivative test to classify the critical point at $x = 1$.</p>",
+      "choices": ["Relative minimum", "Relative maximum", "Point of inflection", "The test is inconclusive"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This reverses the test: $f''(1) = 6$ is positive, meaning the graph is concave up at the flat point, and a concave-up critical point is a minimum, not a maximum.",
+        "Inflection points are located where $f''$ changes sign, which for $f''(x) = 6x$ happens at $x = 0$; the point $x = 1$ is a critical point of $f$, not an inflection candidate.",
+        "The test is inconclusive only when the second derivative at the critical point equals $0$; here $f''(1) = 6 \\neq 0$, so the test gives a definite answer."
+      ],
+      "hints": [
+        "Verify that $x = 1$ is critical by checking $f'(1) = 0$, then compute $f''(x)$.",
+        "Evaluate $f''(1)$ and translate its sign: positive means concave up at a flat point."
+      ],
+      "solution": [
+        { "text": "Check the critical point and compute derivatives.", "math": "f'(x) = 3x^2 - 3, \\quad f'(1) = 0, \\quad f''(x) = 6x" },
+        { "text": "Evaluate the second derivative at the critical point.", "math": "f''(1) = 6 > 0" },
+        { "text": "A positive second derivative at a critical point means the graph is concave up there, so $f$ has a relative minimum at $x = 1$." }
+      ]
+    },
+    {
+      "id": "u5-q020",
+      "skillId": "u5-concavity",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>Let $f(x) = x^4 - 4x^3$. Find the largest value of $x$ at which the graph of $f$ has a point of inflection.</p>",
+      "answer": 2,
+      "hints": [
+        "Compute $f''$, set it to zero, and factor.",
+        "There are two candidates. Confirm that the sign of $f''(x) = 12x(x - 2)$ changes at each, then report the larger one."
+      ],
+      "solution": [
+        { "text": "Compute the second derivative and factor.", "math": "f''(x) = 12x^2 - 24x = 12x(x - 2)" },
+        { "text": "The zeros are $x = 0$ and $x = 2$. The sign of $f''$ is positive for $x < 0$, negative on $(0, 2)$, and positive for $x > 2$, so concavity changes at both." },
+        { "text": "Both are inflection locations; the largest is $x = 2$." }
+      ]
+    },
+    {
+      "id": "u5-q021",
+      "skillId": "u5-concavity",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>Let $f(x) = x^4 - 4x^3$. Its critical points are $x = 0$ and $x = 3$. Which statement correctly classifies them?</p>",
+      "choices": [
+        "$f$ has a relative minimum at $x = 3$ and no relative extremum at $x = 0$",
+        "$f$ has a relative minimum at $x = 3$ and a relative maximum at $x = 0$",
+        "$f$ has a relative maximum at $x = 3$ and no relative extremum at $x = 0$",
+        "$f$ has no relative extremum at either critical point"
+      ],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "At $x = 0$ the second derivative test is inconclusive because $f''(0) = 0$, and the first derivative test shows $f'(x) = 4x^2(x - 3)$ is negative on both sides of $0$, so there is no extremum there; this choice treats the inconclusive case as a maximum.",
+        "$f''(3) = 36$ is positive, so the graph is concave up at that flat point, giving a relative minimum; this choice reverses the second derivative test.",
+        "At $x = 3$ the derivative $4x^2(x - 3)$ changes sign from negative to positive, so a relative minimum does occur there."
+      ],
+      "hints": [
+        "Compute $f''(x) = 12x^2 - 24x$ and try the second derivative test at both critical points. One of the two evaluations comes out zero.",
+        "Where the second derivative test is inconclusive, fall back to the first derivative test: examine the sign of $f'(x) = 4x^2(x - 3)$ on each side of that point."
+      ],
+      "solution": [
+        { "text": "Apply the second derivative test at $x = 3$.", "math": "f''(x) = 12x^2 - 24x, \\qquad f''(3) = 108 - 72 = 36 > 0" },
+        { "text": "So $x = 3$ is a relative minimum. At $x = 0$: $f''(0) = 0$, so the test is inconclusive." },
+        { "text": "First derivative test at $x = 0$: in $f'(x) = 4x^2(x - 3)$, the factor $4x^2$ is nonnegative and $x - 3$ is negative near $0$, so $f'$ is negative on both sides of $0$; no sign change means no extremum." },
+        { "text": "Conclusion: relative minimum at $x = 3$, no extremum at $x = 0$." }
+      ]
+    },
+    {
+      "id": "u5-q022",
+      "skillId": "u5-graph-connections",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>The graph of $f'$, the derivative of $f$, lies above the $x$-axis on the entire interval $(a, b)$. Which statement about $f$ must be true on $(a, b)$?</p>",
+      "choices": ["$f$ is increasing", "$f$ is positive", "$f$ is concave up", "$f$ has a relative maximum in the interval"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This confuses the sign of $f'$ with the sign of $f$; a positive derivative means $f$ is rising, while $f$ itself may be negative the whole time.",
+        "Concave up corresponds to $f'$ increasing (equivalently $f''$ positive), not to $f'$ being positive; a positive but decreasing $f'$ gives a concave-down $f$.",
+        "A relative maximum requires $f'$ to change sign from positive to negative; a derivative that stays positive on the whole interval produces no interior extremum."
+      ],
+      "hints": [
+        "The height of the graph of $f'$ is the value of $f'$. Translate the given statement into a sign condition on $f'$.",
+        "Recall which property of $f$ the sign of $f'$ controls, and which property the increase or decrease of $f'$ controls."
+      ],
+      "solution": [
+        { "text": "The graph of $f'$ above the axis means $f'(x) > 0$ throughout $(a, b)$." },
+        { "text": "A positive derivative on an interval means $f$ is increasing there. The sign of $f'$ says nothing by itself about the sign of $f$ or about concavity." }
+      ]
+    },
+    {
+      "id": "u5-q023",
+      "skillId": "u5-graph-connections",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>The derivative $f'$ of a function $f$ is increasing on $(0, 4)$, and $f'(2) = 0$. Which statement must be true?</p>",
+      "choices": [
+        "$f$ has a relative minimum at $x = 2$",
+        "$f$ has a relative maximum at $x = 2$",
+        "$f$ has a point of inflection at $x = 2$",
+        "$f$ is decreasing on all of $(0, 4)$"
+      ],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "Because $f'$ is increasing through its zero, it passes from negative to positive at $x = 2$, which is the minimum pattern; a maximum needs $f'$ to pass from positive to negative.",
+        "A point of inflection of $f$ corresponds to a relative extremum of $f'$, that is, a sign change of $f''$; here $f'$ is increasing throughout, so no inflection is forced at $x = 2$.",
+        "The increase of $f'$ describes the concavity of $f$ (concave up); the sign of $f'$ controls direction, and $f'$ is negative only on $(0, 2)$, so $f$ decreases there and increases on $(2, 4)$."
+      ],
+      "hints": [
+        "An increasing function crosses zero in only one direction. Determine the sign of $f'$ just before and just after $x = 2$.",
+        "Apply the first derivative test with those signs."
+      ],
+      "solution": [
+        { "text": "Since $f'$ is increasing on $(0, 4)$ and $f'(2) = 0$, the values of $f'$ are negative for $x$ just below $2$ and positive for $x$ just above $2$." },
+        { "text": "By the first derivative test, $f$ changes from decreasing to increasing at $x = 2$, so $f$ has a relative minimum there." }
+      ]
+    },
+    {
+      "id": "u5-q024",
+      "skillId": "u5-graph-connections",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>On the interval $(0, 5)$, the derivative $f'$ is positive and decreasing. Which pair of properties must $f$ have on $(0, 5)$?</p>",
+      "choices": ["Increasing and concave down", "Increasing and concave up", "Decreasing and concave down", "Decreasing and concave up"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This reads the positivity of $f'$ as concave up; concavity follows the trend of $f'$, and a decreasing $f'$ means $f''$ is negative, which is concave down.",
+        "This reads the decrease of $f'$ as decrease of $f$; the direction of $f$ follows the sign of $f'$, which is positive, so $f$ is increasing.",
+        "Both properties are transferred incorrectly here: the sign of $f'$ (positive) gives the direction of $f$ (increasing), and the trend of $f'$ (decreasing) gives the concavity (down)."
+      ],
+      "hints": [
+        "Separate the two pieces of information: the sign of $f'$, and whether $f'$ is rising or falling.",
+        "The sign of $f'$ controls increasing or decreasing; the trend of $f'$ controls concavity."
+      ],
+      "solution": [
+        { "text": "$f'$ positive on $(0, 5)$ means $f$ is increasing there." },
+        { "text": "$f'$ decreasing means $f''$ is negative where it exists, so $f$ is concave down. The graph rises at a slowing rate." }
+      ]
+    },
+    {
+      "id": "u5-q025",
+      "skillId": "u5-graph-connections",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>A function $f$ is twice differentiable on $(-2, 6)$ with: $f'$ positive on $(-2, 1)$, negative on $(1, 3)$, and positive on $(3, 6)$; and $f''$ negative on $(-2, 2)$ and positive on $(2, 6)$. Which statement is true?</p>",
+      "choices": [
+        "$f$ has a relative maximum at $x = 1$, a relative minimum at $x = 3$, and a point of inflection at $x = 2$",
+        "$f$ has a relative minimum at $x = 1$, a relative maximum at $x = 3$, and a point of inflection at $x = 2$",
+        "$f$ has a relative maximum at $x = 1$ and a relative minimum at $x = 3$, but no point of inflection, because $f'(2) \\neq 0$",
+        "$f$ has points of inflection at $x = 1$ and $x = 3$ and a relative extremum at $x = 2$"
+      ],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This reverses the first derivative test at both points: $f'$ goes from positive to negative at $x = 1$ (a maximum) and from negative to positive at $x = 3$ (a minimum).",
+        "An inflection point does not require $f'$ to be zero; it requires $f''$ to change sign, which happens at $x = 2$ where concavity switches from down to up.",
+        "This swaps the roles of the derivatives: sign changes of $f'$ locate extrema ($x = 1$ and $x = 3$), and the sign change of $f''$ locates the inflection point ($x = 2$)."
+      ],
+      "hints": [
+        "Use the sign changes of $f'$ to classify $x = 1$ and $x = 3$ with the first derivative test.",
+        "Use the sign change of $f''$ at $x = 2$ for concavity. The definition of a point of inflection involves only $f''$, not $f'$."
+      ],
+      "solution": [
+        { "text": "At $x = 1$, $f'$ changes from positive to negative: a relative maximum. At $x = 3$, $f'$ changes from negative to positive: a relative minimum." },
+        { "text": "At $x = 2$, $f''$ changes from negative to positive, so concavity changes from down to up: a point of inflection, regardless of the value of $f'(2)$." }
+      ]
+    },
+    {
+      "id": "u5-q026",
+      "skillId": "u5-graph-connections",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>How many points of inflection does the graph of $f(x) = 3x^5 - 20x^3$ have?</p>",
+      "answer": 3,
+      "hints": [
+        "Compute $f''$ and factor it completely.",
+        "Count only the zeros of $f''$ where its sign actually changes. Each factor here appears to the first power."
+      ],
+      "solution": [
+        { "text": "Differentiate twice.", "math": "f'(x) = 15x^4 - 60x^2, \\qquad f''(x) = 60x^3 - 120x = 60x(x^2 - 2)" },
+        { "text": "The zeros of $f''$ are $x = -\\sqrt{2}, 0, \\sqrt{2}$, each from a simple factor, so $f''$ changes sign at all three." },
+        { "text": "Concavity changes at each zero, so the graph has $3$ points of inflection." }
+      ]
+    },
+    {
+      "id": "u5-q027",
+      "skillId": "u5-optimization",
+      "difficulty": 2,
+      "type": "numeric",
+      "prompt": "<p>A rectangular pen is built against a straight wall. The wall side needs no fence; the other three sides use exactly $200$ meters of fencing. What is the maximum possible area of the pen, in square meters?</p>",
+      "answer": 5000,
+      "hints": [
+        "Let $x$ be the length of each side perpendicular to the wall. Express the parallel side using the fencing constraint $2x + y = 200$.",
+        "Maximize $A(x) = x(200 - 2x)$ by solving $A'(x) = 0$, then report the area, not the side length."
+      ],
+      "solution": [
+        { "text": "With $x$ the length of each perpendicular side, the parallel side is $200 - 2x$, so the area is:", "math": "A(x) = x(200 - 2x) = 200x - 2x^2" },
+        { "text": "Differentiate and solve.", "math": "A'(x) = 200 - 4x = 0 \\implies x = 50" },
+        { "text": "Since $A''(x) = -4$ is negative, $x = 50$ gives the maximum; the dimensions are $50$ by $100$.", "math": "A(50) = 50 \\cdot 100 = 5000" }
+      ]
+    },
+    {
+      "id": "u5-q028",
+      "skillId": "u5-optimization",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>Two nonnegative numbers have a sum of $20$. What is the maximum possible value of their product?</p>",
+      "choices": ["$100$", "$99$", "$10$", "$400$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This is $9 \\cdot 11$, from assuming the two numbers must be different; the problem allows equal numbers, and the calculus maximum occurs at $10$ and $10$.",
+        "This is the value of each optimal number, not their product; after finding the optimizing input, the question still asks for the objective's value.",
+        "This is $20 \\cdot 20$, treating each number as the full sum; the constraint forces the second number to be $20 - x$, not $20$."
+      ],
+      "hints": [
+        "Name one number $x$; the constraint makes the other $20 - x$. Write the product as a function of $x$.",
+        "Maximize $P(x) = x(20 - x)$ on $[0, 20]$ by solving $P'(x) = 0$, and report the product value."
+      ],
+      "solution": [
+        { "text": "Set up the objective with the constraint substituted.", "math": "P(x) = x(20 - x) = 20x - x^2, \\quad 0 \\leq x \\leq 20" },
+        { "text": "Differentiate and solve.", "math": "P'(x) = 20 - 2x = 0 \\implies x = 10" },
+        { "text": "$P''(x) = -2$ is negative, so $x = 10$ is the maximum, and the endpoints give product $0$. The numbers are $10$ and $10$.", "math": "P(10) = 10 \\cdot 10 = 100" }
+      ]
+    },
+    {
+      "id": "u5-q029",
+      "skillId": "u5-optimization",
+      "difficulty": 3,
+      "type": "mc",
+      "prompt": "<p>An open-top box is made from a $12$-inch by $12$-inch square sheet by cutting equal squares of side length $x$ from the four corners and folding up the sides. What is the maximum possible volume of the box, in cubic inches?</p>",
+      "choices": ["$128$", "$256$", "$64$", "$2$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This comes from using base side $12 - x$ instead of $12 - 2x$; each side of the sheet loses a square from both of its ends, so the base side is $12 - 2x$.",
+        "This is the area of the base, $(12 - 2x)^2$ when $x = 2$; the volume also includes the height factor $x$.",
+        "This is the optimal cut size $x$, not the volume; the question asks for the maximum volume, which is $V(2)$."
+      ],
+      "hints": [
+        "After cutting, the base is a square of side $12 - 2x$ and the height is $x$, so $V(x) = x(12 - 2x)^2$ with $0 \\leq x \\leq 6$.",
+        "Differentiate with the product and chain rules, then factor out $(12 - 2x)$.",
+        "Two critical values appear; one of them makes the base disappear entirely. Evaluate $V$ at the meaningful one."
+      ],
+      "solution": [
+        { "text": "Set up the volume with the constraint built in.", "math": "V(x) = x(12 - 2x)^2, \\qquad 0 \\leq x \\leq 6" },
+        { "text": "Differentiate and factor.", "math": "V'(x) = (12 - 2x)^2 + x \\cdot 2(12 - 2x)(-2) = (12 - 2x)(12 - 6x)" },
+        { "text": "The critical values are $x = 6$, which gives volume $0$, and $x = 2$. The endpoints $0$ and $6$ both give $V = 0$." },
+        { "text": "Evaluate at $x = 2$.", "math": "V(2) = 2(12 - 4)^2 = 2 \\cdot 64 = 128" }
+      ]
+    },
+    {
+      "id": "u5-q030",
+      "skillId": "u5-optimization",
+      "difficulty": 3,
+      "type": "numeric",
+      "prompt": "<p>Find the $x$-coordinate of the point on the curve $y = \\sqrt{x}$ that is closest to the point $(3, 0)$. Give the exact decimal value.</p>",
+      "answer": 2.5,
+      "hints": [
+        "Minimize the squared distance instead of the distance: $S(x) = (x - 3)^2 + (\\sqrt{x})^2$ has the same minimizer and no square root.",
+        "Simplify $S(x) = (x - 3)^2 + x$ before differentiating, then solve $S'(x) = 0$."
+      ],
+      "solution": [
+        { "text": "A point on the curve is $(x, \\sqrt{x})$ with $x \\geq 0$. Minimize the squared distance to $(3, 0)$.", "math": "S(x) = (x - 3)^2 + (\\sqrt{x})^2 = (x - 3)^2 + x" },
+        { "text": "Differentiate and solve.", "math": "S'(x) = 2(x - 3) + 1 = 2x - 5 = 0 \\implies x = \\tfrac{5}{2}" },
+        { "text": "$S''(x) = 2$ is positive, so this is the minimum. The closest point has $x = 2.5$." }
+      ]
+    },
+    {
+      "id": "u5-q031",
+      "skillId": "u5-optimization",
+      "difficulty": 1,
+      "type": "mc",
+      "prompt": "<p>A rectangle has a perimeter of $36$ units. To find its maximum possible area with calculus, which one-variable function should be maximized after substituting the constraint?</p>",
+      "choices": ["$A(x) = x(18 - x)$", "$A(x) = x(36 - x)$", "$A(x) = x(36 - 2x)$", "$A(x) = 2x + 2(18 - x)$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This uses $x + y = 36$; the perimeter constraint is $2x + 2y = 36$, so the sides satisfy $x + y = 18$ and the other side is $18 - x$.",
+        "This solves $2x + y = 36$, the constraint for a three-sided enclosure with one side unfenced; a full rectangle's perimeter uses two of each side.",
+        "This expression is the perimeter itself, rewritten; the objective to maximize is the area $x \\cdot y$, and the perimeter is only the constraint used to eliminate $y$."
+      ],
+      "hints": [
+        "Write both facts separately first: the objective $A = xy$ and the constraint $2x + 2y = 36$.",
+        "Solve the constraint for $y$, then substitute into the area formula."
+      ],
+      "solution": [
+        { "text": "The constraint is $2x + 2y = 36$, so $y = 18 - x$." },
+        { "text": "Substitute into the objective $A = xy$ to get $A(x) = x(18 - x)$, the one-variable function to maximize." }
+      ]
+    },
+    {
+      "id": "u5-q032",
+      "skillId": "u5-implicit-behavior",
+      "difficulty": 2,
+      "type": "mc",
+      "prompt": "<p>At which point does the curve $x^2 + xy + y^2 = 27$ have a horizontal tangent line?</p>",
+      "choices": ["$(3, -6)$", "$(-6, 3)$", "$(3, 3)$", "$(0, 3\\sqrt{3})$"],
+      "answerIndex": 0,
+      "misconceptions": [
+        null,
+        "This point comes from setting the denominator $x + 2y$ of $\\frac{dy}{dx}$ to zero, which is the condition for a vertical tangent, not a horizontal one.",
+        "This point lies on the curve, but the slope there is $\\frac{dy}{dx} = -\\frac{2(3) + 3}{3 + 2(3)} = -1$, not $0$; being on the curve is necessary but not sufficient.",
+        "This comes from setting $x = 0$; horizontal tangents come from setting the numerator $2x + y$ of $\\frac{dy}{dx}$ equal to zero, not from crossing the $y$-axis."
+      ],
+      "hints": [
+        "Differentiate implicitly; the $xy$ term needs the product rule. Solve for $\\frac{dy}{dx}$ as a quotient.",
+        "A horizontal tangent needs the numerator of $\\frac{dy}{dx}$ to be zero. Combine that condition with the curve equation and solve the system.",
+        "From $2x + y = 0$, substitute $y = -2x$ into $x^2 + xy + y^2 = 27$."
+      ],
+      "solution": [
+        { "text": "Differentiate both sides with respect to $x$.", "math": "2x + y + x\\frac{dy}{dx} + 2y\\frac{dy}{dx} = 0 \\implies \\frac{dy}{dx} = -\\frac{2x + y}{x + 2y}" },
+        { "text": "A horizontal tangent requires the numerator to be zero, so $y = -2x$. Substitute into the curve.", "math": "x^2 + x(-2x) + (-2x)^2 = 3x^2 = 27 \\implies x = \\pm 3" },
+        { "text": "The candidates are $(3, -6)$ and $(-3, 6)$. Check the denominator at $(3, -6)$: $x + 2y = 3 - 12 = -9 \\neq 0$, so the tangent there is horizontal." },
+        { "text": "Among the answer choices, $(3, -6)$ is the horizontal tangent point." }
+      ]
+    },
+    {
+      "id": "u5-q033",
+      "skillId": "u5-implicit-behavior",
+      "difficulty": 3,
+      "type": "numeric",
+      "prompt": "<p>For the circle $x^2 + y^2 = 25$, find the value of $\\frac{d^2y}{dx^2}$ at the point $(3, 4)$. Round to three decimal places.</p>",
+      "answer": -0.391,
+      "tolerance": 0.005,
+      "hints": [
+        "First find $\\frac{dy}{dx}$ implicitly: differentiate $x^2 + y^2 = 25$ and solve. Evaluate the result at $(3, 4)$.",
+        "Differentiate $\\frac{dy}{dx} = -\\frac{x}{y}$ with the quotient rule, remembering that $y$ is a function of $x$; then substitute $x = 3$, $y = 4$, and the value of $\\frac{dy}{dx}$ you found."
+      ],
+      "solution": [
+        { "text": "Find the first derivative.", "math": "2x + 2y\\frac{dy}{dx} = 0 \\implies \\frac{dy}{dx} = -\\frac{x}{y} = -\\frac{3}{4} \\text{ at } (3, 4)" },
+        { "text": "Differentiate again with the quotient rule, treating $y$ as a function of $x$.", "math": "\\frac{d^2y}{dx^2} = -\\frac{y - x\\frac{dy}{dx}}{y^2}" },
+        { "text": "Substitute the point and the slope.", "math": "\\frac{d^2y}{dx^2} = -\\frac{4 - 3(-\\tfrac{3}{4})}{16} = -\\frac{4 + \\tfrac{9}{4}}{16} = -\\frac{25}{64}" },
+        { "text": "Numerically, $-\\frac{25}{64} = -0.390625 \\approx -0.391$." }
+      ]
+    }
+  ],
+  "masteryCheck": { "questionCount": 8, "passCount": 7 }
+}
