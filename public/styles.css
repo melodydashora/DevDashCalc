@@ -245,6 +245,38 @@ table.simple th { background: var(--surface-2); }
 .tutor-status { color: var(--muted); font-size: 0.92em; min-height: 1.3em; }
 .tutor-ask-row input { flex: 1; min-width: 14rem; }
 
+/* Canvas plan and grades (read-only external data; calm, motion-free) */
+.canvas-meta { color: var(--muted); font-size: 0.92em; margin: 0.3rem 0; }
+.canvas-note { border-left: 4px solid var(--notyet); background: var(--notyet-soft); padding: 0.5rem 0.8rem; border-radius: 0 8px 8px 0; }
+.canvas-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.6rem; }
+.canvas-tabs { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+.canvas-tabs a { padding: 0.3rem 0.8rem; border: 1px solid var(--border); border-radius: 8px; text-decoration: none; color: var(--text); }
+.canvas-tabs a.active { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.canvas-form { display: grid; gap: 0.8rem; max-width: 38rem; }
+.canvas-form label { display: grid; gap: 0.25rem; font-weight: 600; }
+.canvas-form input[type="url"], .canvas-form input[type="password"] { font: inherit; padding: 0.5rem 0.7rem; border: 2px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
+.canvas-form .canvas-remember { display: flex; gap: 0.5rem; align-items: baseline; font-weight: 400; }
+.canvas-terms { border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.6rem 0; background: var(--surface-2); }
+.canvas-terms legend { font-weight: 600; padding: 0 0.3rem; }
+.canvas-term { display: flex; gap: 0.5rem; align-items: baseline; margin: 0.25rem 0; }
+.canvas-list { display: grid; gap: 0.6rem; margin-top: 0.6rem; }
+.canvas-course { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.65rem 0.75rem; border: 2px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); text-decoration: none; }
+.canvas-course:hover { border-color: var(--accent); background: var(--accent-soft); }
+.canvas-course span { display: grid; }
+.canvas-course small { color: var(--muted); font-size: 0.85em; }
+.canvas-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; margin: 1rem 0; }
+.canvas-stats div { display: grid; padding: 0.6rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.canvas-stats strong { font-variant-numeric: tabular-nums; color: var(--accent); }
+.canvas-stats span { color: var(--muted); font-size: 0.82em; line-height: 1.35; }
+.canvas-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.canvas-item.attention { border-color: var(--notyet); background: var(--notyet-soft); }
+.canvas-item > div { display: grid; gap: 0.15rem; }
+.canvas-item-side { justify-items: end; text-align: right; }
+.canvas-item .canvas-meta { margin: 0; }
+.canvas-copy { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; }
+.canvas-assessment { border: 1px solid var(--accent); border-radius: 10px; background: var(--surface); padding: 0.8rem 1rem; }
+.canvas-assessment p { margin: 0.4rem 0; }
+
 .katex { font-size: 1.06em; }
 .katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.2rem 0; }
 
@@ -252,4 +284,7 @@ table.simple th { background: var(--surface-2); }
   .bar-label { flex-basis: 100%; }
   .bar-row { flex-wrap: wrap; }
   .header-inner { flex-direction: column; gap: 0.3rem; }
+  .canvas-stats { grid-template-columns: 1fr; }
+  .canvas-item { align-items: flex-start; flex-direction: column; }
+  .canvas-item-side { justify-items: start; text-align: left; }
 }

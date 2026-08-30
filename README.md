@@ -148,6 +148,66 @@ Guardrails, by design:
   HTTPS with Node's built-in `fetch` (no SDK), keeping the no-`npm install`
   guarantee.
 
+## Optional: Canvas plan, grades, and assessment
+
+The **Canvas** tab connects to the learner's school Canvas LMS with their
+institution URL and a personal access token (Canvas → Account → Settings →
+New Access Token), then reformats the pulled data into three pages:
+
+- **The plan** — a prioritized agenda. Unsubmitted work is grouped, in
+  order: past due while Canvas still accepts a submission (missing-flagged
+  work included), then due within 4 hours, 12 hours, 24 hours, 3 days, and
+  5 days, then later, then no due date, then incomplete module
+  requirements, and finally work that is past due and closed in Canvas —
+  with a literal note that the next step is to continue with open work,
+  plus copyable text for asking the teacher for more time (the app never
+  sends anything).
+- **Grades** — current course scores and grades exactly as Canvas computes
+  them (Calc Coach never recomputes a grade, the same way the verified
+  answer key is the only grader for practice), assignment-group weights,
+  and every graded assignment with its score. Graded work below 70 percent
+  of its points is marked in calm amber.
+- **Assessment** — on request only, the same AI provider chain as the tutor
+  reads a fresh pull of the Canvas data (never the token) and writes a
+  literal, non-shaming assessment: overall picture, what is going well,
+  problem areas by course, and a suggested order of work grounded in the
+  plan's due-date rules.
+
+Every rule is a named constant in `public/canvas-insights.js`, pinned by
+tests, with no hidden scoring:
+
+| Rule | Threshold |
+|---|---|
+| Term selection | Canvas keeps old courses "active", so views filter by enrollment term. The current term — the dated term containing today (`currentTermId`; an undated Default Term is never current) — is selected on each load; the learner can change it under "Terms shown". Unselected-term courses are listed by name, never silently dropped; term-less courses always show |
+| Due-date priority buckets | 4 h, 12 h, 24 h, 3 days, 5 days (`PLAN_BUCKETS`) |
+| Low graded score | below 70 percent of points (`LOW_SCORE_RATIO`) |
+| Low course score | below 70 (`LOW_COURSE_SCORE`) |
+| Stale course hidden (listed by name, never silently) | all dated work due over 10 months ago (`STALE_MONTHS`); no-due-date work never hides a course |
+| Attempts remaining | Canvas `allowed_attempts` minus attempts used; unlimited shows no limit |
+| Excused work | never flagged anywhere |
+
+Safety and privacy, by design:
+
+- **Read-only.** Only GET requests reach Canvas (`users/self`, `courses`
+  with total scores, per-course `assignment_groups` with assignments and
+  submissions, `modules` with items, `users/self/progress` per course, and
+  `users/self/missing_submissions`), always with the string-ids header and
+  full Link-header pagination (capped and reported, never silent). Nothing
+  is ever created, changed, or submitted.
+- **The token stays server-side.** It lives in an expiring 8-hour memory
+  session behind an HttpOnly, SameSite=Strict cookie scoped to
+  `/api/canvas`. With "Remember this connection" selected, the server also
+  saves it to `data/canvas-profile.json` (gitignored, file mode 0600) so
+  the connection survives restarts; Disconnect deletes both at once. The
+  token never appears in the browser, progress files, exports, logs, or
+  any response body, and is never sent to any AI provider.
+- **HTTPS only, public hosts only.** The URL validator rejects plain HTTP,
+  credentialed URLs, and localhost/private/link-local addresses, and
+  pagination follows only same-origin links.
+- **Separate from learning.** Canvas data never changes mastery scores,
+  never unlocks anything, and the math tutor never sees it. Failures state
+  their impact: your calculus progress is unaffected.
+
 ## Architecture
 
 ```
@@ -158,6 +218,7 @@ DevDashCalc (repo root)
 │   ├── index.html         # shell; KaTeX via CDN for math rendering
 │   ├── styles.css         # calm, motion-free, themeable design system
 │   ├── engine.js          # ALL adaptive/mastery logic — pure functions, no DOM
+│   ├── canvas-insights.js # Canvas normalization + plan/grades rules — pure, tested
 │   └── app.js             # SPA: routing, views, rendering, persistence
 ├── content/
 │   ├── manifest.json      # the 10 units, ordering, app-wide constants
@@ -169,8 +230,9 @@ DevDashCalc (repo root)
 │   ├── qa-tools.mjs          # blind question dumps, answer key, language lint
 │   └── lint-ui.mjs           # the same language rules applied to app.js/viz.js strings
 ├── test/
-│   └── engine.test.mjs    # node:test suite for the engine
-└── data/                  # runtime progress storage (gitignored)
+│   ├── engine.test.mjs    # node:test suite for the engine
+│   └── canvas-insights.test.mjs  # node:test suite for the Canvas rules
+└── data/                  # runtime progress + Canvas profile storage (gitignored)
 ```
 
 - **Progress persistence** is dual: every answer saves to `localStorage`

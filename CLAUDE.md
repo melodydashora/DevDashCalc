@@ -42,8 +42,9 @@ Breaking any of these is a regression even if the code works:
 
 | Piece | File |
 |---|---|
-| Server: static + progress API + tutor proxy | `server.js` |
+| Server: static + progress API + tutor proxy + Canvas proxy | `server.js` |
 | Adaptive/mastery logic (pure, tested) | `public/engine.js` |
+| Canvas LMS normalization + plan/grades rules (pure, tested) | `public/canvas-insights.js` |
 | SPA: routing, views, persistence | `public/app.js` |
 | Interactive canvas explorers | `public/viz.js` |
 | Design system (calm, themeable, motion-free) | `public/styles.css` |
@@ -52,8 +53,9 @@ Breaking any of these is a regression even if the code works:
 | Content validator | `scripts/validate-content.mjs` |
 | KaTeX render check for all curriculum math | `scripts/check-math.mjs` |
 | Authoring QA: blind dumps, answer key, language lint | `scripts/qa-tools.mjs` |
-| Language lint for the app's own strings (app.js, viz.js) | `scripts/lint-ui.mjs` |
+| Language lint for the app's own strings (app.js, viz.js, canvas-insights.js) | `scripts/lint-ui.mjs` |
 | Engine tests | `test/engine.test.mjs` |
+| Canvas insights tests | `test/canvas-insights.test.mjs` |
 
 ## Engine invariants (pinned by tests — change tests and README together)
 
@@ -71,7 +73,7 @@ Breaking any of these is a regression even if the code works:
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # 16 engine tests (node --test)
+npm test             # 16 engine tests + 25 Canvas-insights tests (node --test)
 npm run validate     # schema-validate all units, then render every math segment with KaTeX
 npm run lint         # language lint of app text and every unit (no exclamation marks, shaming, idioms, emoji)
 ```
@@ -95,4 +97,12 @@ file present.
   choices only, so a second solver can work without seeing the key.
 - Learner progress lives in `data/progress-*.json` (gitignored). Never
   commit it; never reset it without explicit permission from Melody.
+- Canvas is read-only and display-only: the access token lives in a server
+  memory session and, when the learner chooses Remember, in
+  `data/canvas-profile.json` (gitignored) — never in `S`, localStorage,
+  progress exports, logs, or any response body. Canvas data never touches
+  engine scoring or unlocks. The AI assessment receives Canvas data only,
+  never the token; the math tutor receives neither. Canvas is authoritative
+  for grades — never recompute them. Problem-area thresholds are the named
+  exports in `public/canvas-insights.js`; change tests and README together.
 - Branch, PR to `main`, merge when CI is green.

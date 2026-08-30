@@ -1,3 +1,4 @@
 # Learner progress files live here at runtime; they are personal data and never committed.
 progress-*.json
 *.tmp
+canvas-profile.json

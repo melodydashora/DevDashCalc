@@ -3,9 +3,14 @@
 // backed by files in ./data (so progress survives browser changes on Replit).
 
 import { createServer } from 'node:http';
-import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { readFile, writeFile, rename, mkdir, unlink } from 'node:fs/promises';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  canvasBaseUrl, parseLinkNext, normalizeCourse, normalizeGroup, normalizeAssignment,
+  normalizeModule, normalizeModuleProgress, normalizeMissingSubmission, buildInsights,
+} from './public/canvas-insights.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(ROOT, 'public');
@@ -61,6 +66,528 @@ function readBody(req, limit = 2 * 1024 * 1024) {
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
+}
+
+// --------------------------------------------------------------- Canvas LMS
+// Optional read-only integration: the learner connects with their school's
+// HTTPS Canvas URL and a personal access token. The token lives only in the
+// in-memory session below (8-hour sliding expiry) behind an HttpOnly,
+// SameSite=Strict cookie — never on disk, never in progress files, never in
+// a response body or log line, and never given to the AI tutor. The proxy
+// only reads from Canvas; it never creates, changes, or submits anything.
+// URL validation, Link-header pagination parsing, and all response
+// normalization are pure functions in public/canvas-insights.js (tested).
+const CANVAS_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const CANVAS_TIMEOUT_MS = 20_000;
+const CANVAS_MAX_PAGES = 5; // per list; pages hold 100 items — hitting the cap is reported, never silent
+const CANVAS_MAX_COURSES = 15; // snapshot fan-out cap, surfaced as coursesTruncated
+const CANVAS_MAX_SESSIONS = 8; // single learner; bounds memory if the connect form loops
+const CANVAS_FANOUT = 3; // concurrent Canvas requests during a snapshot (Canvas throttles bursts)
+const CANVAS_NUMERIC_ID = /^[0-9]{1,20}$/;
+const canvasSessions = new Map(); // id -> { baseUrl, token, expiresAt, user }
+
+// Expired sessions are swept on a timer as well as on access, so an
+// abandoned token does not sit in memory for the life of the process.
+setInterval(() => {
+  const cutoff = Date.now();
+  for (const [id, s] of canvasSessions) if (s.expiresAt <= cutoff) canvasSessions.delete(id);
+}, 15 * 60 * 1000).unref();
+
+class CanvasError extends Error {
+  // kind: 'auth' | 'forbidden' | 'rate' | 'notfound' | 'canvas' | 'timeout' | 'network'
+  constructor(kind, status, detail) {
+    super(`canvas ${kind} ${status}: ${detail}`);
+    this.kind = kind;
+    this.status = status;
+  }
+}
+
+function parseCookies(req) {
+  return Object.fromEntries(String(req.headers.cookie || '').split(';').map((part) => {
+    const i = part.indexOf('=');
+    if (i < 0) return [];
+    const raw = part.slice(i + 1);
+    // A raw % is legal in a cookie value (RFC 6265), and another app or an
+    // extension can set one on this host — never let it throw.
+    let value;
+    try { value = decodeURIComponent(raw); } catch { value = raw; }
+    return [part.slice(0, i).trim(), value];
+  }).filter((pair) => pair.length));
+}
+
+function canvasSession(req) {
+  const id = parseCookies(req).canvas_session;
+  const session = id ? canvasSessions.get(id) : undefined;
+  if (!session || session.expiresAt <= Date.now()) {
+    if (id) canvasSessions.delete(id);
+    return null;
+  }
+  return { id, session };
+}
+
+// ------------------------------------------------- remembered connection
+// The single learner can choose to remember the connection: the URL and
+// token are saved to data/canvas-profile.json (gitignored, never served,
+// never part of a progress export), and the server reconnects from it after
+// a restart. Disconnect deletes the file.
+const CANVAS_PROFILE_FILE = join(DATA, 'canvas-profile.json');
+
+async function canvasStoreSave(baseUrl, token) {
+  await mkdir(DATA, { recursive: true });
+  const tmp = `${CANVAS_PROFILE_FILE}.tmp`;
+  await writeFile(tmp, JSON.stringify({ baseUrl, token }), { encoding: 'utf8', mode: 0o600 });
+  await rename(tmp, CANVAS_PROFILE_FILE);
+}
+
+async function canvasStoreLoad() {
+  try {
+    const parsed = JSON.parse(await readFile(CANVAS_PROFILE_FILE, 'utf8'));
+    const baseUrl = canvasBaseUrl(parsed?.baseUrl);
+    const token = typeof parsed?.token === 'string' ? parsed.token.trim() : '';
+    if (!baseUrl || token === '' || token.length > 2048) return null;
+    return { baseUrl, token };
+  } catch {
+    return null;
+  }
+}
+
+async function canvasStoreDelete() {
+  try { await unlink(CANVAS_PROFILE_FILE); } catch { /* already gone */ }
+}
+
+// Returns the cookie session, or silently reconnects from the remembered
+// profile when there is one. A remembered token Canvas rejects outright is
+// deleted so a revoked token cannot cause a reconnect loop.
+async function canvasSessionOrStored(req, res) {
+  const found = canvasSession(req);
+  if (found) return found;
+  const stored = await canvasStoreLoad();
+  if (!stored) return null;
+  // A cookie-less client with a remembered profile reuses the existing
+  // remembered session instead of minting one per request.
+  for (const [id, s] of canvasSessions) {
+    if (s.remembered && s.baseUrl === stored.baseUrl && s.token === stored.token && s.expiresAt > Date.now()) {
+      setCanvasCookie(req, res, id, CANVAS_SESSION_TTL_MS / 1000);
+      return { id, session: s };
+    }
+  }
+  const candidate = { baseUrl: stored.baseUrl, token: stored.token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS, user: null, remembered: true };
+  try {
+    const user = await canvasGet(candidate, 'users/self');
+    candidate.user = { id: String(user?.id ?? ''), name: String(user?.name || 'Canvas learner') };
+  } catch (e) {
+    if (e instanceof CanvasError && e.kind === 'auth') await canvasStoreDelete();
+    console.error('[calc-coach] canvas: stored-profile reconnect failed:', e.message);
+    return null;
+  }
+  evictCanvasSessions();
+  const id = randomUUID();
+  canvasSessions.set(id, candidate);
+  setCanvasCookie(req, res, id, CANVAS_SESSION_TTL_MS / 1000);
+  return { id, session: candidate };
+}
+
+function setCanvasCookie(req, res, id, maxAgeSeconds) {
+  // `Secure` only behind Replit's HTTPS proxy (which sets x-forwarded-proto);
+  // plain-HTTP localhost development keeps the cookie without it.
+  const secure = req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+  res.setHeader('Set-Cookie',
+    `canvas_session=${encodeURIComponent(id)}; Path=/api/canvas; HttpOnly; SameSite=Strict; Max-Age=${maxAgeSeconds}${secure}`);
+}
+
+// The sliding 8-hour expiry has to move the cookie too, not just the
+// in-memory session — otherwise the browser drops the cookie 8 hours after
+// connect and the renewed session becomes unreachable.
+function renewCanvasSession(req, res, found) {
+  found.session.expiresAt = Date.now() + CANVAS_SESSION_TTL_MS;
+  setCanvasCookie(req, res, found.id, CANVAS_SESSION_TTL_MS / 1000);
+}
+
+function evictCanvasSessions() {
+  while (canvasSessions.size >= CANVAS_MAX_SESSIONS) {
+    let oldest = null;
+    for (const [id, s] of canvasSessions) {
+      if (!oldest || s.expiresAt < oldest.expiresAt) oldest = { id, expiresAt: s.expiresAt };
+    }
+    canvasSessions.delete(oldest.id);
+  }
+}
+
+function canvasErrorFrom(status, data) {
+  const detail = String(data?.errors?.[0]?.message || data?.message || `HTTP ${status}`).slice(0, 240);
+  if (status === 401) return new CanvasError('auth', status, detail);
+  if (status === 403) return /rate limit/i.test(detail) ? new CanvasError('rate', status, detail) : new CanvasError('forbidden', status, detail);
+  if (status === 404) return new CanvasError('notfound', status, detail);
+  return new CanvasError('canvas', status, detail);
+}
+
+async function canvasFetch(session, urlObj) {
+  let response;
+  try {
+    response = await fetch(urlObj, {
+      headers: { authorization: `Bearer ${session.token}`, accept: 'application/json+canvas-string-ids' },
+      signal: AbortSignal.timeout(CANVAS_TIMEOUT_MS),
+    });
+  } catch (e) {
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
+      throw new CanvasError('timeout', 0, `no reply in ${CANVAS_TIMEOUT_MS}ms`);
+    }
+    throw new CanvasError('network', 0, String(e?.cause?.code || e?.message || 'fetch failed').slice(0, 240));
+  }
+  let data = null;
+  try { data = await response.json(); } catch { data = null; }
+  if (!response.ok) throw canvasErrorFrom(response.status, data);
+  return { data, linkNext: parseLinkNext(response.headers.get('link')) };
+}
+
+// baseUrl may include a path prefix (https://school.edu/canvas), so the API
+// path is appended to it as a string, never resolved against the origin.
+function canvasUrl(session, endpoint, query = {}) {
+  const url = new URL(`${session.baseUrl}/api/v1/${String(endpoint).replace(/^\//, '')}`);
+  for (const [key, value] of Object.entries(query)) {
+    for (const entry of Array.isArray(value) ? value : [value]) url.searchParams.append(key, String(entry));
+  }
+  return url;
+}
+
+async function canvasGet(session, endpoint, query = {}) {
+  const { data } = await canvasFetch(session, canvasUrl(session, endpoint, query));
+  return data;
+}
+
+// Canvas paginates lists via the Link response header. Follows rel="next" up
+// to CANVAS_MAX_PAGES pages; a next URL is followed only on the session's own
+// origin, so a hostile header cannot turn this proxy into a generic fetcher.
+async function canvasGetAll(session, endpoint, query = {}) {
+  const items = [];
+  let url = canvasUrl(session, endpoint, { ...query, per_page: 100 });
+  const origin = new URL(session.baseUrl).origin;
+  for (let page = 0; page < CANVAS_MAX_PAGES; page++) {
+    const { data, linkNext } = await canvasFetch(session, url);
+    if (Array.isArray(data)) items.push(...data);
+    if (!linkNext) return { items, truncated: false };
+    // A next link exists, so the list is provably incomplete if we stop here
+    // for any reason — that is truncation and is reported as such.
+    let next;
+    try { next = new URL(linkNext); } catch { return { items, truncated: true }; }
+    if (next.origin !== origin) return { items, truncated: true };
+    url = next;
+  }
+  return { items, truncated: true };
+}
+
+// Bounded-concurrency map so a snapshot never bursts Canvas's throttle bucket.
+async function mapLimit(values, limit, fn) {
+  const out = new Array(values.length);
+  let nextIndex = 0;
+  const workers = Array.from({ length: Math.max(1, Math.min(limit, values.length)) }, async () => {
+    while (nextIndex < values.length) {
+      const i = nextIndex++;
+      out[i] = await fn(values[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return out;
+}
+
+// A link is only shown to the learner when it points back into their own
+// Canvas instance — origin equality, not a prefix check, so a superstring
+// host such as school.edu.evil.com can never pass.
+function canvasSafeLink(baseUrl, htmlUrl) {
+  if (typeof htmlUrl !== 'string' || htmlUrl === '') return null;
+  try {
+    return new URL(htmlUrl).origin === new URL(baseUrl).origin ? htmlUrl : null;
+  } catch {
+    return null;
+  }
+}
+
+async function canvasSnapshot(session) {
+  const coursesPage = await canvasGetAll(session, 'courses', {
+    enrollment_state: 'active',
+    'include[]': ['total_scores', 'term'],
+  });
+  const allCourses = coursesPage.items.map(normalizeCourse).filter((c) => CANVAS_NUMERIC_ID.test(c.id));
+  allCourses.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const kept = allCourses.slice(0, CANVAS_MAX_COURSES);
+  const coursesTruncated = coursesPage.truncated || allCourses.length > kept.length;
+
+  let missingSubmissions = [];
+  let missingSubmissionsError = null;
+  let missingSubmissionsTruncated = false;
+  try {
+    const page = await canvasGetAll(session, 'users/self/missing_submissions', { 'include[]': 'course_id' });
+    missingSubmissionsTruncated = page.truncated;
+    missingSubmissions = page.items
+      .map(normalizeMissingSubmission)
+      .map((m) => ({ ...m, htmlUrl: canvasSafeLink(session.baseUrl, m.htmlUrl) }));
+  } catch (e) {
+    // Some institutions disable this endpoint; the per-assignment missing
+    // flags still cover it, so this degrades instead of failing.
+    missingSubmissionsError = 'Canvas did not provide its missing-assignment list. The missing flag on each assignment is used instead.';
+    console.error('[calc-coach] canvas: missing_submissions failed:', e.message);
+  }
+
+  const courses = await mapLimit(kept, CANVAS_FANOUT, async (course) => {
+    const result = {
+      ...course,
+      moduleProgress: null,
+      assignmentGroups: [],
+      modules: [],
+      assignments: [],
+      assignmentsTruncated: false,
+      modulesTruncated: false,
+      assignmentsError: null,
+    };
+    try {
+      // One call per course returns the groups (with weights) and every
+      // assignment with the learner's submission. Quizzes arrive as their
+      // shadow assignments, which sidesteps the Quiz API's extra permissions.
+      const page = await canvasGetAll(session, `courses/${course.id}/assignment_groups`, {
+        'include[]': ['assignments', 'submission'],
+      });
+      result.assignmentsTruncated = page.truncated;
+      for (const rawGroup of page.items) {
+        const group = normalizeGroup(rawGroup);
+        result.assignmentGroups.push(group);
+        for (const rawAssignment of Array.isArray(rawGroup?.assignments) ? rawGroup.assignments : []) {
+          const assignment = normalizeAssignment(rawAssignment, group.id);
+          assignment.htmlUrl = canvasSafeLink(session.baseUrl, assignment.htmlUrl);
+          result.assignments.push(assignment);
+        }
+      }
+    } catch (e) {
+      result.assignmentsError = 'Canvas did not return the assignments for this course.';
+      console.error(`[calc-coach] canvas: assignments for course ${course.id} failed:`, e.message);
+    }
+    try {
+      const page = await canvasGetAll(session, `courses/${course.id}/modules`, { 'include[]': 'items' });
+      result.modulesTruncated = page.truncated;
+      result.modules = await mapLimit(page.items, 1, async (rawModule) => {
+        let items = Array.isArray(rawModule?.items) ? rawModule.items : null;
+        const moduleId = String(rawModule?.id ?? '');
+        if (items === null && CANVAS_NUMERIC_ID.test(moduleId)) {
+          // Canvas omits items for very large modules; fetch them directly.
+          try {
+            const itemsPage = await canvasGetAll(session, `courses/${course.id}/modules/${moduleId}/items`);
+            items = itemsPage.items;
+            if (itemsPage.truncated) result.modulesTruncated = true;
+          } catch {
+            items = null;
+          }
+        }
+        return normalizeModule(rawModule, items);
+      });
+    } catch (e) {
+      console.error(`[calc-coach] canvas: modules for course ${course.id} failed:`, e.message);
+    }
+    try {
+      result.moduleProgress = normalizeModuleProgress(
+        await canvasGet(session, `courses/${course.id}/users/self/progress`)
+      );
+    } catch {
+      result.moduleProgress = null; // many courses have no module requirements; not an error
+    }
+    return result;
+  });
+
+  return {
+    fetchedAt: new Date().toISOString(),
+    user: session.user,
+    coursesTruncated,
+    missingSubmissions,
+    missingSubmissionsError,
+    missingSubmissionsTruncated,
+    courses,
+  };
+}
+
+// Calm, literal error sentences (invariant 3 applies to server strings too,
+// even though the language lint only scans client files). Detail stays in
+// the server log; the token appears in no message, ever.
+// dropStored: when an ESTABLISHED session's token is rejected, the remembered
+// profile holds that same dead token and is deleted with it. A failed NEW
+// connect attempt (POST) passes false — its candidate token was never saved,
+// and a working remembered profile must not be deleted by a typo.
+async function sendCanvasError(req, res, e, sessionId, dropStored = true) {
+  const kind = e instanceof CanvasError ? e.kind : 'canvas';
+  console.error('[calc-coach] canvas:', kind, e instanceof CanvasError ? e.status : '', e.message);
+  if (kind === 'auth') {
+    if (sessionId) canvasSessions.delete(sessionId);
+    if (dropStored) await canvasStoreDelete();
+    setCanvasCookie(req, res, '', 0);
+    return sendJson(res, 401, {
+      connected: false,
+      reason: 'auth',
+      error: 'Canvas did not accept the access token. It may have expired or been deleted. Create a new token in Canvas and connect again.',
+    });
+  }
+  if (kind === 'forbidden') return sendJson(res, 403, { error: 'Canvas denied access to this data. Your institution may restrict what a personal token can read.' });
+  if (kind === 'rate') return sendJson(res, 503, { error: 'Canvas is limiting requests right now. Wait one minute and try again.' });
+  if (kind === 'notfound') return sendJson(res, 404, { error: 'Canvas reports that this data does not exist.' });
+  if (kind === 'timeout') return sendJson(res, 504, { error: 'Canvas did not reply within 20 seconds. Try again, or check the Canvas URL.' });
+  if (kind === 'network') return sendJson(res, 502, { error: 'Canvas could not be reached at that address. Check the URL and try again.' });
+  return sendJson(res, 502, { error: 'Canvas returned an error for this request. Your Calc Coach progress is unaffected.' });
+}
+
+// ------------------------------------------------------ the AI assessment
+// Reuses the tutor's provider chain (same keys, same fallback order) to
+// write a grounded assessment of the pulled Canvas data. The model receives
+// the data below and nothing else — never the token, never Calc Coach
+// progress. The client shows the button only when GET /api/tutor reports a
+// provider is configured.
+const CANVAS_ASSESSMENT_SYSTEM = `You are an academic progress analyst inside Calc Coach, a study app. You are writing for one specific learner, an autistic professional software developer. Follow these rules exactly.
+
+Style rules:
+- Literal language only. No idioms, no sarcasm, no rhetorical questions, no exclamation marks, no emoji, no markdown syntax.
+- Never shame. Never write "you forgot", "you failed", or "you should have". State facts calmly: "3 assignments are marked missing in Canvas."
+- Short headings on their own line, then short paragraphs or plain hyphen lists.
+
+Grounding rules:
+- Every statement must come from the data provided. Never invent an assignment, course, score, or date. When data is absent, say it is absent.
+- The data is authoritative. Report scores and grades exactly as given; do not recompute or estimate grades.
+
+Write the assessment in this exact order:
+1. Overall picture — two or three sentences.
+2. What is going well — specific items from the data.
+3. Problem areas — grouped by course, most affected course first, with the specific assignments and dates.
+4. A suggested order of work — follow the due-date order in the data; work that is past due and still open comes first. For work that is past due and closed, the suggestion is to continue with open work and, if wanted, ask the teacher for more time.
+5. One closing sentence that is factual and calm.
+
+Keep the whole assessment under 400 words. Plain text only.`;
+
+function canvasAssessmentContext(snapshot, insights) {
+  const lines = [];
+  const item = (i) => `- ${i.name} (${i.courseName})${i.dueAt ? ` due ${i.dueAt}` : ', no due date'}${i.pointsPossible !== null ? `, ${i.pointsPossible} points` : ''}${i.score !== null ? `, score ${i.score}` : ''}`;
+  const section = (title, list, cap = 30) => {
+    if (!list.length) return;
+    lines.push('', `${title} (${list.length}):`);
+    for (const i of list.slice(0, cap)) lines.push(item(i));
+    if (list.length > cap) lines.push(`- and ${list.length - cap} more`);
+  };
+  lines.push(`Data pulled from Canvas at ${snapshot.fetchedAt}.`);
+  lines.push('', 'Course summaries:');
+  for (const r of insights.perCourse) {
+    lines.push(`- ${r.courseName}: current score ${r.score === null ? 'not reported' : r.score}${r.grade ? ` (${r.grade})` : ''}; ${r.submitted} of ${r.totalAssignments} assignments submitted; ${r.missing} marked missing; ${r.overdueOpen} past due and still open; ${r.overdueClosed} past due and closed; ${r.upcoming} due in the next 5 days.`);
+  }
+  section('Past due, and Canvas still accepts a submission', insights.plan.overdueOpen);
+  section('Past due and closed in Canvas', insights.plan.overdueClosed);
+  for (const b of insights.plan.buckets) section(`Due ${b.id.replace(/-/g, ' ')}`, b.items);
+  section('Due later than 5 days from now', insights.plan.later, 15);
+  section('No due date', insights.plan.noDueDate, 15);
+  section('Marked missing in Canvas', insights.attention.missing);
+  section('Submitted late', insights.attention.late, 15);
+  section('Graded below 70 percent of points possible', insights.attention.lowScores);
+  if (insights.plan.moduleGaps.length) {
+    lines.push('', 'Module requirements not complete:');
+    for (const g of insights.plan.moduleGaps) lines.push(`- ${g.courseName}: ${g.requirementCompletedCount} of ${g.requirementCount} complete`);
+  }
+  if (insights.staleCourses.length) {
+    lines.push('', `Courses left out because every dated assignment ended over 10 months ago: ${insights.staleCourses.map((c) => c.name).join(', ')}.`);
+  }
+  if (insights.otherTermCourses.length) {
+    lines.push('', `Courses left out by the learner's term selection (earlier or other school terms): ${insights.otherTermCourses.map((c) => `${c.name} (${c.termName})`).join(', ')}. Do not analyze these.`);
+  }
+  return `Analyze this learner's Canvas data and write the assessment described in your instructions.\n\n${lines.join('\n')}`.slice(0, 60_000);
+}
+
+async function handleCanvasAssessment(req, res) {
+  if (req.method !== 'POST') return sendJson(res, 405, { error: 'use POST' });
+  if (!providerChain().length) return sendJson(res, 200, { available: false });
+  const found = await canvasSessionOrStored(req, res);
+  if (!found) return sendJson(res, 401, { connected: false, reason: 'disconnected', error: 'Connect Canvas to ask for an assessment.' });
+  renewCanvasSession(req, res, found); // sliding renewal, cookie included
+  // The learner's term selection travels with the request so the assessment
+  // sees the same lens as the plan and grades pages.
+  let termIds = [];
+  try {
+    const body = JSON.parse((await readBody(req, 20_000)) || '{}');
+    if (Array.isArray(body?.termIds)) {
+      termIds = body.termIds.slice(0, 50).map((t) => String(t)).filter((t) => CANVAS_NUMERIC_ID.test(t));
+    }
+  } catch { /* an empty or invalid body means no term filter */ }
+  try {
+    const snapshot = await canvasSnapshot(found.session);
+    const insights = buildInsights(snapshot, Date.now(), { termIds });
+    const out = await completeWithFallback({
+      system: CANVAS_ASSESSMENT_SYSTEM,
+      messages: [{ role: 'user', content: canvasAssessmentContext(snapshot, insights) }],
+    });
+    if (out.refusal) return sendJson(res, 200, { text: 'The AI service declined to analyze this data. The plan and Grades pages still show everything Canvas reported.' });
+    if (out.text) return sendJson(res, 200, { text: out.text });
+    console.error('[calc-coach] canvas assessment: every provider failed —', out.failures.join(' | '));
+    return sendJson(res, 502, { error: 'The assessment service could not be reached.' });
+  } catch (e) {
+    return sendCanvasError(req, res, e, found.id);
+  }
+}
+
+async function handleCanvas(req, res, url) {
+  const path = url.pathname;
+
+  if (path === '/api/canvas/assessment') return handleCanvasAssessment(req, res);
+
+  if (path === '/api/canvas/session') {
+    if (req.method === 'GET') {
+      const found = await canvasSessionOrStored(req, res);
+      if (!found) return sendJson(res, 200, { connected: false });
+      renewCanvasSession(req, res, found);
+      return sendJson(res, 200, {
+        connected: true,
+        user: found.session.user,
+        host: new URL(found.session.baseUrl).host,
+        remembered: Boolean(found.session.remembered),
+      });
+    }
+    if (req.method === 'DELETE') {
+      // Single-user app: Disconnect means the token leaves server memory
+      // entirely, not just the session this cookie names.
+      canvasSessions.clear();
+      await canvasStoreDelete();
+      setCanvasCookie(req, res, '', 0);
+      return sendJson(res, 200, { connected: false });
+    }
+    if (req.method === 'POST') {
+      let body;
+      try { body = JSON.parse(await readBody(req, 20_000)); } catch { return sendJson(res, 400, { error: 'body must be valid JSON' }); }
+      const baseUrl = canvasBaseUrl(body?.baseUrl);
+      const token = typeof body?.token === 'string' ? body.token.trim() : '';
+      const remember = Boolean(body?.remember);
+      if (!baseUrl || token === '' || token.length > 2048) {
+        return sendJson(res, 400, { error: 'Enter an HTTPS Canvas URL and an access token.' });
+      }
+      const candidate = { baseUrl, token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS, user: null, remembered: remember };
+      try {
+        const user = await canvasGet(candidate, 'users/self');
+        candidate.user = { id: String(user?.id ?? ''), name: String(user?.name || 'Canvas learner') };
+      } catch (e) {
+        return sendCanvasError(req, res, e, null, false);
+      }
+      if (remember) await canvasStoreSave(baseUrl, token);
+      else await canvasStoreDelete();
+      // Oldest-first eviction keeps the store bounded even if the form loops.
+      evictCanvasSessions();
+      const id = randomUUID();
+      canvasSessions.set(id, candidate);
+      setCanvasCookie(req, res, id, CANVAS_SESSION_TTL_MS / 1000);
+      return sendJson(res, 200, { connected: true, user: candidate.user, host: new URL(baseUrl).host, remembered: remember });
+    }
+    return sendJson(res, 405, { error: 'use GET, POST, or DELETE' });
+  }
+
+  if (path === '/api/canvas/snapshot') {
+    if (req.method !== 'GET') return sendJson(res, 405, { error: 'use GET' });
+    const found = await canvasSessionOrStored(req, res);
+    if (!found) return sendJson(res, 401, { connected: false, reason: 'disconnected', error: 'Connect Canvas to load this data.' });
+    renewCanvasSession(req, res, found); // sliding renewal, cookie included
+    try {
+      return sendJson(res, 200, await canvasSnapshot(found.session));
+    } catch (e) {
+      return sendCanvasError(req, res, e, found.id);
+    }
+  }
+
+  return sendJson(res, 404, { error: 'unknown Canvas endpoint' });
 }
 
 // ---------------------------------------------------------------- AI tutor
@@ -280,6 +807,7 @@ const server = createServer(async (req, res) => {
   try {
     if (path === '/api/health') return sendJson(res, 200, { ok: true, app: 'calc-coach' });
     if (path === '/api/tutor') return await handleTutor(req, res, url);
+    if (path.startsWith('/api/canvas/')) return await handleCanvas(req, res, url);
 
     if (path === '/api/progress') {
       const file = profileFile(url.searchParams.get('profile'));
