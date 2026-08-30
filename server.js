@@ -432,6 +432,9 @@ function canvasAssessmentContext(snapshot, insights) {
   if (insights.staleCourses.length) {
     lines.push('', `Courses left out because every dated assignment ended over 10 months ago: ${insights.staleCourses.map((c) => c.name).join(', ')}.`);
   }
+  if (insights.otherTermCourses.length) {
+    lines.push('', `Courses left out by the learner's term selection (earlier or other school terms): ${insights.otherTermCourses.map((c) => `${c.name} (${c.termName})`).join(', ')}. Do not analyze these.`);
+  }
   return `Analyze this learner's Canvas data and write the assessment described in your instructions.\n\n${lines.join('\n')}`.slice(0, 60_000);
 }
 
@@ -441,9 +444,18 @@ async function handleCanvasAssessment(req, res) {
   const found = await canvasSessionOrStored(req, res);
   if (!found) return sendJson(res, 401, { connected: false, reason: 'disconnected', error: 'Connect Canvas to ask for an assessment.' });
   found.session.expiresAt = Date.now() + CANVAS_SESSION_TTL_MS;
+  // The learner's term selection travels with the request so the assessment
+  // sees the same lens as the plan and grades pages.
+  let termIds = [];
+  try {
+    const body = JSON.parse((await readBody(req, 20_000)) || '{}');
+    if (Array.isArray(body?.termIds)) {
+      termIds = body.termIds.slice(0, 50).map((t) => String(t)).filter((t) => CANVAS_NUMERIC_ID.test(t));
+    }
+  } catch { /* an empty or invalid body means no term filter */ }
   try {
     const snapshot = await canvasSnapshot(found.session);
-    const insights = buildInsights(snapshot, Date.now());
+    const insights = buildInsights(snapshot, Date.now(), { termIds });
     const out = await completeWithFallback({
       system: CANVAS_ASSESSMENT_SYSTEM,
       messages: [{ role: 'user', content: canvasAssessmentContext(snapshot, insights) }],

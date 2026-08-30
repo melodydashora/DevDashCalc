@@ -73,7 +73,7 @@ Breaking any of these is a regression even if the code works:
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # 16 engine tests + 22 Canvas-insights tests (node --test)
+npm test             # 16 engine tests + 25 Canvas-insights tests (node --test)
 npm run validate     # schema-validate all units, then render every math segment with KaTeX
 npm run lint         # language lint of app text and every unit (no exclamation marks, shaming, idioms, emoji)
 ```

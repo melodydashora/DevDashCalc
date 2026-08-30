@@ -158,12 +158,14 @@ test('normalizers coerce ids to strings and junk numbers and dates to null', () 
     id: 9,
     name: '',
     course_code: 'BIO',
+    term: { id: 77, name: '2026-2027', start_at: '2026-08-10T00:00:00Z', end_at: null },
     enrollments: [{ computed_current_score: '88.5', computed_current_grade: 'B+' }],
   });
   assert.equal(c.id, '9');
   assert.equal(c.name, 'BIO', 'course code fills in an empty name');
   assert.equal(c.score, 88.5);
   assert.equal(c.grade, 'B+');
+  assert.deepEqual(c.term, { id: '77', name: '2026-2027', startAt: '2026-08-10T00:00:00Z', endAt: null }, 'term keeps id, name, and dates');
 });
 
 // ---------------------------------------------------------------- attempts
@@ -423,6 +425,59 @@ test('per-course summary rows count submitted, missing, overdue, and upcoming wo
       totalAssignments: 4,
     },
   ]);
+});
+
+// ------------------------------------------------------------------- terms
+
+const term = (id, name, startAt, endAt) => ({ id, name, startAt, endAt });
+
+test('termsFrom dedupes terms across courses and sorts newest school term first', () => {
+  const courses = [
+    makeCourse({ id: 'c1', term: term('t1', '2025-2026', iso(NOW - 400 * DAY), iso(NOW - 40 * DAY)) }),
+    makeCourse({ id: 'c2', term: term('t2', '2026-2027', iso(NOW - 20 * DAY), null) }),
+    makeCourse({ id: 'c3', term: term('t2', '2026-2027', iso(NOW - 20 * DAY), null) }),
+    makeCourse({ id: 'c4', term: term('t0', 'Default Term', null, null) }),
+    makeCourse({ id: 'c5', term: null }),
+  ];
+  const terms = CI.termsFrom(courses);
+  assert.deepEqual(terms.map((t) => t.id), ['t2', 't1', 't0'], 'newest start first, undated last');
+  assert.equal(terms[0].courseCount, 2, 'both 2026-2027 courses counted once per course');
+});
+
+test('the current term is the dated term containing now; an undated Default Term is never current', () => {
+  const terms = [
+    term('t0', 'Default Term', null, null),
+    term('t1', '2025-2026', iso(NOW - 400 * DAY), iso(NOW - 40 * DAY)),
+    term('t2', '2026-2027', iso(NOW - 20 * DAY), iso(NOW + 300 * DAY)),
+  ];
+  assert.equal(CI.currentTermId(terms, NOW), 't2');
+  assert.equal(CI.currentTermId([terms[0], terms[1]], NOW), null, 'no dated term contains now');
+  const openEnded = [term('a', 'Fall', iso(NOW - 100 * DAY), null), term('b', 'Spring', iso(NOW - 10 * DAY), null)];
+  assert.equal(CI.currentTermId(openEnded, NOW), 'b', 'ties go to the latest start date');
+});
+
+test('a term selection excludes other-term courses everywhere and lists them; term-less courses always stay', () => {
+  const oldCourse = makeCourse({
+    id: 'old', name: 'Geometry 22-23', term: term('t1', '2022-2023', iso(NOW - 900 * DAY), iso(NOW - 500 * DAY)),
+    assignments: [makeAssignment({ id: 'o1', dueAt: iso(NOW - DAY), submission: makeSubmission({ missing: true }) })],
+  });
+  const nowCourse = makeCourse({
+    id: 'cur', name: 'AP Calculus BC', term: term('t2', '2026-2027', iso(NOW - 20 * DAY), null),
+    assignments: [makeAssignment({ id: 'k1', dueAt: iso(NOW + DAY), submission: makeSubmission() })],
+  });
+  const termless = makeCourse({
+    id: 'none', name: 'Advisory', term: null,
+    assignments: [makeAssignment({ id: 'n1', dueAt: iso(NOW + DAY), submission: makeSubmission() })],
+  });
+  const missing = [{ assignmentId: 'o1', courseId: 'old', name: 'Old thing', dueAt: iso(NOW - DAY), pointsPossible: 10, htmlUrl: null }];
+  const out = CI.buildInsights(makeSnapshot([oldCourse, nowCourse, termless], missing), NOW, { termIds: ['t2'] });
+  assert.deepEqual(out.otherTermCourses, [{ id: 'old', name: 'Geometry 22-23', termName: '2022-2023' }]);
+  assert.deepEqual(out.perCourse.map((r) => r.courseId).sort(), ['cur', 'none'], 'term-less course stays');
+  assert.equal(out.attention.missing.length, 0, 'missing work in an unselected term is not shown');
+  assert.equal(allPlanItems(out).some((i) => i.courseId === 'old'), false);
+  const unfiltered = CI.buildInsights(makeSnapshot([oldCourse, nowCourse, termless], missing), NOW);
+  assert.equal(unfiltered.otherTermCourses.length, 0, 'no selection means every term is included');
+  assert.equal(unfiltered.attention.missing.length, 1);
 });
 
 test('the plan bucket cutoffs are the exported spec constants', () => {

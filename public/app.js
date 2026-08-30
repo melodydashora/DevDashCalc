@@ -961,9 +961,16 @@ function viewSettings() {
 // is kept in S, localStorage, or the progress export, so exporting Calc
 // Coach progress can never expose Canvas data. Course and assignment names
 // are external data and are shown as Canvas reports them.
-const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, note: '' };
+const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, note: '' };
 
 const canvasDateTime = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : null);
+const canvasDateOnly = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)) : null);
+
+// One consistent lens: the insights are always built from the snapshot plus
+// the current term selection (null = every term).
+function canvasRebuildInsights() {
+  CANVAS.insights = CI.buildInsights(CANVAS.snapshot, Date.now(), { termIds: CANVAS.termIds || [] });
+}
 
 async function canvasApi(path, options) {
   const res = await fetch(path, options);
@@ -1003,7 +1010,17 @@ async function canvasLoadSnapshot() {
       return false;
     }
     CANVAS.snapshot = data;
-    CANVAS.insights = CI.buildInsights(data, Date.now());
+    // Canvas keeps courses from earlier school years in its active list, so
+    // the views filter by term. The current term (by its Canvas dates) is
+    // selected on each load; a still-valid manual selection is kept.
+    CANVAS.terms = CI.termsFrom(data.courses);
+    const validIds = new Set(CANVAS.terms.map((t) => t.id));
+    if (CANVAS.termIds) CANVAS.termIds = CANVAS.termIds.filter((id) => validIds.has(id));
+    if (!CANVAS.termIds || !CANVAS.termIds.length) {
+      const current = CI.currentTermId(CANVAS.terms, Date.now());
+      CANVAS.termIds = current ? [current] : null;
+    }
+    canvasRebuildInsights();
     CANVAS.note = '';
     return true;
   } catch {
@@ -1032,8 +1049,28 @@ function canvasHeadHtml() {
   </div>`;
 }
 
+function canvasTermsHtml() {
+  if (!CANVAS.terms.length) return '';
+  const boxes = CANVAS.terms.map((t) => {
+    const checked = CANVAS.termIds === null || CANVAS.termIds.includes(t.id) ? ' checked' : '';
+    const count = t.courseCount === 1 ? '1 course' : `${t.courseCount} courses`;
+    const starts = t.startAt ? `, starts ${esc(canvasDateOnly(t.startAt) || '')}` : '';
+    return `<label class="canvas-term"><input type="checkbox" value="${esc(t.id)}"${checked}> <span>${esc(t.name)} — ${count}${starts}</span></label>`;
+  }).join('');
+  return `<fieldset class="canvas-terms"><legend>Terms shown</legend>${boxes}
+    <p class="canvas-meta">The current term is selected on each data load. Changing a selection updates the plan, grades, and course lists at once. Courses in unselected terms are listed under Courses in other terms on the Overview; nothing is removed from Canvas. Courses without a term are always shown, and clearing every selection shows every term.</p></fieldset>`;
+}
+
 // Shared wiring for every connected Canvas page.
 function wireCanvasControls(root, rerender) {
+  root.querySelectorAll('.canvas-terms input[type="checkbox"]').forEach((box) => {
+    box.addEventListener('change', () => {
+      const chosen = [...root.querySelectorAll('.canvas-terms input:checked')].map((b) => b.value);
+      CANVAS.termIds = chosen.length ? chosen : null;
+      canvasRebuildInsights();
+      rerender();
+    });
+  });
   const refresh = $('.canvas-refresh', root);
   if (refresh) {
     refresh.addEventListener('click', async () => {
@@ -1189,7 +1226,7 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
       CANVAS.note = '';
       return;
     }
-    body.innerHTML = `${canvasTabsHtml(activeTab)}${canvasHeadHtml()}${canvasNoteHtml()}${bodyBuilder()}`;
+    body.innerHTML = `${canvasTabsHtml(activeTab)}${canvasHeadHtml()}${canvasTermsHtml()}${canvasNoteHtml()}${bodyBuilder()}`;
     wireCanvasControls(body, rerender);
     if (wire) wire(body);
     CANVAS.note = '';
@@ -1214,6 +1251,9 @@ function viewCanvas() {
     const stale = ins.staleCourses.length ? `<details class="explorer-details"><summary>Courses not shown (${ins.staleCourses.length})</summary>
       <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; Calc Coach only hides them here.</p>
       <ul>${ins.staleCourses.map((c) => `<li>${esc(c.name)}</li>`).join('')}</ul></div></details>` : '';
+    const otherTerms = ins.otherTermCourses.length ? `<details class="explorer-details"><summary>Courses in other terms (${ins.otherTermCourses.length})</summary>
+      <div class="explorer-body"><p class="canvas-meta">These courses are in terms that are not selected under Terms shown. Select their term above to include them.</p>
+      <ul>${ins.otherTermCourses.map((c) => `<li>${esc(c.name)} — ${esc(c.termName)}</li>`).join('')}</ul></div></details>` : '';
     return `
       <div class="card">
         <h2>Right now</h2>
@@ -1225,6 +1265,7 @@ function viewCanvas() {
         <h2>Your courses (${ins.perCourse.length})</h2>
         <p class="canvas-meta">Select a course for its modules, assignments, and statuses.</p>
         <div class="canvas-list">${courseRows}</div>
+        ${otherTerms}
         ${stale}
       </div>`;
   }, ['Canvas'], 'overview');
@@ -1327,7 +1368,7 @@ function viewCanvasAssessment() {
       <h2>Assessment</h2>
       <p class="canvas-meta">The assessment is written by the same AI service as the math tutor, from the Canvas data shown on The plan and Grades. It never receives your token. Canvas data is authoritative; where the assessment and Canvas disagree, Canvas is right.</p>
       ${TUTOR.available ? `
-      <p>Selecting the button sends the loaded Canvas data to the AI service, which pulls a fresh copy from Canvas and writes an assessment here: the overall picture, what is going well, problem areas by course, and a suggested order of work. Nothing is saved and nothing runs on its own.</p>
+      <p>Selecting the button pulls a fresh copy of your Canvas data, applies the same term selection as the other pages, and shows the AI service's written assessment here: the overall picture, what is going well, problem areas by course, and a suggested order of work. Nothing is saved and nothing runs on its own.</p>
       <div class="btn-row"><button type="button" class="canvas-assess-btn">Ask for an assessment</button></div>
       <p class="canvas-meta canvas-assess-status"></p>
       <div class="canvas-assessment" hidden></div>`
@@ -1345,7 +1386,7 @@ function viewCanvasAssessment() {
         const { res, data } = await canvasApi('/api/canvas/assessment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: '{}',
+          body: JSON.stringify({ termIds: CANVAS.termIds || [] }),
         });
         if (data && data.available === false) {
           status.textContent = 'No AI service is configured on this server.';
@@ -1423,7 +1464,7 @@ function viewCanvasCourse(courseId) {
     }).join('');
     return `<div class="card">
       <h2>${esc(course.name)}</h2>
-      <p class="canvas-meta">${esc(course.courseCode || 'Canvas course')}${course.term ? ` · ${esc(course.term)}` : ''}${course.score !== null ? ` · Current score ${course.score}${course.grade ? ` (${esc(course.grade)})` : ''}` : ' · No current score'}</p>
+      <p class="canvas-meta">${esc(course.courseCode || 'Canvas course')}${course.term ? ` · ${esc(course.term.name)}` : ''}${course.score !== null ? ` · Current score ${course.score}${course.grade ? ` (${esc(course.grade)})` : ''}` : ' · No current score'}</p>
       ${course.assignmentsError ? `<p class="canvas-note">${esc(course.assignmentsError)}</p>` : ''}
       ${course.assignmentsTruncated ? '<p class="canvas-meta">Canvas returned more assignments than could be loaded; the list below is incomplete.</p>' : ''}
       ${stats}

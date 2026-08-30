@@ -256,6 +256,9 @@ table.simple th { background: var(--surface-2); }
 .canvas-form label { display: grid; gap: 0.25rem; font-weight: 600; }
 .canvas-form input[type="url"], .canvas-form input[type="password"] { font: inherit; padding: 0.5rem 0.7rem; border: 2px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); }
 .canvas-form .canvas-remember { display: flex; gap: 0.5rem; align-items: baseline; font-weight: 400; }
+.canvas-terms { border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.9rem; margin: 0.6rem 0; background: var(--surface-2); }
+.canvas-terms legend { font-weight: 600; padding: 0 0.3rem; }
+.canvas-term { display: flex; gap: 0.5rem; align-items: baseline; margin: 0.25rem 0; }
 .canvas-list { display: grid; gap: 0.6rem; margin-top: 0.6rem; }
 .canvas-course { display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: 0.65rem 0.75rem; border: 2px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); text-decoration: none; }
 .canvas-course:hover { border-color: var(--accent); background: var(--accent-soft); }

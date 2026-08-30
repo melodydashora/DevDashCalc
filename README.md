@@ -178,6 +178,7 @@ tests, with no hidden scoring:
 
 | Rule | Threshold |
 |---|---|
+| Term selection | Canvas keeps old courses "active", so views filter by enrollment term. The current term — the dated term containing today (`currentTermId`; an undated Default Term is never current) — is selected on each load; the learner can change it under "Terms shown". Unselected-term courses are listed by name, never silently dropped; term-less courses always show |
 | Due-date priority buckets | 4 h, 12 h, 24 h, 3 days, 5 days (`PLAN_BUCKETS`) |
 | Low graded score | below 70 percent of points (`LOW_SCORE_RATIO`) |
 | Low course score | below 70 (`LOW_COURSE_SCORE`) |

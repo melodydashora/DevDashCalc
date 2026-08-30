@@ -99,11 +99,62 @@ export function normalizeCourse(raw) {
     id: str(raw?.id),
     name: str(raw?.name) || str(raw?.course_code) || 'Untitled course',
     courseCode: str(raw?.course_code),
-    term: raw?.term && raw.term.name ? str(raw.term.name) : null,
+    term: raw?.term && typeof raw.term === 'object'
+      ? {
+          id: str(raw.term.id),
+          name: str(raw.term.name) || 'Unnamed term',
+          startAt: isoOrNull(raw.term.start_at),
+          endAt: isoOrNull(raw.term.end_at),
+        }
+      : null,
     applyGroupWeights: Boolean(raw?.apply_assignment_group_weights),
     score: numOrNull(enr?.computed_current_score),
     grade: enr?.computed_current_grade ? str(enr.computed_current_grade) : null,
   };
+}
+
+// ------------------------------------------------------------------- terms
+// Canvas keeps courses from earlier school years in the "active" enrollment
+// list, so the views filter by enrollment term. These two helpers drive the
+// "Terms shown" control: the terms present in the snapshot, newest first,
+// and which one contains `now`.
+export function termsFrom(courses) {
+  const map = new Map();
+  for (const c of Array.isArray(courses) ? courses : []) {
+    if (!c || !c.term || !c.term.id) continue;
+    const existing = map.get(c.term.id);
+    if (existing) existing.courseCount += 1;
+    else map.set(c.term.id, { id: c.term.id, name: c.term.name, startAt: c.term.startAt, endAt: c.term.endAt, courseCount: 1 });
+  }
+  return [...map.values()].sort((a, b) => {
+    const ta = timeOf(a.startAt);
+    const tb = timeOf(b.startAt);
+    if (ta !== tb) {
+      if (ta === null) return 1;
+      if (tb === null) return -1;
+      return tb - ta; // newest school term first
+    }
+    return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+  });
+}
+
+// The current term is the one whose dates contain `now`. A term with no
+// dates at all (Canvas's catch-all "Default Term") can never be current —
+// old courses often sit in it. Ties go to the latest start date. Returns
+// null when no dated term contains `now`.
+export function currentTermId(terms, now) {
+  let best = null;
+  let bestStart = null;
+  for (const t of Array.isArray(terms) ? terms : []) {
+    const start = timeOf(t.startAt);
+    const end = timeOf(t.endAt);
+    if (start === null && end === null) continue;
+    if (start !== null && start > now) continue;
+    if (end !== null && end < now) continue;
+    const s = start === null ? -Infinity : start;
+    if (best === null || s > bestStart) { best = t.id; bestStart = s; }
+  }
+  return best;
 }
 
 export function normalizeGroup(raw) {
@@ -241,12 +292,29 @@ function planItem(course, a) {
   };
 }
 
-// buildInsights(snapshot, now) -> the plan, the attention lists, the stale
-// courses, and one summary row per course. Data only — every learner-facing
-// sentence lives in app.js where the language lint scans it.
-export function buildInsights(snapshot, now) {
-  const courses = Array.isArray(snapshot?.courses) ? snapshot.courses : [];
+// buildInsights(snapshot, now, opts) -> the plan, the attention lists, the
+// courses filtered out (by term selection or staleness), and one summary row
+// per course. opts.termIds: when a non-empty array of term ids is given,
+// courses in other terms are excluded and listed under otherTermCourses; a
+// course with no term data is always included (the stale rule still covers
+// it). Data only — every learner-facing sentence lives in app.js where the
+// language lint scans it.
+export function buildInsights(snapshot, now, opts = {}) {
+  const allCourses = Array.isArray(snapshot?.courses) ? snapshot.courses : [];
   const missingList = Array.isArray(snapshot?.missingSubmissions) ? snapshot.missingSubmissions : [];
+
+  // Term-selection rule (see termsFrom/currentTermId above).
+  const termIds = Array.isArray(opts.termIds) && opts.termIds.length ? new Set(opts.termIds.map(String)) : null;
+  const otherTermCourses = [];
+  const courses = [];
+  for (const course of allCourses) {
+    if (termIds && course.term && course.term.id && !termIds.has(course.term.id)) {
+      otherTermCourses.push({ id: course.id, name: course.name, termName: course.term.name });
+    } else {
+      courses.push(course);
+    }
+  }
+  otherTermCourses.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
 
   // Stale-course rule (see STALE_MS above).
   const staleCourses = [];
@@ -270,7 +338,10 @@ export function buildInsights(snapshot, now) {
   }
 
   const missingIdSet = new Set(missingList.map((m) => m.assignmentId));
-  const courseNameById = new Map(courses.map((c) => [c.id, c.name]));
+  const courseNameById = new Map(allCourses.map((c) => [c.id, c.name]));
+  // Missing submissions from courses hidden by the term selection or the
+  // stale rule stay out of the attention list too — one consistent lens.
+  const hiddenCourseIds = new Set([...otherTermCourses, ...staleCourses].map((c) => c.id));
 
   const buckets = PLAN_BUCKETS.map((b) => ({ id: b.id, ms: b.ms, items: [] }));
   const plan = {
@@ -390,6 +461,7 @@ export function buildInsights(snapshot, now) {
   // from the course view). They still belong under attention.
   for (const m of missingList) {
     if (missingSeen.has(m.assignmentId)) continue;
+    if (hiddenCourseIds.has(m.courseId)) continue;
     missingSeen.add(m.assignmentId);
     attention.missing.push({
       courseId: m.courseId,
@@ -422,5 +494,5 @@ export function buildInsights(snapshot, now) {
   staleCourses.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   perCourse.sort((a, b) => (a.courseName < b.courseName ? -1 : a.courseName > b.courseName ? 1 : 0));
 
-  return { generatedAt: now, plan, attention, staleCourses, perCourse };
+  return { generatedAt: now, plan, attention, staleCourses, otherTermCourses, perCourse };
 }
