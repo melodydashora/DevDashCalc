@@ -1474,7 +1474,7 @@
    ],
    "hints": [
     "The power $x^2$ requires two applications of integration by parts, each lowering the power by one. Take $u = x^2$ first.",
-    "After the first application you should have $x^2\\sin x - \\int 2x\\sin x\\,dx$. Apply parts again to the remaining integral with $u = 2x$, and distribute the minus sign across the entire result.",
+    "After the first application the expression is $x^2\\sin x - \\int 2x\\sin x\\,dx$. Apply parts again to the remaining integral with $u = 2x$, and distribute the minus sign across the entire result.",
     "Differentiate your candidate answer to confirm it returns $x^2\\cos x$."
    ],
    "solution": [

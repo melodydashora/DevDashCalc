@@ -27,7 +27,9 @@ function checkString(s, where, { html = false } = {}) {
   }
   if (/<script|javascript:|on\w+\s*=/i.test(s)) err(`${where}: contains disallowed script/handler content`);
   if (html) {
-    for (const m of s.matchAll(/<\/?\s*([a-zA-Z][a-zA-Z0-9]*)/g)) {
+    // Scan for tags outside math only: "$x < a$" is an inequality, not an <a> tag.
+    const prose = s.replace(/\$\$[\s\S]+?\$\$/g, ' ').replace(/\$[^$]+?\$/g, ' ');
+    for (const m of prose.matchAll(/<\/?\s*([a-zA-Z][a-zA-Z0-9]*)/g)) {
       if (!ALLOWED_TAGS.has(m[1].toLowerCase())) err(`${where}: HTML tag <${m[1]}> is not in the allowed set`);
     }
     if (/style\s*=/i.test(s)) err(`${where}: inline style attributes are not allowed`);
