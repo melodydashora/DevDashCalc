@@ -11,6 +11,7 @@ import {
   canvasBaseUrl, parseLinkNext, normalizeCourse, normalizeGroup, normalizeAssignment,
   normalizeModule, normalizeModuleProgress, normalizeMissingSubmission, buildInsights,
 } from './public/canvas-insights.js';
+import { hasDatabase, dbGet, dbSet, dbSeed, dbDelete } from './store.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(ROOT, 'public');
@@ -36,11 +37,70 @@ const send = (res, status, body, type = 'application/json; charset=utf-8') => {
 };
 const sendJson = (res, status, obj) => send(res, status, JSON.stringify(obj));
 
-// Only allow simple profile names so the file path can never escape ./data.
-const profileFile = (name) => {
-  const safe = String(name || 'learner').toLowerCase().replace(/[^a-z0-9-]/g, '');
-  return join(DATA, `progress-${safe || 'learner'}.json`);
+// Only allow simple profile names so the file path can never escape ./data,
+// capped so `progress-<slug>` always fits the store's 64-character key rule.
+const profileSlug = (name) => {
+  const safe = String(name || 'learner').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 55);
+  return safe || 'learner';
 };
+const profileFile = (name) => join(DATA, `progress-${profileSlug(name)}.json`);
+
+// ----------------------------------------------------------- durable store
+// Postgres (DATABASE_URL — Replit's dev database "helium" and the
+// production deploy's database both provide one) is the durable copy of
+// learner progress, the remembered Canvas connection, and the Canvas view
+// preferences; the data/ files remain the zero-config fallback and a local
+// mirror, and they seed the database the first time it is reachable. Reads
+// prefer the database; writes go to both; a database failure never blocks
+// the learner — it is logged (rate-limited) and the file path continues.
+let dbWarnedAt = 0;
+function dbTrouble(op, e) {
+  const now = Date.now();
+  if (now - dbWarnedAt > 60_000) {
+    dbWarnedAt = now;
+    console.error(`[calc-coach] database ${op} failed; using files:`, e.message);
+  }
+}
+
+// All database writes and deletes for one key run through one queue, so a
+// slow early write can never commit after (and overwrite) a later one.
+const storeQueues = new Map();
+function enqueue(key, op) {
+  const prev = storeQueues.get(key) || Promise.resolve();
+  const run = prev.then(op);
+  storeQueues.set(key, run.catch(() => { /* logged by the caller */ }));
+  return run;
+}
+
+// storeRead distinguishes "the database answered: no row" (ok true, value
+// null) from "the database could not answer" (ok false) — seeding a file
+// into the database is only safe in the first case.
+async function storeRead(key) {
+  if (!hasDatabase()) return { ok: false, value: null };
+  try { return { ok: true, value: await dbGet(key) }; } catch (e) { dbTrouble('read', e); return { ok: false, value: null }; }
+}
+function storeWrite(key, value) {
+  if (!hasDatabase()) return;
+  enqueue(key, () => dbSet(key, value)).catch((e) => dbTrouble('write', e));
+}
+// Seeds use ON CONFLICT DO NOTHING so a mirror file can never overwrite a
+// newer database value. Returns a promise that never rejects.
+function storeSeed(key, value) {
+  if (!hasDatabase()) return Promise.resolve();
+  return enqueue(key, () => dbSeed(key, value)).catch((e) => dbTrouble('seed', e));
+}
+// Deleting a credential must be awaited and reported honestly; failures are
+// always logged (not rate-limited).
+async function storeRemoveDurable(key) {
+  if (!hasDatabase()) return true;
+  try {
+    await enqueue(key, () => dbDelete(key));
+    return true;
+  } catch (e) {
+    console.error(`[calc-coach] database delete of ${key} failed; it stays until the next disconnect:`, e.message);
+    return false;
+  }
+}
 
 async function serveFile(res, base, relPath) {
   const path = normalize(join(base, relPath));
@@ -128,31 +188,46 @@ function canvasSession(req) {
 // ------------------------------------------------- remembered connection
 // The single learner can choose to remember the connection: the URL and
 // token are saved to data/canvas-profile.json (gitignored, never served,
-// never part of a progress export), and the server reconnects from it after
-// a restart. Disconnect deletes the file.
+// never part of a progress export) and to the database when DATABASE_URL is
+// set, and the server reconnects from either after a restart. Disconnect
+// deletes the file and the database row.
 const CANVAS_PROFILE_FILE = join(DATA, 'canvas-profile.json');
+
+function validCanvasProfile(parsed) {
+  const baseUrl = canvasBaseUrl(parsed?.baseUrl);
+  const token = typeof parsed?.token === 'string' ? parsed.token.trim() : '';
+  if (!baseUrl || token === '' || token.length > 2048) return null;
+  return { baseUrl, token };
+}
 
 async function canvasStoreSave(baseUrl, token) {
   await mkdir(DATA, { recursive: true });
   const tmp = `${CANVAS_PROFILE_FILE}.tmp`;
   await writeFile(tmp, JSON.stringify({ baseUrl, token }), { encoding: 'utf8', mode: 0o600 });
   await rename(tmp, CANVAS_PROFILE_FILE);
+  storeWrite('canvas-profile', { baseUrl, token });
 }
 
 async function canvasStoreLoad() {
+  const read = await storeRead('canvas-profile');
+  const fromDb = validCanvasProfile(read.value);
+  if (fromDb) return fromDb;
   try {
-    const parsed = JSON.parse(await readFile(CANVAS_PROFILE_FILE, 'utf8'));
-    const baseUrl = canvasBaseUrl(parsed?.baseUrl);
-    const token = typeof parsed?.token === 'string' ? parsed.token.trim() : '';
-    if (!baseUrl || token === '' || token.length > 2048) return null;
-    return { baseUrl, token };
+    const fromFile = validCanvasProfile(JSON.parse(await readFile(CANVAS_PROFILE_FILE, 'utf8')));
+    // Seed the durable copy only when the database answered "no row", and
+    // await it so a later disconnect is ordered after this write.
+    if (fromFile && read.ok) await storeSeed('canvas-profile', fromFile);
+    return fromFile;
   } catch {
     return null;
   }
 }
 
+// Removes every stored copy of the connection. Returns false when the
+// database copy could not be removed, so the caller can say so honestly.
 async function canvasStoreDelete() {
   try { await unlink(CANVAS_PROFILE_FILE); } catch { /* already gone */ }
+  return storeRemoveDurable('canvas-profile');
 }
 
 // ------------------------------------------------- remembered view choices
@@ -161,15 +236,23 @@ async function canvasStoreDelete() {
 // and are never part of a progress export.
 const CANVAS_PREFS_FILE = join(DATA, 'canvas-prefs.json');
 
+function sanitizeOverrides(raw) {
+  const overrides = {};
+  const source = raw && typeof raw === 'object' ? raw : {};
+  for (const [id, v] of Object.entries(source).slice(0, 200)) {
+    if (CANVAS_NUMERIC_ID.test(id) && (v === 'shown' || v === 'hidden')) overrides[id] = v;
+  }
+  return overrides;
+}
+
 async function canvasPrefsLoad() {
+  const read = await storeRead('canvas-prefs');
+  if (read.value) return { courseOverrides: sanitizeOverrides(read.value.courseOverrides) };
   try {
     const parsed = JSON.parse(await readFile(CANVAS_PREFS_FILE, 'utf8'));
-    const overrides = {};
-    const raw = parsed && typeof parsed.courseOverrides === 'object' && parsed.courseOverrides ? parsed.courseOverrides : {};
-    for (const [id, v] of Object.entries(raw)) {
-      if (CANVAS_NUMERIC_ID.test(id) && (v === 'shown' || v === 'hidden')) overrides[id] = v;
-    }
-    return { courseOverrides: overrides };
+    const prefs = { courseOverrides: sanitizeOverrides(parsed?.courseOverrides) };
+    if (read.ok) storeSeed('canvas-prefs', prefs); // seed only on a definite no-row
+    return prefs;
   } catch {
     return { courseOverrides: {} };
   }
@@ -180,6 +263,7 @@ async function canvasPrefsSave(prefs) {
   const tmp = `${CANVAS_PREFS_FILE}.tmp`;
   await writeFile(tmp, JSON.stringify(prefs, null, 2), 'utf8');
   await rename(tmp, CANVAS_PREFS_FILE);
+  storeWrite('canvas-prefs', prefs);
 }
 
 // Returns the cookie session, or silently reconnects from the remembered
@@ -570,11 +654,7 @@ async function handleCanvas(req, res, url) {
     if (req.method === 'PUT') {
       let body;
       try { body = JSON.parse(await readBody(req, 50_000)); } catch { return sendJson(res, 400, { error: 'body must be valid JSON' }); }
-      const overrides = {};
-      const raw = body && typeof body.courseOverrides === 'object' && body.courseOverrides ? body.courseOverrides : {};
-      for (const [id, v] of Object.entries(raw).slice(0, 200)) {
-        if (CANVAS_NUMERIC_ID.test(id) && (v === 'shown' || v === 'hidden')) overrides[id] = v;
-      }
+      const overrides = sanitizeOverrides(body?.courseOverrides);
       await canvasPrefsSave({ courseOverrides: overrides });
       return sendJson(res, 200, { saved: true, courseOverrides: overrides });
     }
@@ -597,9 +677,9 @@ async function handleCanvas(req, res, url) {
       // Single-user app: Disconnect means the token leaves server memory
       // entirely, not just the session this cookie names.
       canvasSessions.clear();
-      await canvasStoreDelete();
+      const durableDeleted = await canvasStoreDelete();
       setCanvasCookie(req, res, '', 0);
-      return sendJson(res, 200, { connected: false });
+      return sendJson(res, 200, { connected: false, durableDeleted });
     }
     if (req.method === 'POST') {
       let body;
@@ -889,10 +969,17 @@ const server = createServer(async (req, res) => {
     if (path.startsWith('/api/canvas/')) return await handleCanvas(req, res, url);
 
     if (path === '/api/progress') {
-      const file = profileFile(url.searchParams.get('profile'));
+      const slug = profileSlug(url.searchParams.get('profile'));
+      const file = profileFile(slug);
       if (req.method === 'GET') {
+        const read = await storeRead(`progress-${slug}`);
+        if (read.value !== null) return sendJson(res, 200, read.value);
         try {
-          return send(res, 200, await readFile(file, 'utf8'));
+          const raw = await readFile(file, 'utf8');
+          if (read.ok) {
+            try { storeSeed(`progress-${slug}`, JSON.parse(raw)); } catch { /* unreadable mirror stays file-only */ }
+          }
+          return send(res, 200, raw);
         } catch {
           return sendJson(res, 200, null); // no saved progress yet — the client starts fresh
         }
@@ -906,6 +993,7 @@ const server = createServer(async (req, res) => {
         const tmp = `${file}.tmp`;
         await writeFile(tmp, JSON.stringify(parsed, null, 2), 'utf8');
         await rename(tmp, file); // atomic: never leaves a half-written progress file
+        storeWrite(`progress-${slug}`, parsed);
         return sendJson(res, 200, { saved: true });
       }
       return sendJson(res, 405, { error: 'use GET or PUT' });

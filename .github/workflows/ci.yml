@@ -17,6 +17,7 @@ jobs:
       - name: Syntax check
         run: |
           node --check server.js
+          node --check store.js
           node --check public/app.js
           node --check public/engine.js
           node --check public/viz.js
@@ -26,8 +27,8 @@ jobs:
           node --check scripts/qa-tools.mjs
           node --check scripts/lint-ui.mjs
 
-      - name: Engine and Canvas-insights unit tests
-        run: node --test test/engine.test.mjs test/canvas-insights.test.mjs
+      - name: Engine, Canvas-insights, and store unit tests
+        run: node --test test/engine.test.mjs test/canvas-insights.test.mjs test/store.test.mjs
 
       - name: Language lint of app text (CLAUDE.md invariant 3)
         run: node scripts/lint-ui.mjs

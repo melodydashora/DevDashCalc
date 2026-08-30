@@ -29,10 +29,11 @@ Breaking any of these is a regression even if the code works:
    never blocks. Failing a Mastery Check changes nothing.
 5. **Two-step answering.** Select or type, then an explicit "Check answer".
    A stray click must never submit.
-6. **Zero dependencies.** No `npm install`, ever. Server = `node:http` only;
-   Anthropic API via built-in `fetch`; KaTeX is vendored in
-   `public/vendor/katex/`. This is what makes the app immune to Replit
-   `node_modules` corruption. Do not add packages.
+6. **Zero dependencies.** No `npm install`, ever. Server = Node built-ins
+   only (`node:http`; `store.js` speaks the Postgres wire protocol itself
+   over `node:net`/`node:tls`/`node:crypto`); AI APIs via built-in `fetch`;
+   KaTeX is vendored in `public/vendor/katex/`. This is what makes the app
+   immune to Replit `node_modules` corruption. Do not add packages.
 7. **The verified answer key is the only grader.** The AI tutor explains and
    is instructed never to contradict the key; it must never grade, and no
    generated math may enter the content files without independent
@@ -43,6 +44,7 @@ Breaking any of these is a regression even if the code works:
 | Piece | File |
 |---|---|
 | Server: static + progress API + tutor proxy + Canvas proxy | `server.js` |
+| Zero-dep Postgres wire client + key→JSON store (tested) | `store.js` |
 | Adaptive/mastery logic (pure, tested) | `public/engine.js` |
 | Canvas LMS normalization + plan/grades rules (pure, tested) | `public/canvas-insights.js` |
 | SPA: routing, views, persistence | `public/app.js` |
@@ -56,6 +58,7 @@ Breaking any of these is a regression even if the code works:
 | Language lint for the app's own strings (app.js, viz.js, canvas-insights.js) | `scripts/lint-ui.mjs` |
 | Engine tests | `test/engine.test.mjs` |
 | Canvas insights tests | `test/canvas-insights.test.mjs` |
+| Store tests (URL parsing, SCRAM vector) | `test/store.test.mjs` |
 
 ## Engine invariants (pinned by tests — change tests and README together)
 
@@ -73,7 +76,7 @@ Breaking any of these is a regression even if the code works:
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # 16 engine tests + 29 Canvas-insights tests (node --test)
+npm test             # 16 engine + 29 Canvas-insights + 6 store tests (node --test)
 npm run validate     # schema-validate all units, then render every math segment with KaTeX
 npm run lint         # language lint of app text and every unit (no exclamation marks, shaming, idioms, emoji)
 ```
@@ -95,12 +98,16 @@ file present.
   correct key teaches wrong math. New questions are verified by blind
   re-solving: `node scripts/qa-tools.mjs blind unit-NN` prints prompts and
   choices only, so a second solver can work without seeing the key.
-- Learner progress lives in `data/progress-*.json` (gitignored). Never
-  commit it; never reset it without explicit permission from Melody.
+- Learner progress lives in `data/progress-*.json` (gitignored) and, when
+  `DATABASE_URL` is set, in the Postgres `calc_coach_store` table (reads
+  prefer the database; writes go to both; database failures fall back to
+  files and never block the learner). Never commit it; never reset either
+  copy without explicit permission from Melody.
 - Canvas is read-only and display-only: the access token lives in a server
   memory session and, when the learner chooses Remember, in
-  `data/canvas-profile.json` (gitignored) — never in `S`, localStorage,
-  progress exports, logs, or any response body. Canvas data never touches
+  `data/canvas-profile.json` (gitignored) and the Postgres
+  `calc_coach_store` table — never in `S`, localStorage, progress exports,
+  logs, or any response body. Canvas data never touches
   engine scoring or unlocks. The AI assessment receives Canvas data only,
   never the token; the math tutor receives neither. Canvas is authoritative
   for grades — never recompute them. Problem-area thresholds are the named

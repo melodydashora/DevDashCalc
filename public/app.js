@@ -1118,10 +1118,16 @@ function wireCanvasControls(root, rerender) {
   const disconnect = $('.canvas-disconnect', root);
   if (disconnect) {
     disconnect.addEventListener('click', async () => {
-      try { await canvasApi('/api/canvas/session', { method: 'DELETE' }); } catch { /* removing a session that is already gone is fine */ }
+      let durable = true;
+      try {
+        const { data } = await canvasApi('/api/canvas/session', { method: 'DELETE' });
+        durable = !data || data.durableDeleted !== false;
+      } catch { /* removing a session that is already gone is fine */ }
       CANVAS.connected = false; CANVAS.user = null; CANVAS.host = ''; CANVAS.remembered = false;
       CANVAS.snapshot = null; CANVAS.insights = null; CANVAS.terms = []; CANVAS.termIds = null; CANVAS.assessment = null;
-      CANVAS.note = 'Canvas is disconnected. The token is out of server memory and the saved copy is deleted.';
+      CANVAS.note = durable
+        ? 'Canvas is disconnected. The token is out of server memory and the saved copies are deleted.'
+        : 'Canvas is disconnected and the token is out of server memory. The saved database copy could not be removed this time; select Disconnect again to retry.';
       announce('Canvas is disconnected.');
       rerender();
     });

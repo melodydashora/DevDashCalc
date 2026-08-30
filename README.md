@@ -204,8 +204,11 @@ Safety and privacy, by design:
 - **The token stays server-side.** It lives in an expiring 8-hour memory
   session behind an HttpOnly, SameSite=Strict cookie scoped to
   `/api/canvas`. With "Remember this connection" selected, the server also
-  saves it to `data/canvas-profile.json` (gitignored, file mode 0600) so
-  the connection survives restarts; Disconnect deletes both at once. The
+  saves it to `data/canvas-profile.json` (gitignored, file mode 0600) and,
+  when `DATABASE_URL` is set, to the app's Postgres store — so the
+  connection survives restarts and production redeploys alike; Disconnect
+  deletes every copy at once, and the app says so plainly if the database
+  copy could not be removed on that attempt. The
   token never appears in the browser, progress files, exports, logs, or
   any response body, and is never sent to any AI provider.
 - **HTTPS only, public hosts only.** The URL validator rejects plain HTTP,
@@ -220,6 +223,7 @@ Safety and privacy, by design:
 ```
 DevDashCalc (repo root)
 ├── server.js              # zero-dep node:http server: static files + progress API
+├── store.js               # zero-dep Postgres wire client (DATABASE_URL); files stay the fallback
 ├── package.json           # no dependencies; scripts only
 ├── public/
 │   ├── index.html         # shell; KaTeX via CDN for math rendering
@@ -238,7 +242,8 @@ DevDashCalc (repo root)
 │   └── lint-ui.mjs           # the same language rules applied to app.js/viz.js strings
 ├── test/
 │   ├── engine.test.mjs    # node:test suite for the engine
-│   └── canvas-insights.test.mjs  # node:test suite for the Canvas rules
+│   ├── canvas-insights.test.mjs  # node:test suite for the Canvas rules
+│   └── store.test.mjs     # node:test suite for the store (URL parsing, RFC 7677 SCRAM vector)
 └── data/                  # runtime progress + Canvas profile storage (gitignored)
 ```
 

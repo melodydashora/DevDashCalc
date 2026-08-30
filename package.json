@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/engine.test.mjs test/canvas-insights.test.mjs",
+    "test": "node --test test/engine.test.mjs test/canvas-insights.test.mjs test/store.test.mjs",
     "validate": "node scripts/validate-content.mjs && node scripts/check-math.mjs",
     "lint": "node scripts/lint-ui.mjs && for u in $(ls content/unit-*.json | xargs -n1 basename | sed s/.json//); do node scripts/qa-tools.mjs lint $u || exit 1; done"
   },
