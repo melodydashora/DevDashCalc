@@ -78,16 +78,27 @@ test('wrong answers lower mastery and the difficulty ladder moves both ways', ()
   assert.equal(s.skills['u1-a'].difficulty, 1, 'correct via 2+ hints also steps down');
 });
 
-test('unit unlock gating: passing the previous unit (or placement) unlocks the next', () => {
+test('every unit is open from the start (sequential unlocking removed at Dev direction)', () => {
   const s = E.newState();
-  assert.ok(E.unitUnlocked(s, manifest, 1), 'unit 1 always open');
-  assert.ok(!E.unitUnlocked(s, manifest, 2), 'unit 2 locked at start');
-  s.unitsPassed['unit-01'] = { passedAt: NOW, correct: 7, total: 8 };
-  assert.ok(E.unitUnlocked(s, manifest, 2), 'unlocked by passing unit 1');
-  assert.ok(!E.unitUnlocked(s, manifest, 3), 'unit 3 still locked');
-  const s2 = E.newState();
-  s2.diagnostic.placedThroughUnit = 2;
-  assert.ok(E.unitUnlocked(s2, manifest, 3), 'placement through unit 2 unlocks unit 3');
+  for (const u of manifest.units) {
+    assert.ok(E.unitUnlocked(s, manifest, u.number), `unit ${u.number} open with zero progress`);
+  }
+});
+
+test('pickReviewQuestion: difficulty >= 2 preferred, exclusions respected, just-seen rotates out', () => {
+  const unit = makeUnit();
+  const s = E.newState();
+  const r0 = () => 0; // deterministic tie-break for the test
+  const q1 = E.pickReviewQuestion(s, unit, 'u1-a', [], r0);
+  assert.ok(q1.difficulty >= 2, 'review serves difficulty 2+ when the skill has them');
+  E.recordAnswer(s, { skillId: 'u1-a', questionId: q1.id, correct: true, hintsUsed: 0, difficulty: q1.difficulty, now: NOW });
+  const q2 = E.pickReviewQuestion(s, unit, 'u1-a', [], r0);
+  assert.notEqual(q2.id, q1.id, 'the question just answered is not served again');
+  const q3 = E.pickReviewQuestion(s, unit, 'u1-a', [q2.id], r0);
+  assert.notEqual(q3.id, q2.id, 'session exclusions are honored');
+  assert.ok(q3.difficulty >= 2);
+  const qc = E.pickReviewQuestion(s, unit, 'u1-c', ['u1-qc2'], r0);
+  assert.equal(qc.id, 'u1-qc1', 'falls back to lower difficulty rather than repeating an excluded question');
 });
 
 test('mastery check eligibility requires every core skill mastered (extra skills do not gate)', () => {

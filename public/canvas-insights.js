@@ -37,7 +37,7 @@ export const LOW_COURSE_SCORE = 70;
 export const STALE_MONTHS = 10;
 export const STALE_MS = STALE_MONTHS * 30 * DAY_MS;
 
-// The subjects the companion apps cover: Calc Coach today, the physics coach
+// The subjects the companion apps cover: students4ai (calculus) today, the physics coach
 // next. A course whose name or code matches none of these is hidden by
 // default (listed under Hidden courses, never silently dropped); the learner
 // can show or hide any course, and that choice is remembered.

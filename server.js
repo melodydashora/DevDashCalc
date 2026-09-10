@@ -1,4 +1,4 @@
-// Calc Coach server — zero dependencies, Node 18+.
+// students4ai server — zero dependencies, Node 18+.
 // Serves the static app, the curriculum content, and a small JSON progress API
 // backed by files in ./data (so progress survives browser changes on Replit).
 
@@ -58,7 +58,7 @@ function dbTrouble(op, e) {
   const now = Date.now();
   if (now - dbWarnedAt > 60_000) {
     dbWarnedAt = now;
-    console.error(`[calc-coach] database ${op} failed; using files:`, e.message);
+    console.error(`[students4ai] database ${op} failed; using files:`, e.message);
   }
 }
 
@@ -97,7 +97,7 @@ async function storeRemoveDurable(key) {
     await enqueue(key, () => dbDelete(key));
     return true;
   } catch (e) {
-    console.error(`[calc-coach] database delete of ${key} failed; it stays until the next disconnect:`, e.message);
+    console.error(`[students4ai] database delete of ${key} failed; it stays until the next disconnect:`, e.message);
     return false;
   }
 }
@@ -288,7 +288,7 @@ async function canvasSessionOrStored(req, res) {
     candidate.user = { id: String(user?.id ?? ''), name: String(user?.name || 'Canvas learner') };
   } catch (e) {
     if (e instanceof CanvasError && e.kind === 'auth') await canvasStoreDelete();
-    console.error('[calc-coach] canvas: stored-profile reconnect failed:', e.message);
+    console.error('[students4ai] canvas: stored-profile reconnect failed:', e.message);
     return null;
   }
   evictCanvasSessions();
@@ -436,7 +436,7 @@ async function canvasSnapshot(session) {
     // Some institutions disable this endpoint; the per-assignment missing
     // flags still cover it, so this degrades instead of failing.
     missingSubmissionsError = 'Canvas did not provide its missing-assignment list. The missing flag on each assignment is used instead.';
-    console.error('[calc-coach] canvas: missing_submissions failed:', e.message);
+    console.error('[students4ai] canvas: missing_submissions failed:', e.message);
   }
 
   const courses = await mapLimit(kept, CANVAS_FANOUT, async (course) => {
@@ -469,7 +469,7 @@ async function canvasSnapshot(session) {
       }
     } catch (e) {
       result.assignmentsError = 'Canvas did not return the assignments for this course.';
-      console.error(`[calc-coach] canvas: assignments for course ${course.id} failed:`, e.message);
+      console.error(`[students4ai] canvas: assignments for course ${course.id} failed:`, e.message);
     }
     try {
       const page = await canvasGetAll(session, `courses/${course.id}/modules`, { 'include[]': 'items' });
@@ -490,7 +490,7 @@ async function canvasSnapshot(session) {
         return normalizeModule(rawModule, items);
       });
     } catch (e) {
-      console.error(`[calc-coach] canvas: modules for course ${course.id} failed:`, e.message);
+      console.error(`[students4ai] canvas: modules for course ${course.id} failed:`, e.message);
     }
     try {
       result.moduleProgress = normalizeModuleProgress(
@@ -522,7 +522,7 @@ async function canvasSnapshot(session) {
 // and a working remembered profile must not be deleted by a typo.
 async function sendCanvasError(req, res, e, sessionId, dropStored = true) {
   const kind = e instanceof CanvasError ? e.kind : 'canvas';
-  console.error('[calc-coach] canvas:', kind, e instanceof CanvasError ? e.status : '', e.message);
+  console.error('[students4ai] canvas:', kind, e instanceof CanvasError ? e.status : '', e.message);
   if (kind === 'auth') {
     if (sessionId) canvasSessions.delete(sessionId);
     if (dropStored) await canvasStoreDelete();
@@ -538,16 +538,16 @@ async function sendCanvasError(req, res, e, sessionId, dropStored = true) {
   if (kind === 'notfound') return sendJson(res, 404, { error: 'Canvas reports that this data does not exist.' });
   if (kind === 'timeout') return sendJson(res, 504, { error: 'Canvas did not reply within 20 seconds. Try again, or check the Canvas URL.' });
   if (kind === 'network') return sendJson(res, 502, { error: 'Canvas could not be reached at that address. Check the URL and try again.' });
-  return sendJson(res, 502, { error: 'Canvas returned an error for this request. Your Calc Coach progress is unaffected.' });
+  return sendJson(res, 502, { error: 'Canvas returned an error for this request. Your students4ai progress is unaffected.' });
 }
 
 // ------------------------------------------------------ the AI assessment
 // Reuses the tutor's provider chain (same keys, same fallback order) to
 // write a grounded assessment of the pulled Canvas data. The model receives
-// the data below and nothing else — never the token, never Calc Coach
+// the data below and nothing else — never the token, never students4ai
 // progress. The client shows the button only when GET /api/tutor reports a
 // provider is configured.
-const CANVAS_ASSESSMENT_SYSTEM = `You are an academic progress analyst inside Calc Coach, a study app. You are writing for one specific learner, an autistic professional software developer. Follow these rules exactly.
+const CANVAS_ASSESSMENT_SYSTEM = `You are an academic progress analyst inside students4ai, a study app. You are writing for one specific learner, an autistic professional software developer. Follow these rules exactly.
 
 Style rules:
 - Literal language only. No idioms, no sarcasm, no rhetorical questions, no exclamation marks, no emoji, no markdown syntax.
@@ -635,7 +635,7 @@ async function handleCanvasAssessment(req, res) {
         : out.text;
       return sendJson(res, 200, { text });
     }
-    console.error('[calc-coach] canvas assessment: every provider failed —', out.failures.join(' | '));
+    console.error('[students4ai] canvas assessment: every provider failed —', out.failures.join(' | '));
     return sendJson(res, 502, { error: 'The assessment service could not be reached.' });
   } catch (e) {
     return sendCanvasError(req, res, e, found.id);
@@ -852,7 +852,7 @@ async function completeWithFallback({ system, messages }) {
   return { failures };
 }
 
-const TUTOR_SYSTEM = `You are the tutor inside Calc Coach, an AP Calculus BC study app. The learner is an autistic professional software developer. Follow these rules exactly.
+const TUTOR_SYSTEM = `You are the tutor inside students4ai, an AP Calculus BC study app. The learner is an autistic professional software developer. Follow these rules exactly.
 
 Style:
 - Literal, concrete, calm language. No idioms, no exclamation marks, no rhetorical questions, no emoji.
@@ -955,7 +955,7 @@ async function handleTutor(req, res, url) {
       : out.text;
     return sendJson(res, 200, { text });
   }
-  console.error('[calc-coach] tutor: every provider failed —', out.failures.join(' | '));
+  console.error('[students4ai] tutor: every provider failed —', out.failures.join(' | '));
   return sendJson(res, 502, { error: 'The tutor could not be reached.' });
 }
 
@@ -964,7 +964,7 @@ const server = createServer(async (req, res) => {
   const path = url.pathname;
 
   try {
-    if (path === '/api/health') return sendJson(res, 200, { ok: true, app: 'calc-coach' });
+    if (path === '/api/health') return sendJson(res, 200, { ok: true, app: 'students4ai' });
     if (path === '/api/tutor') return await handleTutor(req, res, url);
     if (path.startsWith('/api/canvas/')) return await handleCanvas(req, res, url);
 
@@ -984,7 +984,9 @@ const server = createServer(async (req, res) => {
           return sendJson(res, 200, null); // no saved progress yet — the client starts fresh
         }
       }
-      if (req.method === 'PUT') {
+      // POST is accepted as a save because navigator.sendBeacon (the
+      // client's leaving-the-page flush) can only send POST.
+      if (req.method === 'PUT' || req.method === 'POST') {
         const raw = await readBody(req);
         let parsed;
         try { parsed = JSON.parse(raw); } catch { return sendJson(res, 400, { error: 'body must be valid JSON' }); }
@@ -1004,11 +1006,11 @@ const server = createServer(async (req, res) => {
     if (path === '/' || path === '/index.html') return serveFile(res, PUBLIC, 'index.html');
     return serveFile(res, PUBLIC, path.slice(1));
   } catch (e) {
-    console.error(`[calc-coach] ${req.method} ${path} failed:`, e.message);
+    console.error(`[students4ai] ${req.method} ${path} failed:`, e.message);
     sendJson(res, 500, { error: 'internal error' });
   }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[calc-coach] listening on http://0.0.0.0:${PORT}`);
+  console.log(`[students4ai] listening on http://0.0.0.0:${PORT}`);
 });

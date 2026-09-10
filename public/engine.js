@@ -1,4 +1,4 @@
-// Calc Coach adaptive engine — pure logic, no DOM, no network.
+// students4ai adaptive engine — pure logic, no DOM, no network.
 // Used by the browser app (public/app.js) and by node:test (test/engine.test.mjs).
 //
 // The model, in plain terms (also documented in README.md):
@@ -10,9 +10,10 @@
 //   mastery can never be reached on easy questions alone.
 // - Each skill has a difficulty ladder position (1..3): clean correct moves up,
 //   wrong (or correct only via 2+ hints) moves down.
-// - A unit's Mastery Check unlocks when every core skill is mastered (>= 80).
-//   Passing the check (e.g. 7 of 8, no hints) unlocks the next unit. Units are
-//   never re-locked afterward.
+// - Every unit is open from the start (per Dev's direction). The Mastery
+//   Check is a certification, not a gate: passing it (e.g. 7 of 8, no hints)
+//   marks the unit passed. The lessons → practice → check sequence is
+//   recommended, never enforced.
 
 export const MASTERY_THRESHOLD = 80;
 export const EWMA_ALPHA = 0.3; // 5 clean correct answers reach mastery: 1 - 0.7^5 ≈ 0.83
@@ -138,18 +139,19 @@ export function masteryCheckEligible(state, unit) {
   return unitCoreSkills(unit).every((s) => isMastered(state, s.id));
 }
 
-export function unitUnlocked(state, manifest, unitNumber) {
-  if (unitNumber <= 1) return true;
-  const prev = manifest.units.find((u) => u.number === unitNumber - 1);
-  if (prev && state.unitsPassed[prev.id]) return true;
-  return state.diagnostic.placedThroughUnit >= unitNumber - 1;
+// Every unit is open. The signature is kept so callers and saved state stay
+// compatible; the sequential-unlock rule was removed at Dev's request.
+export function unitUnlocked() {
+  return true;
 }
 
 // Practice selection: weakest core-skill-first, at the skill's current ladder
 // difficulty, preferring questions never seen, then previously-wrong, then
 // least-recently-seen. `recentIds` (the last few shown) are excluded so the
-// same question never repeats back-to-back.
-export function pickPracticeQuestion(state, unit, recentIds = []) {
+// same question never repeats back-to-back. Ties (e.g. several never-seen
+// questions at the target difficulty) are broken at random, so two identical
+// sessions do not serve an identical question order.
+export function pickPracticeQuestion(state, unit, recentIds = [], rand = Math.random) {
   const recent = new Set(recentIds);
   const skills = [...unit.skills].sort((a, b) => {
     const am = isMastered(state, a.id) ? 1 : 0;
@@ -165,24 +167,36 @@ export function pickPracticeQuestion(state, unit, recentIds = []) {
     const target = state.skills[skill.id]?.difficulty || 1;
     const pool = unit.questions.filter((q) => q.skillId === skill.id && !recent.has(q.id));
     if (!pool.length) continue;
-    pool.sort((a, b) => {
-      const da = Math.abs(a.difficulty - target);
-      const db = Math.abs(b.difficulty - target);
-      if (da !== db) return da - db;
-      const sa = state.seenQuestions[a.id];
-      const sb = state.seenQuestions[b.id];
-      if (!sa !== !sb) return sa ? 1 : -1; // unseen first
-      if (sa && sb) {
-        const wa = sa.wrongCount > sa.correctCount ? 0 : 1; // previously-wrong first
-        const wb = sb.wrongCount > sb.correctCount ? 0 : 1;
-        if (wa !== wb) return wa - wb;
-        return sa.last - sb.last; // least recently seen
-      }
-      return a.id < b.id ? -1 : 1;
-    });
-    return pool[0];
+    // Rank key, best-first: [distance from target difficulty, seen?, not-previously-wrong?, last-seen time]
+    const key = (q) => {
+      const s = state.seenQuestions[q.id];
+      if (!s) return [Math.abs(q.difficulty - target), 0, 0, 0];
+      return [Math.abs(q.difficulty - target), 1, s.wrongCount > s.correctCount ? 0 : 1, s.last];
+    };
+    const cmp = (ka, kb) => ka[0] - kb[0] || ka[1] - kb[1] || ka[2] - kb[2] || ka[3] - kb[3];
+    pool.sort((a, b) => cmp(key(a), key(b)));
+    const best = key(pool[0]);
+    const ties = pool.filter((q) => cmp(key(q), best) === 0);
+    return ties[Math.floor(rand() * ties.length)];
   }
   return null;
+}
+
+// Review selection for one due skill: prefer difficulty >= 2, exclude ids
+// already asked in this session, and serve the least-recently-seen question —
+// never-seen questions first (random among them). The same question cannot
+// come back until every other question for the skill has had a turn.
+export function pickReviewQuestion(state, unit, skillId, excludeIds = [], rand = Math.random) {
+  const exclude = new Set(excludeIds);
+  let pool = unit.questions.filter((q) => q.skillId === skillId && !exclude.has(q.id));
+  if (!pool.length) pool = unit.questions.filter((q) => q.skillId === skillId);
+  if (!pool.length) return null;
+  const hard = pool.filter((q) => q.difficulty >= 2);
+  if (hard.length) pool = hard;
+  const last = (q) => state.seenQuestions[q.id]?.last || 0;
+  const oldest = Math.min(...pool.map(last));
+  const ties = pool.filter((q) => last(q) === oldest);
+  return ties[Math.floor(rand() * ties.length)];
 }
 
 // Mastery check: `questionCount` questions at difficulty >= 2 drawn from core
