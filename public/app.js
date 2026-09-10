@@ -1,4 +1,4 @@
-// Calc Coach — single-page app. No build step, no framework.
+// students4ai — single-page app. No build step, no framework.
 // All adaptive/mastery logic lives in engine.js (pure, tested); this file is
 // data loading, routing, rendering, and persistence.
 
@@ -140,6 +140,18 @@ function save() {
   }, 600);
 }
 
+// The server save above is debounced, so closing the tab inside the debounce
+// window could lose the last answer server-side. sendBeacon delivers it even
+// as the page unloads (the server accepts POST as save for exactly this).
+function flushSaveOnLeave() {
+  window.addEventListener('pagehide', () => {
+    if (!S || !saveTimer) return;
+    try {
+      navigator.sendBeacon?.('/api/progress?profile=learner', new Blob([JSON.stringify(S)], { type: 'application/json' }));
+    } catch { /* localStorage already has it */ }
+  });
+}
+
 async function loadProgress() {
   let server = null;
   let local = null;
@@ -245,9 +257,18 @@ function mountQuestion(container, unit, q, opts, done) {
   let selected = null;
   let hintsUsed = 0;
 
+  // Choices are shown in a fresh random order each time. The stored keys are
+  // heavily skewed toward index 0, so fixed ordering would teach "pick A"
+  // instead of calculus. data-i keeps the original index, so grading,
+  // misconception notes, and wrong-choice counts are unaffected.
+  const displayOrder = q.type === 'mc' ? q.choices.map((_, i) => i) : [];
+  for (let i = displayOrder.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [displayOrder[i], displayOrder[j]] = [displayOrder[j], displayOrder[i]];
+  }
   const mcHtml = q.type === 'mc'
     ? `<div class="choices" role="group" aria-label="Answer choices">
-        ${q.choices.map((c, i) => `<button type="button" class="choice" data-i="${i}" aria-pressed="false"><span class="choice-key">${'ABCDE'[i]}.</span> ${c}</button>`).join('')}
+        ${displayOrder.map((orig, pos) => `<button type="button" class="choice" data-i="${orig}" aria-pressed="false"><span class="choice-key">${'ABCDE'[pos]}.</span> ${q.choices[orig]}</button>`).join('')}
        </div>`
     : `<div class="numeric-row">
         <label for="num-in">Your answer:</label>
@@ -333,14 +354,21 @@ function mountQuestion(container, unit, q, opts, done) {
     }
 
     if (deferFeedback) {
-      fbArea.innerHTML = `<div class="feedback ${'good'}" style="border-color: var(--border); background: var(--surface-2);">
-        <p>Answer recorded. You will see all results at the end.</p>
-        <div class="btn-row"><button type="button" class="next-btn">Next</button></div></div>`;
-    } else {
+      // One click records and advances. The earlier two-step ("Answer
+      // recorded" + a separate Next press) read as the app doing nothing,
+      // and led to repeated submit presses.
+      announce(`Answer ${index} of ${total} recorded.`);
+      done({ correct: grade.correct, hintsUsed, response });
+      return;
+    }
+    {
       if (q.type === 'mc') {
-        const btns = container.querySelectorAll('.choice');
-        btns[q.answerIndex].classList.add('reveal-correct');
-        if (!grade.correct && selected !== null) btns[selected].classList.add('reveal-chosen');
+        const correctBtn = container.querySelector(`.choice[data-i="${q.answerIndex}"]`);
+        if (correctBtn) correctBtn.classList.add('reveal-correct');
+        if (!grade.correct && selected !== null) {
+          const chosenBtn = container.querySelector(`.choice[data-i="${selected}"]`);
+          if (chosenBtn) chosenBtn.classList.add('reveal-chosen');
+        }
       }
       const solutionHtml = `<ol class="solution-steps">${q.solution.map((st) =>
         `<li>${st.text}${st.math ? `<div class="step-math">$$${st.math}$$</div>` : ''}</li>`).join('')}</ol>`;
@@ -350,8 +378,26 @@ function mountQuestion(container, unit, q, opts, done) {
           ${hintsUsed > 0 ? `<p>You used ${hintsUsed} hint${hintsUsed > 1 ? 's' : ''}, so this counts as partial credit toward mastery. Solving without hints counts fully.</p>` : ''}
           <details><summary>Show the full solution</summary>${solutionHtml}</details>
           <div class="tutor-slot"></div>
+          <div class="viz-slot"></div>
           <div class="btn-row"><button type="button" class="next-btn">Continue</button></div>
         </div>`;
+        // The explorer is offered after correct answers too, collapsed: seeing
+        // the idea move is worth having even when the answer was right.
+        const vizIdsOk = explorersFor(unit, q.skillId);
+        const vizSlotOk = $('.viz-slot', fbArea);
+        if (vizIdsOk.length && vizSlotOk) {
+          const details = document.createElement('details');
+          details.className = 'explorer-details';
+          details.innerHTML = `<summary>Open the interactive explorer for this idea</summary><div class="explorer-body"></div>`;
+          details.addEventListener('toggle', () => {
+            const body = details.querySelector('.explorer-body');
+            if (details.open && !body.dataset.mounted) {
+              body.dataset.mounted = '1';
+              mountExplorer(body, vizIdsOk[0]);
+            }
+          });
+          vizSlotOk.appendChild(details);
+        }
         announce('Correct.');
       } else {
         fbArea.innerHTML = `<div class="feedback notyet">
@@ -378,7 +424,7 @@ function mountQuestion(container, unit, q, opts, done) {
     const tutorSlot = $('.tutor-slot', fbArea);
     if (tutorSlot) {
       const learnerAnswer = q.type === 'mc'
-        ? (selected !== null ? `choice ${'ABCDE'[selected]} (${q.choices[selected]})` : '(none)')
+        ? (selected !== null ? `the choice "${q.choices[selected]}"` : '(none)')
         : String(response);
       mountTutor(tutorSlot, unit, q, { learnerAnswer, correct: grade.correct, chosenIndex: q.type === 'mc' ? selected : null, history });
     }
@@ -397,14 +443,12 @@ function viewHome() {
 
   const unitCards = m.units.map((meta) => {
     const unit = CONTENT.units.get(meta.id);
-    const unlocked = E.unitUnlocked(S, m, meta.number);
     const passed = Boolean(S.unitsPassed[meta.id]);
     const mastery = unit ? E.unitMastery(S, unit) : 0;
     const status = passed
       ? `<span class="tag passed">Passed${S.unitsPassed[meta.id].byPlacement ? ' by placement' : ''}</span>`
-      : unlocked ? `<span class="tag">In progress — mastery ${mastery} / 100</span>`
-      : `<span class="tag locked">Locked — pass Unit ${meta.number - 1}'s Mastery Check to unlock</span>`;
-    return `<div class="card unit-card ${passed ? 'passed' : ''} ${unlocked ? '' : 'locked'}">
+      : `<span class="tag">Mastery ${mastery} / 100</span>`;
+    return `<div class="card unit-card ${passed ? 'passed' : ''}">
       <div class="unit-num" aria-hidden="true">${meta.number}</div>
       <div class="unit-body">
         <div class="unit-title-row">
@@ -412,20 +456,20 @@ function viewHome() {
           <span>${meta.bcOnly ? '<span class="tag bc">BC only</span>' : ''} ${status}</span>
         </div>
         <p>${esc(meta.blurb)} <em>(${esc(meta.examWeight)})</em></p>
-        ${unlocked && unit ? `<div class="btn-row"><a class="btn ${passed ? 'secondary' : ''}" href="#/unit/${meta.id}">Open Unit ${meta.number}</a></div>` : ''}
+        ${unit ? `<div class="btn-row"><a class="btn ${passed ? 'secondary' : ''}" href="#/unit/${meta.id}">Open Unit ${meta.number}</a></div>` : ''}
       </div>
     </div>`;
   }).join('');
 
   mountView(`
     <h1>Welcome back${name}.</h1>
-    <p>${esc(m.subtitle)}. Every unit follows the same sequence: <strong>lessons → practice → Mastery Check → next unit</strong>. A unit unlocks only when you pass the previous unit's Mastery Check or the placement check, and no unit ever re-locks.</p>
+    <p>${esc(m.subtitle)}. Every unit is open — start anywhere. The recommended path inside a unit is <strong>lessons → practice → Mastery Check</strong>, and Unit 1 to Unit 10 is the recommended order, but nothing is ever locked. Passing a unit's Mastery Check marks it passed on this page.</p>
     ${failedNote}
     ${S.lastLocation && S.lastLocation !== '#/home' ? `<div class="card subtle"><p><strong>Return to your last location:</strong></p><div class="btn-row"><a class="btn" href="${esc(S.lastLocation)}">Continue</a></div></div>` : ''}
     ${!S.diagnostic.completed ? `<div class="card">
         <h2>Optional: placement check</h2>
-        <p>If you already know some calculus, a short placement check can unlock the units you have already mastered. It asks up to 3 questions per unit and stops at the first unit where you answer fewer than 2 questions correctly. You can stop at any time; stopping early does not remove any progress.</p>
-        <div class="btn-row"><a class="btn" href="#/diagnostic">Start placement check</a><span class="session-progress">Skippable — Unit 1 is already open.</span></div>
+        <p>If you already know some calculus, a short placement check can mark the units you have already mastered as passed and set their skills to a strong starting score, so practice and review begin in the right place. It asks up to 3 questions per unit and stops at the first unit where you answer fewer than 2 questions correctly. You can stop at any time; stopping early does not remove any progress.</p>
+        <div class="btn-row"><a class="btn" href="#/diagnostic">Start placement check</a><span class="session-progress">Skippable — every unit is already open.</span></div>
       </div>`
       : `<p class="session-progress">Placement check completed — placed through Unit ${S.diagnostic.placedThroughUnit || 0}.</p>`}
     ${due.length ? `<div class="card subtle"><p><strong>Review recommended:</strong> ${due.length} mastered skill${due.length > 1 ? 's have' : ' has'} not been practiced for ${m.reviewAfterDays} days or more. Review is recommended; it never blocks your progress.</p><div class="btn-row"><a class="btn secondary" href="#/review">Open review</a></div></div>` : ''}
@@ -446,7 +490,7 @@ function patternsHtml(unit) {
   const skillName = (id) => esc(unit.skills.find((s) => s.id === id)?.name || id);
   const repeated = p.repeated.map(({ question, choices }) => `<li>
       <strong>${skillName(question.skillId)}</strong> — question ${esc(question.id)}:
-      ${choices.map((c) => `choice ${'ABCDE'[c.index]} picked ${c.count} times. ${c.misconception ? `This choice comes from: ${c.misconception}` : ''}`).join(' ')}
+      ${choices.map((c) => `the choice <em>${question.choices?.[c.index] ?? ''}</em> was picked ${c.count} times. ${c.misconception ? `This choice comes from: ${c.misconception}` : ''}`).join(' ')}
       <details><summary>Show the question</summary>${question.prompt}</details>
     </li>`).join('');
   const skills = p.skills.map((x) => `<li><strong>${esc(x.skill.name)}</strong>: ${x.recentWrong} of the last ${x.recentTotal} answers were wrong (mastery ${x.score} / 100). Practice serves this skill first until it recovers.</li>`).join('');
@@ -460,12 +504,6 @@ function viewUnit(requestedId) {
   const m = CONTENT.manifest;
   if (!unit) return mountView(`<h1>Unit not found</h1><p>That unit did not load. <a href="#/home">Back to Home</a>.</p>`, { breadcrumb: ['Home'] });
   const unitId = unit.id; // canonical id from content, not from the URL hash
-  if (!E.unitUnlocked(S, m, unit.number)) {
-    return mountView(`<h1>Unit ${unit.number} is locked</h1>
-      <p>To unlock it, pass the Mastery Check for Unit ${unit.number - 1}. That rule never changes.</p>
-      <div class="btn-row"><a class="btn" href="#/unit/unit-${String(unit.number - 1).padStart(2, '0')}">Go to Unit ${unit.number - 1}</a></div>`,
-      { breadcrumb: ['Home', `Unit ${unit.number}`], nav: 'home' });
-  }
   const eligible = E.masteryCheckEligible(S, unit);
   const passed = Boolean(S.unitsPassed[unitId]);
   const notMastered = E.unitCoreSkills(unit).filter((sk) => !E.isMastered(S, sk.id));
@@ -483,8 +521,8 @@ function viewUnit(requestedId) {
     ${whatsNext(passed
       ? `This unit is passed. You can keep practicing here any time, or continue to the next unit from <a href="#/home">Home</a>.`
       : eligible
-        ? `All core skills are at mastery. The <strong>Mastery Check</strong> below is open — passing it unlocks Unit ${unit.number + 1}.`
-        : `Complete the lessons, then use <strong>Practice</strong> until every core skill reaches ${E.MASTERY_THRESHOLD} / 100. Then the Mastery Check opens.`)}
+        ? `All core skills are at mastery. Passing the <strong>Mastery Check</strong> below marks this unit passed.`
+        : `The recommended path: complete the lessons, then use <strong>Practice</strong> until every core skill reaches ${E.MASTERY_THRESHOLD} / 100, then take the Mastery Check. The check is available now if you want to try it early.`)}
     <h2>Skills in this unit</h2>
     <div class="card">${skillBars(unit)}
       <p class="session-progress">Mastery is earned by answering correctly without hints, including at difficulty 2 or higher. Wrong answers lower the score; later correct answers raise it again.</p>
@@ -508,15 +546,16 @@ function viewUnit(requestedId) {
       <p><strong>The rules, in full:</strong></p>
       <ul class="rules-list">
         <li>${unit.masteryCheck.questionCount} questions, drawn from this unit's core skills at difficulty 2 and 3.</li>
-        <li>You need ${unit.masteryCheck.passCount} correct to pass.</li>
+        <li>You need ${unit.masteryCheck.passCount} correct to pass. Passing marks this unit passed on Home.</li>
         <li>No hints during the check. No time limit.</li>
         <li>Results and full solutions appear after the last question, not during.</li>
-        <li>You can retake it as many times as you want — each retake draws a new set of questions. Nothing is lost by not passing.</li>
+        <li>You can retake it as many times as you want — each retake draws a fresh sample of questions. Nothing is lost by not passing.</li>
       </ul>
       ${passed ? `<p class="tag passed" style="display:inline-block">Passed on ${new Date(S.unitsPassed[unitId].passedAt).toLocaleDateString()}</p>` : ''}
       ${eligible
-        ? `<div class="btn-row"><a class="btn" href="#/mastery/${unitId}">${passed ? 'Retake' : 'Start'} the Mastery Check</a></div>`
-        : `<p><strong>Not open yet.</strong> These core skills are below ${E.MASTERY_THRESHOLD} / 100: ${notMastered.map((sk) => `${esc(sk.name)} (${E.masteryScore(S, sk.id)})`).join(', ')}.</p>`}
+        ? ''
+        : `<p><strong>Recommended before taking it:</strong> these core skills are below ${E.MASTERY_THRESHOLD} / 100: ${notMastered.map((sk) => `${esc(sk.name)} (${E.masteryScore(S, sk.id)})`).join(', ')}. The check is still available now; taking it early costs nothing.</p>`}
+      <div class="btn-row"><a class="btn" href="#/mastery/${unitId}">${passed ? 'Retake' : 'Start'} the Mastery Check</a></div>
     </div>
   `, { breadcrumb: ['Home', `Unit ${unit.number}: ${unit.title}`], nav: 'home' });
 
@@ -672,11 +711,6 @@ function viewMastery(requestedId) {
   const unit = CONTENT.units.get(requestedId);
   if (!unit) return mountView(`<h1>Unit not found</h1><p><a href="#/home">Back to Home</a></p>`, { breadcrumb: ['Home'] });
   const unitId = unit.id; // canonical id from content
-  if (!E.masteryCheckEligible(S, unit)) {
-    return mountView(`<h1>Mastery Check not open yet</h1>
-      <p>It opens when every core skill in Unit ${unit.number} reaches ${E.MASTERY_THRESHOLD} / 100. <a href="#/unit/${unitId}">Back to the unit</a>.</p>`,
-      { breadcrumb: ['Home', `Unit ${unit.number}`, 'Mastery Check'], nav: 'home' });
-  }
   const { questionCount, passCount } = unit.masteryCheck;
 
   const v = mountView(`
@@ -685,9 +719,9 @@ function viewMastery(requestedId) {
       <p><strong>Exactly what will happen:</strong></p>
       <ul class="rules-list">
         <li>${questionCount} questions, one at a time. You need ${passCount} correct to pass.</li>
-        <li>No hints. No time limit. After each answer you will only see "answer recorded".</li>
+        <li>No hints. No time limit. Selecting "Check answer" records your answer and shows the next question at once.</li>
         <li>After question ${questionCount}, you get full results with every solution.</li>
-        <li>Passing unlocks Unit ${unit.number + 1}. Not passing changes nothing — you keep all progress and can retake with a new set of questions.</li>
+        <li>Passing marks Unit ${unit.number} passed. Not passing changes nothing — you keep all progress and can retake with a fresh sample of questions.</li>
       </ul>
       <div class="btn-row">
         <button type="button" id="start-check">Start now</button>
@@ -730,7 +764,7 @@ function viewMastery(requestedId) {
       slot.innerHTML = `<div class="card">
         <h2>${passed ? `Passed: ${correct} of ${questions.length}.` : `Not passed yet: ${correct} of ${questions.length}. You need ${passCount}.`}</h2>
         ${passed
-          ? `<p>Unit ${unit.number} is complete. Unit ${unit.number + 1} is now unlocked.</p>`
+          ? `<p>Unit ${unit.number} is complete and marked passed on Home.</p>`
           : `<p>Your progress is unchanged. The skills with incorrect answers are listed so you know what to practice. Skills to practice: ${weakSkills.map((sid) => esc(skillName(unit, sid))).join(', ') || '—'}.</p>`}
         <div class="btn-row">
           ${passed
@@ -763,7 +797,7 @@ function viewDiagnostic() {
         <li>Questions come unit by unit, starting at Unit 1: two questions per unit, plus a third only if you answer exactly one of the first two correctly.</li>
         <li>A unit counts as placed when you answer 2 of its questions correctly. Hints are not available; you see whether you were right after each question.</li>
         <li>The check stops at the first unit that is not placed, or whenever you press "Stop here". Stopping early does not remove any progress.</li>
-        <li>Result: all placed units unlock immediately and count as passed by placement. You can still practice or review them any time.</li>
+        <li>Result: all placed units count as passed by placement, and their skills start at a strong score. You can still practice or review them any time.</li>
       </ul>
       <div class="btn-row"><button type="button" id="diag-start">Begin with Unit 1</button><a class="btn secondary" href="#/home">Not now</a></div>
     </div>
@@ -820,8 +854,8 @@ function viewDiagnostic() {
       slot.innerHTML = `<div class="card">
         <h2>Placement complete</h2>
         <p>${placedThrough === 0
-          ? 'You start at Unit 1. Unit 1 is the starting point for every learner who is not placed past it. No progress was removed.'
-          : `Units 1 through ${placedThrough} are unlocked and marked passed by placement. Your next new material is Unit ${Math.min(placedThrough + 1, 10)}.`}</p>
+          ? 'You start at Unit 1, the recommended starting point. No progress was removed, and every unit stays open.'
+          : `Units 1 through ${placedThrough} are marked passed by placement. Your next new material is Unit ${Math.min(placedThrough + 1, 10)}.`}</p>
         <div class="btn-row"><a class="btn" href="#/home">Go to Home</a>
         ${placedThrough < 10 ? `<a class="btn secondary" href="#/unit/unit-${String(Math.min(placedThrough + 1, 10)).padStart(2, '0')}">Open Unit ${Math.min(placedThrough + 1, 10)}</a>` : ''}</div>
       </div>`;
@@ -856,6 +890,8 @@ function viewReview() {
     $('#rev-start', v).disabled = true;
     const slot = $('#q-slot', v);
     let i = 0, correct = 0;
+    const askedIds = []; // no question repeats within this session, and the
+                         // engine rotates through each skill's pool across sessions
     const ask = () => {
       if (i >= sessionItems.length) {
         slot.innerHTML = `<div class="card"><h2>Review complete: ${correct} of ${sessionItems.length} correct</h2>
@@ -865,10 +901,9 @@ function viewReview() {
         return;
       }
       const { unit, skill } = sessionItems[i];
-      const seen = S.seenQuestions;
-      const qs = unit.questions.filter((q) => q.skillId === skill.id && q.difficulty >= 2)
-        .sort((a, b) => (seen[a.id]?.last || 0) - (seen[b.id]?.last || 0));
-      const q = qs[0] || unit.questions.find((qq) => qq.skillId === skill.id);
+      const q = E.pickReviewQuestion(S, unit, skill.id, askedIds);
+      if (!q) { i += 1; ask(); return; }
+      askedIds.push(q.id);
       slot.innerHTML = '';
       mountQuestion(slot, unit, q, { hintsAllowed: true, index: i + 1, total: sessionItems.length }, (r) => {
         if (r.correct) correct += 1;
@@ -900,7 +935,8 @@ function viewSettings() {
       <ul class="rules-list">
         <li>Mastery per skill is 0–100. Correct without hints raises it the most; hints give half credit; wrong answers lower it. Recent answers count more than old ones.</li>
         <li>A skill can only reach mastery (${E.MASTERY_THRESHOLD}) with correct answers at difficulty 2 or higher.</li>
-        <li>The Mastery Check opens when all core skills reach ${E.MASTERY_THRESHOLD}, and passing it unlocks the next unit. Units never re-lock.</li>
+        <li>Every unit is always open. Passing a unit's Mastery Check marks the unit passed; the recommended time to take it is when all core skills reach ${E.MASTERY_THRESHOLD}.</li>
+        <li>Answer choices appear in a new random order each time a question is shown.</li>
         <li>The app counts which wrong choice you picked on each question. Each unit page lists any choice picked twice or more under "Patterns in your answers", and the tutor (when enabled) is told those counts. These counts change nothing about scoring.</li>
         <li>Keyboard: Tab moves between controls, Enter or Space activates, Enter submits a typed answer.</li>
       </ul>
@@ -926,7 +962,7 @@ function viewSettings() {
     const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'calc-coach-progress.json';
+    a.download = 'students4ai-progress.json';
     a.click();
     URL.revokeObjectURL(a.href);
   });
@@ -935,7 +971,7 @@ function viewSettings() {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text());
-      if (!parsed || typeof parsed !== 'object' || !parsed.skills) throw new Error('not a Calc Coach progress file');
+      if (!parsed || typeof parsed !== 'object' || !parsed.skills) throw new Error('not a students4ai progress file');
       S = ensureAppFields(parsed);
       applySettings(); save();
       location.hash = '#/home';
@@ -1137,14 +1173,14 @@ function wireCanvasControls(root, rerender) {
 function canvasConnectHtml() {
   return `${canvasNoteHtml()}
   <div class="card">
-    <p>Calc Coach can show your course data from Canvas, your school's learning system, reformatted into a prioritized plan and a grade report. This page is optional and separate from your calculus progress.</p>
+    <p>students4ai can show your course data from Canvas, your school's learning system, reformatted into a prioritized plan and a grade report. This page is optional and separate from your calculus progress.</p>
     <p><strong>Exactly how this connection works:</strong></p>
     <ul class="rules-list">
       <li>You enter your school's Canvas web address and a Canvas access token.</li>
-      <li>The token is sent only to this Calc Coach server. It is never stored in this browser and never added to your progress file or progress exports.</li>
+      <li>The token is sent only to this students4ai server. It is never stored in this browser and never added to your progress file or progress exports.</li>
       <li>With Remember selected, the server saves the address and token in its own data folder so the connection survives restarts. Without it, the token stays only in server memory for up to 8 hours.</li>
-      <li>Calc Coach reads your active courses, assignments, submission status, scores, and module progress. It reads only; it never changes anything in Canvas.</li>
-      <li>Canvas data never changes your Calc Coach mastery scores and never unlocks anything.</li>
+      <li>students4ai reads your active courses, assignments, submission status, scores, and module progress. It reads only; it never changes anything in Canvas.</li>
+      <li>Canvas data never changes your students4ai mastery scores and never unlocks anything.</li>
       <li>The AI assessment page runs only when you select its button. It receives the Canvas data shown in this app, never the token. The math tutor is separate and never sees Canvas data.</li>
       <li>Disconnect removes the token from server memory and deletes the saved copy at once. You can reconnect later with a new or existing token.</li>
     </ul>
@@ -1303,7 +1339,7 @@ function viewCanvas() {
         </div>`).join('')}</div>
       </div></details>` : '';
     const stale = ins.staleCourses.length ? `<details class="explorer-details"><summary>Courses not shown (${ins.staleCourses.length})</summary>
-      <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; Calc Coach only hides them here.</p>
+      <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; students4ai only hides them here.</p>
       <ul>${ins.staleCourses.map((c) => `<li>${esc(c.name)}</li>`).join('')}</ul></div></details>` : '';
     const otherTerms = ins.otherTermCourses.length ? `<details class="explorer-details"><summary>Courses in other terms (${ins.otherTermCourses.length})</summary>
       <div class="explorer-body"><p class="canvas-meta">These courses are in terms that are not selected under Terms shown. Select their term above to include them.</p>
@@ -1359,7 +1395,7 @@ function viewCanvasPlan() {
       <div class="canvas-list">${ins.plan.overdueClosed.map((i) => canvasItemHtml(i, false)).join('')}</div>
       <details class="explorer-details"><summary>Text you can copy to request more time</summary>
         <div class="explorer-body">
-          <p class="canvas-meta">Copy this into an email or a Canvas message and fill in the parts in brackets. Calc Coach never sends anything for you.</p>
+          <p class="canvas-meta">Copy this into an email or a Canvas message and fill in the parts in brackets. students4ai never sends anything for you.</p>
           <pre class="canvas-copy">Hello [teacher name],
 
 The assignment "[assignment name]" in [course name] is closed in Canvas and I was not able to submit it. I would like to ask for more time. Please let me know if it can be reopened so I can turn it in.
@@ -1422,7 +1458,7 @@ function viewCanvasGrades() {
     }).join('');
     return `<div class="card">
       <h2>Grades</h2>
-      <p class="canvas-meta">Scores and grades are shown exactly as Canvas reports them. Calc Coach does not recompute them, the same way the verified answer key is the only grader for practice questions. Graded work below ${Math.round(CI.LOW_SCORE_RATIO * 100)} percent of its points is marked in amber.</p>
+      <p class="canvas-meta">Scores and grades are shown exactly as Canvas reports them. students4ai does not recompute them, the same way the verified answer key is the only grader for practice questions. Graded work below ${Math.round(CI.LOW_SCORE_RATIO * 100)} percent of its points is marked in amber.</p>
       <table class="simple"><thead><tr><th>Course</th><th>Current score</th><th>Grade</th></tr></thead><tbody>${rows}</tbody></table>
       ${lowLine}
       ${perCourse}
@@ -1545,7 +1581,7 @@ function viewCanvasCourse(courseId) {
       ${stats}
       ${modules}
       <h3>Assignments (${course.assignments.length})</h3>
-      <p class="canvas-meta">Statuses and scores are shown as Canvas reports them. Calc Coach does not infer a cause and does not change your learning path.</p>
+      <p class="canvas-meta">Statuses and scores are shown as Canvas reports them. students4ai does not infer a cause and does not change your learning path.</p>
       <div class="canvas-list">${assignmentRows}</div>
     </div>`;
   }, ['Canvas', 'Course'], 'overview');
@@ -1592,13 +1628,14 @@ async function boot() {
   try {
     S = await loadProgress();
     applySettings();
+    flushSaveOnLeave();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
     fetch('/api/tutor').then((r) => r.json()).then((d) => { TUTOR.available = Boolean(d.available); }).catch(() => {});
     await loadContent();
     window.addEventListener('hashchange', router);
     router();
   } catch (e) {
-    viewEl().innerHTML = `<h1>Calc Coach could not start</h1>
+    viewEl().innerHTML = `<h1>students4ai could not start</h1>
       <p>${esc(e.message)}</p>
       <p>Check that the server is running (<code>node server.js</code> in the calculus-coach folder) and reload this page.</p>`;
   }

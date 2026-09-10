@@ -1,10 +1,11 @@
-# Calc Coach — adaptive, mastery-gated AP Calculus BC tutor
+# students4ai — adaptive AP Calculus BC tutor
 
-Calc Coach teaches the full AP Calculus BC curriculum (all 10 College Board
-units) and only lets the learner move forward when the current material is
-actually mastered. It adapts to prior knowledge (a placement check), to ongoing
-performance (per-skill difficulty laddering and weakest-skill-first practice),
-and to forgetting (spaced review that recommends but never blocks).
+students4ai teaches the full AP Calculus BC curriculum (all 10 College Board
+units). Every unit is open from the start; mastery is measured per skill and
+certified by each unit's Mastery Check, never used to lock content. It adapts
+to prior knowledge (a placement check), to ongoing performance (per-skill
+difficulty laddering and weakest-skill-first practice), and to forgetting
+(spaced review that recommends but never blocks).
 
 It was designed for one specific learner: an autistic professional software
 developer. The design decisions that follow from that are listed below — they
@@ -52,18 +53,28 @@ Everything below is deterministic and visible to the learner in-app (Settings �
   Wrong, or correct only after 2+ hints → down one. Adaptive practice serves
   questions at the current ladder position, weakest skill first, never the
   same question twice in a row.
-- **Mastery Check gates progression.** It opens when every *core* skill in the
-  unit is ≥ 80. It is 8 questions at difficulty ≥ 2 drawn round-robin across
-  core skills (one strong skill can't carry it), needs 7 correct, allows no
-  hints, and has no time limit. Passing unlocks the next unit. Retakes are
-  unlimited and always draw a fresh sample. **Units never re-lock.**
+- **Every unit is open; the Mastery Check certifies.** No unit is ever
+  locked (per Dev's direction; the earlier sequential unlocking was removed).
+  The check is 8 questions at difficulty ≥ 2 drawn round-robin across core
+  skills (one strong skill can't carry it), needs 7 correct, allows no hints,
+  and has no time limit. Passing marks the unit passed; the recommended time
+  to take it is when every *core* skill is ≥ 80, and it can be attempted at
+  any time at no cost. Retakes are unlimited and always draw a fresh sample.
+- **Shuffled answer choices.** Multiple-choice options are presented in a
+  fresh random order every time a question is shown, so answer-position
+  patterns can never be learned in place of the mathematics. Grading,
+  misconception notes, and wrong-choice counts key on the underlying choice,
+  not its on-screen position.
 - **Placement check (optional).** Up to 3 questions per unit starting at
   Unit 1; a unit places out on 2 correct. Stops at the first unit that doesn't
-  place out. Placed units unlock and count as "passed by placement", with
-  their core skills seeded to 85 so review still has something to measure.
+  place out. Placed units count as "passed by placement", with their core
+  skills seeded to 85 so review still has something to measure.
 - **Spaced review.** A mastered skill untouched for 3+ days appears in Review.
   Review is explicitly recommended-not-required: falling behind on review
   never locks anything, because unpredictable regression would be punishing.
+  Review never repeats a question within a session and rotates through each
+  skill's question pool across sessions (least-recently-seen first), so the
+  same question cannot come back until the rest of the pool has had a turn.
 - **Recurring-error tracking.** For multiple-choice questions the app counts
   which wrong choice was picked. Each unit page has a fixed "Patterns in your
   answers" section listing any choice picked twice or more on the same
@@ -91,7 +102,9 @@ Everything below is deterministic and visible to the learner in-app (Settings �
   down) can be turned on in Settings for exam pacing practice; the app itself
   never imposes time pressure.
 - **Two-step answering.** Select or type, *then* press "Check answer" — a
-  stray click can never submit an answer.
+  stray click can never submit an answer. In the Mastery Check, where feedback
+  is deferred to the end anyway, "Check answer" records and advances in one
+  press, so every press visibly does something.
 - **`// for coders` callouts.** Every lesson maps the concept to a precise
   programming analogy (limits ↔ loop convergence, derivatives ↔ diffs over a
   shrinking step, Riemann sums ↔ reduce/accumulate, Taylor series ↔ successive
@@ -169,7 +182,7 @@ New Access Token), then reformats the pulled data into three pages:
   plus copyable text for asking the teacher for more time (the app never
   sends anything).
 - **Grades** — current course scores and grades exactly as Canvas computes
-  them (Calc Coach never recomputes a grade, the same way the verified
+  them (students4ai never recomputes a grade, the same way the verified
   answer key is the only grader for practice), assignment-group weights,
   and every graded assignment with its score. Graded work below 70 percent
   of its points is marked in calm amber.

@@ -1,13 +1,20 @@
-# CLAUDE.md — Calc Coach
+# CLAUDE.md — students4ai
 
 Read this before changing anything. It is short on purpose.
 
 ## What this is
 
-An adaptive, mastery-gated AP Calculus BC tutor built for **one specific
+An adaptive AP Calculus BC tutor (formerly "Calc Coach"; renamed to
+**students4ai** at Dev's direction, 2026-09) built for **one specific
 learner: an autistic professional software developer**. Every design decision
 below exists for him. `README.md` has the full rationale; this file is the
 contract.
+
+Per Dev's direction (relayed by Melody, 2026-09): **every unit is open** —
+mastery is measured and certified, never used to lock content. Internal
+identifiers (`calc-coach-progress` localStorage key, `calc_coach_store`
+Postgres table, `data/progress-*.json`) keep their old names so existing
+saved progress keeps loading; only learner-facing naming changed.
 
 ## Non-negotiable design invariants
 
@@ -16,7 +23,11 @@ Breaking any of these is a regression even if the code works:
 1. **Predictability.** One fixed layout; navigation never moves; every view
    shows "You are here". All rules are stated completely *before* an activity
    starts (question counts, pass marks, what happens after each answer).
-   Nothing auto-advances; nothing appears without a user action.
+   Nothing appears without a user action, and nothing advances on a timer.
+   (In the Mastery Check, "Check answer" records and shows the next question
+   in one press — that is a user action, and the check's rules screen says
+   it will happen. The earlier separate "Next" press read as the app doing
+   nothing and caused repeated submit presses.)
 2. **No sensory surprises.** No animation, no sound, no flashing, no
    countdown timers (the optional timer counts up only). Motion happens only
    when the learner drags a control.
@@ -67,16 +78,24 @@ Breaking any of these is a regression even if the code works:
 - Score capped at 70 until a recent correct answer at difficulty ≥ 2
   (placement seeding exempt).
 - Difficulty ladder 1–3 per skill: clean correct up; wrong or 2+ hints down.
+- Every unit is open (`unitUnlocked` always true; sequential unlocking
+  removed at Dev's direction). The Mastery Check certifies a unit as passed;
+  it does not gate anything and can be attempted at any time.
 - Mastery Check: 8 questions, difficulty ≥ 2, round-robin across core
   skills, 7 to pass, no hints, unlimited fresh retakes.
 - Placement seeds passed units' core skills at EWMA 0.85 and never lowers
   anything.
+- Multiple-choice options render in a fresh random order per showing (the
+  stored keys skew heavily toward index 0); grading and wrong-choice counts
+  key on the original index, so shuffling never touches scoring.
+- Review never repeats a question within a session and serves each skill's
+  least-recently-seen question across sessions (`pickReviewQuestion`).
 
 ## Commands
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # 16 engine + 29 Canvas-insights + 6 store tests (node --test)
+npm test             # 17 engine + 29 Canvas-insights + 6 store tests (node --test)
 npm run validate     # schema-validate all units, then render every math segment with KaTeX
 npm run lint         # language lint of app text and every unit (no exclamation marks, shaming, idioms, emoji)
 ```

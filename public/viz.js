@@ -1,4 +1,4 @@
-// Calc Coach interactive explorers — canvas widgets driven entirely by
+// students4ai interactive explorers — canvas widgets driven entirely by
 // user-controlled sliders and buttons. Nothing animates on its own; the
 // picture only changes when the learner moves a control. Every explorer
 // pairs the graphic with an explicit numeric readout, because the numbers
