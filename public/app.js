@@ -528,7 +528,8 @@ function canvasPaceHtml() {
   ];
   const match = topicRules.find(([, pattern]) => pattern.test(next.name));
   const unit = match && allUnits().find((u) => u.number === match[0]);
-  return '<span class="kicker">School pace · Canvas</span><h2>' + esc(next.name) + '</h2><p>' + esc(next.courseName) + (next.dueAt ? ' · Due ' + esc(canvasDateTime(next.dueAt)) : '') + '</p>' +
+  return '<span class="kicker">School pace · Canvas</span><h2>' + esc(next.name) + '</h2><p>' + esc(next.courseName) + (next.dueAt ? ' · Due ' + esc(canvasDateTime(next.dueAt)) : ' · Due date needs checking') + '</p>' +
+    (!next.dueAt ? '<p>Check the teacher’s current instructions before treating this undated item as your next task. The study coach below can look for the current assessment plan.</p>' : '') +
     (unit ? '<p>Suggested from the assignment title: Unit ' + unit.number + ', ' + esc(unit.title) + '.</p><a class="btn" href="#/unit/' + unit.id + '">Explore this topic</a> ' : '') +
     '<a class="btn secondary" href="#/canvas/plan">See my school plan</a>';
 }

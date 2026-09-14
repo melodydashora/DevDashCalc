@@ -65,17 +65,97 @@ function appendInline(node, text) {
   }
 }
 
-function appendReply(node, text) {
-  const pieces = text.split(/\x60{3}(?:[a-zA-Z0-9_-]+)?\n([\s\S]*?)\x60{3}/g);
-  pieces.forEach((piece, index) => {
-    if (index % 2) {
-      const pre = element('pre'); pre.appendChild(element('code', '', piece)); node.appendChild(pre);
-      return;
+function tableCells(line) {
+  let text = line.trim();
+  if (text.startsWith('|')) text = text.slice(1);
+  const cells = []; let cell = ''; let inCode = false;
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (char === '\\' && text[i + 1] === '|') { cell += '|'; i += 1; }
+    else if (char === '\x60') { inCode = !inCode; cell += char; }
+    else if (char === '|' && !inCode) { cells.push(cell.trim()); cell = ''; }
+    else cell += char;
+  }
+  if (cell.trim() || !text.endsWith('|') || inCode) cells.push(cell.trim());
+  return cells;
+}
+
+/** Bounded, text-only Markdown blocks. HTML and model-generated links stay text. */
+export function parseCoachMarkdown(value) {
+  const lines = String(value ?? '').slice(0, MAX_REPLY).replace(/\r\n?/g, '\n').split('\n');
+  const blocks = [];
+  const heading = (line) => /^\s{0,3}(#{1,6})\s+(.+?)\s*#*\s*$/.exec(line || '');
+  const listItem = (line) => /^\s*(?:([-+*])|(\d{1,6})[.)])\s+(.+)$/.exec(line || '');
+  const fence = (line) => /^\s*\x60{3}(?:[a-zA-Z0-9_-]+)?\s*$/.test(line || '');
+  function tableAt(index) {
+    if (!lines[index]?.includes('|') || !lines[index + 1]?.includes('|')) return null;
+    const headers = tableCells(lines[index]); const separator = tableCells(lines[index + 1]);
+    return headers.length && headers.length === separator.length && separator.every((cell) => /^:?-{3,}:?$/.test(cell)) ? headers : null;
+  }
+  for (let i = 0; i < lines.length;) {
+    if (!lines[i].trim()) { i += 1; continue; }
+    if (fence(lines[i])) {
+      const code = []; i += 1;
+      while (i < lines.length && !/^\s*\x60{3}\s*$/.test(lines[i])) code.push(lines[i++]);
+      if (i < lines.length) i += 1;
+      blocks.push({ type: 'code', text: code.join('\n') }); continue;
     }
-    for (const paragraph of piece.split(/\n\s*\n/).filter((part) => part.trim())) {
-      const p = element('p'); appendInline(p, paragraph); node.appendChild(p);
+    const title = heading(lines[i]);
+    if (title) { blocks.push({ type: 'heading', level: Math.min(6, Math.max(4, title[1].length)), text: title[2] }); i += 1; continue; }
+    const headers = tableAt(i);
+    if (headers) {
+      const rows = []; let totalRows = 0; i += 2;
+      while (i < lines.length && lines[i].trim() && lines[i].includes('|') && !heading(lines[i]) && !listItem(lines[i]) && !fence(lines[i])) {
+        const cells = tableCells(lines[i++]); totalRows += 1;
+        if (rows.length < 50) rows.push(headers.slice(0, 8).map((_, index) => cells[index] || ''));
+      }
+      blocks.push({ type: 'table', headers: headers.slice(0, 8), rows, totalRows, totalColumns: headers.length }); continue;
     }
-  });
+    const firstItem = listItem(lines[i]);
+    if (firstItem) {
+      const ordered = Boolean(firstItem[2]); const items = [];
+      while (i < lines.length) {
+        const item = listItem(lines[i]);
+        if (!item || Boolean(item[2]) !== ordered) break;
+        items.push(item[3]); i += 1;
+      }
+      blocks.push({ type: 'list', ordered, start: ordered ? Number(firstItem[2]) : 1, items }); continue;
+    }
+    const paragraph = [lines[i++]];
+    while (i < lines.length && lines[i].trim() && !heading(lines[i]) && !listItem(lines[i]) && !fence(lines[i]) && !tableAt(i)) paragraph.push(lines[i++]);
+    blocks.push({ type: 'paragraph', text: paragraph.join('\n') });
+  }
+  return blocks;
+}
+
+export function appendReply(node, text) {
+  for (const block of parseCoachMarkdown(text)) {
+    if (block.type === 'code') {
+      const pre = element('pre'); pre.appendChild(element('code', '', block.text)); node.appendChild(pre);
+    } else if (block.type === 'list') {
+      const list = element(block.ordered ? 'ol' : 'ul');
+      if (block.ordered) list.setAttribute('start', String(block.start));
+      for (const text of block.items) { const li = element('li'); appendInline(li, text); list.appendChild(li); }
+      node.appendChild(list);
+    } else if (block.type === 'table') {
+      const wrap = element('div', 'page-coach-table-wrap');
+      wrap.tabIndex = 0; wrap.setAttribute('role', 'region'); wrap.setAttribute('aria-label', 'Table; scroll horizontally to view all columns');
+      const table = element('table'); const head = element('thead'); const row = element('tr');
+      for (const text of block.headers) { const th = element('th'); th.setAttribute('scope', 'col'); appendInline(th, text); row.appendChild(th); }
+      head.appendChild(row); table.appendChild(head);
+      const body = element('tbody');
+      for (const cells of block.rows) {
+        const tr = element('tr');
+        for (const text of cells) { const td = element('td'); appendInline(td, text); tr.appendChild(td); }
+        body.appendChild(tr);
+      }
+      table.appendChild(body); wrap.appendChild(table); node.appendChild(wrap);
+      if (block.totalRows > block.rows.length || block.totalColumns > block.headers.length) node.appendChild(element('p', 'page-coach-table-note', `Showing ${block.rows.length} of ${block.totalRows} rows and ${block.headers.length} of ${block.totalColumns} columns.`));
+    } else {
+      const paragraph = element(block.type === 'heading' ? `h${block.level}` : 'p');
+      appendInline(paragraph, block.text); node.appendChild(paragraph);
+    }
+  }
 }
 
 /**
