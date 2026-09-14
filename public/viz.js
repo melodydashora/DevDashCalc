@@ -1,13 +1,15 @@
-// Calc Coach interactive explorers — canvas widgets driven entirely by
-// user-controlled sliders and buttons. Nothing animates on its own; the
-// picture only changes when the learner moves a control. Every explorer
+// Calc Coach interactive explorers — canvas widgets with sliders and explicit
+// Play, Pause, Reset, and speed controls. Every explorer
 // pairs the graphic with an explicit numeric readout, because the numbers
 // are evidence, not decoration.
 //
-// mountExplorer(container, spec) — spec: { kind, title?, params? }
+// mountExplorer(container, id) — id from explorersFor or explorerTitle.
 // explorersFor(unit, skillId)    — ranked explorer specs for a skill/unit.
 
+import { attachPlayback } from './study-lab.js';
+
 const PI = Math.PI;
+const sliderUpdates = new WeakMap();
 
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888';
@@ -125,7 +127,11 @@ function addSlider(controls, { label, min, max, step, value, format = (v) => v }
   return {
     input,
     value: () => Number(input.value),
-    onInput(cb) { input.addEventListener('input', () => { out.textContent = format(Number(input.value)); cb(Number(input.value)); }); },
+    onInput(cb) {
+      const update = (v) => { input.value = v; out.textContent = format(Number(input.value)); cb(Number(input.value)); };
+      sliderUpdates.set(input, update);
+      input.addEventListener('input', () => update(Number(input.value)));
+    },
     set(v) { input.value = v; out.textContent = format(Number(v)); },
   };
 }
@@ -188,7 +194,7 @@ EXPLORERS['limit-approach'] = {
         ['from the right', fmt(xr), fmt(f(xr))],
       ]);
       note.textContent = dist <= 0.005
-        ? 'The two f(x) values match to 3 decimal places. The limit is 2, even though f(1) itself is undefined (the open dot).'
+        ? 'Both f(x) values are close to 2. The limit is 2, even though f(1) itself is undefined (the open dot).'
         : 'Drag the slider toward 0. Both f(x) values move toward 2.';
     };
     d.onInput(draw); draw();
@@ -371,8 +377,9 @@ EXPLORERS['slope-field-euler'] = {
       let x = 0, y = 0, i = 0;
       while (x < 3 - 1e-9 && i < 200) {
         if (rows.length < 7) rows.push([String(i), fmt(x, 2), fmt(y), fmt(F(x, y))]);
-        y += hv * F(x, y);
-        x += hv;
+        const step = Math.min(hv, 3 - x);
+        y += step * F(x, y);
+        x += step;
         steps.push([x, y]);
         i += 1;
       }
@@ -384,9 +391,41 @@ EXPLORERS['slope-field-euler'] = {
       for (const [sx, sy] of steps.slice(1)) plot.dot(sx, sy, plot.colors.warn, 3);
       if (i >= 7) rows.push(['…', '…', '…', '…']);
       table.set(rows);
-      note.textContent = `Solid orange: Euler’s method with h = ${hv.toFixed(2)}. Each step moves h to the right along the slope at the current point, then reads the slope at the new point. Dashed blue: the exact solution y = x − 1 + e^(−x). At x = 3, Euler gives ${fmt(y)}; the exact value is ${fmt(exact(3))}. A smaller h keeps the Euler polyline closer to the exact curve.`;
+      note.textContent = `Solid orange: Euler’s method with h = ${hv.toFixed(2)}. Each step moves h to the right along the slope at the current point; the final step is shortened when needed to end at x = 3. Dashed blue: the exact solution y = x − 1 + e^(−x). At x = 3, Euler gives ${fmt(y)}; the exact value is ${fmt(exact(3))}. A smaller h keeps the Euler polyline closer to the exact curve.`;
     };
     h.onInput(draw); draw();
+  },
+};
+
+EXPLORERS['slope-field'] = {
+  title: 'Slope field explorer: follow a solution through its slopes',
+  build(root) {
+    // dy/dx = x - y has solution y = x - 1 + (y0 + 1)e^(-x).
+    const canvas = el('canvas'); root.graph.appendChild(canvas);
+    const xs = addSlider(root.controls, { label: 'Position x on the solution', min: 0, max: 3, step: 0.01, value: 0.5, format: (v) => v.toFixed(2) });
+    const ys = addSlider(root.controls, { label: 'Initial value y(0)', min: -1, max: 1, step: 0.05, value: 0, format: (v) => v.toFixed(2) });
+    const table = readoutTable(root.readout, ['x', 'solution y', 'slope dy/dx = x − y', 'initial value y(0)']);
+    const note = el('p', 'viz-note'); root.readout.appendChild(note);
+    const draw = () => {
+      const plot = makePlot(canvas, { xmin: -0.4, xmax: 3.2, ymin: -1.4, ymax: 2.8 });
+      const initial = ys.value(), x = xs.value();
+      const solution = (v) => v - 1 + (initial + 1) * Math.exp(-v);
+      plot.clear(); plot.axes();
+      for (let a = -0.25; a <= 3.1; a += 0.33) {
+        for (let b = -1.2; b <= 2.65; b += 0.33) {
+          const m = a - b, dx = 0.11 / Math.sqrt(1 + m * m);
+          plot.seg(a - dx, b - m * dx, a + dx, b + m * dx, plot.colors.grid, 1.3);
+        }
+      }
+      plot.curve(solution);
+      const y = solution(x), m = x - y;
+      plot.seg(x - 0.25, y - 0.25 * m, x + 0.25, y + 0.25 * m, plot.colors.warn, 3);
+      plot.dot(x, y, plot.colors.warn, 5);
+      plot.dot(0, initial, plot.colors.curve2, 4);
+      table.set([[fmt(x, 2), fmt(y), fmt(m), fmt(initial, 2)]]);
+      note.textContent = `Each short segment has slope x − y at its position. The blue solution passes through (0, ${fmt(initial, 2)}) and follows those slopes. At the highlighted point its tangent slope is ${fmt(m)}. Change the initial value to select a different solution of the same differential equation.`;
+    };
+    xs.onInput(draw); ys.onInput(draw); draw();
   },
 };
 
@@ -532,7 +571,7 @@ EXPLORERS['taylor-series'] = {
       plot.curve((x) => taylor(x, d), plot.colors.warn, 2.2, [7, 4]);
       plot.dot(xv, f(xv), plot.colors.curve); plot.dot(xv, Math.max(-2.35, Math.min(2.35, taylor(xv, d))), plot.colors.warn);
       table.set([[String(d), fmt(taylor(xv, d)), fmt(f(xv)), fmt(Math.abs(taylor(xv, d) - f(xv)))]]);
-      note.textContent = `Degree ${d} uses ${Math.ceil(d / 2)} term${d > 1 ? 's' : ''} of x − x³/6 + x⁵/120 − …. Each added term widens the interval around 0 where the polynomial is close to sin x. For a fixed degree, the error increases as |x| increases, because the polynomial is centered at 0.`;
+      note.textContent = `Degree ${d} uses ${Math.ceil(d / 2)} term${d > 1 ? 's' : ''} of x − x³/6 + x⁵/120 − …. Higher degrees improve the approximation over a wider interval around 0. Check the error at a specific x in the table; a finite polynomial does not equal sin x everywhere.`;
     };
     deg.onInput(draw); xe.onInput(draw); draw();
   },
@@ -574,6 +613,11 @@ export function explorersFor(unit, skillId = '') {
     if (re.test(skillId) && !ids.includes(id)) ids.push(id);
   }
   for (const id of UNIT_DEFAULTS[unit?.number] || []) if (!ids.includes(id)) ids.push(id);
+  // An AB view removes the Euler skill. Keep its slope-field explorer within
+  // that course, instead of presenting the BC numerical method as AB content.
+  if (unit?.number === 7 && Array.isArray(unit.skills) && !unit.skills.some((skill) => skill.id === 'u7-euler-method')) {
+    return ids.map((id) => id === 'slope-field-euler' ? 'slope-field' : id);
+  }
   return ids;
 }
 
@@ -593,5 +637,22 @@ export function mountExplorer(container, id) {
     controls: box.querySelector('.viz-controls'),
     readout: box.querySelector('.viz-readout-wrap'),
   });
+  for (const canvas of box.querySelectorAll('canvas')) {
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', `${def.title}. The table below gives the values shown in the graph.`);
+  }
+  const sliders = [...box.querySelectorAll('input[type="range"]')];
+  const input = sliders[id === 'series-partial-sums' ? 1 : 0];
+  if (input) {
+    const initialValues = sliders.map((slider) => Number(slider.value));
+    attachPlayback(box.querySelector('.viz-controls'), {
+      range: input,
+      reverse: ['limit-approach', 'secant-tangent', 'slope-field-euler'].includes(id),
+      duration: ['taylor-series', 'series-partial-sums', 'riemann-sum'].includes(id) ? 18000 : 12000,
+      update: (value) => sliderUpdates.get(input)?.(value),
+      reset: () => sliders.forEach((slider, index) => sliderUpdates.get(slider)?.(initialValues[index])),
+      description: `Play changes ${input.closest('label').querySelector('.viz-slider-label').textContent.toLowerCase()} once, then stops. Drag a slider to inspect a step.`,
+    });
+  }
   return true;
 }

@@ -27,6 +27,8 @@ const makeUnit = () => ({
     { id: 'u1-qc1', skillId: 'u1-c', difficulty: 1, type: 'numeric', prompt: 'p', answer: 0.5, hints: ['h1', 'h2'], solution: [{ text: 's1' }, { text: 's2' }] },
     { id: 'u1-qc2', skillId: 'u1-c', difficulty: 2, type: 'numeric', prompt: 'p', answer: 2, hints: ['h1', 'h2'], solution: [{ text: 's1' }, { text: 's2' }] },
   ],
+  masteryQuestions: ['u1-a', 'u1-b'].flatMap((skillId, si) =>
+    [2, 2, 3, 3].map((difficulty, i) => ({ id: `mastery-${si}-${i}`, skillId, difficulty, type: 'mc' }))),
   masteryCheck: { questionCount: 4, passCount: 4 },
 });
 
@@ -78,25 +80,22 @@ test('wrong answers lower mastery and the difficulty ladder moves both ways', ()
   assert.equal(s.skills['u1-a'].difficulty, 1, 'correct via 2+ hints also steps down');
 });
 
-test('unit unlock gating: passing the previous unit (or placement) unlocks the next', () => {
+test('all existing units are open from a fresh state; invalid unit numbers stay unavailable', () => {
   const s = E.newState();
-  assert.ok(E.unitUnlocked(s, manifest, 1), 'unit 1 always open');
-  assert.ok(!E.unitUnlocked(s, manifest, 2), 'unit 2 locked at start');
-  s.unitsPassed['unit-01'] = { passedAt: NOW, correct: 7, total: 8 };
-  assert.ok(E.unitUnlocked(s, manifest, 2), 'unlocked by passing unit 1');
-  assert.ok(!E.unitUnlocked(s, manifest, 3), 'unit 3 still locked');
-  const s2 = E.newState();
-  s2.diagnostic.placedThroughUnit = 2;
-  assert.ok(E.unitUnlocked(s2, manifest, 3), 'placement through unit 2 unlocks unit 3');
+  for (const unit of manifest.units) assert.ok(E.unitUnlocked(s, manifest, unit.number));
+  for (const invalid of [-1, 0, 4, NaN, '1']) assert.equal(E.unitUnlocked(s, manifest, invalid), false);
+  assert.deepEqual(s.unitsPassed, {}, 'opening modules never fabricates a mastery pass');
 });
 
-test('mastery check eligibility requires every core skill mastered (extra skills do not gate)', () => {
+test('mastery scores recommend a check; a complete bank makes it accessible immediately', () => {
   const unit = makeUnit();
   const s = E.newState();
+  assert.ok(E.masteryCheckEligible(s, unit), 'no score gate');
+  assert.ok(!E.masteryRecommended(s, unit));
   answerN(s, 'u1-a', 6, { difficulty: 2 });
-  assert.ok(!E.masteryCheckEligible(s, unit), 'one core skill is not enough');
+  assert.ok(!E.masteryRecommended(s, unit), 'one core skill is not enough for recommendation');
   answerN(s, 'u1-b', 6, { difficulty: 2, qid: 'qb' });
-  assert.ok(E.masteryCheckEligible(s, unit), 'both core skills mastered; extra skill u1-c ignored');
+  assert.ok(E.masteryRecommended(s, unit), 'both core skills mastered; extra skill u1-c ignored');
 });
 
 test('recordMasteryCheck records a pass exactly at passCount', () => {
@@ -106,6 +105,12 @@ test('recordMasteryCheck records a pass exactly at passCount', () => {
   assert.ok(!s.unitsPassed['unit-01']);
   assert.equal(E.recordMasteryCheck(s, unit, 4, 4, NOW), true);
   assert.ok(s.unitsPassed['unit-01']);
+  const pass = { ...s.unitsPassed['unit-01'] };
+  for (const [correct, total] of [[4, 3], [5, 4], [-1, 4], [3.5, 4], [4, NaN], [4, 5]]) {
+    assert.equal(E.recordMasteryCheck(s, unit, correct, total, NOW + 100), false);
+  }
+  assert.equal(E.recordMasteryCheck(s, unit, 0, 4, NOW + 100), false);
+  assert.deepEqual(s.unitsPassed['unit-01'], pass, 'invalid or failed attempts preserve an earned pass');
 });
 
 test('pickPracticeQuestion targets the weakest skill at its ladder difficulty and avoids repeats', () => {
@@ -130,6 +135,45 @@ test('sampleMasteryCheck: difficulty >= 2, core skills only, spread across skill
   const bySkill = new Set(sample.map((q) => q.skillId));
   assert.equal(bySkill.size, 2, 'round-robin covers both core skills');
   assert.equal(new Set(sample.map((q) => q.id)).size, 4, 'no duplicate questions');
+  assert.ok(sample.every((q) => unit.masteryQuestions.includes(q)), 'dedicated bank only');
+  assert.ok(sample.every((q) => !unit.questions.some((p) => p.id === q.id)), 'no practice ids');
+});
+
+test('incomplete or duplicate mastery banks never fall back to practice or return a short check', () => {
+  const unit = makeUnit();
+  for (const bank of [[], unit.masteryQuestions.slice(0, 3), Array(8).fill(unit.masteryQuestions[0]), unit.questions]) {
+    unit.masteryQuestions = bank;
+    assert.equal(E.masteryCheckEligible(E.newState(), unit), false);
+    assert.deepEqual(E.sampleMasteryCheck(unit), []);
+  }
+  delete unit.masteryQuestions;
+  assert.deepEqual(E.sampleMasteryCheck(unit), [], 'legacy practice items do not become mastery questions');
+});
+
+test('explicit inline mastery bank is excluded from every practice selection', () => {
+  const unit = makeUnit();
+  unit.questions.push(...unit.masteryQuestions.map((q) => ({ ...q, bank: 'mastery' })));
+  delete unit.masteryQuestions;
+  const state = E.newState();
+  assert.equal(E.sampleMasteryCheck(unit).length, 4);
+  const recent = [];
+  let question;
+  while ((question = E.pickPracticeQuestion(state, unit, recent))) {
+    assert.notEqual(question.bank, 'mastery');
+    recent.push(question.id);
+  }
+  assert.equal(recent.length, unit.questions.filter((q) => q.bank !== 'mastery').length);
+});
+
+test('mastery retakes prefer unseen questions while still covering each core skill', () => {
+  const unit = makeUnit();
+  const state = E.newState();
+  const first = E.sampleMasteryCheck(unit, () => 0.5, state);
+  for (const q of first) E.recordAnswer(state, { skillId: q.skillId, questionId: q.id, correct: true, hintsUsed: 0, difficulty: q.difficulty, now: NOW });
+  const second = E.sampleMasteryCheck(unit, () => 0.5, state);
+  assert.equal(second.length, 4);
+  assert.ok(second.every((q) => !first.some((seen) => seen.id === q.id)));
+  assert.equal(new Set(second.map((q) => q.skillId)).size, 2);
 });
 
 test('diagnostic placement seeds mastery, marks units passed, and never lowers progress', () => {

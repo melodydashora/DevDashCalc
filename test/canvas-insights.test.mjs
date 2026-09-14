@@ -528,6 +528,62 @@ test('without the subject filter and without overrides, no course is hidden', ()
   assert.equal(out.perCourse.length, 1);
 });
 
+test('explicit all courses replaces old subject hiding and manual hiding without changing term scope', () => {
+  const term = { id: 'now', name: 'This year' };
+  const courses = [
+    makeCourse({ id: 'calc', name: 'AP Calculus BC', term }),
+    makeCourse({ id: 'physics', name: 'Physics', term }),
+    makeCourse({ id: 'health', name: 'Health', term }),
+    makeCourse({ id: 'old', name: 'Old English', term: { id: 'past', name: 'Last year' } }),
+  ];
+  const snapshot = makeSnapshot(courses);
+  for (const selection of [{ selectedSubject: 'all' }, { selectedCourseId: 'all', selectedSubject: 'physics' }]) {
+    const out = CI.buildInsights(snapshot, NOW, {
+      ...selection, subjectFilter: true, courseOverrides: { health: 'hidden' }, termIds: ['now'],
+    });
+    assert.deepEqual(out.perCourse.map((c) => c.courseId), ['calc', 'health', 'physics']);
+    assert.deepEqual(out.hiddenCourses, []);
+    assert.deepEqual(out.otherTermCourses.map((c) => c.id), ['old']);
+  }
+});
+
+test('BC, AB, and Physics selections consistently filter grades, tasks, and missing assignments', () => {
+  const courses = [
+    makeCourse({ id: 'bc', name: 'AP Calculus BC', score: 50 }),
+    makeCourse({ id: 'ab', name: 'AP Calculus AB', score: 50 }),
+    makeCourse({ id: 'physics', name: 'Physics', courseCode: 'PHYS', score: 50 }),
+  ].map((course) => ({ ...course, assignments: [makeAssignment({ id: `${course.id}-task`, dueAt: iso(NOW - DAY) })] }));
+  const missing = courses.map((course) => ({ courseId: course.id, assignmentId: `${course.id}-extra`, name: 'Missing', dueAt: null }));
+  missing.push({ courseId: 'unknown', assignmentId: 'unknown-task', name: 'Unlisted class', dueAt: null });
+  for (const [selectedSubject, courseId] of [['calculus-bc', 'bc'], ['calculus-ab', 'ab'], ['physics', 'physics']]) {
+    const out = CI.buildInsights(makeSnapshot(courses, missing), NOW, {
+      selectedSubject, courseOverrides: { physics: 'shown' },
+    });
+    assert.deepEqual(out.perCourse.map((c) => c.courseId), [courseId]);
+    assert.deepEqual(allPlanItems(out).map((item) => item.courseId), [courseId]);
+    assert.deepEqual(out.attention.courseAlerts.map((item) => item.courseId), [courseId]);
+    assert.deepEqual(out.attention.missing.map((item) => item.courseId), [courseId]);
+  }
+});
+
+test('an explicitly selected course wins over subject and old hidden preferences', () => {
+  const courses = [
+    makeCourse({ id: 'bc', name: 'AP Calculus BC' }),
+    makeCourse({ id: 'english', name: 'English', courseCode: 'ENG' }),
+  ];
+  const missing = [
+    { courseId: 'english', assignmentId: 'english-task', name: 'Essay', dueAt: null },
+    { courseId: 'unknown', assignmentId: 'unknown-task', name: 'Other', dueAt: null },
+  ];
+  const out = CI.buildInsights(makeSnapshot(courses, missing), NOW, {
+    selectedCourseId: 'english', selectedSubject: 'calculus-bc', subjectFilter: true,
+    courseOverrides: { english: 'hidden', bc: 'shown' },
+  });
+  assert.deepEqual(out.perCourse.map((c) => c.courseId), ['english']);
+  assert.deepEqual(out.hiddenCourses.map((c) => [c.id, c.reason]), [['bc', 'course']]);
+  assert.deepEqual(out.attention.missing.map((item) => item.courseId), ['english']);
+});
+
 test('the plan bucket cutoffs are the exported spec constants', () => {
   assert.deepEqual(
     CI.PLAN_BUCKETS.map((b) => b.ms),

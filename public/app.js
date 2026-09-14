@@ -1,17 +1,33 @@
-// Calc Coach — single-page app. No build step, no framework.
+// Students4AI — single-page app. No build step, no framework.
 // All adaptive/mastery logic lives in engine.js (pure, tested); this file is
 // data loading, routing, rendering, and persistence.
 
 import * as E from '/engine.js';
 import * as CI from '/canvas-insights.js';
 import { explorersFor, mountExplorer, explorerTitle } from '/viz.js';
+import { mountStudyLab } from '/study-lab.js';
+import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
 
 // ---------------------------------------------------------------- data & state
-const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [] };
+const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [], freeResponse: [] };
 const TUTOR = { available: false };
 let S = null;                // progress state (engine shape + app extras)
 let saveTimer = null;
 let tickTimer = null;        // optional elapsed-time display
+let labCleanup = null;
+let activeProfile = 'learner';
+let switchingProfile = false;
+let profiles = [{ id: 'learner', name: 'My workspace' }];
+try {
+  const stored = JSON.parse(localStorage.getItem('students4ai-profiles') || 'null');
+  if (Array.isArray(stored)) {
+    profiles = profiles.concat(stored.filter((p) => p && p.id !== 'learner' && /^[a-z0-9-]{1,50}$/.test(p.id)).slice(0, 20));
+    const original = stored.find((p) => p?.id === 'learner');
+    if (typeof original?.name === 'string') profiles[0].name = original.name.slice(0, 40);
+  }
+  const selected = localStorage.getItem('students4ai-active-profile');
+  if (profiles.some((p) => p.id === selected)) activeProfile = selected;
+} catch { /* Browser storage is optional. */ }
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const viewEl = () => $('#view');
@@ -118,6 +134,9 @@ function mountTutor(container, unit, q, ctx) {
 
 // ---------------------------------------------------------------- persistence
 function ensureAppFields(state) {
+  state.settings = { ...E.newState().settings, ...state.settings };
+  state.settings.subject = normalizeSubjectId(state.settings.subject);
+  if (!['full', 'reduced', 'off'].includes(state.settings.motion)) state.settings.motion = 'full';
   state.lessons = state.lessons || {};          // lessonId -> completedAt
   state.lastLocation = state.lastLocation || '';
   state.savedAt = state.savedAt || 0;
@@ -125,31 +144,78 @@ function ensureAppFields(state) {
   return state;
 }
 
+const progressKey = (profile) => profile === 'learner' ? 'calc-coach-progress' : `students4ai-progress-${profile}`;
 function save() {
   S.savedAt = Date.now();
-  try { localStorage.setItem('calc-coach-progress', JSON.stringify(S)); } catch { /* private mode */ }
+  const body = JSON.stringify(S), profile = activeProfile;
+  try { localStorage.setItem(progressKey(profile), body); } catch { /* private mode */ }
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     try {
-      await fetch('/api/progress?profile=learner', {
+      await fetch(`/api/progress?profile=${encodeURIComponent(profile)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(S),
+        body,
       });
     } catch (e) { console.warn('Server save failed; progress is still in this browser.', e); }
   }, 600);
 }
 
-async function loadProgress() {
+async function loadProgress(profile = activeProfile) {
   let server = null;
   let local = null;
   try {
-    const res = await fetch('/api/progress?profile=learner');
+    const res = await fetch(`/api/progress?profile=${encodeURIComponent(profile)}`);
     if (res.ok) server = await res.json();
   } catch { /* offline is fine */ }
-  try { local = JSON.parse(localStorage.getItem('calc-coach-progress') || 'null'); } catch { /* ignore */ }
+  try { local = JSON.parse(localStorage.getItem(progressKey(profile)) || 'null'); } catch { /* ignore */ }
   const pick = (server?.savedAt || 0) >= (local?.savedAt || 0) ? server : local;
   return ensureAppFields(pick || E.newState());
+}
+
+async function switchProfile(profile) {
+  if (switchingProfile || profile === activeProfile || !profiles.some((p) => p.id === profile)) return;
+  switchingProfile = true;
+  mountView('<h1>Opening learner workspace</h1><p>Your current progress is being saved.</p>');
+  document.querySelectorAll('#study-controls select').forEach((select) => { select.disabled = true; });
+  clearTimeout(saveTimer);
+  const previous = activeProfile, body = JSON.stringify(S);
+  try { localStorage.setItem(progressKey(previous), body); } catch { /* optional */ }
+  try { await fetch(`/api/progress?profile=${encodeURIComponent(previous)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body }); } catch { /* browser copy remains */ }
+  activeProfile = profile;
+  try { localStorage.setItem('students4ai-active-profile', profile); } catch { /* optional */ }
+  S = await loadProgress(profile);
+  CANVAS.selectedCourseId = null;
+  CANVAS.assessment = null;
+  if (CANVAS.snapshot) canvasRebuildInsights();
+  applySettings();
+  switchingProfile = false;
+  location.hash = '#/home';
+  router();
+}
+
+const subjectLabel = () => STUDY_SUBJECTS.find((s) => s.id === S.settings.subject)?.label || 'AP Calculus BC';
+const activeUnit = (id) => {
+  const unit = CONTENT.units.get(id);
+  return unit ? unitForSubject(unit, S.settings.subject) : null;
+};
+
+function studyControls() {
+  const root = $('#study-controls');
+  if (!root || !S) return;
+  root.innerHTML = `<label class="study-profile">Learner <select id="study-profile">${profiles.map((p) => `<option value="${esc(p.id)}" ${p.id === activeProfile ? 'selected' : ''}>${esc(p.id === activeProfile && S.settings.name ? S.settings.name : p.name)}</option>`).join('')}</select></label>
+    <label class="course-switcher">Studying <select id="study-subject" class="course-select">${STUDY_SUBJECTS.map((c) => `<option value="${c.id}" ${S.settings.subject === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}</select></label>
+    <span class="open-status">All learning modules open</span>`;
+  $('#study-profile', root).addEventListener('change', (e) => switchProfile(e.target.value));
+  $('#study-subject', root).addEventListener('change', (e) => {
+    S.settings.subject = normalizeSubjectId(e.target.value);
+    CANVAS.selectedCourseId = null;
+    CANVAS.assessment = null;
+    if (CANVAS.snapshot) canvasRebuildInsights();
+    save();
+    if (location.hash.startsWith('#/canvas')) router();
+    else { location.hash = '#/home'; router(); }
+  });
 }
 
 // ---------------------------------------------------------------- content load
@@ -172,11 +238,19 @@ async function loadContent() {
       CONTENT.byNumber.set(r.unit.number, r.unit);
     } else CONTENT.failed.push(`${r.meta.id}: ${r.error}`);
   }
+  try {
+    const r = await fetch('/content/mastery-bank.json');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const bank = await r.json();
+    for (const [id, unit] of CONTENT.units) unit.masteryQuestions = bank.units[id] || [];
+    CONTENT.freeResponse = bank.freeResponse || [];
+  } catch { CONTENT.failed.push('The separate mastery question bank could not load. Practice and lessons are available; reload to retry mastery.'); }
 }
 
-const allUnits = () => [...CONTENT.units.values()].sort((a, b) => a.number - b.number);
-const questionById = (unit, qid) => unit.questions.find((q) => q.id === qid);
+const allUnits = () => [...CONTENT.units.values()].map((unit) => unitForSubject(unit, S.settings.subject)).filter(Boolean).sort((a, b) => a.number - b.number);
+const questionById = (unit, qid) => [...unit.questions, ...(unit.masteryQuestions || [])].find((q) => q.id === qid);
 const skillName = (unit, skillId) => unit.skills.find((s) => s.id === skillId)?.name || skillId;
+const calculatorLabel = (policy) => policy === 'permitted' || policy === 'allowed' ? 'Calculator permitted' : policy === 'required' ? 'Calculator required' : 'No calculator';
 
 // ---------------------------------------------------------------- shared bits
 function setBreadcrumb(parts) {
@@ -191,6 +265,8 @@ function setNav(active) {
 
 function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   clearInterval(tickTimer);
+  if (labCleanup) { labCleanup(); labCleanup = null; }
+  studyControls();
   const v = viewEl();
   v.innerHTML = html;
   setBreadcrumb(breadcrumb);
@@ -261,6 +337,7 @@ function mountQuestion(container, unit, q, opts, done) {
         <span class="session-progress">Question ${index} of ${total}</span>
         <span>Skill: ${esc(skillName(unit, q.skillId))}</span>
         <span>Difficulty ${q.difficulty} of 3</span>
+        ${q.bank === 'mastery' ? `<span class="tag">Original AP-style · ${calculatorLabel(q.calculatorPolicy)}</span>` : ''}
       </div>
       <div class="q-prompt">${q.prompt}</div>
       ${mcHtml}
@@ -388,50 +465,52 @@ function mountQuestion(container, unit, q, opts, done) {
 }
 
 // ---------------------------------------------------------------- views: home
+// Match only explicit topic words; a Canvas title is a pacing hint, never proof
+// of mastery. The learner can always choose a different unit.
+function canvasPaceHtml() {
+  if (!CANVAS.connected || !CANVAS.insights) return '<span class="kicker">School pace</span><h2>Bring your schoolwork into focus</h2><p>Canvas can suggest what to study next using upcoming work. Your independent learning stays open.</p><a class="btn secondary" href="#/canvas">Open Canvas planner</a>';
+  const ins = CANVAS.insights;
+  const items = [...ins.plan.overdueOpen, ...ins.plan.buckets.flatMap((b) => b.items)];
+  const next = items[0];
+  if (!next) return '<span class="kicker">School pace</span><h2>Room to explore</h2><p>No open deadlines in the selected Canvas view for the next five days. Choose any learning module.</p><a class="btn secondary" href="#/canvas">Change Canvas course</a>';
+  const topicRules = [
+    [10, /series|taylor|maclaurin|convergence/i], [9, /polar|parametric|vector/i],
+    [7, /differential equation|slope field|euler|logistic/i], [8, /volume|washer|cross.section|area between|arc length/i],
+    [6, /integral|integration|riemann|trapezoid|accumulation/i], [5, /mean value|extrema|concavity|curve sketch/i],
+    [4, /related rates|linearization|motion/i], [3, /chain rule|implicit|inverse function/i],
+    [2, /derivative|differentiation/i], [1, /limit|continuity/i],
+  ];
+  const match = topicRules.find(([, pattern]) => pattern.test(next.name));
+  const unit = match && allUnits().find((u) => u.number === match[0]);
+  return '<span class="kicker">School pace · Canvas</span><h2>' + esc(next.name) + '</h2><p>' + esc(next.courseName) + (next.dueAt ? ' · Due ' + esc(canvasDateTime(next.dueAt)) : '') + '</p>' +
+    (unit ? '<p>Suggested from the assignment title: Unit ' + unit.number + ', ' + esc(unit.title) + '.</p><a class="btn" href="#/unit/' + unit.id + '">Explore this topic</a> ' : '') +
+    '<a class="btn secondary" href="#/canvas/plan">See my school plan</a>';
+}
+
 function viewHome() {
   const m = CONTENT.manifest;
-  const name = S.settings.name ? `, ${esc(S.settings.name)}` : '';
-  const due = E.reviewQueue(S, allUnits(), Date.now(), m.reviewAfterDays);
-  const failedNote = CONTENT.failed.length
-    ? `<div class="card" style="border-color: var(--notyet);"><p><strong>Some content failed to load:</strong> ${esc(CONTENT.failed.join('; '))}. Reload this page to try loading them again.</p></div>` : '';
-
-  const unitCards = m.units.map((meta) => {
-    const unit = CONTENT.units.get(meta.id);
-    const unlocked = E.unitUnlocked(S, m, meta.number);
-    const passed = Boolean(S.unitsPassed[meta.id]);
+  const units = allUnits();
+  const metas = unitsForSubject(m, S.settings.subject);
+  const name = S.settings.name ? ', ' + esc(S.settings.name) : '';
+  const due = E.reviewQueue(S, units, Date.now(), m.reviewAfterDays);
+  const average = units.length ? Math.round(units.reduce((sum, u) => sum + E.unitMastery(S, u), 0) / units.length) : 0;
+  const passed = units.filter((u) => S.unitsPassed[u.id]).length;
+  const next = [...units].filter((u) => !S.unitsPassed[u.id]).sort((a, b) => E.unitMastery(S, b) - E.unitMastery(S, a) || a.number - b.number)[0] || units[0];
+  const cards = metas.map((meta) => {
+    const unit = activeUnit(meta.id);
+    const complete = Boolean(S.unitsPassed[meta.id]);
     const mastery = unit ? E.unitMastery(S, unit) : 0;
-    const status = passed
-      ? `<span class="tag passed">Passed${S.unitsPassed[meta.id].byPlacement ? ' by placement' : ''}</span>`
-      : unlocked ? `<span class="tag">In progress — mastery ${mastery} / 100</span>`
-      : `<span class="tag locked">Locked — pass Unit ${meta.number - 1}'s Mastery Check to unlock</span>`;
-    return `<div class="card unit-card ${passed ? 'passed' : ''} ${unlocked ? '' : 'locked'}">
-      <div class="unit-num" aria-hidden="true">${meta.number}</div>
-      <div class="unit-body">
-        <div class="unit-title-row">
-          <h2>${esc(meta.title)}</h2>
-          <span>${meta.bcOnly ? '<span class="tag bc">BC only</span>' : ''} ${status}</span>
-        </div>
-        <p>${esc(meta.blurb)} <em>(${esc(meta.examWeight)})</em></p>
-        ${unlocked && unit ? `<div class="btn-row"><a class="btn ${passed ? 'secondary' : ''}" href="#/unit/${meta.id}">Open Unit ${meta.number}</a></div>` : ''}
-      </div>
-    </div>`;
+    return '<article class="card unit-card ' + (complete ? 'passed' : '') + '"><div class="unit-num" aria-hidden="true">' + String(meta.number).padStart(2, '0') + '</div><div class="unit-body"><div class="unit-title-row"><h3>' + esc(meta.title) + '</h3>' + (meta.bcOnly ? '<span class="tag bc">BC extension</span>' : '') + '</div><p>' + esc(meta.blurb) + '</p>' + bar('Skill progress', mastery, 100, { done: complete }) + '<div class="btn-row"><a class="btn secondary" href="#/unit/' + meta.id + '">Open module</a><span class="tag ' + (complete ? 'passed' : '') + '">' + (complete ? 'Mastery check passed' : 'Open to explore') + '</span></div></div></article>';
   }).join('');
-
-  mountView(`
-    <h1>Welcome back${name}.</h1>
-    <p>${esc(m.subtitle)}. Every unit follows the same sequence: <strong>lessons → practice → Mastery Check → next unit</strong>. A unit unlocks only when you pass the previous unit's Mastery Check or the placement check, and no unit ever re-locks.</p>
-    ${failedNote}
-    ${S.lastLocation && S.lastLocation !== '#/home' ? `<div class="card subtle"><p><strong>Return to your last location:</strong></p><div class="btn-row"><a class="btn" href="${esc(S.lastLocation)}">Continue</a></div></div>` : ''}
-    ${!S.diagnostic.completed ? `<div class="card">
-        <h2>Optional: placement check</h2>
-        <p>If you already know some calculus, a short placement check can unlock the units you have already mastered. It asks up to 3 questions per unit and stops at the first unit where you answer fewer than 2 questions correctly. You can stop at any time; stopping early does not remove any progress.</p>
-        <div class="btn-row"><a class="btn" href="#/diagnostic">Start placement check</a><span class="session-progress">Skippable — Unit 1 is already open.</span></div>
-      </div>`
-      : `<p class="session-progress">Placement check completed — placed through Unit ${S.diagnostic.placedThroughUnit || 0}.</p>`}
-    ${due.length ? `<div class="card subtle"><p><strong>Review recommended:</strong> ${due.length} mastered skill${due.length > 1 ? 's have' : ' has'} not been practiced for ${m.reviewAfterDays} days or more. Review is recommended; it never blocks your progress.</p><div class="btn-row"><a class="btn secondary" href="#/review">Open review</a></div></div>` : ''}
-    <h2>Units</h2>
-    ${unitCards}
-  `, { breadcrumb: ['Home'], nav: 'home' });
+  const v = mountView(
+    '<section class="dashboard-hero"><div><span class="kicker">Students4AI / ' + esc(subjectLabel()) + '</span><h1>Your next idea starts here' + name + '.</h1><p>Move a graph. Test a prediction. Build understanding.</p><p>Practice adapts to your answers. Canvas helps set your pace. Every module stays open.</p><div class="btn-row">' + (next ? '<a class="btn" href="#/practice/' + next.id + '">Continue learning</a>' : '') + '<a class="btn secondary" href="#/canvas/plan">My school plan</a></div></div></section>' +
+    '<div class="dashboard-stats"><div><strong>' + units.length + '</strong><span>open modules</span></div><div><strong>' + average + '<small> / 100</small></strong><span>average skill progress</span></div><div><strong>' + passed + '</strong><span>mastery checks passed</span></div><div><strong>' + due.length + '</strong><span>skills ready for review</span></div></div>' +
+    (CONTENT.failed.length ? '<div class="card"><p>' + esc(CONTENT.failed.join('; ')) + '</p></div>' : '') +
+    '<div id="home-study-lab"></div><div class="unit-grid"><section class="card" id="school-pace">' + canvasPaceHtml() + '</section><section class="card"><span class="kicker">Your learning pace</span><h2>' + (average >= 80 ? 'Explain. Connect. Extend.' : average >= 35 ? 'Make the next connection' : 'Try an idea, then test it') + '</h2><p>' + (average >= 80 ? 'Practice now emphasizes harder applications. Try independent AP-style questions and explain your reasoning.' : 'Adaptive practice returns to skills that need attention and increases difficulty as your answers show understanding.') + '</p><div class="btn-row">' + (next ? '<a class="btn secondary" href="#/practice/' + next.id + '">Practice at my level</a>' : '') + '<a class="btn quiet" href="#/review">Review skills</a></div></section></div>' +
+    '<h2>Explore your modules</h2><p>Lessons, practice, and mastery checks are available from the start. Pick a topic because it interests you or because schoolwork needs it.</p><div class="unit-grid">' + cards + '</div>' +
+    (!units.length ? '<div class="card"><h3>Physics workspace</h3><p>Choose a physics course in the Canvas dropdown for its assignments, modules, and grades. The independent question library currently covers AP Calculus AB and BC; a physics curriculum has not been added yet.</p><a class="btn" href="#/canvas">Open physics in Canvas</a></div>' : '<details class="card"><summary>Optional placement check</summary><p>Get a starting estimate of familiar units. It does not restrict what you can open, and you can stop at any time.</p><a class="btn secondary" href="#/diagnostic">Start placement check</a></details>'),
+    { breadcrumb: ['Home'], nav: 'home' });
+  labCleanup = mountStudyLab($('#home-study-lab', v), { motion: document.documentElement.dataset.motion, course: S.settings.subject === 'calculus-ab' ? 'ab' : S.settings.subject === 'physics' ? 'physics' : 'bc', mastery: average });
   S.lastLocation = '#/home'; save();
 }
 
@@ -455,20 +534,50 @@ function patternsHtml(unit) {
     <p class="session-progress">These are counts, not judgments. They exist so the specific error can be named and practiced.</p>`;
 }
 
+function mountFreeResponses(unit) {
+  const skillIds = new Set(unit.skills.map((s) => s.id));
+  const questions = CONTENT.freeResponse.filter((q) => q.unitId === unit.id && q.skillIds.every((id) => skillIds.has(id)));
+  if (!questions.length) return;
+  const section = document.createElement('section');
+  section.innerHTML = `<h2>AP-style free response</h2><p>Original multipart challenges with reasoning and point-by-point rubrics. These are self-checked; they do not change your verified mastery score or predict an AP exam score.</p>`;
+  for (const q of questions) {
+    const saved = S.freeResponses?.[q.id] || {};
+    const article = document.createElement('article');
+    article.className = 'card frq-card';
+    article.innerHTML = `<span class="tag">${q.points} points · ${calculatorLabel(q.calculatorPolicy)}</span><h3>${esc(q.title)}</h3><div class="q-prompt">${q.prompt}</div>${q.parts.map((part, index) => `<section class="frq-part"><h4>Part ${esc(part.label)} · ${part.points} points</h4><div class="q-prompt">${part.prompt}</div><label>Your reasoning<textarea rows="4" data-part="${index}" maxlength="8000" placeholder="Write equations, explain your method, and include units when needed.">${esc(saved[index] || '')}</textarea></label></section>`).join('')}<div class="btn-row"><button type="button" class="secondary reveal-rubric">Compare with the scoring guide</button></div><div class="frq-rubric" hidden></div>`;
+    article.querySelectorAll('textarea').forEach((input) => input.addEventListener('input', () => {
+      S.freeResponses ||= {};
+      S.freeResponses[q.id] ||= {};
+      S.freeResponses[q.id][input.dataset.part] = input.value;
+      save();
+    }));
+    $('.reveal-rubric', article).addEventListener('click', (event) => {
+      const guide = $('.frq-rubric', article);
+      guide.hidden = !guide.hidden;
+      event.target.textContent = guide.hidden ? 'Compare with the scoring guide' : 'Hide scoring guide';
+      if (!guide.innerHTML) {
+        guide.innerHTML = `<p><strong>Self-check:</strong> award a point only when your written work meets its criterion. An unchecked point is a useful next practice target.</p>${q.parts.map((part) => `<h4>Part ${esc(part.label)}</h4><ol class="solution-steps">${part.solution.map((step) => `<li>${step.text}${step.math ? `<div class="step-math">$$${step.math}$$</div>` : ''}</li>`).join('')}</ol><div>${part.rubric.map((r) => `<label class="rubric-item"><input type="checkbox" data-points="${r.points}"> ${r.criterion} <span class="tag">${r.points} point${r.points === 1 ? '' : 's'}</span></label>`).join('')}</div>`).join('')}<p class="self-score" aria-live="polite">Self-check: 0 / ${q.points} points.</p>`;
+        guide.querySelectorAll('input[type="checkbox"]').forEach((box) => box.addEventListener('change', () => {
+          const score = [...guide.querySelectorAll('input:checked')].reduce((n, b) => n + Number(b.dataset.points), 0);
+          $('.self-score', guide).textContent = `Self-check: ${score} / ${q.points} points. This is your rubric review, not an automatically verified score.`;
+        }));
+        renderMath(guide);
+      }
+    });
+    section.appendChild(article);
+  }
+  viewEl().appendChild(section);
+  renderMath(section);
+}
+
 function viewUnit(requestedId) {
-  const unit = CONTENT.units.get(requestedId);
+  const unit = activeUnit(requestedId);
   const m = CONTENT.manifest;
   if (!unit) return mountView(`<h1>Unit not found</h1><p>That unit did not load. <a href="#/home">Back to Home</a>.</p>`, { breadcrumb: ['Home'] });
   const unitId = unit.id; // canonical id from content, not from the URL hash
-  if (!E.unitUnlocked(S, m, unit.number)) {
-    return mountView(`<h1>Unit ${unit.number} is locked</h1>
-      <p>To unlock it, pass the Mastery Check for Unit ${unit.number - 1}. That rule never changes.</p>
-      <div class="btn-row"><a class="btn" href="#/unit/unit-${String(unit.number - 1).padStart(2, '0')}">Go to Unit ${unit.number - 1}</a></div>`,
-      { breadcrumb: ['Home', `Unit ${unit.number}`], nav: 'home' });
-  }
   const eligible = E.masteryCheckEligible(S, unit);
   const passed = Boolean(S.unitsPassed[unitId]);
-  const notMastered = E.unitCoreSkills(unit).filter((sk) => !E.isMastered(S, sk.id));
+  const recommended = E.masteryRecommended(S, unit);
   const lessonRows = unit.lessons.map((l) => {
     const doneAt = S.lessons[l.id];
     return `<div class="card subtle">
@@ -483,8 +592,8 @@ function viewUnit(requestedId) {
     ${whatsNext(passed
       ? `This unit is passed. You can keep practicing here any time, or continue to the next unit from <a href="#/home">Home</a>.`
       : eligible
-        ? `All core skills are at mastery. The <strong>Mastery Check</strong> below is open — passing it unlocks Unit ${unit.number + 1}.`
-        : `Complete the lessons, then use <strong>Practice</strong> until every core skill reaches ${E.MASTERY_THRESHOLD} / 100. Then the Mastery Check opens.`)}
+        ? `The <strong>Mastery Check</strong> is available with separate AP-style questions. ${recommended ? "Your practice suggests you are ready to try it." : "You can explore it now or build confidence with practice first."}`
+        : `Explore the lessons and animated graphs, or start adaptive practice. All units stay available. The separate mastery bank for this view could not be loaded; reload to retry.`)}
     <h2>Skills in this unit</h2>
     <div class="card">${skillBars(unit)}
       <p class="session-progress">Mastery is earned by answering correctly without hints, including at difficulty 2 or higher. Wrong answers lower the score; later correct answers raise it again.</p>
@@ -493,7 +602,7 @@ function viewUnit(requestedId) {
     <div class="card">${patternsHtml(unit)}</div>
     <h2>Interactive explorers</h2>
     <div class="card">
-      <p>Each explorer is a graph controlled by a slider or buttons. The graph changes only when you move a control. The table under each graph shows the numbers the graph is drawn from.</p>
+      <p>Play an animation, change a parameter, and watch the math respond. Pause at any point to inspect the graph and its data table. Motion controls are available in Settings.</p>
       <div id="explorer-slots"></div>
     </div>
     <h2>Lessons</h2>
@@ -507,21 +616,20 @@ function viewUnit(requestedId) {
     <div class="card">
       <p><strong>The rules, in full:</strong></p>
       <ul class="rules-list">
-        <li>${unit.masteryCheck.questionCount} questions, drawn from this unit's core skills at difficulty 2 and 3.</li>
+        <li>${unit.masteryCheck.questionCount} original AP-style questions, drawn from a separate mastery bank at difficulty 2 and 3. These are not the practice questions.</li>
         <li>You need ${unit.masteryCheck.passCount} correct to pass.</li>
         <li>No hints during the check. No time limit.</li>
         <li>Results and full solutions appear after the last question, not during.</li>
-        <li>You can retake it as many times as you want — each retake draws a new set of questions. Nothing is lost by not passing.</li>
+        <li>Retakes prioritize questions you have seen least recently. Questions can repeat when the bank is exhausted. Your completed work stays saved.</li>
       </ul>
       ${passed ? `<p class="tag passed" style="display:inline-block">Passed on ${new Date(S.unitsPassed[unitId].passedAt).toLocaleDateString()}</p>` : ''}
       ${eligible
         ? `<div class="btn-row"><a class="btn" href="#/mastery/${unitId}">${passed ? 'Retake' : 'Start'} the Mastery Check</a></div>`
-        : `<p><strong>Not open yet.</strong> These core skills are below ${E.MASTERY_THRESHOLD} / 100: ${notMastered.map((sk) => `${esc(sk.name)} (${E.masteryScore(S, sk.id)})`).join(', ')}.</p>`}
+        : `<p>The separate mastery bank for this course is incomplete or could not load. Lessons and practice stay open.</p>`}
     </div>
   `, { breadcrumb: ['Home', `Unit ${unit.number}: ${unit.title}`], nav: 'home' });
 
-  // Mount this unit's explorers lazily: each sits in a <details> and builds
-  // its canvas on first open, so the page stays fast and calm.
+  // Explorers are visible immediately; motion settings control playback.
   const slots = $('#explorer-slots');
   for (const vid of explorersFor(unit)) {
     const details = document.createElement('details');
@@ -535,13 +643,15 @@ function viewUnit(requestedId) {
       }
     });
     slots.appendChild(details);
+    details.open = true;
   }
+  mountFreeResponses(unit);
   S.lastLocation = `#/unit/${unitId}`; save();
 }
 
 // -------------------------------------------------------------- views: lesson
 function viewLesson(requestedUnitId, requestedLessonId) {
-  const unit = CONTENT.units.get(requestedUnitId);
+  const unit = activeUnit(requestedUnitId);
   const lesson = unit?.lessons.find((l) => l.id === requestedLessonId);
   if (!unit || !lesson) return mountView(`<h1>Lesson not found</h1><p><a href="#/home">Back to Home</a></p>`, { breadcrumb: ['Home'] });
   const unitId = unit.id, lessonId = lesson.id; // canonical ids from content
@@ -601,7 +711,7 @@ function viewLesson(requestedUnitId, requestedLessonId) {
 
 // ------------------------------------------------------------ views: practice
 function viewPractice(requestedId) {
-  const unit = CONTENT.units.get(requestedId);
+  const unit = activeUnit(requestedId);
   const m = CONTENT.manifest;
   if (!unit) return mountView(`<h1>Unit not found</h1><p><a href="#/home">Back to Home</a></p>`, { breadcrumb: ['Home'] });
   const unitId = unit.id; // canonical id from content
@@ -650,8 +760,8 @@ function viewPractice(requestedId) {
       <p>Mastery changes this set:</p>
       <ul class="rules-list">${deltas}</ul>
       ${whatsNext(eligible
-        ? `All core skills are at mastery — the <strong>Mastery Check</strong> is open.`
-        : `Keep practicing; the Mastery Check opens when every core skill reaches ${E.MASTERY_THRESHOLD} / 100.`)}
+        ? `Try the <strong>Mastery Check</strong> with questions from the separate AP-style bank, or continue adaptive practice.`
+        : `Practice continues to adapt as you learn. All lessons and units remain available.`)}
       <div class="btn-row">
         <button type="button" id="another-set">Another set</button>
         ${eligible ? `<a class="btn" href="#/mastery/${unitId}">Start the Mastery Check</a>` : ''}
@@ -669,12 +779,12 @@ function viewPractice(requestedId) {
 
 // ------------------------------------------------------------- views: mastery
 function viewMastery(requestedId) {
-  const unit = CONTENT.units.get(requestedId);
+  const unit = activeUnit(requestedId);
   if (!unit) return mountView(`<h1>Unit not found</h1><p><a href="#/home">Back to Home</a></p>`, { breadcrumb: ['Home'] });
   const unitId = unit.id; // canonical id from content
   if (!E.masteryCheckEligible(S, unit)) {
-    return mountView(`<h1>Mastery Check not open yet</h1>
-      <p>It opens when every core skill in Unit ${unit.number} reaches ${E.MASTERY_THRESHOLD} / 100. <a href="#/unit/${unitId}">Back to the unit</a>.</p>`,
+    return mountView(`<h1>Mastery question bank unavailable</h1>
+      <p>The separate question bank could not supply a complete check for this view. Reload to try loading it again. <a href="#/unit/${unitId}">Back to the unit</a>.</p>`,
       { breadcrumb: ['Home', `Unit ${unit.number}`, 'Mastery Check'], nav: 'home' });
   }
   const { questionCount, passCount } = unit.masteryCheck;
@@ -687,7 +797,7 @@ function viewMastery(requestedId) {
         <li>${questionCount} questions, one at a time. You need ${passCount} correct to pass.</li>
         <li>No hints. No time limit. After each answer you will only see "answer recorded".</li>
         <li>After question ${questionCount}, you get full results with every solution.</li>
-        <li>Passing unlocks Unit ${unit.number + 1}. Not passing changes nothing — you keep all progress and can retake with a new set of questions.</li>
+        <li>Passing records a completed mastery check. All modules stay open, whatever your score. Retakes prefer less recently seen questions and may repeat items.</li>
       </ul>
       <div class="btn-row">
         <button type="button" id="start-check">Start now</button>
@@ -701,7 +811,7 @@ function viewMastery(requestedId) {
   $('#start-check', v).addEventListener('click', () => {
     $('#start-check', v).closest('.card').remove();
     startTimerIfEnabled($('#timer-slot', v));
-    const questions = E.sampleMasteryCheck(unit);
+    const questions = E.sampleMasteryCheck(unit, Math.random, S);
     const answers = [];
     const slot = $('#q-slot', v);
     const ask = () => {
@@ -730,12 +840,12 @@ function viewMastery(requestedId) {
       slot.innerHTML = `<div class="card">
         <h2>${passed ? `Passed: ${correct} of ${questions.length}.` : `Not passed yet: ${correct} of ${questions.length}. You need ${passCount}.`}</h2>
         ${passed
-          ? `<p>Unit ${unit.number} is complete. Unit ${unit.number + 1} is now unlocked.</p>`
-          : `<p>Your progress is unchanged. The skills with incorrect answers are listed so you know what to practice. Skills to practice: ${weakSkills.map((sid) => esc(skillName(unit, sid))).join(', ') || '—'}.</p>`}
+          ? `<p>Your mastery check for Unit ${unit.number} is complete. Continue to any module or try a free-response challenge.</p>`
+          : `<p>Your completed lessons and passed checks stay saved. These answers also help adapt future practice. Skills to practice: ${weakSkills.map((sid) => esc(skillName(unit, sid))).join(', ') || '—'}.</p>`}
         <div class="btn-row">
           ${passed
-            ? (CONTENT.byNumber.get(unit.number + 1) ? `<a class="btn" href="#/unit/unit-${String(unit.number + 1).padStart(2, '0')}">Go to Unit ${unit.number + 1}</a>` : `<a class="btn" href="#/home">Back to Home</a>`)
-            : `<a class="btn" href="#/practice/${unitId}">Practice the listed skills</a><button type="button" class="secondary" id="retake-btn">Retake with new questions</button>`}
+            ? (allUnits().some((u) => u.number === unit.number + 1) ? `<a class="btn" href="#/unit/unit-${String(unit.number + 1).padStart(2, '0')}">Go to Unit ${unit.number + 1}</a>` : `<a class="btn" href="#/home">Back to Home</a>`)
+            : `<a class="btn" href="#/practice/${unitId}">Practice the listed skills</a><button type="button" class="secondary" id="retake-btn">Retake mastery check</button>`}
           <a class="btn quiet" href="#/unit/${unitId}">Back to Unit ${unit.number}</a>
         </div>
       </div>
@@ -763,7 +873,7 @@ function viewDiagnostic() {
         <li>Questions come unit by unit, starting at Unit 1: two questions per unit, plus a third only if you answer exactly one of the first two correctly.</li>
         <li>A unit counts as placed when you answer 2 of its questions correctly. Hints are not available; you see whether you were right after each question.</li>
         <li>The check stops at the first unit that is not placed, or whenever you press "Stop here". Stopping early does not remove any progress.</li>
-        <li>Result: all placed units unlock immediately and count as passed by placement. You can still practice or review them any time.</li>
+        <li>Result: familiar units are marked passed by placement. Every unit stays open, and you can practice or review any time.</li>
       </ul>
       <div class="btn-row"><button type="button" id="diag-start">Begin with Unit 1</button><a class="btn secondary" href="#/home">Not now</a></div>
     </div>
@@ -821,9 +931,9 @@ function viewDiagnostic() {
         <h2>Placement complete</h2>
         <p>${placedThrough === 0
           ? 'You start at Unit 1. Unit 1 is the starting point for every learner who is not placed past it. No progress was removed.'
-          : `Units 1 through ${placedThrough} are unlocked and marked passed by placement. Your next new material is Unit ${Math.min(placedThrough + 1, 10)}.`}</p>
+          : `Units 1 through ${placedThrough} are marked passed by placement. ${units.some((u) => u.number > placedThrough) ? `Your next suggested module is Unit ${placedThrough + 1}.` : 'You can explore any module or try a mastery challenge.'}`}</p>
         <div class="btn-row"><a class="btn" href="#/home">Go to Home</a>
-        ${placedThrough < 10 ? `<a class="btn secondary" href="#/unit/unit-${String(Math.min(placedThrough + 1, 10)).padStart(2, '0')}">Open Unit ${Math.min(placedThrough + 1, 10)}</a>` : ''}</div>
+        ${units.some((u) => u.number > placedThrough) ? `<a class="btn secondary" href="#/unit/unit-${String(placedThrough + 1).padStart(2, '0')}">Open Unit ${placedThrough + 1}</a>` : ''}</div>
       </div>`;
       announce('Placement complete.');
     };
@@ -885,6 +995,12 @@ function viewSettings() {
   const v = mountView(`
     <h1>Settings</h1>
     <div class="card">
+      <h2>Learner workspaces</h2>
+      <p>Each workspace keeps its own practice history, course choice, and display settings. Switch learners using the dropdown above.</p>
+      <form id="add-learner" class="numeric-row"><label>New learner name <input name="learnerName" type="text" maxlength="40" required></label><button type="submit">Add learner</button></form>
+      <p class="session-progress">These are study workspaces on this app, not private accounts. The Canvas connection belongs to this server; its connected learner is always shown on the Canvas page.</p>
+    </div>
+    <div class="card">
       <h2>Display</h2>
       <p><label>Your name (used only for the greeting): <input id="set-name" type="text" value="${esc(s.name)}" style="font:inherit;padding:0.4rem;border:2px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)"></label></p>
       <p>Text size:
@@ -893,6 +1009,10 @@ function viewSettings() {
       <p>Theme:
         ${['system', 'light', 'dark'].map((t) => `<label style="margin-right:1rem"><input type="radio" name="theme" value="${t}" ${s.theme === t ? 'checked' : ''}> ${t[0].toUpperCase()}${t.slice(1)}</label>`).join('')}
       </p>
+      <fieldset class="motion-setting"><legend>Animation</legend>
+        ${[['full', 'Animated — play graphs and simulations'], ['reduced', 'Reduced — start paused, play when ready'], ['off', 'Off — change graphs with controls only']].map(([value, label]) => `<label><input type="radio" name="motion" value="${value}" ${s.motion === value ? 'checked' : ''}> ${label}</label>`).join(' ')}
+        <p class="session-progress">Your device’s reduced-motion preference also prevents automatic playback. Every animation has a pause control. No flashing or sound.</p>
+      </fieldset>
       <p><label><input type="checkbox" id="set-timer" ${s.showTimer ? 'checked' : ''}> Show an elapsed-time counter during practice and mastery checks. It only counts up; nothing in this app has a time limit.</label></p>
     </div>
     <div class="card">
@@ -900,7 +1020,7 @@ function viewSettings() {
       <ul class="rules-list">
         <li>Mastery per skill is 0–100. Correct without hints raises it the most; hints give half credit; wrong answers lower it. Recent answers count more than old ones.</li>
         <li>A skill can only reach mastery (${E.MASTERY_THRESHOLD}) with correct answers at difficulty 2 or higher.</li>
-        <li>The Mastery Check opens when all core skills reach ${E.MASTERY_THRESHOLD}, and passing it unlocks the next unit. Units never re-lock.</li>
+        <li>All learning modules and complete mastery banks are open from the start. Mastery scores recommend a next step; they never close a module. Practice adapts its skill and difficulty choices to your answers.</li>
         <li>The app counts which wrong choice you picked on each question. Each unit page lists any choice picked twice or more under "Patterns in your answers", and the tutor (when enabled) is told those counts. These counts change nothing about scoring.</li>
         <li>Keyboard: Tab moves between controls, Enter or Space activates, Enter submits a typed answer.</li>
       </ul>
@@ -918,9 +1038,26 @@ function viewSettings() {
     </div>
   `, { breadcrumb: ['Home', 'Settings'], nav: 'settings' });
 
-  $('#set-name', v).addEventListener('input', (e) => { S.settings.name = e.target.value.slice(0, 40); save(); });
+  $('#add-learner', v).addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = String(new FormData(e.currentTarget).get('learnerName') || '').trim().slice(0, 40);
+    if (!name || profiles.length >= 21) return;
+    const id = `student-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    profiles.push({ id, name });
+    try { localStorage.setItem('students4ai-profiles', JSON.stringify(profiles)); } catch { /* optional */ }
+    await switchProfile(id);
+    S.settings.name = name; save(); router();
+  });
+  $('#set-name', v).addEventListener('input', (e) => {
+    S.settings.name = e.target.value.slice(0, 40);
+    const profile = profiles.find((p) => p.id === activeProfile);
+    if (profile) profile.name = S.settings.name || 'My workspace';
+    try { localStorage.setItem('students4ai-profiles', JSON.stringify(profiles)); } catch { /* optional */ }
+    save(); studyControls();
+  });
   v.querySelectorAll('input[name="textsize"]').forEach((r) => r.addEventListener('change', (e) => { S.settings.textSize = e.target.value; applySettings(); save(); }));
   v.querySelectorAll('input[name="theme"]').forEach((r) => r.addEventListener('change', (e) => { S.settings.theme = e.target.value; applySettings(); save(); }));
+  v.querySelectorAll('input[name="motion"]').forEach((r) => r.addEventListener('change', (e) => { S.settings.motion = e.target.value; applySettings(); save(); }));
   $('#set-timer', v).addEventListener('change', (e) => { S.settings.showTimer = e.target.checked; save(); });
   $('#export-btn', v).addEventListener('click', () => {
     const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
@@ -935,8 +1072,10 @@ function viewSettings() {
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text());
-      if (!parsed || typeof parsed !== 'object' || !parsed.skills) throw new Error('not a Calc Coach progress file');
+      if (!parsed || typeof parsed !== 'object' || !parsed.skills) throw new Error('not a Students4AI progress file');
       S = ensureAppFields(parsed);
+      CANVAS.selectedCourseId = null; CANVAS.assessment = null;
+      if (CANVAS.snapshot) canvasRebuildInsights();
       applySettings(); save();
       location.hash = '#/home';
     } catch (err) {
@@ -948,6 +1087,8 @@ function viewSettings() {
   resetChk.addEventListener('change', () => { resetBtn.disabled = !resetChk.checked; });
   resetBtn.addEventListener('click', () => {
     S = ensureAppFields(E.newState());
+    CANVAS.selectedCourseId = null; CANVAS.assessment = null;
+    if (CANVAS.snapshot) canvasRebuildInsights();
     applySettings(); save();
     location.hash = '#/home';
   });
@@ -961,7 +1102,7 @@ function viewSettings() {
 // is kept in S, localStorage, or the progress export, so exporting Calc
 // Coach progress can never expose Canvas data. Course and assignment names
 // are external data and are shown as Canvas reports them.
-const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, note: '' };
+const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' };
 
 const canvasDateTime = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : null);
 const canvasDateOnly = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)) : null);
@@ -973,6 +1114,8 @@ function canvasRebuildInsights() {
   CANVAS.insights = CI.buildInsights(CANVAS.snapshot, Date.now(), {
     termIds: CANVAS.termIds || [],
     subjectFilter: true,
+    selectedSubject: S.settings.subject,
+    selectedCourseId: CANVAS.selectedCourseId,
     courseOverrides: (CANVAS.prefs && CANVAS.prefs.courseOverrides) || {},
   });
 }
@@ -1084,25 +1227,44 @@ function canvasHeadHtml() {
 }
 
 function canvasTermsHtml() {
-  if (!CANVAS.terms.length) return '';
+  const selection = `<div class="card course-switcher"><label>Canvas course <select id="canvas-course" class="course-select"><option value="subject" ${CANVAS.selectedCourseId === null ? 'selected' : ''}>Match studying: ${esc(subjectLabel())}</option><option value="all" ${CANVAS.selectedCourseId === 'all' ? 'selected' : ''}>All Canvas courses</option>${(CANVAS.snapshot?.courses || []).map((c) => `<option value="${esc(c.id)}" ${CANVAS.selectedCourseId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><p class="canvas-meta">Pick the class you are working on now. This selection updates the plan, grades, and assessment together. Learning modules stay open.</p></div>`;
+  if (!CANVAS.terms.length) return selection;
   const boxes = CANVAS.terms.map((t) => {
     const checked = CANVAS.termIds === null || CANVAS.termIds.includes(t.id) ? ' checked' : '';
     const count = t.courseCount === 1 ? '1 course' : `${t.courseCount} courses`;
     const starts = t.startAt ? `, starts ${esc(canvasDateOnly(t.startAt) || '')}` : '';
     return `<label class="canvas-term"><input type="checkbox" value="${esc(t.id)}"${checked}> <span>${esc(t.name)} — ${count}${starts}</span></label>`;
   }).join('');
-  return `<fieldset class="canvas-terms"><legend>Terms shown</legend>${boxes}
-    <p class="canvas-meta">The current term is selected on each data load. Changing a selection updates the plan, grades, and course lists at once. Courses in unselected terms are listed under Courses in other terms on the Overview; nothing is removed from Canvas. Courses without a term are always shown, and clearing every selection shows every term.</p></fieldset>`;
+  return `${selection}<details><summary>School terms</summary><fieldset class="canvas-terms"><legend>Terms shown</legend>${boxes}
+    <p class="canvas-meta">The current term is selected on each data load. Courses in unselected terms remain under Courses in other terms on the Overview. Clear every selection to show every term.</p></fieldset></details>`;
 }
 
 // Shared wiring for every connected Canvas page.
 function wireCanvasControls(root, rerender) {
+  const selectionChanged = () => {
+    if (location.hash.startsWith('#/canvas/course/')) location.hash = '#/canvas';
+    else rerender();
+  };
+  $('#canvas-course', root)?.addEventListener('change', (event) => {
+    const value = event.target.value;
+    CANVAS.selectedCourseId = value === 'subject' ? null : value;
+    if (value === 'all') CANVAS.termIds = null;
+    if (value === 'subject') {
+      const current = CI.currentTermId(CANVAS.terms, Date.now());
+      CANVAS.termIds = current ? [current] : null;
+    }
+    const course = CANVAS.snapshot?.courses.find((c) => c.id === value);
+    if (course?.term?.id) CANVAS.termIds = [course.term.id];
+    CANVAS.assessment = null;
+    canvasRebuildInsights(); selectionChanged();
+  });
   root.querySelectorAll('.canvas-terms input[type="checkbox"]').forEach((box) => {
     box.addEventListener('change', () => {
       const chosen = [...root.querySelectorAll('.canvas-terms input:checked')].map((b) => b.value);
       CANVAS.termIds = chosen.length ? chosen : null;
+      CANVAS.assessment = null;
       canvasRebuildInsights();
-      rerender();
+      selectionChanged();
     });
   });
   const refresh = $('.canvas-refresh', root);
@@ -1137,14 +1299,14 @@ function wireCanvasControls(root, rerender) {
 function canvasConnectHtml() {
   return `${canvasNoteHtml()}
   <div class="card">
-    <p>Calc Coach can show your course data from Canvas, your school's learning system, reformatted into a prioritized plan and a grade report. This page is optional and separate from your calculus progress.</p>
+    <p>Students4AI can show your course data from Canvas, your school's learning system, reformatted into a prioritized plan and a grade report. This page is optional and separate from your calculus progress.</p>
     <p><strong>Exactly how this connection works:</strong></p>
     <ul class="rules-list">
       <li>You enter your school's Canvas web address and a Canvas access token.</li>
-      <li>The token is sent only to this Calc Coach server. It is never stored in this browser and never added to your progress file or progress exports.</li>
+      <li>The token is sent only to this Students4AI server. It is never stored in this browser and never added to your progress file or progress exports.</li>
       <li>With Remember selected, the server saves the address and token in its own data folder so the connection survives restarts. Without it, the token stays only in server memory for up to 8 hours.</li>
-      <li>Calc Coach reads your active courses, assignments, submission status, scores, and module progress. It reads only; it never changes anything in Canvas.</li>
-      <li>Canvas data never changes your Calc Coach mastery scores and never unlocks anything.</li>
+      <li>Students4AI reads your active courses, assignments, submission status, scores, and module progress. It reads only; it never changes anything in Canvas.</li>
+      <li>Canvas data never changes your Students4AI mastery scores and never unlocks anything.</li>
       <li>The AI assessment page runs only when you select its button. It receives the Canvas data shown in this app, never the token. The math tutor is separate and never sees Canvas data.</li>
       <li>Disconnect removes the token from server memory and deletes the saved copy at once. You can reconnect later with a new or existing token.</li>
     </ul>
@@ -1263,7 +1425,7 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
     }
     if (!CANVAS.snapshot) {
       body.innerHTML = `${canvasTabsHtml(activeTab)}${canvasHeadHtml()}${canvasNoteHtml()}
-        <p>Canvas data is loaded only when you ask for it. Select Load Canvas data above.</p>`;
+        <p>Canvas data has not finished loading. Select Load Canvas data above to retry.</p>`;
       wireCanvasControls(body, rerender);
       CANVAS.note = '';
       return;
@@ -1291,19 +1453,19 @@ function viewCanvas() {
           <span><strong>${esc(row.courseName)}</strong><small>${esc(row.courseCode || 'Canvas course')}</small></span>
           <span class="canvas-meta">${score} · ${row.submitted} of ${row.totalAssignments} submitted</span>
         </a>
-        <button type="button" class="quiet canvas-hide" data-course-id="${esc(row.courseId)}">Hide</button>
+        <button type="button" class="quiet canvas-focus" data-course-id="${esc(row.courseId)}">Study this course</button>
       </div>`;
     }).join('');
-    const hidden = ins.hiddenCourses.length ? `<details class="explorer-details"><summary>Hidden courses (${ins.hiddenCourses.length})</summary>
+    const hidden = ins.hiddenCourses.length ? `<details class="explorer-details"><summary>Other courses (${ins.hiddenCourses.length})</summary>
       <div class="explorer-body">
-        <p class="canvas-meta">A course is hidden by default when its name does not include calculus or physics, the subjects this app family covers. Hidden courses are left out of the plan, Grades, and the assessment. Show adds a course back everywhere; Hide removes one. These choices are saved on the server and survive restarts and disconnects.</p>
+        <p class="canvas-meta">These courses are outside your current selection. Choose any one below or choose All Canvas courses in the dropdown.</p>
         <div class="canvas-list">${ins.hiddenCourses.map((c) => `<div class="canvas-item">
-          <div><strong>${esc(c.name)}</strong><span class="canvas-meta">${c.reason === 'manual' ? 'Hidden by you' : 'Does not match a covered subject'}</span></div>
-          <div class="canvas-item-side"><button type="button" class="secondary canvas-show" data-course-id="${esc(c.id)}">Show</button></div>
+          <div><strong>${esc(c.name)}</strong><span class="canvas-meta">Outside the selected view</span></div>
+          <div class="canvas-item-side"><button type="button" class="secondary canvas-focus" data-course-id="${esc(c.id)}">Study this course</button></div>
         </div>`).join('')}</div>
       </div></details>` : '';
     const stale = ins.staleCourses.length ? `<details class="explorer-details"><summary>Courses not shown (${ins.staleCourses.length})</summary>
-      <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; Calc Coach only hides them here.</p>
+      <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; Students4AI only hides them here.</p>
       <ul>${ins.staleCourses.map((c) => `<li>${esc(c.name)}</li>`).join('')}</ul></div></details>` : '';
     const otherTerms = ins.otherTermCourses.length ? `<details class="explorer-details"><summary>Courses in other terms (${ins.otherTermCourses.length})</summary>
       <div class="explorer-body"><p class="canvas-meta">These courses are in terms that are not selected under Terms shown. Select their term above to include them.</p>
@@ -1317,7 +1479,7 @@ function viewCanvas() {
       </div>
       <div class="card">
         <h2>Your courses (${ins.perCourse.length})</h2>
-        <p class="canvas-meta">Select a course for its modules, assignments, and statuses. Hide removes a course from every Canvas page; it can be shown again below.</p>
+        <p class="canvas-meta">Open a course to see its modules, assignments, and statuses. Use the dropdown above to focus the planner on your current work.</p>
         <div class="canvas-list">${courseRows}</div>
         ${hidden}
         ${otherTerms}
@@ -1325,15 +1487,10 @@ function viewCanvas() {
       </div>`;
   }, ['Canvas'], 'overview', (body) => {
     const rerender = () => { if ((location.hash || '').startsWith('#/canvas')) router(); };
-    body.querySelectorAll('.canvas-hide').forEach((b) => b.addEventListener('click', async () => {
-      await canvasSetCourseOverride(b.dataset.courseId, 'hidden');
-      announce('Course hidden. It is listed under Hidden courses.');
-      rerender();
-    }));
-    body.querySelectorAll('.canvas-show').forEach((b) => b.addEventListener('click', async () => {
-      await canvasSetCourseOverride(b.dataset.courseId, 'shown');
-      announce('Course shown.');
-      rerender();
+    body.querySelectorAll('.canvas-focus').forEach((b) => b.addEventListener('click', () => {
+      CANVAS.selectedCourseId = b.dataset.courseId;
+      CANVAS.assessment = null;
+      canvasRebuildInsights(); rerender();
     }));
   });
 }
@@ -1359,7 +1516,7 @@ function viewCanvasPlan() {
       <div class="canvas-list">${ins.plan.overdueClosed.map((i) => canvasItemHtml(i, false)).join('')}</div>
       <details class="explorer-details"><summary>Text you can copy to request more time</summary>
         <div class="explorer-body">
-          <p class="canvas-meta">Copy this into an email or a Canvas message and fill in the parts in brackets. Calc Coach never sends anything for you.</p>
+          <p class="canvas-meta">Copy this into an email or a Canvas message and fill in the parts in brackets. Students4AI never sends anything for you.</p>
           <pre class="canvas-copy">Hello [teacher name],
 
 The assignment "[assignment name]" in [course name] is closed in Canvas and I was not able to submit it. I would like to ask for more time. Please let me know if it can be reopened so I can turn it in.
@@ -1389,7 +1546,7 @@ function viewCanvasGrades() {
   canvasPage(() => {
     const ins = CANVAS.insights;
     const snap = CANVAS.snapshot;
-    const staleIds = new Set(ins.staleCourses.map((c) => c.id));
+    const shownIds = new Set(ins.perCourse.map((c) => c.courseId));
     const rows = ins.perCourse.map((row) => `<tr>
       <td>${esc(row.courseName)}</td>
       <td>${row.score === null ? 'No current score' : row.score}</td>
@@ -1398,7 +1555,7 @@ function viewCanvasGrades() {
     const lowLine = ins.attention.courseAlerts.length
       ? `<p class="canvas-note">Courses with a current score below ${CI.LOW_COURSE_SCORE}: ${ins.attention.courseAlerts.map((c) => `${esc(c.courseName)} (${c.score})`).join(', ')}.</p>`
       : '';
-    const perCourse = snap.courses.filter((c) => !staleIds.has(c.id)).map((course) => {
+    const perCourse = snap.courses.filter((c) => shownIds.has(c.id)).map((course) => {
       const graded = course.assignments.filter((a) => a.submission && a.submission.workflowState === 'graded' && !a.submission.excused);
       const groupById = new Map(course.assignmentGroups.map((g) => [g.id, g]));
       const weightRows = course.applyGroupWeights && course.assignmentGroups.some((g) => g.groupWeight !== null)
@@ -1422,7 +1579,7 @@ function viewCanvasGrades() {
     }).join('');
     return `<div class="card">
       <h2>Grades</h2>
-      <p class="canvas-meta">Scores and grades are shown exactly as Canvas reports them. Calc Coach does not recompute them, the same way the verified answer key is the only grader for practice questions. Graded work below ${Math.round(CI.LOW_SCORE_RATIO * 100)} percent of its points is marked in amber.</p>
+      <p class="canvas-meta">Scores and grades are shown exactly as Canvas reports them. Students4AI does not recompute them, the same way the verified answer key is the only grader for practice questions. Graded work below ${Math.round(CI.LOW_SCORE_RATIO * 100)} percent of its points is marked in amber.</p>
       <table class="simple"><thead><tr><th>Course</th><th>Current score</th><th>Grade</th></tr></thead><tbody>${rows}</tbody></table>
       ${lowLine}
       ${perCourse}
@@ -1452,13 +1609,15 @@ function viewCanvasAssessment() {
     if (!btn) return;
     const status = $('.canvas-assess-status', body);
     btn.addEventListener('click', async () => {
+      const requestProfile = activeProfile;
+      const lens = JSON.stringify({ termIds: CANVAS.termIds || [], selectedSubject: S.settings.subject, selectedCourseId: CANVAS.selectedCourseId });
       btn.disabled = true;
       status.textContent = 'Waiting for the assessment. This usually takes under a minute.';
       try {
         const { res, data } = await canvasApi('/api/canvas/assessment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ termIds: CANVAS.termIds || [] }),
+          body: lens,
         });
         if (data && data.available === false) {
           if (status.isConnected) { status.textContent = 'No AI service is configured on this server.'; btn.disabled = false; }
@@ -1467,6 +1626,7 @@ function viewCanvasAssessment() {
         if (!res.ok || !data || !data.text) throw new Error((data && data.error) || `HTTP ${res.status}`);
         // The finished assessment lives in CANVAS state, not in this page's
         // DOM, so navigating away while it was being written cannot lose it.
+        if (requestProfile !== activeProfile || lens !== JSON.stringify({ termIds: CANVAS.termIds || [], selectedSubject: S.settings.subject, selectedCourseId: CANVAS.selectedCourseId })) return;
         CANVAS.assessment = { text: data.text, at: Date.now() };
         announce('Assessment ready.');
         if ((location.hash || '') === '#/canvas/assessment') router();
@@ -1489,6 +1649,7 @@ function viewCanvasCourse(courseId) {
       return `<div class="card"><p>That course was not in the last Canvas load. Choose a course from the <a href="#/canvas">Canvas overview</a>.</p></div>`;
     }
     const row = CANVAS.insights.perCourse.find((r) => r.courseId === course.id);
+    if (!row) return `<div class="card"><h2>${esc(course.name)}</h2><p>This course is outside the current course or term selection. Choose it in the Canvas course dropdown to view its current summary.</p><a class="btn secondary" href="#/canvas">Back to Canvas overview</a></div>`;
     const p = course.moduleProgress;
     const stats = `<div class="canvas-stats">
       ${p && p.requirementCount > 0
@@ -1507,7 +1668,7 @@ function viewCanvasCourse(courseId) {
               const state = req ? (req.completed ? 'requirement complete' : 'requirement not complete') : 'no completion requirement';
               return `<li>${esc(it.title)} <span class="canvas-meta">(${esc(it.type)} · ${state})</span></li>`;
             }).join('')}</ul>` : '<p class="canvas-meta">This module has no items.</p>');
-        return `<details class="explorer-details"><summary>${esc(m.name)}</summary><div class="explorer-body">${lines}</div></details>`;
+        return `<details class="explorer-details" open><summary>${esc(m.name)}</summary><div class="explorer-body">${lines}</div></details>`;
       }).join('')}` : '';
     const sorted = [...course.assignments].sort((a, b) => {
       const ta = a.dueAt === null ? null : Date.parse(a.dueAt);
@@ -1545,7 +1706,7 @@ function viewCanvasCourse(courseId) {
       ${stats}
       ${modules}
       <h3>Assignments (${course.assignments.length})</h3>
-      <p class="canvas-meta">Statuses and scores are shown as Canvas reports them. Calc Coach does not infer a cause and does not change your learning path.</p>
+      <p class="canvas-meta">Statuses and scores are shown as Canvas reports them. Students4AI does not infer a cause and does not change your learning path.</p>
       <div class="canvas-list">${assignmentRows}</div>
     </div>`;
   }, ['Canvas', 'Course'], 'overview');
@@ -1557,6 +1718,7 @@ function applySettings() {
   const dark = s.theme === 'dark' || (s.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
   document.documentElement.dataset.textsize = s.textSize || 'medium';
+  document.documentElement.dataset.motion = s.motion === 'full' && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : s.motion;
 }
 
 // Route params come from location.hash — user-controllable via a crafted
@@ -1567,6 +1729,7 @@ function applySettings() {
 const SAFE_ID = /^[a-z0-9-]{1,64}$/;
 
 function router() {
+  if (switchingProfile) return;
   const hash = location.hash || '#/home';
   const parts = hash.slice(2).split('/');
   let [route, a, b] = parts;
@@ -1593,12 +1756,20 @@ async function boot() {
     S = await loadProgress();
     applySettings();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
+    window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', applySettings);
     fetch('/api/tutor').then((r) => r.json()).then((d) => { TUTOR.available = Boolean(d.available); }).catch(() => {});
     await loadContent();
     window.addEventListener('hashchange', router);
     router();
+    // Keep the interactive home usable while the optional school snapshot loads.
+    canvasEnsureSession().then(async () => {
+      if (CANVAS.connected && !CANVAS.snapshot) await canvasLoadSnapshot();
+      const pace = $('#school-pace');
+      if (pace) pace.innerHTML = canvasPaceHtml();
+      if (location.hash.startsWith('#/canvas')) router();
+    }).catch(() => {});
   } catch (e) {
-    viewEl().innerHTML = `<h1>Calc Coach could not start</h1>
+    viewEl().innerHTML = `<h1>Students4AI could not start</h1>
       <p>${esc(e.message)}</p>
       <p>Check that the server is running (<code>node server.js</code> in the calculus-coach folder) and reload this page.</p>`;
   }

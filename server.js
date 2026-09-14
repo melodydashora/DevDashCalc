@@ -12,6 +12,7 @@ import {
   normalizeModule, normalizeModuleProgress, normalizeMissingSubmission, buildInsights,
 } from './public/canvas-insights.js';
 import { hasDatabase, dbGet, dbSet, dbSeed, dbDelete } from './store.js';
+import { normalizeSubjectId } from './public/courses.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const PUBLIC = join(ROOT, 'public');
@@ -614,8 +615,11 @@ async function handleCanvasAssessment(req, res) {
   // The learner's term selection travels with the request so the assessment
   // sees the same lens as the plan and grades pages.
   let termIds = [];
+  let selectedSubject = 'calculus-bc', selectedCourseId = null;
   try {
     const body = JSON.parse((await readBody(req, 20_000)) || '{}');
+    selectedSubject = normalizeSubjectId(body?.selectedSubject);
+    if (body?.selectedCourseId === 'all' || CANVAS_NUMERIC_ID.test(String(body?.selectedCourseId || ''))) selectedCourseId = String(body.selectedCourseId);
     if (Array.isArray(body?.termIds)) {
       termIds = body.termIds.slice(0, 50).map((t) => String(t)).filter((t) => CANVAS_NUMERIC_ID.test(t));
     }
@@ -623,7 +627,7 @@ async function handleCanvasAssessment(req, res) {
   try {
     const snapshot = await canvasSnapshot(found.session);
     const prefs = await canvasPrefsLoad();
-    const insights = buildInsights(snapshot, Date.now(), { termIds, subjectFilter: true, courseOverrides: prefs.courseOverrides });
+    const insights = buildInsights(snapshot, Date.now(), { termIds, selectedSubject, selectedCourseId, subjectFilter: true, courseOverrides: prefs.courseOverrides });
     const out = await completeWithFallback({
       system: CANVAS_ASSESSMENT_SYSTEM,
       messages: [{ role: 'user', content: canvasAssessmentContext(snapshot, insights) }],
@@ -916,7 +920,13 @@ async function handleTutor(req, res, url) {
     const safe = String(unitId || '').replace(/[^a-z0-9-]/g, '');
     unit = JSON.parse(await readFile(join(CONTENT, `${safe}.json`), 'utf8'));
   } catch { return sendJson(res, 404, { error: 'unknown unit' }); }
-  const q = (unit.questions || []).find((x) => x.id === questionId);
+  let q = (unit.questions || []).find((x) => x.id === questionId);
+  if (!q) {
+    try {
+      const bank = JSON.parse(await readFile(join(CONTENT, 'mastery-bank.json'), 'utf8'));
+      q = (bank.units[unit.id] || []).find((x) => x.id === questionId);
+    } catch { /* Missing mastery content must not create an ungrounded answer. */ }
+  }
   if (!q) return sendJson(res, 404, { error: 'unknown question' });
 
   const answerText = q.type === 'mc'

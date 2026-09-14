@@ -10,9 +10,8 @@
 //   mastery can never be reached on easy questions alone.
 // - Each skill has a difficulty ladder position (1..3): clean correct moves up,
 //   wrong (or correct only via 2+ hints) moves down.
-// - A unit's Mastery Check unlocks when every core skill is mastered (>= 80).
-//   Passing the check (e.g. 7 of 8, no hints) unlocks the next unit. Units are
-//   never re-locked afterward.
+// - All units are open. Skill mastery recommends a Mastery Check; it never
+//   blocks one. Checks use a separate question bank, never practice items.
 
 export const MASTERY_THRESHOLD = 80;
 export const EWMA_ALPHA = 0.3; // 5 clean correct answers reach mastery: 1 - 0.7^5 ≈ 0.83
@@ -135,14 +134,21 @@ export function unitMastery(state, unit) {
 }
 
 export function masteryCheckEligible(state, unit) {
+  const count = unit.masteryCheck?.questionCount;
+  const pass = unit.masteryCheck?.passCount;
+  if (!Number.isInteger(count) || count < 1 || !Number.isInteger(pass) || pass < 1 || pass > count) return false;
+  const core = unitCoreSkills(unit);
+  const pool = masteryPool(unit);
+  return core.length > 0 && count >= core.length && pool.length >= count
+    && core.every((skill) => pool.some((q) => q.skillId === skill.id));
+}
+
+export function masteryRecommended(state, unit) {
   return unitCoreSkills(unit).every((s) => isMastered(state, s.id));
 }
 
 export function unitUnlocked(state, manifest, unitNumber) {
-  if (unitNumber <= 1) return true;
-  const prev = manifest.units.find((u) => u.number === unitNumber - 1);
-  if (prev && state.unitsPassed[prev.id]) return true;
-  return state.diagnostic.placedThroughUnit >= unitNumber - 1;
+  return manifest.units.some((unit) => unit.number === unitNumber);
 }
 
 // Practice selection: weakest core-skill-first, at the skill's current ladder
@@ -163,7 +169,7 @@ export function pickPracticeQuestion(state, unit, recentIds = []) {
 
   for (const skill of skills) {
     const target = state.skills[skill.id]?.difficulty || 1;
-    const pool = unit.questions.filter((q) => q.skillId === skill.id && !recent.has(q.id));
+    const pool = unit.questions.filter((q) => q.bank !== 'mastery' && q.skillId === skill.id && !recent.has(q.id));
     if (!pool.length) continue;
     pool.sort((a, b) => {
       const da = Math.abs(a.difficulty - target);
@@ -185,18 +191,43 @@ export function pickPracticeQuestion(state, unit, recentIds = []) {
   return null;
 }
 
-// Mastery check: `questionCount` questions at difficulty >= 2 drawn from core
-// skills, spread round-robin across skills so one strong skill can't carry it.
-export function sampleMasteryCheck(unit, rand = Math.random) {
+// A separate authored bank is required. An explicit empty bank does not
+// silently fall back to older practice content. Duplicate ids are discarded,
+// including ids shared with practice, so bank membership stays exclusive.
+function masteryPool(unit) {
   const coreIds = new Set(unitCoreSkills(unit).map((s) => s.id));
+  const practiceIds = new Set(unit.questions.filter((q) => q.bank !== 'mastery').map((q) => q.id));
+  const bank = Array.isArray(unit.masteryQuestions)
+    ? unit.masteryQuestions : unit.questions.filter((q) => q.bank === 'mastery');
+  const ids = new Set();
+  return bank.filter((q) => {
+    if (!q.id || ids.has(q.id) || practiceIds.has(q.id) || !Number.isFinite(q.difficulty)
+      || q.difficulty < 2 || !coreIds.has(q.skillId)) return false;
+    ids.add(q.id);
+    return true;
+  });
+}
+
+// Mastery check: complete sets only, distributed round-robin across core
+// skills. With state supplied, unseen items precede oldest-seen retake items.
+// A finite bank can repeat across retakes; it never repeats practice questions.
+export function sampleMasteryCheck(unit, rand = Math.random, state = null) {
+  if (!masteryCheckEligible(state, unit)) return [];
   const bySkill = new Map();
-  for (const q of unit.questions) {
-    if (q.difficulty >= 2 && coreIds.has(q.skillId)) {
-      if (!bySkill.has(q.skillId)) bySkill.set(q.skillId, []);
-      bySkill.get(q.skillId).push(q);
-    }
-  }
-  const buckets = [...bySkill.values()].map((qs) => shuffle(qs, rand));
+  for (const skill of unitCoreSkills(unit)) bySkill.set(skill.id, []);
+  for (const q of masteryPool(unit)) bySkill.get(q.skillId).push(q);
+  const buckets = [...bySkill.values()].map((qs) => {
+    const bucket = shuffle(qs, rand);
+    // pop() takes the end, so unseen/oldest questions belong there. Stable
+    // sorting preserves the shuffled order for equally recent questions.
+    if (state) bucket.sort((a, b) => {
+      const sa = state.seenQuestions?.[a.id];
+      const sb = state.seenQuestions?.[b.id];
+      if (!sa !== !sb) return sa ? -1 : 1;
+      return (sb?.last || 0) - (sa?.last || 0);
+    });
+    return bucket;
+  });
   const picked = [];
   let i = 0;
   while (picked.length < unit.masteryCheck.questionCount && buckets.some((b) => b.length)) {
@@ -208,6 +239,10 @@ export function sampleMasteryCheck(unit, rand = Math.random) {
 }
 
 export function recordMasteryCheck(state, unit, correct, total, now) {
+  if (!Number.isInteger(total) || total !== unit.masteryCheck.questionCount
+    || !Number.isInteger(correct) || correct < 0 || correct > total
+    || !Number.isInteger(unit.masteryCheck.passCount) || unit.masteryCheck.passCount < 1
+    || unit.masteryCheck.passCount > total) return false;
   const passed = correct >= unit.masteryCheck.passCount;
   if (passed) state.unitsPassed[unit.id] = { passedAt: now, correct, total };
   return passed;

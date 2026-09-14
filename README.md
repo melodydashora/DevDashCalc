@@ -1,14 +1,20 @@
-# Calc Coach — adaptive, mastery-gated AP Calculus BC tutor
+# Students4AI — interactive learning, at your pace
 
-Calc Coach teaches the full AP Calculus BC curriculum (all 10 College Board
-units) and only lets the learner move forward when the current material is
-actually mastered. It adapts to prior knowledge (a placement check), to ongoing
-performance (per-skill difficulty laddering and weakest-skill-first practice),
-and to forgetting (spaced review that recommends but never blocks).
+Students4AI covers all ten AP Calculus BC units, with a separate AP Calculus
+AB view that excludes BC-only content. All modules stay open. Practice adapts
+to ongoing performance, while Canvas deadlines suggest useful topics without
+limiting independent learning. The future planned domain is students4ai.com.
 
-It was designed for one specific learner: an autistic professional software
-developer. The design decisions that follow from that are listed below — they
-are features, not afterthoughts.
+The coding-inspired lab includes animated derivatives, vector motion, and
+Taylor approximations with visible code traces, sliders, playback speed,
+pause, and reset. Full, reduced, and off motion settings support individual
+preferences; OS reduced-motion settings suppress autoplay. Prompt complexity
+changes with mastery, and the learner can explore every available demo.
+
+Learner workspaces keep separate progress and course preferences. The original
+`learner` progress and browser storage key are preserved. Workspace discovery
+is local to the browser; these are not authenticated accounts. Canvas still
+uses the existing server connection, identified on every Canvas page.
 
 ## Running it
 
@@ -52,14 +58,18 @@ Everything below is deterministic and visible to the learner in-app (Settings �
   Wrong, or correct only after 2+ hints → down one. Adaptive practice serves
   questions at the current ladder position, weakest skill first, never the
   same question twice in a row.
-- **Mastery Check gates progression.** It opens when every *core* skill in the
-  unit is ≥ 80. It is 8 questions at difficulty ≥ 2 drawn round-robin across
-  core skills (one strong skill can't carry it), needs 7 correct, allows no
-  hints, and has no time limit. Passing unlocks the next unit. Retakes are
-  unlimited and always draw a fresh sample. **Units never re-lock.**
+- **Mastery Check measures understanding.** Available immediately, with 8
+  original AP-style questions from an independent bank, difficulty ≥ 2,
+  round-robin across core skills, 7 correct to pass, no hints or time limit.
+  No mastery item is a practice item. Retakes prefer unseen/oldest-seen items;
+  a finite bank can repeat. Every module remains open regardless of the result.
+- **AP-style free response.** Multipart reasoning challenges have 9-point
+  self-check rubrics. Written work is saved; self-scores never inflate verified
+  mastery. These are original learning activities, not official College Board
+  questions, a full exam simulation, or a prediction of an AP score.
 - **Placement check (optional).** Up to 3 questions per unit starting at
   Unit 1; a unit places out on 2 correct. Stops at the first unit that doesn't
-  place out. Placed units unlock and count as "passed by placement", with
+  place out. Placed units count as "passed by placement", with
   their core skills seeded to 85 so review still has something to measure.
 - **Spaced review.** A mastered skill untouched for 3+ days appears in Review.
   Review is explicitly recommended-not-required: falling behind on review
@@ -85,8 +95,9 @@ Everything below is deterministic and visible to the learner in-app (Settings �
   rhetorical questions. Wrong answers get "Not yet." plus the exact
   misconception behind the chosen distractor and the full worked solution —
   never shaming phrasing, never a red flash.
-- **Calm palette, zero motion, zero sound.** Incorrect uses amber, not
-  alarm-red. There are no animations or transitions at all.
+- **Meaningful, controllable animation.** Graphs respond to parameters and
+  playback. Reduced/off motion settings remain available. Incorrect feedback
+  uses amber; there is no flashing or sound.
 - **No timers by default.** An optional elapsed-time counter (counts up, never
   down) can be turned on in Settings for exam pacing practice; the app itself
   never imposes time pressure.
@@ -185,7 +196,7 @@ tests, with no hidden scoring:
 | Rule | Threshold |
 |---|---|
 | Term selection | Canvas keeps old courses "active", so views filter by enrollment term. The current term — the dated term containing today (`currentTermId`; an undated Default Term is never current) — is selected on each load; the learner can change it under "Terms shown". Unselected-term courses are listed by name, never silently dropped; term-less courses always show |
-| Course visibility | Courses whose name or code matches no covered subject (`APP_SUBJECT_PATTERNS`: calculus, physics) are hidden by default and listed under "Hidden courses" with a Show button; any course can be hidden or shown, the choice is saved server-side in gitignored `data/canvas-prefs.json` (course ids only, no credentials), and it applies to the plan, Grades, and the assessment alike |
+| Course visibility | A dropdown selects the current study subject, an exact Canvas course, or all courses. Explicit selections override older show/hide preferences and apply to the plan, grades, and assessment together. Other courses remain selectable. |
 | Due-date priority buckets | 4 h, 12 h, 24 h, 3 days, 5 days (`PLAN_BUCKETS`) |
 | Low graded score | below 70 percent of points (`LOW_SCORE_RATIO`) |
 | Low course score | below 70 (`LOW_COURSE_SCORE`) |
@@ -227,7 +238,7 @@ DevDashCalc (repo root)
 ├── package.json           # no dependencies; scripts only
 ├── public/
 │   ├── index.html         # shell; KaTeX via CDN for math rendering
-│   ├── styles.css         # calm, motion-free, themeable design system
+│   ├── styles.css         # responsive, themeable design system with motion controls
 │   ├── engine.js          # ALL adaptive/mastery logic — pure functions, no DOM
 │   ├── canvas-insights.js # Canvas normalization + plan/grades rules — pure, tested
 │   └── app.js             # SPA: routing, views, rendering, persistence

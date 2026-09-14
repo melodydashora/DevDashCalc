@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Calc Coach — AP Calculus BC</title>
-  <meta name="description" content="Adaptive, mastery-gated AP Calculus BC tutor.">
+  <title>Students4AI — Your learning lab</title>
+  <meta name="description" content="Interactive AP Calculus BC and AB learning, adaptive practice, and a Canvas study planner. Every module stays open.">
   <link rel="stylesheet" href="/styles.css">
   <!-- KaTeX is vendored locally so math always renders, with or without internet. -->
   <link rel="stylesheet" href="/vendor/katex/katex.min.css">
@@ -18,7 +18,7 @@
 
   <header class="app-header">
     <div class="header-inner">
-      <a class="brand" href="#/home">∫ Calc Coach</a>
+      <a class="brand" href="#/home"><span aria-hidden="true">{∫}</span> Students4AI</a>
       <nav aria-label="Main navigation">
         <a href="#/home" data-nav="home">Home</a>
         <a href="#/review" data-nav="review">Review</a>
@@ -29,6 +29,7 @@
   </header>
 
   <main id="main" class="app-main">
+    <div id="study-controls" class="course-switcher" aria-label="Learning workspace"></div>
     <div id="breadcrumb" class="breadcrumb" aria-label="You are here"></div>
     <div id="view" class="view"></div>
   </main>
@@ -36,10 +37,10 @@
   <div id="live-region" class="visually-hidden" aria-live="polite"></div>
 
   <footer class="app-footer">
-    <p>Calc Coach · AP Calculus BC · Progress saves automatically after every answer.</p>
+    <p>Students4AI · Explore at your pace. Progress saves after every answer.</p>
   </footer>
 
-  <noscript><p class="noscript-note">Calc Coach needs JavaScript to run.</p></noscript>
+  <noscript><p class="noscript-note">Students4AI needs JavaScript to run.</p></noscript>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

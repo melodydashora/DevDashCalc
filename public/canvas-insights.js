@@ -9,6 +9,8 @@
 // Canvas already reports, the same way the verified answer key is the only
 // grader for practice questions.
 
+import { courseMatchesSubject } from './courses.js';
+
 export const HOUR_MS = 60 * 60 * 1000;
 export const DAY_MS = 24 * HOUR_MS;
 
@@ -310,10 +312,15 @@ function planItem(course, a) {
 //   other terms are excluded and listed under otherTermCourses; a course
 //   with no term data is always included (the stale rule still covers it).
 // opts.subjectFilter: when true, courses matching no APP_SUBJECT_PATTERNS
-//   entry are hidden (reason 'subject') unless overridden.
+//   entry are hidden (reason 'subject') unless overridden. Legacy option:
+//   it is ignored whenever an explicit subject/course selection is present.
+// opts.selectedSubject: 'calculus-bc' | 'calculus-ab' | 'physics' | 'all'.
+// opts.selectedCourseId: a Canvas course id, or 'all'; when set this wins
+//   over selectedSubject so an explicitly picked course is always selectable.
 // opts.courseOverrides: { [courseId]: 'shown' | 'hidden' } — the learner's
-//   remembered per-course choices; 'shown' beats the subject filter, and
-//   'hidden' (reason 'manual') beats a subject match.
+//   remembered legacy choices; 'shown' beats the legacy subject filter, and
+//   'hidden' has reason 'manual'. Explicit dropdown selections replace these
+//   old visibility choices, so a previously hidden course can be selected.
 // Hidden courses are listed under hiddenCourses, never silently dropped.
 // Data only — every learner-facing sentence lives in app.js where the
 // language lint scans it.
@@ -324,6 +331,11 @@ export function buildInsights(snapshot, now, opts = {}) {
   // Term-selection rule (see termsFrom/currentTermId above).
   const termIds = Array.isArray(opts.termIds) && opts.termIds.length ? new Set(opts.termIds.map(String)) : null;
   const overrides = opts.courseOverrides && typeof opts.courseOverrides === 'object' ? opts.courseOverrides : {};
+  const selectedCourseId = opts.selectedCourseId == null || opts.selectedCourseId === ''
+    ? null : String(opts.selectedCourseId);
+  const selectedSubject = opts.selectedSubject == null || opts.selectedSubject === ''
+    ? null : opts.selectedSubject;
+  const explicitSelection = selectedCourseId !== null || selectedSubject !== null;
   const otherTermCourses = [];
   const hiddenCourses = [];
   const courses = [];
@@ -333,12 +345,15 @@ export function buildInsights(snapshot, now, opts = {}) {
       continue;
     }
     const override = overrides[course.id];
-    if (override === 'hidden') {
+    if (!explicitSelection && override === 'hidden') {
       hiddenCourses.push({ id: course.id, name: course.name, courseCode: course.courseCode, reason: 'manual' });
       continue;
     }
-    if (opts.subjectFilter && override !== 'shown' && !courseMatchesApps(course)) {
-      hiddenCourses.push({ id: course.id, name: course.name, courseCode: course.courseCode, reason: 'subject' });
+    const selected = selectedCourseId !== null
+      ? selectedCourseId === 'all' || String(course.id) === selectedCourseId
+      : selectedSubject === null || courseMatchesSubject(course, selectedSubject);
+    if (!selected || (!explicitSelection && opts.subjectFilter && override !== 'shown' && !courseMatchesApps(course))) {
+      hiddenCourses.push({ id: course.id, name: course.name, courseCode: course.courseCode, reason: selectedCourseId ? 'course' : 'subject' });
       continue;
     }
     courses.push(course);
@@ -498,6 +513,12 @@ export function buildInsights(snapshot, now, opts = {}) {
   for (const m of missingList) {
     if (missingSeen.has(m.assignmentId)) continue;
     if (hiddenCourseIds.has(m.courseId)) continue;
+    // The missing endpoint may name a course absent from the course list.
+    // An explicit selection still applies; unknown names cannot establish
+    // a subject match, while an exact id does not need name inference.
+    if (selectedCourseId && selectedCourseId !== 'all' && String(m.courseId) !== selectedCourseId) continue;
+    if (!selectedCourseId && selectedSubject && selectedSubject !== 'all'
+      && !allCourses.some((course) => course.id === m.courseId && courseMatchesSubject(course, selectedSubject))) continue;
     missingSeen.add(m.assignmentId);
     attention.missing.push({
       courseId: m.courseId,
