@@ -170,6 +170,149 @@ test('normalizers coerce ids to strings and junk numbers and dates to null', () 
 
 // ---------------------------------------------------------------- attempts
 
+test('assignment coaching metadata preserves instructions and rubric without changing grades or rules', () => {
+  const raw = {
+    id: 123, name: 'Explain the motion', description: '<p>Use the graph and justify the sign.</p>',
+    submission_types: ['online_upload', 'external_tool'], locked_for_user: true,
+    lock_explanation: 'Available after the preceding module.', points_possible: 10,
+    submission: { score: 7, grade: '7', workflow_state: 'graded' },
+    rubric: [{ id: '_criterion-a', description: 'Reasoning', long_description: 'Connect the graph to the sign.', points: '4', criterion_use_range: false, ratings: [{ id: 8, description: 'Supported', points: 4 }] }],
+  };
+  const before = JSON.stringify(raw);
+  const a = CI.normalizeAssignment(raw);
+  assert.equal(a.descriptionHtml, raw.description);
+  assert.equal(a.descriptionTruncated, false);
+  assert.deepEqual(a.submissionTypes, raw.submission_types);
+  assert.equal(a.lockExplanation, raw.lock_explanation);
+  assert.deepEqual(a.rubric, [{ id: '_criterion-a', description: 'Reasoning', longDescription: 'Connect the graph to the sign.', points: 4, criterionUseRange: false, ratings: [{ id: '8', description: 'Supported', longDescription: null, points: 4 }] }]);
+  assert.equal(a.rubricTruncated, false);
+  assert.equal(a.submission.score, 7);
+  assert.equal(a.lockedForUser, true);
+  assert.equal(JSON.stringify(raw), before, 'normalization does not mutate external input');
+});
+
+test('coaching text and rubric caps report incomplete material explicitly', () => {
+  const limit = CI.CANVAS_CONTENT_LIMITS;
+  const a = CI.normalizeAssignment({
+    description: 'x'.repeat(limit.html + 1),
+    rubric: Array.from({ length: limit.rubricCriteria + 1 }, (_, id) => ({ id, description: 'r'.repeat(limit.explanation + 1), ratings: Array.from({ length: limit.rubricRatings + 1 }, () => ({ description: 'rating', points: 1 })) })),
+  });
+  assert.equal(a.descriptionHtml.length, limit.html);
+  assert.equal(a.descriptionTruncated, true);
+  assert.equal(a.rubric.length, limit.rubricCriteria);
+  assert.equal(a.rubricTruncated, true);
+  assert.ok(a.rubric.every((criterion) => criterion.ratings.length <= limit.rubricRatings));
+  const allRubricText = a.rubric.flatMap((criterion) => [criterion.description, criterion.longDescription, ...criterion.ratings.flatMap((rating) => [rating.description, rating.longDescription])]);
+  assert.ok(allRubricText.reduce((total, value) => total + (value?.length || 0), 0) <= limit.rubricText);
+  const missing = CI.normalizeAssignment({ description: { unsafe: 'not text' }, rubric: [null, 7, [], { points: 'invalid' }] });
+  assert.equal(missing.descriptionHtml, null);
+  assert.equal(missing.descriptionTruncated, false);
+  assert.deepEqual(missing.submissionTypes, []);
+  assert.equal(missing.rubric.length, 1);
+  assert.equal(missing.rubric[0].id, null, 'missing identifiers are not invented');
+  assert.equal(missing.rubric[0].points, null);
+});
+
+test('page module items retain their locator, hierarchy, and lock details independently of contentId', () => {
+  const item = CI.normalizeModuleItem({
+    id: '9007199254740993', module_id: '9007199254740994', type: 'Page', title: 'Read before starting',
+    page_url: 'week-3-instructions', html_url: 'https://school.instructure.com/courses/2/modules/items/3',
+    position: '2', indent: 1,
+    content_details: { due_at: iso(NOW), lock_at: 'bad date', locked_for_user: true, lock_explanation: 'Complete the previous module.', points_possible: '10' },
+    completion_requirement: { type: 'must_view', completed: false },
+  });
+  assert.equal(item.id, '9007199254740993');
+  assert.equal(item.moduleId, '9007199254740994');
+  assert.equal(item.contentId, null, 'Canvas Page items can be retrieved through page_url');
+  assert.equal(item.pageUrl, 'week-3-instructions');
+  assert.equal(item.htmlUrl, 'https://school.instructure.com/courses/2/modules/items/3');
+  assert.equal(item.position, 2);
+  assert.equal(item.indent, 1);
+  assert.deepEqual(item.contentDetails, { dueAt: iso(NOW), unlockAt: null, lockAt: null, lockedForUser: true, lockExplanation: 'Complete the previous module.', pointsPossible: 10 });
+  assert.deepEqual(item.completionRequirement, { type: 'must_view', minScore: null, completed: false });
+});
+
+test('module metadata preserves unknown values and rejects unsafe links or invented identities', () => {
+  const item = CI.normalizeModuleItem({ page_url: 'x'.repeat(CI.CANVAS_CONTENT_LIMITS.locator + 1), html_url: 'javascript:alert(1)', module_id: {}, position: -1, indent: 1.5, content_details: {} });
+  assert.equal(item.pageUrl, null, 'an overlong locator is rejected, never truncated to another identity');
+  assert.equal(item.moduleId, null);
+  assert.equal(item.position, null);
+  assert.equal(item.indent, null);
+  assert.equal(item.htmlUrl, null);
+  assert.equal(item.contentDetails.lockedForUser, null, 'missing lock status is unknown');
+  assert.equal(CI.normalizeModuleItem({}).contentDetails, null);
+  for (const url of ['http://school.example/a', 'https://name:password@school.example/a', 'data:text/html,test']) {
+    assert.equal(CI.normalizeModuleItem({ html_url: url }).htmlUrl, null);
+  }
+});
+
+test('on-demand page and discussion normalizers expose only bounded source fields', () => {
+  const page = CI.normalizeCanvasPage({ page_id: 7, url: '7', title: 'Page whose slug is numeric', body: '<p>Course instructions.</p>', html_url: 'https://school.example/courses/2/pages/7', published: true, updated_at: iso(NOW), token: 'must never be copied', editor: { name: 'do not copy' } });
+  assert.equal(page.id, '7');
+  assert.equal(page.pageUrl, '7');
+  assert.equal(page.bodyHtml, '<p>Course instructions.</p>');
+  assert.equal(page.bodyTruncated, false);
+  assert.equal(page.lockedForUser, null);
+  assert.equal(page.updatedAt, iso(NOW));
+  assert.equal('token' in page, false);
+  assert.equal('editor' in page, false);
+  const discussion = CI.normalizeCanvasDiscussion({ id: 12, assignment_id: 99, message: 'x'.repeat(CI.CANVAS_CONTENT_LIMITS.html + 10), title: 'Explain your reasoning', participants: [{ name: 'Do not copy classmates' }], entries: ['Do not copy classmates'], locked_for_user: false });
+  assert.equal(discussion.id, '12');
+  assert.equal(discussion.assignmentId, '99');
+  assert.equal(discussion.bodyHtml.length, CI.CANVAS_CONTENT_LIMITS.html);
+  assert.equal(discussion.bodyTruncated, true);
+  assert.equal(discussion.lockedForUser, false);
+  assert.equal('participants' in discussion, false);
+  assert.equal('entries' in discussion, false);
+  assert.equal(CI.normalizeCanvasPage({}).id, null);
+  assert.equal(CI.normalizeCanvasDiscussion({}).bodyHtml, null);
+});
+
+test('adding coaching reference content leaves deterministic plan and grade outputs unchanged', () => {
+  const raw = { id: 14, name: 'Assignment', due_at: iso(NOW + DAY), points_possible: 10, submission: { score: 8, grade: '8', workflow_state: 'graded' } };
+  const plain = CI.normalizeAssignment(raw);
+  const enriched = CI.normalizeAssignment({ ...raw, description: '<p>Read the instructions.</p>', rubric: [{ id: 1, points: 999, description: 'Metadata cannot alter a Canvas grade.' }] });
+  const baseline = CI.buildInsights(makeSnapshot([makeCourse({ assignments: [plain] })]), NOW);
+  const withMetadata = CI.buildInsights(makeSnapshot([makeCourse({ assignments: [enriched] })]), NOW);
+  assert.deepEqual(withMetadata, baseline);
+});
+
+test('date evidence distinguishes Canvas null from missing or invalid fields without inferring a due date', () => {
+  for (const [raw, status, dueAt] of [
+    [{}, 'not-provided', null], [{ due_at: null }, 'no-date', null],
+    [{ due_at: 'invalid' }, 'invalid', null], [{ due_at: '' }, 'invalid', null],
+    [{ due_at: iso(NOW) }, 'dated', iso(NOW)],
+  ]) {
+    const assignment = CI.normalizeAssignment(raw);
+    assert.equal(assignment.dueDateStatus, status);
+    assert.equal(assignment.dueAt, dueAt);
+  }
+  const a = CI.normalizeAssignment({ due_at: null, has_overrides: true, updated_at: iso(NOW), all_dates: [
+    { base: true, due_at: iso(NOW + DAY) },
+    { id: 55, title: 'Another section date', due_at: iso(NOW + 2 * DAY), student_ids: [123, 456] },
+  ] });
+  assert.equal(a.dueAt, null, 'other dates never overwrite the requesting learner effective date');
+  assert.equal(a.dueDateStatus, 'no-date');
+  assert.equal(a.hasOverrides, true);
+  assert.equal(a.updatedAt, iso(NOW));
+  assert.equal(a.allDatesProvided, true);
+  assert.equal(a.allDatesTruncated, false);
+  assert.equal(a.allDates[0].base, true);
+  assert.equal(a.allDates[0].id, null);
+  assert.equal(a.allDates[1].id, '55');
+  assert.equal('student_ids' in a.allDates[1], false);
+});
+
+test('all_dates evidence is bounded and preserves absent versus explicitly empty results', () => {
+  assert.equal(CI.normalizeAssignment({}).allDatesProvided, false);
+  assert.equal(CI.normalizeAssignment({ all_dates: null }).allDatesProvided, false);
+  assert.equal(CI.normalizeAssignment({ all_dates: [] }).allDatesProvided, true);
+  const a = CI.normalizeAssignment({ all_dates: Array.from({ length: CI.CANVAS_CONTENT_LIMITS.assignmentDates + 1 }, (_, id) => ({ id, due_at: null })) });
+  assert.equal(a.allDates.length, CI.CANVAS_CONTENT_LIMITS.assignmentDates);
+  assert.equal(a.allDatesTruncated, true);
+  assert.ok(a.allDates.every((date) => date.dueDateStatus === 'no-date'));
+});
+
 test('attempts remaining is null when unlimited and never below zero', () => {
   assert.equal(CI.attemptsRemaining(makeAssignment({ allowedAttempts: -1 })), null, '-1 means unlimited');
   assert.equal(CI.attemptsRemaining(makeAssignment({ allowedAttempts: null })), null, 'absent means unlimited');

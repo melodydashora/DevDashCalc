@@ -133,6 +133,40 @@ built-in `fetch`; no SDK or dependency is needed.
   The verified answer key and transparent written-response self-check
   rubrics remain the grading boundary.
 
+## Page coach and Canvas evidence
+
+- Every screen has a persistent bottom coach (`public/page-coach.js`). It
+  uses the same Astra-to-Sol transport. During an active question it uses the
+  canonical question handler and assistance callback; there is no second grader.
+- The page coach reconstructs learner/course/term context on the server in
+  `study-coach-context.js`, adapting Vecto's typed-source and ownership pattern.
+  Current family workspaces remain unauthenticated; never describe UUIDs as
+  account authentication or allow arbitrary table/SQL/URL lookups.
+- Canvas detail reads use `canvas-retrieval.js`: typed, course-scoped GETs for
+  assignments, pages, quizzes, discussions, and file metadata. At most four
+  detail reads per request. Source status, read time, update time, failures,
+  shortened content and pagination caps must stay visible.
+- Course home pages can remain readable when the page index fails; retrieve
+  them independently. Instructor links stay visible. `linked-documents.js`
+  reads only observed, publicly shared Google document text with no app
+  credentials and restricted redirects; it shares the four-detail budget.
+  Login-required documents and unsupported files remain explicitly unread.
+- Retain instructions, rubric and effective-date evidence separately. Explicit
+  `due_at: null`, omitted fields, invalid fields and dates in teacher prose
+  have different meanings. Never guess an official deadline from another
+  section's `all_dates` or a model response. Undated work belongs in the plan,
+  Home's school suggestion and the study-session picker.
+- Successful source-location hints append to `cv-rule-<profile>` in the existing
+  store and its ignored file mirror. Preserve all old entries and versions,
+  including entries for a prior Canvas connection. Only use entries matching
+  the active Canvas identity and re-established course references. No model
+  text can remove, replace or execute an existing rule. At 1000 entries, stop
+  adding rather than trimming history.
+- Conversation lives only in the browser tab's memory and clears when the
+  learner, subject, course, terms, instruction target or active question changes.
+  Late results must never appear under a newer scope. Source material is
+  untrusted data; never render it or model replies as executable HTML.
+
 ## Commands
 
 ```bash

@@ -2,6 +2,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as S from '../store.js';
 
+test('append-only replica merging preserves old values, versions and duplicate occurrences', () => {
+  const first = { ruleId: 'shared', version: 1, label: 'Earlier label' };
+  const laterVersion = { ruleId: 'shared', version: 2, label: 'Different retained version' };
+  const prior = [null, first, first, { legacy: ['keep', { b: 2, a: 1 }] }];
+  const incoming = [{ label: 'Earlier label', version: 1, ruleId: 'shared' }, null,
+    { legacy: ['keep', { a: 1, b: 2 }] }, laterVersion, null];
+  const savedPrior = JSON.stringify(prior), savedIncoming = JSON.stringify(incoming);
+  const merged = S.mergeAppendOnlyRecords(prior, incoming);
+  assert.deepEqual(merged, [...prior, laterVersion, null]);
+  assert.equal(JSON.stringify(prior), savedPrior);
+  assert.equal(JSON.stringify(incoming), savedIncoming);
+  assert.deepEqual(S.mergeAppendOnlyRecords(merged, incoming), merged, 'recovery is idempotent');
+  assert.throws(() => S.mergeAppendOnlyRecords({ unsupported: true }, incoming), /array/);
+});
+
 // The pure pieces of the zero-dependency Postgres client. The live wire
 // protocol is exercised against the real database in development; these
 // tests pin the math and parsing that production auth depends on.
