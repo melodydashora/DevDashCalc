@@ -318,7 +318,7 @@ export async function loadStudyCoachContext({ pageContext = {}, message = '', pr
     && (rule.pageUrl ? item.pageUrl === rule.pageUrl : item.id === rule.id)));
   const words = [...new Set(text(message, 4000).toLowerCase().match(/[a-z0-9]{3,}/g) || [])]
     .filter(word => !new Set(['the', 'and', 'for', 'this', 'that', 'what', 'with', 'from', 'have', 'when', 'please', 'help', 'can', 'you', 'how', 'does', 'about']).has(word));
-  const deadlineQuestion = /\b(?:due|deadline|when|date|missing|instructions|syllabus)\b/i.test(message);
+  const deadlineQuestion = /\b(?:due|deadlines?|when|dates?|missing|instructions?|syllabus|schedules?|next[\s-]+steps?|prioriti[sz]\w*|plan(?:ning)?|time[\s-]+management|stud(?:y|ying)|work[\s-]+on|where[\s-]+to[\s-]+start)\b/i.test(message);
   const requestedModuleItem = numericId(pageContext.moduleItemId);
   const requestedItem = numericId(pageContext.itemId);
   const requestedType = kind(pageContext.itemType);

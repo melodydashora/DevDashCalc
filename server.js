@@ -919,7 +919,7 @@ async function handleStudyCoach(req, res, profileId) {
       // Page indexes find schedules outside assignment groups. Only the
       // selected course is expanded, with the existing pagination cap.
       const undatedTarget = snapshot.courses.length === 1 && snapshot.courses[0].assignments.some(a => a.id === pageContext.itemId && !a.dueAt);
-      if (snapshot.courses.length === 1 && ((!pageContext.itemId && !pageContext.moduleItemId) || undatedTarget) && /instruct|due|date|schedule|syllabus|find|missing/i.test(message)) {
+      if (snapshot.courses.length === 1 && ((!pageContext.itemId && !pageContext.moduleItemId) || undatedTarget) && /instruct|due|date|schedule|syllabus|find|missing|next[\s-]+step|prioriti[sz]|plan|time[\s-]+management|stud(?:y|ying)|work[\s-]+on|where[\s-]+to[\s-]+start/i.test(message)) {
         const course = snapshot.courses[0];
         const reads = await Promise.allSettled([
           canvasGetAll(found.session, `courses/${course.id}/pages`),
