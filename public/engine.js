@@ -25,6 +25,7 @@ export function newState() {
     settings: { name: '', textSize: 'medium', theme: 'system', showTimer: false },
     diagnostic: { completed: false, placedThroughUnit: 0 },
     unitsPassed: {},   // unitId -> { passedAt, correct, total }
+    masteryChecks: {}, // unitId -> latest valid { attemptedAt, correct, total, passed, assisted? }
     skills: {},        // skillId -> { events[], ewma, difficulty, lastSeen, placed }
     seenQuestions: {}, // questionId -> { last, correctCount, wrongCount }
   };
@@ -238,12 +239,16 @@ export function sampleMasteryCheck(unit, rand = Math.random, state = null) {
   return shuffle(picked, rand);
 }
 
-export function recordMasteryCheck(state, unit, correct, total, now) {
+export function recordMasteryCheck(state, unit, correct, total, now, { assisted = false } = {}) {
   if (!Number.isInteger(total) || total !== unit.masteryCheck.questionCount
     || !Number.isInteger(correct) || correct < 0 || correct > total
     || !Number.isInteger(unit.masteryCheck.passCount) || unit.masteryCheck.passCount < 1
     || unit.masteryCheck.passCount > total) return false;
-  const passed = correct >= unit.masteryCheck.passCount;
+  // Help is available during a check, while an independent pass still means
+  // the learner answered without it. Keep the raw result for either kind.
+  const passed = !assisted && correct >= unit.masteryCheck.passCount;
+  state.masteryChecks = state.masteryChecks || {};
+  state.masteryChecks[unit.id] = { attemptedAt: now, correct, total, passed, ...(assisted ? { assisted: true } : {}) };
   if (passed) state.unitsPassed[unit.id] = { passedAt: now, correct, total };
   return passed;
 }

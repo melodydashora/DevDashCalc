@@ -17,11 +17,14 @@ jobs:
       - name: Syntax check
         run: |
           node --check server.js
+          node --check ai-coach.js
           node --check store.js
           node --check public/app.js
           node --check public/engine.js
           node --check public/viz.js
           node --check public/study-lab.js
+          node --check public/spatial-lab.js
+          node --check public/focus-planner.js
           node --check public/courses.js
           node --check public/canvas-insights.js
           node --check scripts/validate-content.mjs

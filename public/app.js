@@ -6,6 +6,7 @@ import * as E from '/engine.js';
 import * as CI from '/canvas-insights.js';
 import { explorersFor, mountExplorer, explorerTitle } from '/viz.js';
 import { mountStudyLab } from '/study-lab.js';
+import { activateFocusProfile, subscribeFocusSession } from '/focus-planner.js';
 import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
 
 // ---------------------------------------------------------------- data & state
@@ -15,6 +16,8 @@ let S = null;                // progress state (engine shape + app extras)
 let saveTimer = null;
 let tickTimer = null;        // optional elapsed-time display
 let labCleanup = null;
+let spatialCleanup = null;
+let focusCleanup = null;
 let activeProfile = 'learner';
 let switchingProfile = false;
 let profiles = [{ id: 'learner', name: 'My workspace' }];
@@ -55,28 +58,34 @@ function renderMath(container) {
 function announce(text) { $('#live-region').textContent = text; }
 
 // ------------------------------------------------------------------ AI tutor
-// Renders only when the server reports ANTHROPIC_API_KEY is configured.
+// Availability comes from the server's configured provider chain.
 // Conversation lives in memory per question; only this question's content and
 // the learner's answer to it are sent to the server.
 function mountTutor(container, unit, q, ctx) {
-  if (!TUTOR.available) return;
-  container.innerHTML = `<div class="btn-row"><button type="button" class="secondary tutor-open">Ask the tutor about this question</button></div>`;
+  const before = ctx.phase === 'before-answer';
+  if (!TUTOR.available) {
+    container.innerHTML = '<section class="coach-card"><h3>Astra AI coach</h3><p>AI coaching is not connected on this server yet. Built-in hints and worked solutions are available.</p></section>';
+    return;
+  }
+  container.innerHTML = `<section class="coach-card"><h3>Astra AI coach</h3><p>Work through this question one step at a time.</p><p class="session-progress">GPT-6 Astra · GPT-5.6 Sol backup</p><div class="btn-row"><button type="button" class="secondary tutor-open">${before ? 'Help me understand this problem' : 'Talk through this question with Astra'}</button></div>${before ? `<p class="session-progress">Ask for the idea, a first step, or a coding example. ${ctx.selfCheck ? 'Use the scoring guide to review your own written work.' : ctx.check ? (ctx.check === 'placement' ? 'Answers solved with coach help do not place a unit. Your assisted practice still helps you learn.' : 'Getting coach help marks this attempt as assisted. It will not count as an independent mastery pass.') : 'Coach help received before checking counts as a hint.'}</p>` : ''}</section>`;
   $('.tutor-open', container).addEventListener('click', () => {
     container.innerHTML = `<div class="tutor-panel">
-      <h3>Tutor</h3>
-      <p class="viz-note">The tutor sees this question, the verified solution, your answer, and a count of your earlier attempts on this question and skill — nothing else, never your name. It explains; the app's verified solution stays the authority.</p>
+      <h3>Astra AI coach</h3>
+      <p class="session-progress coach-model">GPT-6 Astra · GPT-5.6 Sol backup</p>
+      <p class="viz-note">${before ? 'Work through one idea at a time. The tutor is instructed to guide your thinking without giving away the answer.' : 'Ask about a confusing step or compare approaches.'} It uses this question and the stored solution. Your name and Canvas data are not shared.</p>
       <div class="tutor-log" aria-live="polite"></div>
       <p class="tutor-status"></p>
+      <div class="btn-row tutor-actions" hidden>${['Explain the idea', 'Help with the first step', 'Use a coding example'].map((label) => `<button type="button" class="secondary tutor-hint-action">${label}</button>`).join('')}</div>
       <div class="numeric-row tutor-ask-row" hidden>
-        <label for="tutor-in" class="visually-hidden">Ask a follow-up question</label>
-        <input id="tutor-in" type="text" autocomplete="off" placeholder="Ask a follow-up about this problem">
+        <input class="tutor-input" aria-label="Ask the AI tutor" type="text" autocomplete="off" placeholder="Tell me which part is confusing">
         <button type="button" class="tutor-send">Send</button>
       </div>
     </div>`;
     const log = $('.tutor-log', container);
     const status = $('.tutor-status', container);
     const askRow = $('.tutor-ask-row', container);
-    const input = $('#tutor-in', container);
+    const input = $('.tutor-input', container);
+    const actions = $('.tutor-actions', container);
     const sendBtn = $('.tutor-send', container);
     const transcript = [];
 
@@ -84,14 +93,15 @@ function mountTutor(container, unit, q, ctx) {
       const div = document.createElement('div');
       div.className = `tutor-msg ${role}`;
       const paragraphs = esc(text).split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
-      div.innerHTML = `<span class="tutor-who">${role === 'user' ? 'You' : 'Tutor'}</span>${paragraphs}`;
+      div.innerHTML = `<span class="tutor-who">${role === 'user' ? 'You' : 'Coach'}</span>${paragraphs}`;
       log.appendChild(div);
       renderMath(div);
     };
 
     const ask = async (followUp) => {
-      status.textContent = 'Waiting for the tutor to reply. This usually takes under a minute.';
+      status.textContent = 'Astra is working through this question. A careful reply can take a minute or more.';
       askRow.hidden = true;
+      actions.hidden = true;
       sendBtn.disabled = true;
       try {
         const res = await fetch('/api/tutor', {
@@ -99,6 +109,7 @@ function mountTutor(container, unit, q, ctx) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             unitId: unit.id, questionId: q.id,
+            phase: before ? 'before-answer' : 'after-answer',
             learnerAnswer: ctx.learnerAnswer, correct: ctx.correct,
             chosenIndex: ctx.chosenIndex,
             history: ctx.history,
@@ -108,6 +119,9 @@ function mountTutor(container, unit, q, ctx) {
         });
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+        if (typeof data.text !== 'string' || !data.text.trim()) throw new Error('No coach reply was returned.');
+        ctx.onHelp?.();
+        $('.coach-model', container).textContent = data.model === 'gpt-5.6-sol' ? 'Reply from GPT-5.6 Sol · backup coach' : data.model === 'gpt-6-astra' ? 'Reply from GPT-6 Astra' : 'AI coach reply';
         if (followUp) transcript.push({ role: 'user', text: followUp });
         transcript.push({ role: 'assistant', text: data.text });
         addMsg('assistant', data.text);
@@ -117,6 +131,7 @@ function mountTutor(container, unit, q, ctx) {
         console.warn('tutor:', e.message);
       }
       askRow.hidden = false;
+      actions.hidden = false;
       sendBtn.disabled = false;
     };
 
@@ -128,6 +143,10 @@ function mountTutor(container, unit, q, ctx) {
       ask(text);
     });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendBtn.click(); });
+    actions.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => {
+      addMsg('user', button.textContent);
+      ask(button.textContent);
+    }));
     ask(null);
   });
 }
@@ -183,15 +202,16 @@ async function switchProfile(profile) {
   try { localStorage.setItem(progressKey(previous), body); } catch { /* optional */ }
   try { await fetch(`/api/progress?profile=${encodeURIComponent(previous)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body }); } catch { /* browser copy remains */ }
   activeProfile = profile;
+  activateFocusProfile(profile);
+  $('#focus-status').hidden = true;
+  resetCanvas();
   try { localStorage.setItem('students4ai-active-profile', profile); } catch { /* optional */ }
   S = await loadProgress(profile);
-  CANVAS.selectedCourseId = null;
-  CANVAS.assessment = null;
-  if (CANVAS.snapshot) canvasRebuildInsights();
   applySettings();
   switchingProfile = false;
   location.hash = '#/home';
   router();
+  loadSchoolContext();
 }
 
 const subjectLabel = () => STUDY_SUBJECTS.find((s) => s.id === S.settings.subject)?.label || 'AP Calculus BC';
@@ -211,9 +231,12 @@ function studyControls() {
     S.settings.subject = normalizeSubjectId(e.target.value);
     CANVAS.selectedCourseId = null;
     CANVAS.assessment = null;
+    const current = CI.currentTermId(CANVAS.terms, Date.now());
+    CANVAS.termIds = current ? [current] : null;
     if (CANVAS.snapshot) canvasRebuildInsights();
     save();
-    if (location.hash.startsWith('#/canvas')) router();
+    if (location.hash.startsWith('#/canvas/course/')) location.hash = '#/canvas';
+    else if (location.hash.startsWith('#/canvas') || location.hash === '#/focus') router();
     else { location.hash = '#/home'; router(); }
   });
 }
@@ -266,6 +289,8 @@ function setNav(active) {
 function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   clearInterval(tickTimer);
   if (labCleanup) { labCleanup(); labCleanup = null; }
+  if (spatialCleanup) { spatialCleanup(); spatialCleanup = null; }
+  if (focusCleanup) { focusCleanup(); focusCleanup = null; }
   studyControls();
   const v = viewEl();
   v.innerHTML = html;
@@ -320,6 +345,7 @@ function mountQuestion(container, unit, q, opts, done) {
   const { hintsAllowed = true, deferFeedback = false, index = 1, total = 1, countsTowardMastery = true } = opts;
   let selected = null;
   let hintsUsed = 0;
+  let aiHelpUsed = false;
 
   const mcHtml = q.type === 'mc'
     ? `<div class="choices" role="group" aria-label="Answer choices">
@@ -347,12 +373,15 @@ function mountQuestion(container, unit, q, opts, done) {
         ${hintsAllowed ? `<button type="button" class="secondary hint-btn">Show hint (1 of ${q.hints.length})</button>` : ''}
       </div>
       <div class="feedback-area"></div>
+      <div class="question-coach"></div>
     </div>`;
 
   renderMath(container);
   const submitBtn = $('.submit-btn', container);
   const hintArea = $('.hint-area', container);
   const fbArea = $('.feedback-area', container);
+  const coachSlot = $('.question-coach', container);
+  mountTutor(coachSlot, unit, q, { phase: 'before-answer', check: q.bank === 'mastery' ? 'mastery' : !hintsAllowed ? 'placement' : null, onHelp: () => { aiHelpUsed = true; } });
 
   if (q.type === 'mc') {
     container.querySelectorAll('.choice').forEach((btn) => {
@@ -395,6 +424,7 @@ function mountQuestion(container, unit, q, opts, done) {
     if (hintsAllowed) { const hb = $('.hint-btn', container); if (hb) hb.disabled = true; }
     container.querySelectorAll('.choice').forEach((b) => { b.disabled = true; });
     const numIn = $('#num-in', container); if (numIn) numIn.disabled = true;
+    const countedHints = hintsUsed + Number(aiHelpUsed);
 
     // History is read before this answer is recorded, so it describes earlier attempts only.
     const qh = E.questionHistory(S, q);
@@ -405,7 +435,7 @@ function mountQuestion(container, unit, q, opts, done) {
       skillScore: sh.score, recentTotal: sh.recentTotal, recentWrong: sh.recentWrong, recentWithHints: sh.recentWithHints,
     };
     if (countsTowardMastery) {
-      E.recordAnswer(S, { skillId: q.skillId, questionId: q.id, correct: grade.correct, hintsUsed, difficulty: q.difficulty, now: Date.now(), choice: q.type === 'mc' ? selected : null });
+      E.recordAnswer(S, { skillId: q.skillId, questionId: q.id, correct: grade.correct, hintsUsed: countedHints, difficulty: q.difficulty, now: Date.now(), choice: q.type === 'mc' ? selected : null });
       save();
     }
 
@@ -424,9 +454,8 @@ function mountQuestion(container, unit, q, opts, done) {
       if (grade.correct) {
         fbArea.innerHTML = `<div class="feedback good">
           <h3>Correct.</h3>
-          ${hintsUsed > 0 ? `<p>You used ${hintsUsed} hint${hintsUsed > 1 ? 's' : ''}, so this counts as partial credit toward mastery. Solving without hints counts fully.</p>` : ''}
+          ${countedHints > 0 ? '<p>You used built-in hints or AI guidance, so this counts as partial credit toward mastery. Solving without help counts fully.</p>' : ''}
           <details><summary>Show the full solution</summary>${solutionHtml}</details>
-          <div class="tutor-slot"></div>
           <div class="btn-row"><button type="button" class="next-btn">Continue</button></div>
         </div>`;
         announce('Correct.');
@@ -436,7 +465,6 @@ function mountQuestion(container, unit, q, opts, done) {
           ${grade.misconception ? `<p><strong>About this choice:</strong> ${grade.misconception}</p>` : ''}
           <p><strong>Here is the complete solution:</strong></p>
           ${solutionHtml}
-          <div class="tutor-slot"></div>
           <div class="viz-slot"></div>
           <div class="btn-row"><button type="button" class="next-btn">Continue</button></div>
         </div>`;
@@ -452,14 +480,15 @@ function mountQuestion(container, unit, q, opts, done) {
       }
     }
     renderMath(fbArea);
-    const tutorSlot = $('.tutor-slot', fbArea);
-    if (tutorSlot) {
+    if (!deferFeedback) {
       const learnerAnswer = q.type === 'mc'
         ? (selected !== null ? `choice ${'ABCDE'[selected]} (${q.choices[selected]})` : '(none)')
         : String(response);
-      mountTutor(tutorSlot, unit, q, { learnerAnswer, correct: grade.correct, chosenIndex: q.type === 'mc' ? selected : null, history });
+      mountTutor(coachSlot, unit, q, { learnerAnswer, correct: grade.correct, chosenIndex: q.type === 'mc' ? selected : null, history });
+    } else {
+      coachSlot.innerHTML = '<section class="coach-card"><h3>Astra AI coach</h3><p>Your answer is recorded. Astra can review it with you when this check is complete.</p></section>';
     }
-    $('.next-btn', fbArea).addEventListener('click', () => done({ correct: grade.correct, hintsUsed, response }));
+    $('.next-btn', fbArea).addEventListener('click', () => done({ correct: grade.correct, hintsUsed: countedHints, response }));
     $('.next-btn', fbArea).focus();
   });
 }
@@ -487,6 +516,30 @@ function canvasPaceHtml() {
     '<a class="btn secondary" href="#/canvas/plan">See my school plan</a>';
 }
 
+function mountSpatialSection(parent) {
+  const details = document.createElement('details');
+  details.className = 'card spatial-disclosure';
+  details.innerHTML = '<summary>Open the 3D Vector Lab · rotate, play, explore</summary><div class="spatial-slot"></div>';
+  const host = $('.spatial-slot', details);
+  let cleanup = null, generation = 0;
+  const dispose = () => { generation += 1; cleanup?.(); cleanup = null; host.innerHTML = ''; };
+  spatialCleanup = dispose;
+  details.addEventListener('toggle', async () => {
+    if (!details.open) { dispose(); return; }
+    const current = ++generation;
+    host.innerHTML = '<p>Opening the 3D lab.</p>';
+    try {
+      const { mountSpatialLab } = await import('/spatial-lab.js');
+      if (current !== generation || !details.open || !details.isConnected) return;
+      host.innerHTML = '';
+      cleanup = mountSpatialLab(host, { motion: document.documentElement.dataset.motion, mastery: Math.max(0, ...allUnits().map((u) => E.unitMastery(S, u))) });
+    } catch {
+      if (current === generation && details.isConnected) host.innerHTML = '<p>The 3D lab could not load. The interactive 2D graphs remain available.</p>';
+    }
+  });
+  parent.appendChild(details);
+}
+
 function viewHome() {
   const m = CONTENT.manifest;
   const units = allUnits();
@@ -511,7 +564,33 @@ function viewHome() {
     (!units.length ? '<div class="card"><h3>Physics workspace</h3><p>Choose a physics course in the Canvas dropdown for its assignments, modules, and grades. The independent question library currently covers AP Calculus AB and BC; a physics curriculum has not been added yet.</p><a class="btn" href="#/canvas">Open physics in Canvas</a></div>' : '<details class="card"><summary>Optional placement check</summary><p>Get a starting estimate of familiar units. It does not restrict what you can open, and you can stop at any time.</p><a class="btn secondary" href="#/diagnostic">Start placement check</a></details>'),
     { breadcrumb: ['Home'], nav: 'home' });
   labCleanup = mountStudyLab($('#home-study-lab', v), { motion: document.documentElement.dataset.motion, course: S.settings.subject === 'calculus-ab' ? 'ab' : S.settings.subject === 'physics' ? 'physics' : 'bc', mastery: average });
+  if (S.settings.subject !== 'calculus-ab') mountSpatialSection($('#home-study-lab', v));
+  const focusEntry = document.createElement('section');
+  focusEntry.className = 'card focus-entry';
+  focusEntry.innerHTML = '<div><span class="kicker">Make time for one next step</span><h2>Choose a short study session</h2><p>Set the time you have, choose one task, and use a small checklist. Pause whenever you need.</p></div><a class="btn" href="#/focus">Plan my study session</a>';
+  v.insertBefore(focusEntry, $('.dashboard-stats', v));
   S.lastLocation = '#/home'; save();
+}
+
+async function viewFocus() {
+  const v = mountView('<h1>One session, one next step</h1><p>Choose the time you have and one thing to work on. This plan is a starting point you can change.</p><div id="focus-slot"><p>Opening the session planner.</p></div>', { breadcrumb: ['Home', 'Study session'], nav: 'focus' });
+  const host = $('#focus-slot', v);
+  const profileId = activeProfile;
+  try {
+    const { mountFocusPlanner } = await import('/focus-planner.js');
+    if (!host.isConnected || profileId !== activeProfile) return;
+    const ins = CANVAS.insights;
+    const task = ins && [...ins.plan.overdueOpen, ...ins.plan.buckets.flatMap((b) => b.items), ...ins.plan.later][0];
+    const unit = [...allUnits()].filter((u) => !S.unitsPassed[u.id]).sort((a, b) => E.unitMastery(S, b) - E.unitMastery(S, a) || a.number - b.number)[0] || allUnits()[0];
+    host.innerHTML = '';
+    focusCleanup = mountFocusPlanner(host, {
+      profileId, subject: S.settings.subject, courseLabel: subjectLabel(),
+      canvasTask: task ? { name: task.name, dueLabel: task.dueAt ? canvasDateTime(task.dueAt) : 'No due date', href: task.htmlUrl || '#/canvas/plan' } : null,
+      suggestedUnit: unit ? { id: unit.id, title: unit.title } : null,
+    });
+  } catch {
+    if (host.isConnected) host.innerHTML = '<p>The study planner could not load. You can still choose a task from <a href="#/canvas/plan">Canvas</a> or open any learning module.</p>';
+  }
 }
 
 // ---------------------------------------------------------------- views: unit
@@ -551,6 +630,9 @@ function mountFreeResponses(unit) {
       S.freeResponses[q.id][input.dataset.part] = input.value;
       save();
     }));
+    const tutor = document.createElement('div');
+    article.appendChild(tutor);
+    mountTutor(tutor, unit, q, { phase: 'before-answer', selfCheck: true });
     $('.reveal-rubric', article).addEventListener('click', (event) => {
       const guide = $('.frq-rubric', article);
       guide.hidden = !guide.hidden;
@@ -618,7 +700,7 @@ function viewUnit(requestedId) {
       <ul class="rules-list">
         <li>${unit.masteryCheck.questionCount} original AP-style questions, drawn from a separate mastery bank at difficulty 2 and 3. These are not the practice questions.</li>
         <li>You need ${unit.masteryCheck.passCount} correct to pass.</li>
-        <li>No hints during the check. No time limit.</li>
+        <li>No time limit. Astra can help during the check; using coach help marks the attempt assisted and it cannot earn an independent pass.</li>
         <li>Results and full solutions appear after the last question, not during.</li>
         <li>Retakes prioritize questions you have seen least recently. Questions can repeat when the bank is exhausted. Your completed work stays saved.</li>
       </ul>
@@ -646,6 +728,7 @@ function viewUnit(requestedId) {
     details.open = true;
   }
   mountFreeResponses(unit);
+  if (unit.number === 9) mountSpatialSection($('#explorer-slots').parentElement);
   S.lastLocation = `#/unit/${unitId}`; save();
 }
 
@@ -795,7 +878,8 @@ function viewMastery(requestedId) {
       <p><strong>Exactly what will happen:</strong></p>
       <ul class="rules-list">
         <li>${questionCount} questions, one at a time. You need ${passCount} correct to pass.</li>
-        <li>No hints. No time limit. After each answer you will only see "answer recorded".</li>
+        <li>No time limit. Astra is available on every question. Receiving coach help marks the check assisted; it cannot earn an independent pass.</li>
+        <li>After each answer you will only see "answer recorded".</li>
         <li>After question ${questionCount}, you get full results with every solution.</li>
         <li>Passing records a completed mastery check. All modules stay open, whatever your score. Retakes prefer less recently seen questions and may repeat items.</li>
       </ul>
@@ -825,7 +909,8 @@ function viewMastery(requestedId) {
     };
     const finish = () => {
       const correct = answers.filter((a) => a.correct).length;
-      const passed = E.recordMasteryCheck(S, unit, correct, questions.length, Date.now());
+      const assisted = answers.some((answer) => answer.hintsUsed > 0);
+      const passed = E.recordMasteryCheck(S, unit, correct, questions.length, Date.now(), { assisted });
       save();
       const weakSkills = [...new Set(answers.filter((a) => !a.correct).map((a) => a.q.skillId))];
       const reviewHtml = answers.map((a, i) => `
@@ -836,9 +921,11 @@ function viewMastery(requestedId) {
             ? `<p>Your answer: ${a.response !== null && a.response !== undefined ? a.q.choices[a.response] : '(none)'} · Correct answer: ${a.q.choices[a.q.answerIndex]}</p>`
             : `<p>Your answer: ${esc(String(a.response))} · Correct answer: ${a.q.answer}</p>`}
           <ol class="solution-steps">${a.q.solution.map((st) => `<li>${st.text}${st.math ? `<div class="step-math">$$${st.math}$$</div>` : ''}</li>`).join('')}</ol>
+          <div class="mastery-tutor-slot" data-index="${i}"></div>
         </details>`).join('');
       slot.innerHTML = `<div class="card">
-        <h2>${passed ? `Passed: ${correct} of ${questions.length}.` : `Not passed yet: ${correct} of ${questions.length}. You need ${passCount}.`}</h2>
+        <h2>${assisted ? `Assisted check complete: ${correct} of ${questions.length}.` : passed ? `Passed: ${correct} of ${questions.length}.` : `Not passed yet: ${correct} of ${questions.length}. You need ${passCount}.`}</h2>
+        ${assisted ? '<p>Astra helped with this attempt, so the score is saved as assisted learning. Try another check without coach help when you want to measure independent mastery. Any earlier pass stays saved.</p>' : ''}
         ${passed
           ? `<p>Your mastery check for Unit ${unit.number} is complete. Continue to any module or try a free-response challenge.</p>`
           : `<p>Your completed lessons and passed checks stay saved. These answers also help adapt future practice. Skills to practice: ${weakSkills.map((sid) => esc(skillName(unit, sid))).join(', ') || '—'}.</p>`}
@@ -852,9 +939,13 @@ function viewMastery(requestedId) {
       <h2>Every question, with solutions</h2>
       ${reviewHtml}`;
       renderMath(slot);
+      slot.querySelectorAll('.mastery-tutor-slot').forEach((holder) => {
+        const answer = answers[Number(holder.dataset.index)];
+        mountTutor(holder, unit, answer.q, { phase: 'after-answer', learnerAnswer: String(answer.response), chosenIndex: answer.q.type === 'mc' ? answer.response : null, correct: answer.correct });
+      });
       const retake = $('#retake-btn', slot);
       if (retake) retake.addEventListener('click', () => viewMastery(unitId));
-      announce(passed ? `Mastery check passed, ${correct} of ${questions.length}.` : `Mastery check: ${correct} of ${questions.length}. ${passCount} needed.`);
+      announce(assisted ? `Assisted check complete, ${correct} of ${questions.length}.` : passed ? `Mastery check passed, ${correct} of ${questions.length}.` : `Mastery check: ${correct} of ${questions.length}. ${passCount} needed.`);
       window.scrollTo(0, 0);
     };
     ask();
@@ -871,7 +962,7 @@ function viewDiagnostic() {
       <p><strong>Exactly how this works:</strong></p>
       <ul class="rules-list">
         <li>Questions come unit by unit, starting at Unit 1: two questions per unit, plus a third only if you answer exactly one of the first two correctly.</li>
-        <li>A unit counts as placed when you answer 2 of its questions correctly. Hints are not available; you see whether you were right after each question.</li>
+        <li>A unit counts as placed when you answer 2 of its questions correctly without coach help. Astra is available; helped answers count as assisted learning and do not place a unit. You see whether you were right after each question.</li>
         <li>The check stops at the first unit that is not placed, or whenever you press "Stop here". Stopping early does not remove any progress.</li>
         <li>Result: familiar units are marked passed by placement. Every unit stays open, and you can practice or review any time.</li>
       </ul>
@@ -910,7 +1001,7 @@ function viewDiagnostic() {
         slot.appendChild(holder);
         mountQuestion(holder, unit, q, { hintsAllowed: false, index: asked + 1, total: needThird || asked === 2 ? 3 : 2 }, (r) => {
           asked += 1;
-          if (r.correct) right += 1;
+          if (r.correct && r.hintsUsed === 0) right += 1;
           if (asked === 3) {
             if (right >= 2) { placedThrough = unit.number; unitIdx += 1; runUnit(); }
             else finish();
@@ -997,8 +1088,8 @@ function viewSettings() {
     <div class="card">
       <h2>Learner workspaces</h2>
       <p>Each workspace keeps its own practice history, course choice, and display settings. Switch learners using the dropdown above.</p>
-      <form id="add-learner" class="numeric-row"><label>New learner name <input name="learnerName" type="text" maxlength="40" required></label><button type="submit">Add learner</button></form>
-      <p class="session-progress">These are study workspaces on this app, not private accounts. The Canvas connection belongs to this server; its connected learner is always shown on the Canvas page.</p>
+      <form id="add-learner" class="numeric-row"><label>New learner name <input name="learnerName" type="text" maxlength="40" required></label><label>Starting course <select name="subject">${STUDY_SUBJECTS.map((course) => `<option value="${course.id}">${esc(course.label)}</option>`).join('')}</select></label><button type="submit">Add learner</button></form>
+      <p class="session-progress">Each learner connects their own Canvas account from the Canvas tab. Switching learners also switches the Canvas connection. These are shared-device workspaces, without a separate sign-in for each learner.</p>
     </div>
     <div class="card">
       <h2>Display</h2>
@@ -1040,13 +1131,17 @@ function viewSettings() {
 
   $('#add-learner', v).addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = String(new FormData(e.currentTarget).get('learnerName') || '').trim().slice(0, 40);
+    const form = new FormData(e.currentTarget);
+    const name = String(form.get('learnerName') || '').trim().slice(0, 40);
     if (!name || profiles.length >= 21) return;
-    const id = `student-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+    const id = `student-${crypto.randomUUID()}`;
     profiles.push({ id, name });
     try { localStorage.setItem('students4ai-profiles', JSON.stringify(profiles)); } catch { /* optional */ }
     await switchProfile(id);
-    S.settings.name = name; save(); router();
+    S.settings.name = name;
+    S.settings.subject = normalizeSubjectId(form.get('subject'));
+    if (CANVAS.snapshot) canvasRebuildInsights();
+    save(); router();
   });
   $('#set-name', v).addEventListener('input', (e) => {
     S.settings.name = e.target.value.slice(0, 40);
@@ -1068,10 +1163,12 @@ function viewSettings() {
     URL.revokeObjectURL(a.href);
   });
   $('#import-file', v).addEventListener('change', async (e) => {
+    const importProfile = activeProfile;
     const file = e.target.files[0];
     if (!file) return;
     try {
       const parsed = JSON.parse(await file.text());
+      if (importProfile !== activeProfile || switchingProfile) return;
       if (!parsed || typeof parsed !== 'object' || !parsed.skills) throw new Error('not a Students4AI progress file');
       S = ensureAppFields(parsed);
       CANVAS.selectedCourseId = null; CANVAS.assessment = null;
@@ -1103,6 +1200,25 @@ function viewSettings() {
 // Coach progress can never expose Canvas data. Course and assignment names
 // are external data and are shown as Canvas reports them.
 const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' };
+let canvasGeneration = 0;
+const staleCanvasRequest = (error) => error?.name === 'StaleCanvasRequest';
+function resetCanvas() {
+  canvasGeneration++;
+  Object.assign(CANVAS, { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' });
+}
+
+async function loadSchoolContext() {
+  const generation = canvasGeneration;
+  try {
+    await canvasEnsureSession();
+    if (generation !== canvasGeneration) return;
+    if (CANVAS.connected && !CANVAS.snapshot) await canvasLoadSnapshot();
+    if (generation !== canvasGeneration) return;
+    const pace = $('#school-pace');
+    if (pace) pace.innerHTML = canvasPaceHtml();
+    if (location.hash.startsWith('#/canvas')) router();
+  } catch { /* The optional Canvas view has its own retry controls. */ }
+}
 
 const canvasDateTime = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso)) : null);
 const canvasDateOnly = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(iso)) : null);
@@ -1125,7 +1241,8 @@ async function canvasEnsurePrefs() {
   try {
     const { res, data } = await canvasApi('/api/canvas/prefs');
     CANVAS.prefs = res.ok && data && data.courseOverrides ? { courseOverrides: data.courseOverrides } : { courseOverrides: {} };
-  } catch {
+  } catch (error) {
+    if (staleCanvasRequest(error)) return;
     CANVAS.prefs = { courseOverrides: {} };
   }
 }
@@ -1138,16 +1255,28 @@ async function canvasSetCourseOverride(courseId, value) {
   CANVAS.prefs = { courseOverrides: overrides };
   try {
     await canvasApi('/api/canvas/prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(CANVAS.prefs) });
-  } catch {
+  } catch (error) {
+    if (staleCanvasRequest(error)) return;
     console.warn('Canvas preference save failed; the choice still applies until this page is reloaded.');
   }
   canvasRebuildInsights();
 }
 
 async function canvasApi(path, options) {
-  const res = await fetch(path, options);
+  const generation = canvasGeneration;
+  const scopedPath = `${path}${path.includes('?') ? '&' : '?'}profile=${encodeURIComponent(activeProfile)}`;
+  const ensureCurrent = () => {
+    if (generation === canvasGeneration) return;
+    const error = new Error('Learner changed while Canvas was loading.');
+    error.name = 'StaleCanvasRequest';
+    throw error;
+  };
+  let res;
+  try { res = await fetch(scopedPath, options); }
+  catch (error) { ensureCurrent(); throw error; }
   let data = null;
   try { data = await res.json(); } catch { /* non-JSON body; status carries the meaning */ }
+  ensureCurrent();
   return { res, data };
 }
 
@@ -1164,7 +1293,8 @@ async function canvasEnsureSession() {
     } else {
       CANVAS.connected = false; // transient server trouble: probe again next visit
     }
-  } catch {
+  } catch (error) {
+    if (staleCanvasRequest(error)) return;
     CANVAS.connected = false; // network hiccup: probe again next visit
   }
 }
@@ -1172,6 +1302,7 @@ async function canvasEnsureSession() {
 // Loads one consistent snapshot and computes the insights from it. Returns
 // true on success; on failure it stores a calm note in CANVAS.note.
 async function canvasLoadSnapshot() {
+  const generation = canvasGeneration;
   try {
     const { res, data } = await canvasApi('/api/canvas/snapshot');
     if (res.status === 401) {
@@ -1187,6 +1318,7 @@ async function canvasLoadSnapshot() {
     }
     CANVAS.snapshot = data;
     await canvasEnsurePrefs();
+    if (generation !== canvasGeneration) return false;
     // Canvas keeps courses from earlier school years in its active list, so
     // the views filter by term. The current term (by its Canvas dates) is
     // selected on each load; a still-valid manual selection is kept.
@@ -1200,7 +1332,8 @@ async function canvasLoadSnapshot() {
     canvasRebuildInsights();
     CANVAS.note = '';
     return true;
-  } catch {
+  } catch (error) {
+    if (staleCanvasRequest(error)) return false;
     CANVAS.note = 'Canvas data could not be loaded this time. Your calculus progress is not affected. Select Refresh to try again.';
     return false;
   }
@@ -1215,10 +1348,13 @@ function canvasTabsHtml(active) {
 
 function canvasHeadHtml() {
   const name = CANVAS.user && CANVAS.user.name ? CANVAS.user.name : 'Canvas learner';
+  const selectedCourse = CANVAS.snapshot?.courses.find((course) => course.id === CANVAS.selectedCourseId);
+  const selectionLabel = selectedCourse?.name || (CANVAS.selectedCourseId === 'all' ? 'All Canvas courses' : subjectLabel());
   const asOf = CANVAS.snapshot ? ` · Data as of ${esc(canvasDateTime(CANVAS.snapshot.fetchedAt) || CANVAS.snapshot.fetchedAt)}.` : '';
   const remembered = CANVAS.remembered ? ' Connection remembered on this server.' : '';
   return `<div class="canvas-head">
-    <p class="canvas-meta">Connected to ${esc(CANVAS.host)} as ${esc(name)}.${asOf}${remembered}</p>
+    <h2>${esc(selectionLabel)}</h2>
+    <p class="canvas-meta">${esc(S.settings.name || profiles.find((profile) => profile.id === activeProfile)?.name || 'This learner')}’s workspace · Connected to ${esc(CANVAS.host)} as ${esc(name)}.${asOf}${remembered}</p>
     <div class="btn-row">
       <button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh Canvas data' : 'Load Canvas data'}</button>
       <button type="button" class="quiet canvas-disconnect">Disconnect</button>
@@ -1227,7 +1363,7 @@ function canvasHeadHtml() {
 }
 
 function canvasTermsHtml() {
-  const selection = `<div class="card course-switcher"><label>Canvas course <select id="canvas-course" class="course-select"><option value="subject" ${CANVAS.selectedCourseId === null ? 'selected' : ''}>Match studying: ${esc(subjectLabel())}</option><option value="all" ${CANVAS.selectedCourseId === 'all' ? 'selected' : ''}>All Canvas courses</option>${(CANVAS.snapshot?.courses || []).map((c) => `<option value="${esc(c.id)}" ${CANVAS.selectedCourseId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><p class="canvas-meta">Pick the class you are working on now. This selection updates the plan, grades, and assessment together. Learning modules stay open.</p></div>`;
+  const selection = `<div class="card course-switcher"><label>Canvas course <select id="canvas-course" class="course-select"><option value="subject" ${CANVAS.selectedCourseId === null ? 'selected' : ''}>Match studying: ${esc(subjectLabel())}</option><option value="all" ${CANVAS.selectedCourseId === 'all' ? 'selected' : ''}>All Canvas courses</option>${(CANVAS.snapshot?.courses || []).map((c) => `<option value="${esc(c.id)}" ${CANVAS.selectedCourseId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><p class="canvas-meta">Choose the school class for your plan, grades, and assessment. The Studying menu above chooses your learning modules.</p></div>`;
   if (!CANVAS.terms.length) return selection;
   const boxes = CANVAS.terms.map((t) => {
     const checked = CANVAS.termIds === null || CANVAS.termIds.includes(t.id) ? ' checked' : '';
@@ -1247,16 +1383,8 @@ function wireCanvasControls(root, rerender) {
   };
   $('#canvas-course', root)?.addEventListener('change', (event) => {
     const value = event.target.value;
-    CANVAS.selectedCourseId = value === 'subject' ? null : value;
-    if (value === 'all') CANVAS.termIds = null;
-    if (value === 'subject') {
-      const current = CI.currentTermId(CANVAS.terms, Date.now());
-      CANVAS.termIds = current ? [current] : null;
-    }
-    const course = CANVAS.snapshot?.courses.find((c) => c.id === value);
-    if (course?.term?.id) CANVAS.termIds = [course.term.id];
-    CANVAS.assessment = null;
-    canvasRebuildInsights(); selectionChanged();
+    selectCanvasCourse(value);
+    selectionChanged();
   });
   root.querySelectorAll('.canvas-terms input[type="checkbox"]').forEach((box) => {
     box.addEventListener('change', () => {
@@ -1280,13 +1408,20 @@ function wireCanvasControls(root, rerender) {
   const disconnect = $('.canvas-disconnect', root);
   if (disconnect) {
     disconnect.addEventListener('click', async () => {
+      canvasGeneration++;
+      disconnect.disabled = true;
       let durable = true;
       try {
         const { data } = await canvasApi('/api/canvas/session', { method: 'DELETE' });
         durable = !data || data.durableDeleted !== false;
-      } catch { /* removing a session that is already gone is fine */ }
-      CANVAS.connected = false; CANVAS.user = null; CANVAS.host = ''; CANVAS.remembered = false;
-      CANVAS.snapshot = null; CANVAS.insights = null; CANVAS.terms = []; CANVAS.termIds = null; CANVAS.assessment = null;
+      } catch (error) {
+        if (staleCanvasRequest(error)) return;
+        CANVAS.note = 'Canvas could not be disconnected this time. Try again when the server is reachable.';
+        rerender();
+        return;
+      }
+      resetCanvas();
+      CANVAS.checked = true;
       CANVAS.note = durable
         ? 'Canvas is disconnected. The token is out of server memory and the saved copies are deleted.'
         : 'Canvas is disconnected and the token is out of server memory. The saved database copy could not be removed this time; select Disconnect again to retry.';
@@ -1296,15 +1431,26 @@ function wireCanvasControls(root, rerender) {
   }
 }
 
+function selectCanvasCourse(value) {
+  CANVAS.selectedCourseId = value === 'subject' ? null : value;
+  const course = CANVAS.snapshot?.courses.find((item) => item.id === value);
+  const termId = value === 'subject' ? CI.currentTermId(CANVAS.terms, Date.now()) : course?.term?.id;
+  CANVAS.termIds = termId ? [termId] : null;
+  CANVAS.assessment = null;
+  canvasRebuildInsights();
+}
+
 function canvasConnectHtml() {
   return `${canvasNoteHtml()}
   <div class="card">
+    <h2>Connect Canvas for ${esc(S.settings.name || profiles.find((profile) => profile.id === activeProfile)?.name || 'this learner')}</h2>
+    <p>Use this learner’s own school address and token. Other learners keep their separate connections and progress.</p>
     <p>Students4AI can show your course data from Canvas, your school's learning system, reformatted into a prioritized plan and a grade report. This page is optional and separate from your calculus progress.</p>
     <p><strong>Exactly how this connection works:</strong></p>
     <ul class="rules-list">
       <li>You enter your school's Canvas web address and a Canvas access token.</li>
       <li>The token is sent only to this Students4AI server. It is never stored in this browser and never added to your progress file or progress exports.</li>
-      <li>With Remember selected, the server saves the address and token in its own data folder so the connection survives restarts. Without it, the token stays only in server memory for up to 8 hours.</li>
+      <li>With Remember selected, the server saves this learner’s address and token in server storage and the configured database so the connection survives restarts. Without it, the token stays only in server memory for up to 8 hours.</li>
       <li>Students4AI reads your active courses, assignments, submission status, scores, and module progress. It reads only; it never changes anything in Canvas.</li>
       <li>Canvas data never changes your Students4AI mastery scores and never unlocks anything.</li>
       <li>The AI assessment page runs only when you select its button. It receives the Canvas data shown in this app, never the token. The math tutor is separate and never sees Canvas data.</li>
@@ -1321,7 +1467,7 @@ function canvasConnectHtml() {
         <input name="token" type="password" autocomplete="off" spellcheck="false" required>
       </label>
       <label class="canvas-remember"><input type="checkbox" name="remember" checked>
-        <span>Remember this connection on this server. The address and token are saved in the app's data folder on this machine and deleted when you disconnect.</span>
+        <span>Remember this learner’s connection on this server. Disconnect removes this learner’s saved token.</span>
       </label>
       <div class="btn-row"><button type="submit">Connect and load my Canvas data</button></div>
       <p class="canvas-meta canvas-connect-status"></p>
@@ -1345,6 +1491,8 @@ function wireCanvasConnect(root, rerender) {
       return;
     }
     button.disabled = true;
+    $('input[name="token"]', form).value = '';
+    resetCanvas();
     status.textContent = 'Step 1 of 2: confirming the token with Canvas.';
     try {
       const { res, data } = await canvasApi('/api/canvas/session', {
@@ -1358,6 +1506,7 @@ function wireCanvasConnect(root, rerender) {
         return;
       }
       CANVAS.connected = true;
+      CANVAS.checked = true;
       CANVAS.user = data.user || null;
       CANVAS.host = String(data.host || '');
       CANVAS.remembered = Boolean(data.remembered);
@@ -1366,7 +1515,8 @@ function wireCanvasConnect(root, rerender) {
       const ok = await canvasLoadSnapshot();
       announce(ok ? 'Canvas data loaded.' : 'Canvas connected. The data load did not finish.');
       rerender();
-    } catch {
+    } catch (error) {
+      if (staleCanvasRequest(error)) return;
       status.textContent = 'Canvas could not be reached. Check the address and try again. Your calculus progress is not affected.';
       button.disabled = false;
     }
@@ -1409,6 +1559,7 @@ function canvasSectionHtml(heading, items, attention, emptyLine) {
 // The Canvas pages share one shell: tabs, head, note, then content. `wire`
 // is an optional per-page hook that attaches that page's own handlers.
 function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
+  const generation = canvasGeneration;
   const v = mountView(`
     <h1>Canvas</h1>
     <div id="canvas-body"><p class="canvas-meta">Checking the Canvas connection.</p></div>
@@ -1417,6 +1568,7 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
   const rerender = () => { if ((location.hash || '').startsWith('#/canvas')) router(); };
   (async () => {
     await canvasEnsureSession();
+    if (generation !== canvasGeneration || !body.isConnected) return;
     if (!CANVAS.connected) {
       body.innerHTML = canvasConnectHtml();
       wireCanvasConnect(body, rerender);
@@ -1488,9 +1640,8 @@ function viewCanvas() {
   }, ['Canvas'], 'overview', (body) => {
     const rerender = () => { if ((location.hash || '').startsWith('#/canvas')) router(); };
     body.querySelectorAll('.canvas-focus').forEach((b) => b.addEventListener('click', () => {
-      CANVAS.selectedCourseId = b.dataset.courseId;
-      CANVAS.assessment = null;
-      canvasRebuildInsights(); rerender();
+      selectCanvasCourse(b.dataset.courseId);
+      rerender();
     }));
   });
 }
@@ -1742,6 +1893,7 @@ function router() {
   else if (route === 'mastery' && a) viewMastery(a);
   else if (route === 'diagnostic') viewDiagnostic();
   else if (route === 'review') viewReview();
+  else if (route === 'focus') viewFocus();
   else if (route === 'canvas' && a === 'plan') viewCanvasPlan();
   else if (route === 'canvas' && a === 'grades') viewCanvasGrades();
   else if (route === 'canvas' && a === 'assessment') viewCanvasAssessment();
@@ -1753,21 +1905,22 @@ function router() {
 
 async function boot() {
   try {
+    subscribeFocusSession(({ profileId, status }) => {
+      if (profileId !== activeProfile) return;
+      const indicator = $('#focus-status');
+      indicator.hidden = status !== 'running';
+    });
+    activateFocusProfile(activeProfile);
     S = await loadProgress();
     applySettings();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
     window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', applySettings);
-    fetch('/api/tutor').then((r) => r.json()).then((d) => { TUTOR.available = Boolean(d.available); }).catch(() => {});
-    await loadContent();
+    const tutorReady = fetch('/api/tutor').then((r) => r.json()).then((d) => { TUTOR.available = Boolean(d.available); }).catch(() => {});
+    await Promise.all([loadContent(), tutorReady]);
     window.addEventListener('hashchange', router);
     router();
     // Keep the interactive home usable while the optional school snapshot loads.
-    canvasEnsureSession().then(async () => {
-      if (CANVAS.connected && !CANVAS.snapshot) await canvasLoadSnapshot();
-      const pace = $('#school-pace');
-      if (pace) pace.innerHTML = canvasPaceHtml();
-      if (location.hash.startsWith('#/canvas')) router();
-    }).catch(() => {});
+    loadSchoolContext();
   } catch (e) {
     viewEl().innerHTML = `<h1>Students4AI could not start</h1>
       <p>${esc(e.message)}</p>

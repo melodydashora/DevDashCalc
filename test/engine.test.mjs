@@ -113,6 +113,29 @@ test('recordMasteryCheck records a pass exactly at passCount', () => {
   assert.deepEqual(s.unitsPassed['unit-01'], pass, 'invalid or failed attempts preserve an earned pass');
 });
 
+test('a perfect assisted mastery check records the raw score without granting an independent pass', () => {
+  const unit = makeUnit();
+  const state = E.newState();
+  delete state.masteryChecks; // existing saved progress predates the new field
+  assert.equal(E.recordMasteryCheck(state, unit, 4, 4, NOW, { assisted: true }), false);
+  assert.deepEqual(state.masteryChecks[unit.id], { attemptedAt: NOW, correct: 4, total: 4, passed: false, assisted: true });
+  assert.deepEqual(state.unitsPassed, {});
+  assert.deepEqual(state.skills, {}, 'assisted results cannot seed skill mastery');
+});
+
+test('an assisted mastery retake preserves an earlier independent pass and its original evidence', () => {
+  const unit = makeUnit();
+  const state = E.newState();
+  assert.equal(E.recordMasteryCheck(state, unit, 4, 4, NOW), true);
+  const originalPass = { ...state.unitsPassed[unit.id] };
+  for (const correct of [2, 4]) {
+    assert.equal(E.recordMasteryCheck(state, unit, correct, 4, NOW + 100, { assisted: true }), false);
+    assert.deepEqual(state.unitsPassed[unit.id], originalPass);
+    assert.equal(state.masteryChecks[unit.id].correct, correct, 'the latest raw result remains visible');
+    assert.equal(state.masteryChecks[unit.id].assisted, true);
+  }
+});
+
 test('pickPracticeQuestion targets the weakest skill at its ladder difficulty and avoids repeats', () => {
   const unit = makeUnit();
   const s = E.newState();
