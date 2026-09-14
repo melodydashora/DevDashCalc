@@ -3,6 +3,12 @@
 node_modules/
 *.tsbuildinfo
 
+# Private learner progress, Canvas credentials, and local environment files.
+data/
+.env
+.env.*
+!.env.example
+
 # Leftovers from an earlier Replit-Agent scaffold that lived in this workspace.
 # They are not part of Calc Coach.
 artifacts/

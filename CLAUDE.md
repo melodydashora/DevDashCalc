@@ -48,12 +48,15 @@ Breaking any of these is a regression even if the code works:
 | Piece | File |
 |---|---|
 | Server: static + progress API + tutor proxy + Canvas proxy | `server.js` |
+| Fixed Astra-to-Sol OpenAI coaching requests, fallback, and timeouts | `ai-coach.js` |
 | Zero-dep Postgres wire client + key→JSON store (tested) | `store.js` |
 | Adaptive/mastery logic (pure, tested) | `public/engine.js` |
 | Canvas LMS normalization + plan/grades rules (pure, tested) | `public/canvas-insights.js` |
 | SPA: routing, views, persistence | `public/app.js` |
 | Interactive canvas explorers | `public/viz.js` |
 | Animated coding lab with learner-controlled motion | `public/study-lab.js` |
+| Optional native WebGL vector lab with 2D fallback | `public/spatial-lab.js` |
+| Study session planner with optional elapsed clock | `public/focus-planner.js` |
 | BC/AB content and Canvas subject selection (pure, tested) | `public/courses.js` |
 | Responsive, themeable design system | `public/styles.css` |
 | Curriculum data | `content/unit-NN.json`, `content/manifest.json` |
@@ -64,8 +67,13 @@ Breaking any of these is a regression even if the code works:
 | Authoring QA: blind dumps, answer key, language lint | `scripts/qa-tools.mjs` |
 | Language lint for the app's own strings (app.js, viz.js, canvas-insights.js) | `scripts/lint-ui.mjs` |
 | Engine tests | `test/engine.test.mjs` |
+| BC/AB content scope and course-selection tests | `test/courses.test.mjs` |
 | Canvas insights tests | `test/canvas-insights.test.mjs` |
 | Store tests (URL parsing, SCRAM vector) | `test/store.test.mjs` |
+| Tutor phase, stored-key grounding, and grading boundary tests | `test/tutor.test.mjs` |
+| Coach model order, refusal, timeout, and safe-failure tests | `test/ai-coach.test.mjs` |
+| Session timing, lifecycle, and saved-field tests | `test/focus-planner.test.mjs` |
+| Canvas per-learner connection and cache isolation tests | `test/canvas-profiles.test.mjs` |
 
 ## Engine invariants (pinned by tests — change tests and README together)
 
@@ -75,18 +83,61 @@ Breaking any of these is a regression even if the code works:
   (placement seeding exempt).
 - Difficulty ladder 1–3 per skill: clean correct up; wrong or 2+ hints down.
 - Mastery Check: 8 questions from a separate bank, difficulty ≥ 2,
-  round-robin across core skills, 7 to pass, no hints. Retakes prefer unseen
-  and oldest-seen questions but can repeat when the finite bank is exhausted.
+  round-robin across core skills, 7 correct without help for an independent
+  pass. Coach help remains available. A received pre-answer explanation
+  marks the attempt assisted; save its raw score in `masteryChecks`, but do
+  not create or replace an independent `unitsPassed` record or seed skills.
+  Preserve any earlier pass. Retakes prefer unseen and oldest-seen questions
+  but can repeat when the finite bank is exhausted.
 - Free responses use transparent self-check rubrics, never automatic credit
   or an invented AP exam score. New math requires independent blind solving.
-- Placement seeds passed units' core skills at EWMA 0.85 and never lowers
+- Keep the Astra coach panel visible at the bottom of every question,
+  including practice, lesson checkpoints, mastery, placement, and written
+  response. Received pre-answer guidance counts as a hint; merely opening
+  the coach does not. Completed mastery checks also offer per-question
+  review. The server derives correctness from the stored key, never an AI
+  judgment or a client-supplied correctness flag.
+- The study-session planner is an optional tool using existing coursework
+  and practice resources. Its time targets are advisory. No automatic
+  submission, forced navigation, or time-based mastery credit. Pause and
+  finish remain explicit.
+- Placement requires 2 clean correct answers per unit, from up to 3
+  questions. Answers received with coach help do not count toward placement.
+  Placement seeds passed units' core skills at EWMA 0.85 and never lowers
   anything.
+
+## AI coaching configuration
+
+Melody chose a fixed OpenAI model order: **GPT-6 Astra** (`gpt-6-astra`)
+first, then **GPT-5.6 Sol** (`gpt-5.6-sol`) only as fallback. Both the math
+coach and optional Canvas assessment use `ai-coach.js` through Node's
+built-in `fetch`; no SDK or dependency is needed.
+
+- `OPENAI_API_KEY` in Replit Secrets is the only AI credential read.
+  Existing Anthropic, Gemini/Google, `TUTOR_PROVIDERS`, and `TUTOR_MODEL_*`
+  secrets may remain, but the current coaching code ignores them. Do not
+  silently restore the former provider chain or environment model overrides.
+- Each model request uses `reasoning_effort: 'high'`,
+  `max_completion_tokens: 16000`, and its own 120-second timeout covering
+  response headers and body. This is a completion budget, not a promise of
+  16,000 visible answer tokens.
+- A service failure, timeout, or empty/unusable answer can try Sol once.
+  A refusal is final; HTTP 401 is final because both models use the same key.
+  Nonempty truncated replies retain a visible incomplete-answer notice.
+- The tutor status API reports the configured models, and reply metadata
+  lets the UI identify the model that actually answered. Without the key,
+  the coach panel remains visible with an unavailable notice and directs
+  the learner to built-in hints and worked solutions.
+- Pre-answer prompts request a concept or next step without revealing the
+  final answer. Prompts guide model behavior; they are not a guarantee.
+  The verified answer key and transparent written-response self-check
+  rubrics remain the grading boundary.
 
 ## Commands
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # engine, course scope, Canvas-insights, and store tests
+npm test             # engine, course, Canvas, coach, tutor, planner, and store tests
 npm run validate     # schema-validate all units, then render every math segment with KaTeX
 npm run lint         # language lint of app text and every unit (no exclamation marks, shaming, idioms, emoji)
 ```
@@ -116,11 +167,16 @@ file present.
 - Canvas is read-only; it may recommend pacing from deadlines and assignment
   topic words, but must never set mastery or restrict exploration. The access token lives in a server
   memory session and, when the learner chooses Remember, in
-  `data/canvas-profile.json` (gitignored) and the Postgres
+  learner-scoped files under `data/` (gitignored) and the Postgres
   `calc_coach_store` table — never in `S`, localStorage, progress exports,
   logs, or any response body. Canvas data never touches
   engine scoring or unlocks. The AI assessment receives Canvas data only,
   never the token; the math tutor receives neither. Canvas is authoritative
   for grades — never recompute them. Problem-area thresholds are the named
   exports in `public/canvas-insights.js`; change tests and README together.
+- Scope every Canvas request, cookie, credential record, preference record,
+  and cached snapshot to its learner. Preserve the original learner's legacy
+  files/database keys. Clear browser Canvas state on a learner switch and
+  reject late responses. Workspaces are not authenticated private accounts;
+  do not present them as public multi-user account security.
 - Branch, PR to `main`, merge when CI is green.

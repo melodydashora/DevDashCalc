@@ -13,8 +13,26 @@ changes with mastery, and the learner can explore every available demo.
 
 Learner workspaces keep separate progress and course preferences. The original
 `learner` progress and browser storage key are preserved. Workspace discovery
-is local to the browser; these are not authenticated accounts. Canvas still
-uses the existing server connection, identified on every Canvas page.
+is local to the browser; these are shared-device workspaces, without separate
+authenticated accounts. Each learner connects their own Canvas account. Canvas
+sessions, remembered credentials, preferences, and cached data are scoped to
+that learner, while the original learner's existing connection is preserved.
+New workspace identifiers use cryptographically random UUIDs. They are not a
+substitute for account authentication in a future public multi-user service.
+
+The optional **Study session** page supports planning with the learner's
+existing Canvas coursework and practice resources. It turns available time
+into one concrete next step:
+choose a 10-, 20-, or 30-minute plan (or enter 5–60 minutes), select a Canvas
+task, practice, or a small personal goal, then use Prepare / Work / Wrap up.
+An optional elapsed clock counts up. The target is advisory; it never closes
+a question, forces a break, or submits work. Sessions can be paused or finished
+at any time. Only session timing, goal type, and checklist state are saved in
+the browser, separately per learner; Canvas titles and personal goal text are
+not stored there.
+The session continues while moving between this app's pages. A quiet return
+link stays visible while it runs. Switching learners or closing/reloading the
+page pauses it, so another student's time never enters the session.
 
 ## Running it
 
@@ -32,7 +50,7 @@ this app down.
 Tests and content validation:
 
 ```bash
-npm test                # engine unit tests (node:test, no dependencies)
+npm test                # engine, course, Canvas, coach, tutor, planner, and store tests
 npm run validate        # schema-validates every unit, then renders every math
                         # segment with the vendored KaTeX to catch broken LaTeX
 npm run lint            # language lint of the app's own text and of every unit:
@@ -60,7 +78,11 @@ Everything below is deterministic and visible to the learner in-app (Settings �
   same question twice in a row.
 - **Mastery Check measures understanding.** Available immediately, with 8
   original AP-style questions from an independent bank, difficulty ≥ 2,
-  round-robin across core skills, 7 correct to pass, no hints or time limit.
+  round-robin across core skills, 7 correct for an independent pass, no time
+  limit. Astra is available beneath every question. Receiving coach help
+  before answering marks the attempt assisted: its raw score is saved, but
+  it cannot earn an independent pass or seed skill mastery. An earlier pass
+  remains saved. Opening the coach without receiving help is not assistance.
   No mastery item is a practice item. Retakes prefer unseen/oldest-seen items;
   a finite bank can repeat. Every module remains open regardless of the result.
 - **AP-style free response.** Multipart reasoning challenges have 9-point
@@ -68,7 +90,9 @@ Everything below is deterministic and visible to the learner in-app (Settings �
   mastery. These are original learning activities, not official College Board
   questions, a full exam simulation, or a prediction of an AP score.
 - **Placement check (optional).** Up to 3 questions per unit starting at
-  Unit 1; a unit places out on 2 correct. Stops at the first unit that doesn't
+  Unit 1; a unit places out on 2 correct answers without coach help. Assisted
+  answers remain learning attempts and do not count toward placement.
+  Stops at the first unit that doesn't
   place out. Placed units count as "passed by placement", with
   their core skills seeded to 85 so review still has something to measure.
 - **Spaced review.** A mastered skill untouched for 3+ days appears in Review.
@@ -111,59 +135,83 @@ Everything below is deterministic and visible to the learner in-app (Settings �
 - **Full keyboard operability**, visible focus outlines, `aria-live` result
   announcements, adjustable text size, and light/dark/system themes.
 
-## Optional: the AI tutor
+## Optional: the Astra AI coach
 
-Set `ANTHROPIC_API_KEY` in the environment (on Replit: **Tools → Secrets →
-add `ANTHROPIC_API_KEY`**) and a "Talk it through with the tutor" button
-appears on every answer's feedback panel. The tutor (Claude, `claude-opus-5`
-by default) diagnoses where the learner's specific answer diverged from the
-correct path and answers follow-up questions about the problem, in the same
-literal, calm style as the rest of the app.
+Set `OPENAI_API_KEY` in Replit Secrets to connect the coach. The Astra panel
+stays visible at the bottom of every question: practice, lesson checkpoints,
+mastery checks, placement, and all written-response challenges. It offers
+concept, first-step, and coding-example help before an answer, plus worked
+reasoning after an answer. Completed mastery checks include a coach for each
+question in the results review. Written-response help never awards an
+automatic grade.
 
-**Deliberately generous budgets.** The Anthropic lane runs with extended
-thinking enabled and a large token cap (a cap is not a spend), and every
-provider reply is checked for truncation: a cut-off reply is never shown as
-complete — it carries a literal notice saying it stops early, and an empty
-truncated reply moves to the next provider in the chain.
+Receiving coach guidance before answering counts as a hint. Merely opening
+the panel or receiving an unavailable/error message does not. An assisted
+mastery check saves its raw result but cannot grant an independent pass;
+prior passes remain saved. Placement requires two clean correct answers per
+unit, so assisted answers do not place a unit.
 
-**Providers and fallback.** The tutor talks to vendors through small adapters
-in `server.js` that all present the same call, using built-in `fetch` only.
-A provider joins the chain when its key is set; the first that answers wins,
-and any error or timeout moves to the next. A refusal is final and is not
-re-asked elsewhere.
+The pre-answer prompt asks for a concept or next step without disclosing the
+final answer. These instructions guide the model; they do not guarantee its
+behavior. The server computes correctness from the stored answer key, and
+the model never sets mastery scores. Without the key, the panel explains
+that AI is unavailable and points to built-in hints and worked solutions.
 
-| Provider | Key | Model (override with env) |
+**Fixed models and fallback.** The math coach and Canvas assessment use the
+same two OpenAI models, in this order:
+
+| Order | Model | When used |
 |---|---|---|
-| Anthropic (primary) | `ANTHROPIC_API_KEY` | `TUTOR_MODEL_ANTHROPIC`, default `claude-opus-5` |
-| OpenAI | `OPENAI_API_KEY` | `TUTOR_MODEL_OPENAI`, default `gpt-5` |
-| Google Gemini | `GEMINI_API_KEY` (or `GOOGLE_API_KEY`) | `TUTOR_MODEL_GEMINI`, default `gemini-2.5-pro` |
+| Primary | GPT-6 Astra (`gpt-6-astra`) | First attempt for every coaching request |
+| Fallback | GPT-5.6 Sol (`gpt-5.6-sol`) | Once after an Astra service failure, timeout, or empty/unusable response |
 
-`TUTOR_PROVIDERS="anthropic,openai,gemini"` reorders or limits the chain.
-`GET /api/tutor` reports the active chain (vendor names only; model ids never
-reach the browser). Whichever provider answers, the
-same system prompt and the same guardrails below apply, and the question
-content plus attempt counts described under "Private" are what it receives.
+`OPENAI_API_KEY` is the only AI credential the current app reads. Older
+`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `TUTOR_PROVIDERS`, and
+`TUTOR_MODEL_*` secrets may remain in Replit, but are ignored. They neither
+add providers nor override the fixed model order.
 
-Guardrails, by design:
+Both models use high reasoning (`reasoning_effort: "high"`) and
+`max_completion_tokens: 16000`. This caps completion tokens, including
+reasoning, rather than promising 16,000 visible answer tokens. Each attempt
+has its own 120-second timeout covering response headers and the full body;
+a fallback can therefore require a second attempt. Requests use the OpenAI
+Chat Completions API through Node's built-in `fetch` in `ai-coach.js`, without
+an SDK or installed dependency.
 
-- **Grounded, never authoritative.** Every request includes the verified
-  answer and solution as ground truth; the tutor is instructed never to
-  contradict them and never to invent a different final answer. Grading is
-  always done by the app against the verified key — the tutor only explains.
-- **Private.** Only the question content, the learner's answer to that
-  question, and plain counts of earlier attempts on that question and its
-  skill are sent (for example "2 attempts, 2 wrong; wrong choice B picked
-  twice"). No name, no other progress data. The follow-up conversation lives
-  in memory and is discarded when the learner moves on.
-- **Told the learner's history, factually.** The tutor receives the stored
-  misconception note for the choice actually picked, plus the attempt counts
-  above, so it can name a repeated error directly ("this choice comes from
-  ...") instead of guessing.
-- **Optional.** Without the key, the endpoint reports unavailable and the
-  button never renders; the app is fully functional.
-- **Zero-dependency.** The server calls the Anthropic Messages API over raw
-  HTTPS with Node's built-in `fetch` (no SDK), keeping the no-`npm install`
-  guarantee.
+A refusal is final and is not sent to another model. HTTP 401 is also final
+because the models share a credential. Other service failures may try Sol.
+A nonempty reply cut off by the completion limit is displayed with an
+explicit notice that it stops early; an empty truncated reply can fall back.
+Failures contain only locally generated diagnostic text, never raw remote
+error bodies or API keys.
+
+`GET /api/tutor` reports availability and the configured models. Successful
+reply metadata identifies the model that actually answered, and the coach
+panel shows whether the reply came from Astra or the Sol fallback.
+
+The coaching boundary is explicit:
+
+- **Grounded explanations.** The server supplies the verified question,
+  answer, solution, and relevant misconception notes as private context.
+  The app grades against the key; the coach explains. Written responses use
+  their transparent self-check rubrics instead of AI-awarded points.
+- **Limited question context.** The math coach receives the problem, the
+  learner's answer when applicable, their question or follow-up, and plain
+  counts of earlier attempts on that question and skill. It receives no
+  learner name, Canvas data, or unrelated progress. The follow-up conversation
+  stays in memory and is discarded when the learner moves on.
+- **Named recurring errors.** Post-answer discussion uses the stored note
+  for the actual wrong choice and relevant attempt counts, so the coach can
+  explain a repeated error without guessing its cause.
+- **Available learning resources.** Built-in hints, verified worked
+  solutions, lessons, and interactive labs remain available when AI is
+  unconfigured or a request fails.
+
+The optional **3D Vector Lab** uses native WebGL and needs no Blender,
+browser extension, or added package. It draws a rotatable helix and tangent
+vector, explicitly identified as an extension beyond the planar AP exam.
+It loads on demand, starts paused, and falls back to a 2D projection if a
+WebGL context is unavailable or lost.
 
 ## Optional: Canvas plan, grades, and assessment
 
@@ -184,7 +232,7 @@ New Access Token), then reformats the pulled data into three pages:
   answer key is the only grader for practice), assignment-group weights,
   and every graded assignment with its score. Graded work below 70 percent
   of its points is marked in calm amber.
-- **Assessment** — on request only, the same AI provider chain as the tutor
+- **Assessment** — on request only, the same Astra-to-Sol model order as the tutor
   reads a fresh pull of the Canvas data (never the token) and writes a
   literal, non-shaming assessment: overall picture, what is going well,
   problem areas by course, and a suggested order of work grounded in the
@@ -215,13 +263,19 @@ Safety and privacy, by design:
 - **The token stays server-side.** It lives in an expiring 8-hour memory
   session behind an HttpOnly, SameSite=Strict cookie scoped to
   `/api/canvas`. With "Remember this connection" selected, the server also
-  saves it to `data/canvas-profile.json` (gitignored, file mode 0600) and,
+  saves it to learner-scoped files under `data/` (gitignored, file mode 0600) and,
   when `DATABASE_URL` is set, to the app's Postgres store — so the
   connection survives restarts and production redeploys alike; Disconnect
   deletes every copy at once, and the app says so plainly if the database
   copy could not be removed on that attempt. The
-  token never appears in the browser, progress files, exports, logs, or
-  any response body, and is never sent to any AI provider.
+  token is never returned by the server, saved in browser persistence, added
+  to progress files or exports, logged, or sent to any AI provider. Every Canvas API
+  request carries the active workspace identifier; session cookies, remembered
+  connections, preferences, and data caches are scoped to that identifier.
+  The original `learner` keeps the legacy `canvas-profile` and `canvas-prefs`
+  records so existing connections survive the migration. Other profiles use
+  `cv-auth-<profile>` and `cv-prefs-<profile>` records. A learner switch clears
+  browser Canvas state and discards late responses from the previous learner.
 - **HTTPS only, public hosts only.** The URL validator rejects plain HTTP,
   credentialed URLs, and localhost/private/link-local addresses, and
   pagination follows only same-origin links.
@@ -233,29 +287,41 @@ Safety and privacy, by design:
 
 ```
 DevDashCalc (repo root)
-├── server.js              # zero-dep node:http server: static files + progress API
-├── store.js               # zero-dep Postgres wire client (DATABASE_URL); files stay the fallback
-├── package.json           # no dependencies; scripts only
-├── public/
-│   ├── index.html         # shell; KaTeX via CDN for math rendering
-│   ├── styles.css         # responsive, themeable design system with motion controls
-│   ├── engine.js          # ALL adaptive/mastery logic — pure functions, no DOM
-│   ├── canvas-insights.js # Canvas normalization + plan/grades rules — pure, tested
-│   └── app.js             # SPA: routing, views, rendering, persistence
-├── content/
-│   ├── manifest.json      # the 10 units, ordering, app-wide constants
-│   ├── schema.md          # authoring contract for unit content
-│   └── unit-01..10.json   # curriculum: skills, lessons, 358 verified questions
-├── scripts/
-│   ├── validate-content.mjs  # enforces schema.md; run via npm run validate
-│   ├── check-math.mjs        # renders every math segment with the vendored KaTeX
-│   ├── qa-tools.mjs          # blind question dumps, answer key, language lint
-│   └── lint-ui.mjs           # the same language rules applied to app.js/viz.js strings
-├── test/
-│   ├── engine.test.mjs    # node:test suite for the engine
-│   ├── canvas-insights.test.mjs  # node:test suite for the Canvas rules
-│   └── store.test.mjs     # node:test suite for the store (URL parsing, RFC 7677 SCRAM vector)
-└── data/                  # runtime progress + Canvas profile storage (gitignored)
+|-- server.js              # static files + progress, tutor, and Canvas APIs
+|-- ai-coach.js            # fixed Astra/Sol requests, safe failures, and timeouts
+|-- store.js               # zero-dep Postgres wire client; files remain the fallback
+|-- package.json           # no dependencies; scripts only
+|-- public/
+|   |-- index.html         # shell; vendored KaTeX for math rendering
+|   |-- styles.css         # responsive, themeable design system with motion controls
+|   |-- engine.js          # adaptive/mastery logic: pure functions, no DOM
+|   |-- courses.js         # BC/AB content scope and Canvas subject selection
+|   |-- canvas-insights.js # Canvas normalization and plan/grades rules
+|   |-- viz.js             # interactive math explorers
+|   |-- study-lab.js       # animated graph explorations with visible code traces
+|   |-- spatial-lab.js     # optional native WebGL vector lab and 2D fallback
+|   |-- focus-planner.js   # optional one-task planning and elapsed clock
+|   |-- app.js             # SPA: routing, views, rendering, persistence
+|-- content/
+|   |-- manifest.json      # the 10 units, ordering, app-wide constants
+|   |-- schema.md          # authoring contract for unit content
+|   |-- unit-01..10.json   # skills, lessons, and verified practice questions
+|   |-- mastery-bank.json # independent AP-style checks and self-checked FRQs
+|-- scripts/
+|   |-- validate-content.mjs  # enforces the content schema
+|   |-- check-math.mjs        # renders math segments with vendored KaTeX
+|   |-- qa-tools.mjs          # blind question dumps, answer keys, language lint
+|   |-- lint-ui.mjs           # language rules for the app's own text
+|-- test/
+|   |-- engine.test.mjs         # learning rules and assisted mastery records
+|   |-- courses.test.mjs        # BC/AB scope and subject selection
+|   |-- canvas-insights.test.mjs # Canvas normalization and planning rules
+|   |-- canvas-profiles.test.mjs # connection isolation and overlapping requests
+|   |-- ai-coach.test.mjs       # model order, refusal, timeout, and safe failures
+|   |-- tutor.test.mjs          # canonical question context and grading boundaries
+|   |-- focus-planner.test.mjs  # timing, lifecycle, and saved fields
+|   |-- store.test.mjs          # URL parsing and RFC 7677 SCRAM vector
+|-- data/                  # runtime progress and Canvas credentials (gitignored)
 ```
 
 - **Progress persistence** is dual: every answer saves to `localStorage`
