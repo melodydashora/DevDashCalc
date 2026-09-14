@@ -1,13 +1,15 @@
-# CLAUDE.md — Calc Coach
+# CLAUDE.md — Students4AI (formerly Calc Coach)
 
 Read this before changing anything. It is short on purpose.
 
 ## What this is
 
-An adaptive, mastery-gated AP Calculus BC tutor built for **one specific
-learner: an autistic professional software developer**. Every design decision
-below exists for him. `README.md` has the full rationale; this file is the
-contract.
+An interactive learning lab with AP Calculus BC as the primary course,
+an AB course view for other learners, adaptive practice, and Canvas pacing.
+Melody's September 14, 2026 direction explicitly replaces the former
+motion-free, locked-unit design: make it animated and interactive, adapt as
+students improve, and keep every module open. The intended future domain is
+students4ai.com; that does not authorize buying or connecting a domain.
 
 ## Non-negotiable design invariants
 
@@ -16,17 +18,19 @@ Breaking any of these is a regression even if the code works:
 1. **Predictability.** One fixed layout; navigation never moves; every view
    shows "You are here". All rules are stated completely *before* an activity
    starts (question counts, pass marks, what happens after each answer).
-   Nothing auto-advances; nothing appears without a user action.
-2. **No sensory surprises.** No animation, no sound, no flashing, no
-   countdown timers (the optional timer counts up only). Motion happens only
-   when the learner drags a control.
+   Questions never auto-advance. Animation controls remain visible.
+2. **Learner-controlled motion.** Meaningful graphs and simulations may
+   autoplay in full-motion mode. Provide Pause, Reset, and speed controls,
+   honor reduced-motion preferences, and stop animation in hidden tabs or
+   detached views. No sound, flashing, or forced countdown timers.
 3. **Literal language.** No idioms, no sarcasm, no rhetorical questions, no
    exclamation marks in teaching text, no emoji. Wrong answers are "Not yet."
    in calm amber (never red) with the specific misconception and the full
    worked solution. Phrasing is "this choice comes from ..." — never "you
    forgot".
-4. **Progress is never taken away.** Units never re-lock. Review recommends,
-   never blocks. Failing a Mastery Check changes nothing.
+4. **Open exploration.** All modules and complete mastery banks are open
+   from the start. Review and Canvas suggest a next step, never block.
+   Answers update skill estimates; completed lessons and passed checks remain.
 5. **Two-step answering.** Select or type, then an explicit "Check answer".
    A stray click must never submit.
 6. **Zero dependencies.** No `npm install`, ever. Server = Node built-ins
@@ -49,8 +53,11 @@ Breaking any of these is a regression even if the code works:
 | Canvas LMS normalization + plan/grades rules (pure, tested) | `public/canvas-insights.js` |
 | SPA: routing, views, persistence | `public/app.js` |
 | Interactive canvas explorers | `public/viz.js` |
-| Design system (calm, themeable, motion-free) | `public/styles.css` |
+| Animated coding lab with learner-controlled motion | `public/study-lab.js` |
+| BC/AB content and Canvas subject selection (pure, tested) | `public/courses.js` |
+| Responsive, themeable design system | `public/styles.css` |
 | Curriculum data | `content/unit-NN.json`, `content/manifest.json` |
+| Independent AP-style mastery bank and self-checked FRQs | `content/mastery-bank.json` |
 | Content authoring contract | `content/schema.md` |
 | Content validator | `scripts/validate-content.mjs` |
 | KaTeX render check for all curriculum math | `scripts/check-math.mjs` |
@@ -67,8 +74,11 @@ Breaking any of these is a regression even if the code works:
 - Score capped at 70 until a recent correct answer at difficulty ≥ 2
   (placement seeding exempt).
 - Difficulty ladder 1–3 per skill: clean correct up; wrong or 2+ hints down.
-- Mastery Check: 8 questions, difficulty ≥ 2, round-robin across core
-  skills, 7 to pass, no hints, unlimited fresh retakes.
+- Mastery Check: 8 questions from a separate bank, difficulty ≥ 2,
+  round-robin across core skills, 7 to pass, no hints. Retakes prefer unseen
+  and oldest-seen questions but can repeat when the finite bank is exhausted.
+- Free responses use transparent self-check rubrics, never automatic credit
+  or an invented AP exam score. New math requires independent blind solving.
 - Placement seeds passed units' core skills at EWMA 0.85 and never lowers
   anything.
 
@@ -76,7 +86,7 @@ Breaking any of these is a regression even if the code works:
 
 ```bash
 node server.js       # run (PORT env respected; Replit's .replit does this)
-npm test             # 16 engine + 29 Canvas-insights + 6 store tests (node --test)
+npm test             # engine, course scope, Canvas-insights, and store tests
 npm run validate     # schema-validate all units, then render every math segment with KaTeX
 npm run lint         # language lint of app text and every unit (no exclamation marks, shaming, idioms, emoji)
 ```
@@ -103,7 +113,8 @@ file present.
   prefer the database; writes go to both; database failures fall back to
   files and never block the learner). Never commit it; never reset either
   copy without explicit permission from Melody.
-- Canvas is read-only and display-only: the access token lives in a server
+- Canvas is read-only; it may recommend pacing from deadlines and assignment
+  topic words, but must never set mastery or restrict exploration. The access token lives in a server
   memory session and, when the learner chooses Remember, in
   `data/canvas-profile.json` (gitignored) and the Postgres
   `calc_coach_store` table — never in `S`, localStorage, progress exports,

@@ -1,0 +1,3626 @@
+{
+  "version": 1,
+  "sourceNote": "Original AP-style learning questions authored for DevDashCalc. These are not released College Board questions and are not endorsed by College Board. Topic and format references, checked 2026-09-14: https://apcentral.collegeboard.org/courses/ap-calculus-bc ; https://apcentral.collegeboard.org/courses/ap-calculus-bc/exam ; https://apcentral.collegeboard.org/media/pdf/ap25-sg-calculus-bc.pdf . Written-response rubrics are learner self-check guides, not automated or official AP scores.",
+  "units": {
+    "unit-01": [
+      {
+        "id": "u1-m001",
+        "skillId": "u1-limit-concept",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A graph of $f$ approaches height $2$ as its input approaches $3$ from the left and height $7$ from the right. The filled point is $(3,9)$. What is $\\lim_{x\\to0}f(3-x^2)$?</p>",
+        "choices": [
+          "$2$",
+          "$7$",
+          "$9$",
+          "The limit does not exist"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This uses the right-hand limit, but the inner input is below 3.",
+          "This uses the value at the filled point instead of nearby inputs.",
+          "The inner input approaches from only one side, even though the two-sided limit of f at 3 does not exist."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "For every nonzero $x$, $3-x^2<3$, and $3-x^2\\to3$ as $x\\to0$."
+          },
+          {
+            "text": "Only the left-hand behavior of $f$ is sampled, so the composite limit is $2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u1-m001",
+        "representation": "graph-described",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u1-m002",
+        "skillId": "u1-limit-computation",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Evaluate $\\displaystyle\\lim_{x\\to0}\\frac{\\frac1{2+x}-\\frac12}{\\sin x}$.</p>",
+        "choices": [
+          "$-\\frac14$",
+          "$\\frac14$",
+          "$-\\frac12$",
+          "$0$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This reverses the subtraction in the numerator.",
+          "This drops one factor of 2 from the denominator.",
+          "Both numerator and denominator approach zero; their ratio need not approach zero."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Combine the numerator to obtain $-x/[2(2+x)]$."
+          },
+          {
+            "text": "The ratio becomes $-\\frac1{2(2+x)}\\frac{x}{\\sin x}\\to-\\frac14$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u1-m002",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u1-m003",
+        "skillId": "u1-squeeze-theorem",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>For $0<|x|<0.1$, $1-3x^2\\le h(x)\\cos x\\le1+x^2$. Which conclusion follows?</p>",
+        "choices": [
+          "$\\lim_{x\\to0}h(x)=0$",
+          "$\\lim_{x\\to0}h(x)=1$",
+          "$h(0)=1$",
+          "No limit can be determined"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This treats the small error terms as the entire product.",
+          null,
+          "The inequalities concern nonzero inputs and impose no value at zero.",
+          "The product is squeezed to 1, and cosine tends to the nonzero value 1."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Both bounds tend to $1$, so $h(x)\\cos x\\to1$ by the squeeze theorem."
+          },
+          {
+            "text": "Because $\\cos x\\to1\\ne0$, dividing gives $h(x)\\to1$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u1-m003",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u1-m004",
+        "skillId": "u1-continuity",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A function returns $|x-1|/(x-1)$ when $x\\ne1$. A programmer may choose any real return value at $x=1$. Which statement is correct?</p>",
+        "choices": [
+          "Returning 0 makes the function continuous.",
+          "Returning 1 makes the function continuous.",
+          "Returning -1 makes the function continuous.",
+          "No return value makes the function continuous."
+        ],
+        "answerIndex": 3,
+        "misconceptions": [
+          "Zero lies between the one-sided limits but does not equal both.",
+          "One matches only the right-hand limit.",
+          "Negative one matches only the left-hand limit.",
+          null
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "For $x<1$, the quotient is $-1$; for $x>1$, it is $1$."
+          },
+          {
+            "text": "The one-sided limits differ. Changing the value at a single input cannot repair that jump."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u1-m004",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u1-m005",
+        "skillId": "u1-asymptotes",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>For $f(x)=\\frac{x^2-9}{x^2-2x-3}$, which description is correct?</p>",
+        "choices": [
+          "Vertical asymptotes at -1 and 3; horizontal asymptote y=1.",
+          "A hole at 3, vertical asymptote at -1, and horizontal asymptote y=1.",
+          "A hole at -1, vertical asymptote at 3, and horizontal asymptote y=1.",
+          "A hole at 3 and no vertical asymptote."
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This treats the canceled factor as a vertical asymptote.",
+          null,
+          "This swaps the canceled and uncanceled denominator factors.",
+          "The factor x+1 remains in the denominator."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Factor and cancel away from excluded inputs: $f(x)=(x+3)/(x+1)$ for $x\\ne-1,3$."
+          },
+          {
+            "text": "At $3$ the limit is finite; at $-1$ the remaining denominator vanishes. Equal leading degrees give horizontal asymptote $y=1$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u1-m005",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u1-m006",
+        "skillId": "u1-ivt",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The function $f$ is continuous on $[0,7]$. What is the strongest guaranteed conclusion about its zeros?</p><table><tr><th>$x$</th><th>0</th><th>2</th><th>5</th><th>7</th></tr><tr><td>$f(x)$</td><td>-2</td><td>1</td><td>-1</td><td>3</td></tr></table>",
+        "choices": [
+          "Exactly one zero in (0,7).",
+          "Exactly three zeros in (0,7).",
+          "At least three distinct zeros in (0,7).",
+          "No zero is guaranteed unless f is differentiable."
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This counts only a single endpoint sign change.",
+          "The table does not exclude additional zeros between sampled inputs.",
+          null,
+          "Continuity is sufficient for the Intermediate Value Theorem."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "There is a sign change on each of $(0,2)$, $(2,5)$, and $(5,7)$. Continuity guarantees a zero in each."
+          },
+          {
+            "text": "The intervals do not overlap, so the zeros are distinct. Additional zeros remain possible."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u1-m006",
+        "representation": "table",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u1-m007",
+        "skillId": "u1-limit-concept",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>A numerical debugger reports the following values near $x=1$. Which claim is justified by this finite table alone?</p><table><tr><th>$x$</th><th>0.9</th><th>0.99</th><th>1.01</th><th>1.1</th></tr><tr><td>$f(x)$</td><td>1.9</td><td>1.99</td><td>2.01</td><td>2.1</td></tr></table>",
+        "choices": [
+          "The table proves that the limit is 2.",
+          "The table proves that f is continuous at 1.",
+          "The table proves that f(1)=2.",
+          "The values suggest a limit of 2 but do not prove it."
+        ],
+        "answerIndex": 3,
+        "misconceptions": [
+          "Finitely many samples do not specify behavior at all nearby inputs.",
+          "Continuity also involves the function value and all sufficiently near inputs.",
+          "The table does not include the input 1.",
+          null
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The sampled values on both sides lie close to $2$, so $2$ is a reasonable estimate."
+          },
+          {
+            "text": "Other functions can agree at these four inputs and behave differently closer to $1$. No proof of the limit follows from the table alone."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u1-m007",
+        "representation": "table",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u1-m008",
+        "skillId": "u1-ivt",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The function $f$ is continuous on $[0,4]$, with $f(0)=1$ and $f(4)=12$. Which conclusion must hold for some $c$ in $(0,4)$?</p>",
+        "choices": [
+          "$f(c)=0$",
+          "$f(c)=2c+2$",
+          "$f'(c)=2$",
+          "The graph meets y=2x+2 exactly once."
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "The given values do not force f to change sign.",
+          null,
+          "Differentiability is not given, and the requested derivative value is not forced.",
+          "Continuity gives existence of an intersection, not uniqueness."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Define $g(x)=f(x)-(2x+2)$; this difference is continuous."
+          },
+          {
+            "text": "Since $g(0)=-1$ and $g(4)=2$, the Intermediate Value Theorem guarantees $g(c)=0$ at an interior point."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u1-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-02": [
+      {
+        "id": "u2-m001",
+        "skillId": "u2-rate-of-change",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>A build process has completed $C(t)$ tasks after $t$ minutes. What is its average completion rate on $[1,4]$?</p><table><tr><th>$t$</th><th>1</th><th>2</th><th>4</th></tr><tr><td>$C(t)$</td><td>80</td><td>105</td><td>145</td></tr></table>",
+        "choices": [
+          "$\\frac{65}{3}$ tasks per minute",
+          "65 tasks per minute",
+          "$\\frac{145}{4}$ tasks per minute",
+          "25 tasks per minute"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This is the change in task count without division by elapsed time.",
+          "This uses the final total and assumes a zero initial value at time zero.",
+          "This uses only the first one-minute subinterval."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The completed-task count increases by $145-80=65$ over $4-1=3$ minutes."
+          },
+          {
+            "text": "Average rate is $\\Delta C/\\Delta t=65/3$ tasks per minute."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u2-m001",
+        "representation": "table",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u2-m002",
+        "skillId": "u2-derivative-limit-definition",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>Evaluate $\\displaystyle\\lim_{h\\to0}\\frac{(2+h)^3-8}{5h}$.</p>",
+        "choices": [
+          "$\\frac{12}{5}$",
+          "$12$",
+          "$60$",
+          "$\\frac85$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This omits the factor 1/5.",
+          "This multiplies by 5 instead of dividing by 5.",
+          "This uses the function value rather than its derivative."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The expression is $1/5$ times the difference quotient for $f(x)=x^3$ at $x=2$."
+          },
+          {
+            "text": "Since $f'(2)=3(2)^2=12$, the limit equals $12/5$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u2-m002",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u2-m003",
+        "skillId": "u2-differentiability-continuity",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Let $f(0)=0$ and $f(x)=x^2\\sin(1/x)$ for $x\\ne0$. Which statement is correct at $x=0$?</p>",
+        "choices": [
+          "f is not continuous because the sine term oscillates.",
+          "f is continuous but not differentiable because the sine term oscillates.",
+          "$f'(0)=0$",
+          "$f'(0)=1$"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "The factor x squared forces the function values toward zero.",
+          "Oscillation alone does not prevent the difference quotient from converging.",
+          null,
+          "The bounded oscillatory factor is multiplied by h in the difference quotient."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The difference quotient is $[f(h)-f(0)]/h=h\\sin(1/h)$."
+          },
+          {
+            "text": "Its absolute value is at most $|h|$, so it tends to zero. Therefore $f'(0)=0$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u2-m003",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u2-m004",
+        "skillId": "u2-basic-rules",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>At which $x$-values is the tangent to $f(x)=x^3-6x^2+12x$ parallel to the line $y=3x+7$?</p>",
+        "choices": [
+          "1 and 3",
+          "2 only",
+          "3 only",
+          "No real x-value"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This sets the derivative to zero rather than to the given slope 3.",
+          "The quadratic derivative equation has two roots.",
+          "The equation for matching slopes has two real solutions."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Set $f'(x)=3x^2-12x+12$ equal to the line's slope $3$."
+          },
+          {
+            "text": "Dividing by 3 gives $x^2-4x+3=(x-1)(x-3)=0$, so $x=1$ or $3$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u2-m004",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u2-m005",
+        "skillId": "u2-standard-derivatives",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>Which is the tangent line to $f(x)=e^x-\\sin x$ at $x=0$?</p>",
+        "choices": [
+          "y=x+1",
+          "y=1",
+          "y=x",
+          "y=0"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This differentiates only the exponential term.",
+          null,
+          "This uses an incorrect slope and omits the function value.",
+          "The slope is zero, but the tangent passes through (0,1)."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The tangent point has $f(0)=1$. The derivative is $f'(x)=e^x-\\cos x$."
+          },
+          {
+            "text": "At zero the slope is $1-1=0$, so the tangent is the horizontal line $y=1$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u2-m005",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u2-m006",
+        "skillId": "u2-product-quotient",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Differentiable functions satisfy $f(1)=2$, $f'(1)=3$, $g(1)=-4$, and $g'(1)=5$. For $h(x)=x f(x)/g(x)$, find $h'(1)$.</p>",
+        "choices": [
+          "$-\\frac{11}{8}$",
+          "$-\\frac{15}{8}$",
+          "$-\\frac58$",
+          "$\\frac78$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This differentiates f/g but omits the derivative of the leading x.",
+          null,
+          "This reverses the sign of the quotient-rule subtraction.",
+          "This loses the negative sign from the quotient derivative."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Product and quotient rules give $h'=f/g+x(f'g-fg')/g^2$."
+          },
+          {
+            "text": "At $1$, $h'=-1/2+(-12-10)/16=-4/8-11/8=-15/8$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u2-m006",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u2-m007",
+        "skillId": "u2-rate-of-change",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>The differentiable function $C(n)$ gives processing time in milliseconds for a batch modeled with real-valued size $n$. If $C(100)=70$ and $C'(100)=0.8$, which estimate uses local linearity for a batch of size $103$?</p>",
+        "choices": [
+          "70.8 milliseconds",
+          "72.4 milliseconds",
+          "82.4 milliseconds",
+          "Exactly 72.4 milliseconds, with no approximation"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This applies the derivative for only one additional item.",
+          null,
+          "This uses an incorrect increase in processing time.",
+          "A derivative at one point gives a local approximation, not an exact change over an interval."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The input change is $103-100=3$, so the estimated time change is $0.8(3)=2.4$ milliseconds."
+          },
+          {
+            "text": "Add the baseline: $C(103)\\approx70+2.4=72.4$ milliseconds."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u2-m007",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u2-m008",
+        "skillId": "u2-derivative-limit-definition",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>If $f$ is differentiable at $3$ and $f'(3)=-12$, evaluate $\\displaystyle\\lim_{x\\to3}\\frac{f(x)-f(3)}{x^2-9}$.</p>",
+        "choices": [
+          "-12",
+          "-4",
+          "-2",
+          "2"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This omits the factor x+3 in the denominator.",
+          "This divides by 3 rather than by the limit of x+3.",
+          null,
+          "This reverses the sign of the derivative."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Factor $x^2-9=(x-3)(x+3)$."
+          },
+          {
+            "text": "The limit is $f'(3)/(3+3)=-12/6=-2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u2-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-03": [
+      {
+        "id": "u3-m001",
+        "skillId": "u3-chain-rule",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Let $h(x)=f(g(x)^2)$. Given $g(1)=2$, $g'(1)=-3$, and $f'(4)=5$, find $h'(1)$.</p>",
+        "choices": [
+          "-15",
+          "-30",
+          "-60",
+          "20"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This omits the derivative of squaring g.",
+          "This includes 2 but omits the value g(1).",
+          null,
+          "This omits g prime and its negative sign."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Differentiate both inner layers: $h'(x)=f'(g(x)^2)\\,2g(x)g'(x)$."
+          },
+          {
+            "text": "Substitute to obtain $5\\cdot2\\cdot2\\cdot(-3)=-60$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u3-m001",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u3-m002",
+        "skillId": "u3-implicit",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>For the curve $x^2+xy+y^2=7$, what is the slope of the tangent at $(2,1)$?</p>",
+        "choices": [
+          "$-\\frac54$",
+          "$-\\frac45$",
+          "$\\frac54$",
+          "$-2$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This exchanges the coefficients of y prime and the remaining terms.",
+          "This loses the negative sign when isolating y prime.",
+          "This ignores the xy and y-squared derivative contributions."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Differentiate: $2x+y+xy'+2yy'=0$. Thus $y'=-(2x+y)/(x+2y)$."
+          },
+          {
+            "text": "At $(2,1)$ the slope is $-(4+1)/(2+2)=-5/4$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u3-m002",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u3-m003",
+        "skillId": "u3-inverse-derivative",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The differentiable invertible function $f$ satisfies $f(2)=7$, $f'(2)=4$, and $f'(7)=9$. Let $h(x)=f^{-1}(3x+1)$. Find $h'(2)$.</p>",
+        "choices": [
+          "$\\frac14$",
+          "$\\frac13$",
+          "$\\frac34$",
+          "$12$"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This omits the chain-rule factor 3.",
+          "This evaluates f prime at 7 rather than at the inverse image 2.",
+          null,
+          "This multiplies by f prime instead of taking its reciprocal."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "At $x=2$, the input to the inverse is $7$, whose inverse image is $2$."
+          },
+          {
+            "text": "The chain and inverse rules give $h'(2)=3/f'(2)=3/4$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u3-m003",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u3-m004",
+        "skillId": "u3-inverse-trig",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A tracking angle is $\\theta(t)=\\arctan(2t+1)$. What is $\\theta''(0)$?</p>",
+        "choices": [
+          "-1",
+          "-2",
+          "1",
+          "2"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This drops a factor from differentiating the inner linear function.",
+          null,
+          "The derivative of the reciprocal contributes a negative sign.",
+          "This drops the negative sign from the reciprocal derivative."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "First, $\\theta'(t)=2/[1+(2t+1)^2]$."
+          },
+          {
+            "text": "Differentiate again: $\\theta''(t)=-8(2t+1)/[1+(2t+1)^2]^2$, which is $-8/4=-2$ at zero."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u3-m004",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u3-m005",
+        "skillId": "u3-procedure-select",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>For $x>0$, let $f(x)=x^2\\ln(1/x)$. Which expression is $f'(x)$?</p>",
+        "choices": [
+          "$2x\\ln(1/x)+x$",
+          "$2x\\ln(1/x)-x$",
+          "$-x$",
+          "$2x\\ln(1/x)-1$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "The derivative of ln(1/x) is negative.",
+          null,
+          "This omits the derivative of the x-squared factor.",
+          "Multiplying -1/x by x squared produces -x, not -1."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Because $\\ln(1/x)=-\\ln x$, its derivative is $-1/x$."
+          },
+          {
+            "text": "The product rule gives $f'=2x\\ln(1/x)+x^2(-1/x)=2x\\ln(1/x)-x$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u3-m005",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u3-m006",
+        "skillId": "u3-higher-order",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A function satisfies $f'(x)=\\sin(x^2)$. At $x=\\sqrt\\pi$, what are $f''(x)$ and the local concavity of $f$?</p>",
+        "choices": [
+          "$-2\\sqrt\\pi$; concave down",
+          "$0$; neither concave up nor down",
+          "$2\\sqrt\\pi$; concave up",
+          "$-1$; concave down"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This reports f prime rather than differentiating it.",
+          "Cosine of pi is negative.",
+          "This omits the factor 2x from the chain rule."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Differentiate $f'$ to get $f''(x)=2x\\cos(x^2)$."
+          },
+          {
+            "text": "At $\\sqrt\\pi$, this is $-2\\sqrt\\pi<0$. Continuity of $f''$ gives concave-down behavior locally."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u3-m006",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u3-m007",
+        "skillId": "u3-implicit",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>The relation $y=e^{xy}$ defines $y$ differentiably near $(0,1)$. Find $dy/dx$ at that point.</p>",
+        "choices": [
+          "0",
+          "1",
+          "-1",
+          "The derivative is undefined"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This treats xy as having derivative y times zero at x=0.",
+          null,
+          "This changes the sign while isolating y prime.",
+          "The coefficient of y prime at the given point is nonzero."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Implicit differentiation gives $y'=e^{xy}(y+xy')$."
+          },
+          {
+            "text": "At $(0,1)$, $y'=1(1+0y')=1$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u3-m007",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u3-m008",
+        "skillId": "u3-higher-order",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>If $y'=y^2+x$ and $y(0)=2$, what is $y''(0)$?</p>",
+        "choices": [
+          "5",
+          "9",
+          "16",
+          "17"
+        ],
+        "answerIndex": 3,
+        "misconceptions": [
+          "This does not apply the chain rule to y squared.",
+          "This replaces y prime by y.",
+          "This omits the derivative of x.",
+          null
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Differentiate with respect to $x$: $y''=2yy'+1$. The original equation gives $y'(0)=4$."
+          },
+          {
+            "text": "Therefore $y''(0)=2(2)(4)+1=17$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u3-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-04": [
+      {
+        "id": "u4-m001",
+        "skillId": "u4-derivative-in-context",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>A server processes requests at the differentiable rate $r(t)$ requests per second, where $t$ is in seconds. If $r(5)=30$ and $r'(5)=-2$, which interpretation is correct?</p>",
+        "choices": [
+          "At 5 seconds, the server has processed -2 requests.",
+          "At 5 seconds, the processing rate is decreasing at 2 requests per second per second.",
+          "At 5 seconds, requests are being processed at -2 requests per second.",
+          "The processing rate is exactly 28 requests per second at 6 seconds."
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "The derivative of a rate is not a total request count.",
+          null,
+          "This confuses r prime with r.",
+          "A derivative at one instant does not give an exact change over the next second."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The value $r(5)=30$ is the current request-processing rate."
+          },
+          {
+            "text": "The derivative $r'(5)=-2$ describes how that rate changes, with units requests per second squared."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u4-m001",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u4-m002",
+        "skillId": "u4-rectilinear-motion",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A particle has velocity $v(t)=(t-1)(t-4)$ meters per second. At $t=2$, is its speed increasing or decreasing?</p>",
+        "choices": [
+          "Increasing, because velocity and acceleration are both negative.",
+          "Decreasing, because velocity is negative.",
+          "Increasing, because acceleration is positive.",
+          "Decreasing, because velocity and acceleration have opposite signs."
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "Negative velocity specifies direction; it does not alone determine change in speed.",
+          "Acceleration at this instant is negative.",
+          "The velocity and acceleration actually have the same sign."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "At $t=2$, $v=-2$. Differentiate to get $a(t)=2t-5$, so $a(2)=-1$."
+          },
+          {
+            "text": "Both values are negative, so the particle moves in the negative direction with increasing velocity magnitude. Its speed increases."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u4-m002",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u4-m003",
+        "skillId": "u4-related-rates",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A rectangle has width $8$ cm and height $5$ cm at an instant. Its width decreases at $0.3$ cm/s while its height increases at $0.2$ cm/s. What is the instantaneous rate of change of its area?</p>",
+        "choices": [
+          "0.1 square centimeters per second",
+          "1.4 square centimeters per second",
+          "-0.1 square centimeters per second",
+          "-0.5 square centimeters per second"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This pairs the width rate with the width and the height rate with the height, and reverses the net sign.",
+          "This reverses the signs of the two rates.",
+          "This subtracts both length rates without multiplying by the required dimensions."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "For $A=wh$, the product rule gives $A'=w'h+wh'$."
+          },
+          {
+            "text": "Thus $A'=(-0.3)(5)+(8)(0.2)=-1.5+1.6=0.1$ square centimeters per second."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u4-m003",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u4-m004",
+        "skillId": "u4-related-rates",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The area of a circle increases at $12\\pi$ square centimeters per second when its radius is $3$ cm. At that instant, how fast is its circumference increasing?</p>",
+        "choices": [
+          "$2\\pi$ cm/s",
+          "$4\\pi$ cm/s",
+          "$6\\pi$ cm/s",
+          "$12\\pi$ cm/s"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This omits the factor 2 in the circumference formula.",
+          null,
+          "This substitutes the radius where the radius rate is required.",
+          "Area rate and circumference rate are different quantities."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "From $A=\\pi r^2$, $12\\pi=2\\pi(3)r'$, so $r'=2$ cm/s."
+          },
+          {
+            "text": "Since $C=2\\pi r$, $C'=2\\pi r'=4\\pi$ cm/s."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u4-m004",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u4-m005",
+        "skillId": "u4-linearization",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A function satisfies $f(0)=2$ and $f'(x)=1/(1+x^2)$. Which statement correctly describes the tangent-line estimate of $f(0.2)$?</p>",
+        "choices": [
+          "2.2, an overestimate",
+          "2.2, an underestimate",
+          "2.04, an overestimate",
+          "2.04, an underestimate"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "The derivative decreases for positive x, placing the graph below this tangent.",
+          "This multiplies the input change twice.",
+          "This uses an incorrect slope contribution and reverses the concavity conclusion."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The tangent approximation is $f(0)+f'(0)(0.2)=2+0.2=2.2$."
+          },
+          {
+            "text": "For $x>0$, $f''(x)=-2x/(1+x^2)^2<0$. The graph lies below its tangent, so the estimate is high."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u4-m005",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u4-m006",
+        "skillId": "u4-lhopital",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Evaluate $\\displaystyle\\lim_{x\\to0}\\frac{\\ln(1+2x)-2x}{x^2}$.</p>",
+        "choices": [
+          "-4",
+          "-2",
+          "0",
+          "2"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This omits the second derivative of the denominator.",
+          null,
+          "The numerator approaching zero does not settle the ratio.",
+          "This drops the negative sign from differentiating the reciprocal."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The form is $0/0$. Differentiating numerator and denominator once gives $[2/(1+2x)-2]/(2x)$, still $0/0$."
+          },
+          {
+            "text": "A second application yields $[-4/(1+2x)^2]/2\\to-2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u4-m006",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u4-m007",
+        "skillId": "u4-rectilinear-motion",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>At time $t=4$, a particle has velocity $-3$ m/s and acceleration $2$ m/s squared. What is the instantaneous rate of change of its speed?</p>",
+        "choices": [
+          "-3 m/s squared",
+          "-2 m/s squared",
+          "2 m/s squared",
+          "3 m/s squared"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This uses velocity in place of the derivative of speed.",
+          null,
+          "For negative velocity, speed equals negative velocity.",
+          "This uses the magnitude of velocity in place of a rate of change."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Since velocity is negative at this instant, speed is locally $-v(t)$."
+          },
+          {
+            "text": "Its derivative is $-a(4)=-2$ m/s squared; the speed is decreasing."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u4-m007",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u4-m008",
+        "skillId": "u4-lhopital",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A student applies L'Hospital's rule to $\\lim_{x\\to\\infty}(x+\\sin x)/x$ and obtains $1+\\cos x$, which has no limit. Which conclusion is valid?</p>",
+        "choices": [
+          "The original limit does not exist.",
+          "The original limit is 0.",
+          "The original limit is 1, as seen by writing 1+sin(x)/x.",
+          "The original limit is 2, the largest derivative-ratio value."
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "Failure of the derivative ratio to converge does not imply failure of the original limit.",
+          "The x/x term remains equal to 1.",
+          null,
+          "An upper oscillation value is not a limit."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Rewrite the original ratio as $1+\\sin x/x$."
+          },
+          {
+            "text": "Because $|\\sin x/x|\\le1/x\\to0$, the original limit is $1$. This application of L'Hospital's rule is inconclusive."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u4-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-05": [
+      {
+        "id": "u5-m001",
+        "skillId": "u5-mvt-evt",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A function is continuous on $[0,5]$, differentiable on $(0,5)$, and has $f(0)=4$ and $f(5)=20$. A report also claims that $f'(x)\\le3$ for every $x$ in $(0,5)$. Which statement is correct?</p>",
+        "choices": [
+          "All the claims can hold because the endpoint values are positive.",
+          "The claims are inconsistent: the Mean Value Theorem forces f prime to equal 16/5 somewhere.",
+          "The claims are inconsistent because every derivative must equal 16/5.",
+          "The Mean Value Theorem cannot be used unless f prime is continuous."
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "Positive function values do not constrain the required average slope.",
+          null,
+          "The theorem guarantees at least one such derivative value, not the same value everywhere.",
+          "Continuity of the derivative is not a hypothesis of the theorem."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The secant slope is $(20-4)/(5-0)=16/5=3.2$."
+          },
+          {
+            "text": "The Mean Value Theorem gives an interior point with derivative $3.2$, contradicting the claimed upper bound of $3$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u5-m001",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u5-m002",
+        "skillId": "u5-critical-increasing",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Suppose $f'(x)=(x+1)^2(x-2)(x-5)$ for all real $x$. At which input does $f$ have a relative maximum?</p>",
+        "choices": [
+          "-1",
+          "2",
+          "5",
+          "Both -1 and 2"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "The squared factor gives no sign change at -1.",
+          null,
+          "At 5 the derivative changes from negative to positive, giving a relative minimum.",
+          "The point -1 is stationary but the derivative does not change sign there."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The derivative is positive on both sides of $-1$, negative between $2$ and $5$, and positive after $5$."
+          },
+          {
+            "text": "Only at $2$ does $f'$ change from positive to negative, so that is the relative maximum."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u5-m002",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u5-m003",
+        "skillId": "u5-extrema-tests",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>What is the absolute maximum value of $f(x)=x+4/x$ on $[1,5]$?</p>",
+        "choices": [
+          "4",
+          "5",
+          "$\\frac{29}{5}$",
+          "9"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This is the value at the interior critical point, which is a minimum.",
+          "This checks only the left endpoint.",
+          null,
+          "This adds 5 and 4 without dividing the second term by 5."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The derivative $1-4/x^2$ vanishes at $x=2$ in the interval. Compare endpoints and this critical point."
+          },
+          {
+            "text": "The values are $f(1)=5$, $f(2)=4$, and $f(5)=29/5$. The largest is $29/5$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u5-m003",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u5-m004",
+        "skillId": "u5-concavity",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A twice differentiable function has $f''(x)=(x-1)^2(x+2)$. At which input does its graph have an inflection point?</p>",
+        "choices": [
+          "-2 only",
+          "1 only",
+          "Both -2 and 1",
+          "Neither -2 nor 1"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "The squared factor does not change the sign at 1.",
+          "A zero second derivative alone does not guarantee a concavity change.",
+          "The second derivative changes sign at -2."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Except at its zero, $(x-1)^2$ is positive, so the sign of $f''$ changes only when $x+2$ changes sign."
+          },
+          {
+            "text": "Concavity changes at $x=-2$ and does not change at $x=1$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u5-m004",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u5-m005",
+        "skillId": "u5-graph-connections",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The graph of $f'$ consists of a line segment from $(0,3)$ to $(2,-1)$ and a line segment from $(2,-1)$ to $(4,3)$. Where does $f$ have a relative minimum on $(0,4)$?</p>",
+        "choices": [
+          "$x=\\frac32$",
+          "$x=2$",
+          "$x=\\frac52$",
+          "$x=3$"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "The first zero of f prime changes sign from positive to negative, giving a maximum.",
+          "This is the minimum of f prime, not the minimum of f.",
+          null,
+          "This uses a height from the graph instead of the zero crossing."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "On the second segment, $f'(x)=2x-5$, which vanishes at $x=5/2$."
+          },
+          {
+            "text": "There $f'$ changes from negative to positive, so $f$ has a relative minimum."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u5-m005",
+        "representation": "graph-described",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u5-m006",
+        "skillId": "u5-optimization",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>An open-top container has square base side $x$ meters and volume $64$ cubic meters. Base material costs 2 cost units per square meter; side material costs 1 per square meter. Which value of $x>0$ minimizes total material cost?</p>",
+        "choices": [
+          "2",
+          "4",
+          "8",
+          "16"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This does not balance the base and side cost derivatives.",
+          null,
+          "This uses a dimension that makes the growing base cost too large.",
+          "This confuses the optimal base area with its side length."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The height is $64/x^2$. The cost is $C(x)=2x^2+4x(64/x^2)=2x^2+256/x$."
+          },
+          {
+            "text": "Then $C'=4x-256/x^2=0$ gives $x^3=64$, hence $x=4$. The derivative is negative before 4 and positive afterward, so this is the global minimum."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u5-m006",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u5-m007",
+        "skillId": "u5-extrema-tests",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Let $f'(x)=x+2$ on $[0,4]$, and define $g(x)=f(x)-4x$. At which input does $g$ attain its absolute minimum on $[0,4]$?</p>",
+        "choices": [
+          "0",
+          "2",
+          "4",
+          "It depends on f(0)"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This uses the positive derivative of f instead of the derivative of g.",
+          null,
+          "The derivative of g is positive after its minimum.",
+          "Adding a constant to f changes the minimum value, not its location."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Differentiate the new function: $g'(x)=f'(x)-4=x-2$."
+          },
+          {
+            "text": "It is negative for $x<2$ and positive for $x>2$, so $g$ attains its absolute minimum at $2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u5-m007",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u5-m008",
+        "skillId": "u5-mvt-evt",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A twice differentiable function has five distinct zeros in an interval. What is the minimum number of distinct zeros its second derivative is guaranteed to have between the smallest and largest of those zeros?</p>",
+        "choices": [
+          "2",
+          "3",
+          "4",
+          "5"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This does not use every interval available in the two applications of Rolle theorem.",
+          null,
+          "This is the guaranteed count for the first derivative.",
+          "Differentiation does not preserve the original zero count."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Applying Rolle's theorem between consecutive zeros of $f$ gives at least four distinct zeros of $f'$."
+          },
+          {
+            "text": "Applying it again between those consecutive zeros of $f'$ gives at least three distinct zeros of $f''$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u5-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-06": [
+      {
+        "id": "u6-m001",
+        "skillId": "u6-riemann-sums",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A queue's net change rate $r(t)$, in tasks per minute, is sampled below. Use a right Riemann sum over the displayed subintervals to estimate the net change over $[0,4]$.</p><table><tr><th>$t$</th><th>0</th><th>1</th><th>3</th><th>4</th></tr><tr><td>$r(t)$</td><td>4</td><td>-2</td><td>6</td><td>0</td></tr></table>",
+        "choices": [
+          "4 tasks",
+          "6 tasks",
+          "10 tasks",
+          "14 tasks"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This sums the sampled right-endpoint values without their unequal widths.",
+          "This uses left endpoints instead of right endpoints.",
+          null,
+          "This changes the negative rate contribution to positive."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The subinterval widths are $1$, $2$, and $1$ minutes; the right-endpoint rates are $-2$, $6$, and $0$."
+          },
+          {
+            "text": "The estimated net change is $1(-2)+2(6)+1(0)=10$ tasks."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m001",
+        "representation": "table",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m002",
+        "skillId": "u6-ftc-accumulation",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Let $G(x)=\\int_{x^2}^{3x}f(t)\\,dt$, where $f$ is continuous, $f(1)=2$, and $f(3)=7$. Find $G'(1)$.</p>",
+        "choices": [
+          "5",
+          "17",
+          "19",
+          "25"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This omits both endpoint chain-rule factors.",
+          null,
+          "This uses 1 rather than 2 as the lower-endpoint derivative.",
+          "This adds rather than subtracts the lower-endpoint contribution."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The Fundamental Theorem and chain rule give $G'(x)=3f(3x)-2x f(x^2)$."
+          },
+          {
+            "text": "At $1$, the value is $3(7)-2(1)(2)=17$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m002",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m003",
+        "skillId": "u6-antiderivatives",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>Suppose $\\int_2^5 f(x)\\,dx=6$. Evaluate $\\int_5^2[2f(x)-3]\\,dx$.</p>",
+        "choices": [
+          "-21",
+          "-3",
+          "3",
+          "21"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This adds the constant contribution before reversing limits.",
+          null,
+          "This does not reverse the integration direction.",
+          "This both adds the constant contribution and keeps the original direction."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "First use linearity on $[2,5]$: $\\int_2^5(2f-3)=2(6)-3(5-2)=3$."
+          },
+          {
+            "text": "Reversing the limits changes the sign, so the requested integral is $-3$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m003",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m004",
+        "skillId": "u6-u-substitution",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Evaluate $\\displaystyle\\int_0^1\\frac{x}{(1+x^2)^2}\\,dx$.</p>",
+        "choices": [
+          "$\\frac18$",
+          "$\\frac14$",
+          "$\\frac12$",
+          "$-\\frac14$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This introduces an extra factor of 1/2 during substitution.",
+          null,
+          "This omits the factor 1/2 from du=2x dx.",
+          "This reverses the antiderivative evaluation order."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Set $u=1+x^2$, so $du=2x\\,dx$ and the new bounds are 1 and 2."
+          },
+          {
+            "text": "The integral is $\\frac12\\int_1^2u^{-2}\\,du=\\frac12[-u^{-1}]_1^2=1/4$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m004",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m005",
+        "skillId": "u6-riemann-sums",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A function is strictly decreasing and concave up on $[a,b]$. Using the same partition, how do a right Riemann sum $R$ and a trapezoidal sum $T$ compare with the integral $I$?</p>",
+        "choices": [
+          "R>I and T>I",
+          "R<I and T<I",
+          "R<I and T>I",
+          "R>I and T<I"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "A decreasing function makes right-endpoint rectangles underestimate.",
+          "Concave-up graphs lie below their secant segments.",
+          null,
+          "This reverses both geometric comparisons."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Because $f$ decreases, each right-endpoint rectangle lies below the graph, giving $R<I$."
+          },
+          {
+            "text": "Because $f$ is concave up, secant segments lie above the graph, giving $T>I$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m005",
+        "representation": "graph-described",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m006",
+        "skillId": "u6-ftc-accumulation",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The graph of a continuous function $r$ joins $(0,0)$ to $(2,4)$ to $(4,0)$ with line segments. Define $F(x)=\\int_0^x r(t)\\,dt$. Which describes $F$ at $x=3$?</p>",
+        "choices": [
+          "Increasing and concave up",
+          "Increasing and concave down",
+          "Decreasing and concave up",
+          "Decreasing and concave down"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "The rate graph is falling at x=3, so the second derivative is negative.",
+          null,
+          "The rate value is positive and its slope is negative.",
+          "A falling rate does not mean the accumulated amount is falling."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "At $3$, $F'(3)=r(3)=2>0$, so $F$ increases."
+          },
+          {
+            "text": "Also $F''(3)=r'(3)=-2<0$, so $F$ is concave down."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m006",
+        "representation": "graph-described",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m007",
+        "skillId": "u6-antiderivatives",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A twice continuously differentiable function satisfies $f'(0)=-1$ and $f'(3)=7$. Evaluate $\\int_0^3[f''(x)+2x]\\,dx$.</p>",
+        "choices": [
+          "1",
+          "8",
+          "15",
+          "17"
+        ],
+        "answerIndex": 3,
+        "misconceptions": [
+          "This subtracts the derivative change from the quadratic contribution, giving 9-8.",
+          "This omits the 2x term.",
+          "This subtracts the initial derivative incorrectly.",
+          null
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The integral of $f''$ is $f'(3)-f'(0)=7-(-1)=8$."
+          },
+          {
+            "text": "The integral of $2x$ from $0$ to $3$ is $9$. Add the two contributions to obtain $17$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m007",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m008",
+        "skillId": "u6-antiderivatives",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>For $x>0$, $F'(x)=3\\sqrt{x}$ and $F(4)=10$. Find $F(9)$.</p>",
+        "choices": [
+          "38",
+          "44",
+          "48",
+          "54"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This gives the change in F but omits its initial value.",
+          "This subtracts the given F(4) from 54 instead of using it to determine the integration constant.",
+          null,
+          "This omits the nonzero integration constant."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "An antiderivative is $F(x)=2x^{3/2}+C$. Since $F(4)=16+C=10$, $C=-6$."
+          },
+          {
+            "text": "Therefore $F(9)=2(27)-6=48$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m009",
+        "skillId": "u6-integration-by-parts",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Evaluate $\\displaystyle\\int_0^1 x e^{2x}\\,dx$.</p>",
+        "choices": [
+          "$\\frac{e^2-1}{4}$",
+          "$\\frac{e^2+1}{4}$",
+          "$\\frac{e^2}{2}$",
+          "$\\frac{e^2+1}{2}$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This subtracts the lower endpoint with the wrong sign.",
+          null,
+          "This keeps the uv term but omits the remaining integral.",
+          "This omits a factor of 1/2 from integrating the exponential."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Take $u=x$ and $dv=e^{2x}dx$. An antiderivative is $e^{2x}(x/2-1/4)$."
+          },
+          {
+            "text": "Its endpoint values are $e^2/4$ and $-1/4$, so the difference is $(e^2+1)/4$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m009",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m010",
+        "skillId": "u6-partial-fractions",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Evaluate $\\displaystyle\\int_1^2\\frac{1}{x(x+1)}\\,dx$.</p>",
+        "choices": [
+          "$\\ln\\frac43$",
+          "$\\ln\\frac34$",
+          "$\\ln3$",
+          "$\\ln2$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This reverses the subtraction of the logarithmic endpoint values.",
+          "This fails to subtract the second partial fraction.",
+          "This retains only the 1/x fraction."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Decompose $1/[x(x+1)]=1/x-1/(x+1)$."
+          },
+          {
+            "text": "The integral equals $[\\ln x-\\ln(x+1)]_1^2=\\ln(2/3)-\\ln(1/2)=\\ln(4/3)$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m010",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m011",
+        "skillId": "u6-improper-integral-limits",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Which statement is true about $\\displaystyle\\int_1^\\infty\\frac{1}{x(1+\\ln x)^3}\\,dx$?</p>",
+        "choices": [
+          "It diverges.",
+          "It converges to $\\frac13$.",
+          "It converges to $\\frac12$.",
+          "It converges to 1."
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "After substitution the integrand has exponent -3, which gives a convergent tail.",
+          "This uses the original exponent instead of increasing it during antidifferentiation.",
+          null,
+          "This omits the coefficient 1/2 in the antiderivative."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Set $u=1+\\ln x$; the integral becomes $\\int_1^\\infty u^{-3}\\,du$."
+          },
+          {
+            "text": "Evaluate it as $\\lim_{b\\to\\infty}[ -1/(2u^2)]_1^b=1/2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m011",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u6-m012",
+        "skillId": "u6-integration-by-parts",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A continuously differentiable function satisfies $f(1)=4$, $f(3)=2$, and $\\int_1^3f(x)\\,dx=5$. Evaluate $\\int_1^3 x f'(x)\\,dx$.</p>",
+        "choices": [
+          "-3",
+          "2",
+          "7",
+          "11"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This gives only the endpoint product difference.",
+          "This adds the integral of f instead of subtracting it.",
+          "This omits the lower endpoint product and adds the remaining integral."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Integration by parts gives $\\int_1^3xf'(x)dx=[xf(x)]_1^3-\\int_1^3f(x)dx$."
+          },
+          {
+            "text": "Substitution gives $3(2)-1(4)-5=-3$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u6-m012",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-07": [
+      {
+        "id": "u7-m001",
+        "skillId": "u7-modeling-and-verifying",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Which function solves $y'=2x(y-1)$ with $y(0)=4$?</p>",
+        "choices": [
+          "$y=1+3e^{x^2}$",
+          "$y=4e^{x^2}$",
+          "$y=1+3e^{2x}$",
+          "$y=3+e^{x^2}$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This treats the growth as proportional to y instead of y-1.",
+          "This integrates 2x as 2x rather than x squared.",
+          "This has the required initial value but the wrong equilibrium offset."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "For $y=1+3e^{x^2}$, differentiation gives $y'=6xe^{x^2}=2x(y-1)$."
+          },
+          {
+            "text": "It also gives $y(0)=1+3=4$, so it satisfies both the equation and initial condition."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m001",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m002",
+        "skillId": "u7-slope-fields",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>A slope field for $y'=x-2y$ has zero slope on which line, and positive slope on which side of that line?</p>",
+        "choices": [
+          "y=2x; above the line",
+          "y=x/2; below the line",
+          "y=x/2; above the line",
+          "y=-x/2; below the line"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "Solving x-2y=0 gives y=x/2, not 2x.",
+          null,
+          "Below the line, 2y<x and the slope is positive.",
+          "This changes the sign of the x term."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Solve $x-2y=0$ to obtain the zero-slope line $y=x/2$."
+          },
+          {
+            "text": "The inequality $x-2y>0$ is equivalent to $y<x/2$, so slopes below the line are positive."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m002",
+        "representation": "graph-described",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m003",
+        "skillId": "u7-separation-of-variables",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>While solving $y'=x(y-3)$, a student divides by $y-3$. Which valid solution must be checked separately because of that division?</p>",
+        "choices": [
+          "y=0",
+          "y=x",
+          "y=3",
+          "y=3x"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "Substitution gives 0=-3x, which does not hold on an interval.",
+          "Substitution does not satisfy the differential equation on an interval.",
+          null,
+          "This is not a constant equilibrium and does not satisfy the equation on an interval."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Dividing by $y-3$ assumes this quantity is nonzero, so it may omit $y=3$."
+          },
+          {
+            "text": "For the constant function $y=3$, both $y'$ and $x(y-3)$ are zero. It is a valid solution."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m003",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m004",
+        "skillId": "u7-particular-solutions",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Let $y=f(x)$ solve $y'=2x/(y+1)$ with $f(0)=1$. Find $f(\\sqrt6)$.</p>",
+        "choices": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This keeps the initial value despite the nonzero derivative away from zero.",
+          "This does not retain the integration constant from the initial condition.",
+          null,
+          "This reports y+1 rather than y."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Separation gives $(y+1)dy=2x\\,dx$, hence $(y+1)^2=2x^2+C$. The initial condition gives $C=4$."
+          },
+          {
+            "text": "The positive branch is $y=-1+\\sqrt{2x^2+4}$. At $x=\\sqrt6$, $y=-1+4=3$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m004",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m005",
+        "skillId": "u7-exponential-models",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A quantity follows $P'=kP$ with constant $k$, and $P(2)=900$ and $P(5)=7200$. What is $P(0)$?</p>",
+        "choices": [
+          "112.5",
+          "225",
+          "450",
+          "900"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This moves back three doubling intervals instead of two.",
+          null,
+          "This moves back only one doubling interval.",
+          "This treats the observation at time 2 as the initial value."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Over three time units the quantity increases by a factor of $7200/900=8=2^3$, so it doubles each time unit."
+          },
+          {
+            "text": "Moving back from time 2 to time 0 divides by $2^2$, giving $P(0)=900/4=225$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m005",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m006",
+        "skillId": "u7-modeling-and-verifying",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Which function solves $y'=x+y$ and $y(0)=2$?</p>",
+        "choices": [
+          "$2e^x$",
+          "$3e^x-x-1$",
+          "$3e^x+x-1$",
+          "$e^x+x+1$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "Its derivative lacks the x term required by the equation.",
+          null,
+          "The derivative of the added x has the wrong sign for this candidate.",
+          "The initial value holds, but the derivative does not equal x+y."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "For $y=3e^x-x-1$, the derivative is $3e^x-1$, which also equals $x+y$."
+          },
+          {
+            "text": "At zero, this candidate equals $3-0-1=2$, satisfying the initial condition."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m006",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m007",
+        "skillId": "u7-slope-fields",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Let $y=f(x)$ solve $y'=2-y$ with $f(0)=5$. Which description holds for $x>0$?</p>",
+        "choices": [
+          "Increasing and concave up",
+          "Decreasing and concave down",
+          "Decreasing and concave up",
+          "Constant at 5"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "The initial value lies above the equilibrium, giving negative slopes.",
+          "As the solution approaches 2 from above, its negative slope moves toward zero.",
+          null,
+          "A value of 5 gives derivative -3, not zero."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The solution is $f(x)=2+3e^{-x}$, which stays above $2$ and has $f'(x)=-3e^{-x}<0$."
+          },
+          {
+            "text": "Its second derivative is $3e^{-x}>0$, so it decreases while remaining concave up."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m007",
+        "representation": "graph-described",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m008",
+        "skillId": "u7-particular-solutions",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>For $x>0$, $f'(x)=f(x)/x$ and $f(2)=-3$. Evaluate $\\int_2^4 f(x)\\,dx$.</p>",
+        "choices": [
+          "-12",
+          "-9",
+          "-6",
+          "9"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This uses the final function value as a constant over the interval.",
+          null,
+          "This uses the initial function value as a constant over the interval.",
+          "The solution is negative over the entire interval."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Separation gives $f(x)=Cx$. The initial value implies $C=-3/2$."
+          },
+          {
+            "text": "Thus $\\int_2^4f(x)dx=[-3x^2/4]_2^4=-12+3=-9$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m009",
+        "skillId": "u7-euler-method",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Use Euler's method with step size $0.5$, starting at $(0,2)$, for $y'=x-y$. What is the resulting approximation to $y(1)$?</p>",
+        "choices": [
+          "0",
+          "0.75",
+          "1",
+          "1.25"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This reuses the initial slope -2 for the entire second update instead of recalculating it.",
+          null,
+          "This stops after the first step.",
+          "This changes the sign of the second slope."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "At $(0,2)$ the slope is $-2$, so the first step gives $y(0.5)\\approx2+0.5(-2)=1$."
+          },
+          {
+            "text": "At $(0.5,1)$ the slope is $-0.5$, so the next step gives $1+0.5(-0.5)=0.75$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m009",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m010",
+        "skillId": "u7-logistic-models",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A population follows $P'=0.04P(1-P/600)$. At an instant when $P=450$, which description is correct?</p>",
+        "choices": [
+          "The population decreases because it exceeds half the carrying capacity.",
+          "The population grows at an increasing rate.",
+          "The population grows at a decreasing rate.",
+          "The population is constant because it has reached carrying capacity."
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "Half capacity identifies the maximum growth rate, not the point where growth stops.",
+          "Above half capacity but below capacity, growth remains positive while slowing.",
+          null,
+          "The carrying capacity is 600, not 450."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "At $450$, $P'=0.04(450)(1-450/600)=4.5>0$."
+          },
+          {
+            "text": "Differentiating gives $P''=0.04P'(1-2P/600)=-0.09<0$. The population grows, but its growth rate decreases."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m010",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m011",
+        "skillId": "u7-euler-method",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Starting with $y(2)=5$ for $y'=x$, use two Euler steps of size $-0.5$ to approximate $y(1)$. Which statement is correct?</p>",
+        "choices": [
+          "3.25, an underestimate",
+          "3.25, an overestimate",
+          "3.75, an underestimate",
+          "3.75, an overestimate"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "The exact solution at 1 is 3.5, greater than this estimate.",
+          "This samples slopes at the destination instead of the start of each step.",
+          "This samples the wrong slopes and therefore does not describe the requested Euler result."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The first step gives $5+(-0.5)(2)=4$ at $x=1.5$. The second gives $4+(-0.5)(1.5)=3.25$."
+          },
+          {
+            "text": "The exact solution is $y=x^2/2+3$, so $y(1)=3.5$. The Euler result is an underestimate."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m011",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u7-m012",
+        "skillId": "u7-logistic-models",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A population is modeled by $P(t)=900/(1+3e^{-0.2t})$. At what time is its growth rate greatest?</p>",
+        "choices": [
+          "$\\frac{\\ln3}{5}$",
+          "$5\\ln3$",
+          "$5\\ln2$",
+          "$10\\ln3$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This multiplies by 0.2 instead of dividing by it.",
+          null,
+          "This uses a doubling-time expression instead of setting the population to half capacity.",
+          "This introduces an extra factor of 2 when solving the exponential equation."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The growth rate of this increasing logistic population is greatest at half its capacity, $P=450$."
+          },
+          {
+            "text": "Solve $900/(1+3e^{-0.2t})=450$: $e^{-0.2t}=1/3$, so $t=5\\ln3$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u7-m012",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-08": [
+      {
+        "id": "u8-m001",
+        "skillId": "u8-average-value",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A transfer rate $r(t)$ is measured in megabytes per second. Use the trapezoidal rule over the displayed subintervals to estimate its average value on $[0,5]$.</p><table><tr><th>$t$</th><th>0</th><th>2</th><th>5</th></tr><tr><td>$r(t)$</td><td>2</td><td>6</td><td>0</td></tr></table>",
+        "choices": [
+          "3.5 MB/s",
+          "3.4 MB/s",
+          "4 MB/s",
+          "17 MB/s"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This assigns equal widths to the two intervals, although their actual lengths are 2 and 3.",
+          null,
+          "This averages only the first two sampled rates and omits the final time interval.",
+          "This is estimated total transfer, before division by elapsed time."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The estimated integral is $2(2+6)/2+3(6+0)/2=8+9=17$ megabytes."
+          },
+          {
+            "text": "Divide by the time interval length $5$ to get the average rate $17/5=3.4$ MB/s."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m001",
+        "representation": "table",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m002",
+        "skillId": "u8-motion-with-integrals",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A particle has velocity $v(t)=t-2$ m/s for $0\\le t\\le5$. Which pair gives its displacement and total distance, respectively?</p>",
+        "choices": [
+          "2.5 m and 2.5 m",
+          "6.5 m and 2.5 m",
+          "2.5 m and 6.5 m",
+          "6.5 m and 6.5 m"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This does not take the absolute value of the negative-velocity contribution for distance.",
+          "Total distance cannot be less than the magnitude of displacement.",
+          null,
+          "This counts the negative-direction part as positive in displacement."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The integral of velocity is $[t^2/2-2t]_0^5=2.5$ meters."
+          },
+          {
+            "text": "Velocity changes sign at 2. The speed integral is the sum of triangle areas $2+4.5=6.5$ meters."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m002",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m003",
+        "skillId": "u8-accumulation-in-context",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A tank initially contains $10$ liters. Inflow is $8+t$ L/min and outflow is $2t$ L/min for $0\\le t\\le10$. When is its volume greatest, and what is that volume?</p>",
+        "choices": [
+          "At 8 minutes; 42 liters",
+          "At 10 minutes; 40 liters",
+          "At 8 minutes; 106 liters",
+          "At 0 minutes; 10 liters"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This checks the final endpoint but misses the interior maximum.",
+          "This integrates inflow without subtracting outflow.",
+          "The initial net rate is positive."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The volume derivative is $(8+t)-2t=8-t$, positive before $8$ and negative after $8$."
+          },
+          {
+            "text": "At the maximum, $V(8)=10+\\int_0^8(8-t)dt=10+64-32=42$ liters."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m003",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m004",
+        "skillId": "u8-area-between-curves",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Two curves satisfy $f(x)-g(x)=x(x-2)(x-4)$ on $[0,4]$. Which integral expression gives the total area between them?</p>",
+        "choices": [
+          "$\\int_0^4(f-g)\\,dx$",
+          "$\\int_0^2(f-g)\\,dx-\\int_2^4(f-g)\\,dx$",
+          "$-\\int_0^2(f-g)\\,dx+\\int_2^4(f-g)\\,dx$",
+          "$\\left|\\int_0^4(f-g)\\,dx\\right|$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This allows positive and negative regions to cancel.",
+          null,
+          "This makes both region contributions negative.",
+          "Taking absolute value after summing does not prevent cancellation between regions."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The product is positive on $(0,2)$ and negative on $(2,4)$, so the upper curve switches at $2$."
+          },
+          {
+            "text": "Area integrates the positive separation on each interval: $\\int_0^2(f-g)-\\int_2^4(f-g)$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m004",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m005",
+        "skillId": "u8-cross-section-volumes",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A solid has cross sections perpendicular to the $x$-axis for $0\\le x\\le3$. Each is an isosceles right triangle with hypotenuse of length $2x$. What is the volume?</p>",
+        "choices": [
+          "9",
+          "18",
+          "36",
+          "$9\\sqrt3$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This treats the given hypotenuse as a leg.",
+          "This uses the square of the hypotenuse as the triangle area.",
+          "This uses the equilateral-triangle area formula."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "An isosceles right triangle with hypotenuse $h$ has area $h^2/4$, because each leg is $h/\\sqrt2$."
+          },
+          {
+            "text": "Here cross-sectional area is $(2x)^2/4=x^2$. The volume is $\\int_0^3x^2dx=9$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m005",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m006",
+        "skillId": "u8-disc-washer-volumes",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The region between $y=x$ and $y=\\sqrt{x}$ for $0\\le x\\le1$ is revolved about $y=-1$. Which expression gives its volume?</p>",
+        "choices": [
+          "$\\pi\\int_0^1[(\\sqrt{x}+1)^2-(x+1)^2]dx$",
+          "$\\pi\\int_0^1[x-x^2]dx$",
+          "$\\pi\\int_0^1[(x+1)^2-(\\sqrt{x}+1)^2]dx$",
+          "$\\pi\\int_0^1(\\sqrt{x}-x)^2dx$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This uses distances from the x-axis rather than from y=-1.",
+          "This reverses the outer and inner radii.",
+          "The square of a radial difference is not the difference of the squared radii."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "On $[0,1]$, $\\sqrt{x}\\ge x$. Distances from $y=-1$ are outer radius $\\sqrt{x}+1$ and inner radius $x+1$."
+          },
+          {
+            "text": "The washer area is $\\pi(R^2-r^2)$, giving the first expression."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m006",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m007",
+        "skillId": "u8-average-value",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>What is the average value of $f(x)=x^3+\\sin x+2$ on $[-3,3]$?</p>",
+        "choices": [
+          "0",
+          "2",
+          "6",
+          "12"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "Only the odd part cancels; the constant remains.",
+          null,
+          "This multiplies the constant by half the interval length instead of averaging.",
+          "This is the integral of the constant before division by interval length."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Both $x^3$ and $\\sin x$ are odd, so their integrals on the symmetric interval vanish."
+          },
+          {
+            "text": "The average is $\\frac16\\int_{-3}^3 2\\,dx=12/6=2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m007",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m008",
+        "skillId": "u8-motion-with-integrals",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A particle has acceleration $a(t)=6t$, velocity $v(1)=0$, and position $x(1)=2$. Find $x(0)$.</p>",
+        "choices": [
+          "-2",
+          "0",
+          "2",
+          "4"
+        ],
+        "answerIndex": 3,
+        "misconceptions": [
+          "This reports displacement over the interval rather than initial position.",
+          "This moves from the final position in the wrong direction.",
+          "This assumes zero net displacement because the final velocity is zero.",
+          null
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Integrate acceleration and use $v(1)=0$ to get $v(t)=3t^2-3$."
+          },
+          {
+            "text": "Then $x(1)-x(0)=\\int_0^1v(t)dt=-2$. Since $x(1)=2$, $x(0)=4$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m008",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m009",
+        "skillId": "u8-arc-length",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Find the length of $y=x^2/4-(\\ln x)/2$ from $x=1$ to $x=2$.</p>",
+        "choices": [
+          "$\\frac34-\\frac{\\ln2}{2}$",
+          "$\\frac34+\\frac{\\ln2}{2}$",
+          "$\\frac32+\\ln2$",
+          "$\\frac54+\\frac{\\ln2}{2}$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This is the change in y, not the arc length.",
+          null,
+          "This doubles the entire length.",
+          "This does not subtract the lower-endpoint quadratic value correctly."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The derivative is $x/2-1/(2x)$, and $1+(y')^2=(x/2+1/(2x))^2$. The latter square root is positive."
+          },
+          {
+            "text": "Integrate $x/2+1/(2x)$ to get $[x^2/4+(\\ln x)/2]_1^2=3/4+(\\ln2)/2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m009",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m010",
+        "skillId": "u8-disc-washer-volumes",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The region $0\\le y\\le4$, $0\\le x\\le\\sqrt y$ is revolved about the vertical line $x=-2$. Which integral gives the volume?</p>",
+        "choices": [
+          "$\\pi\\int_0^4 y\\,dy$",
+          "$\\pi\\int_0^4[(\\sqrt y+2)^2-4]dy$",
+          "$\\pi\\int_0^4[(\\sqrt y-2)^2-4]dy$",
+          "$\\pi\\int_0^4(\\sqrt y+2)^2dy$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This measures radii from the y-axis instead of x=-2.",
+          null,
+          "The horizontal distance to the negative rotation axis requires adding 2.",
+          "This fills in the central hole of radius 2."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Use horizontal slices. Each washer has outer radius $\\sqrt y+2$ and inner radius $2$."
+          },
+          {
+            "text": "Integrating $\\pi(R^2-r^2)$ from $y=0$ to $4$ gives the second expression."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m010",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m011",
+        "skillId": "u8-cross-section-volumes",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The base of a solid is the disk $x^2+y^2\\le9$. Cross sections perpendicular to the $x$-axis are rectangles with height $2$ and base equal to the chord across the disk. What is the volume?</p>",
+        "choices": [
+          "$9\\pi$",
+          "$18\\pi$",
+          "$36\\pi$",
+          "$12\\pi$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This omits the cross-section height of 2.",
+          null,
+          "This doubles the full disk area a second time.",
+          "This uses a circumference quantity instead of the disk area."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "At $x$, the chord length is $2\\sqrt{9-x^2}$, so cross-sectional area is $4\\sqrt{9-x^2}$."
+          },
+          {
+            "text": "Integrating from $-3$ to $3$ gives four times a semicircle area: $4(9\\pi/2)=18\\pi$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m011",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u8-m012",
+        "skillId": "u8-accumulation-in-context",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A tank's volume satisfies $V(0)=10$ and $V'(t)=(t-1)(t-3)$ for $0\\le t\\le4$. At which times is its volume greatest on this interval?</p>",
+        "choices": [
+          "1 only",
+          "4 only",
+          "1 and 4",
+          "3 only"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "The final endpoint reaches the same value as the interior maximum.",
+          "There is also an interior point with the same volume.",
+          null,
+          "At 3 the net rate changes from negative to positive, giving a minimum."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Integrate to obtain $V(t)=10+t^3/3-2t^2+3t$. Candidates are $0,1,3,4$."
+          },
+          {
+            "text": "Their volumes are $10,34/3,10,34/3$, respectively. The greatest volume occurs at both $1$ and $4$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u8-m012",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-09": [
+      {
+        "id": "u9-m001",
+        "skillId": "u9-parametric-derivatives",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>For $x(t)=t^3+t$ and $y(t)=t^2-1$, which is the tangent line at $t=1$?</p>",
+        "choices": [
+          "$y=2(x-2)$",
+          "$y=\\frac12(x-2)$",
+          "$y=\\frac12(x-1)$",
+          "$y=2(x-1)$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This uses dx/dy instead of dy/dx.",
+          null,
+          "The x-coordinate at t=1 is 2, not 1.",
+          "This uses both the reciprocal slope and the parameter in place of the x-coordinate."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The point is $(2,0)$. The tangent slope is $y'/x'=2t/(3t^2+1)=1/2$ at $t=1$."
+          },
+          {
+            "text": "Use the point-slope form to obtain $y=\\frac12(x-2)$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u9-m001",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u9-m002",
+        "skillId": "u9-parametric-arc-length",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A particle has velocity $(x'(t),y'(t))=(2\\cos t,2\\sin t)$ for $0\\le t\\le\\pi$. Which pair gives the magnitude of its displacement and its total distance?</p>",
+        "choices": [
+          "$0$ and $2\\pi$",
+          "$4$ and $2\\pi$",
+          "$2\\pi$ and $4$",
+          "$4$ and $4$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "The vertical velocity has positive integral on this interval.",
+          null,
+          "Displacement magnitude cannot exceed total distance.",
+          "This replaces the curved path length by the straight endpoint separation."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The displacement vector is $(\\int_0^\\pi2\\cos t\\,dt,\\int_0^\\pi2\\sin t\\,dt)=(0,4)$, whose magnitude is $4$."
+          },
+          {
+            "text": "Speed is $\\sqrt{4\\cos^2t+4\\sin^2t}=2$, giving total distance $2\\pi$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u9-m002",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u9-m003",
+        "skillId": "u9-vector-valued-functions",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A particle has velocity $\\langle2t,3\\rangle$ and position $(4,-2)$ at $t=1$. What is its position at $t=3$?</p>",
+        "choices": [
+          "(8,6)",
+          "(12,4)",
+          "(13,7)",
+          "(10,4)"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This reports the displacement vector without adding the initial position.",
+          null,
+          "This integrates from zero instead of from the time of the given position.",
+          "This treats the final horizontal velocity 6 as a displacement and adds it to the initial x-coordinate 4."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Integrate each component from 1 to 3: the displacement is $\\langle[t^2]_1^3,[3t]_1^3\\rangle=\\langle8,6\\rangle$."
+          },
+          {
+            "text": "Add this to the given position $(4,-2)$ to get $(12,4)$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u9-m003",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u9-m004",
+        "skillId": "u9-vector-motion",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>At one instant, a particle has velocity $\\mathbf v=\\langle-2,3\\rangle$ and acceleration $\\mathbf a=\\langle4,1\\rangle$. Which statement about its speed is correct?</p>",
+        "choices": [
+          "It increases because the x-component of acceleration is positive.",
+          "It decreases because the dot product of velocity and acceleration is -5.",
+          "It is constant because the velocity components have opposite signs.",
+          "Its speed is negative because one velocity component is negative."
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "A single acceleration component does not determine the change in total speed.",
+          null,
+          "Opposite component signs do not imply constant vector magnitude.",
+          "Speed is a nonnegative magnitude."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "For nonzero velocity, the derivative of speed is $\\mathbf v\\cdot\\mathbf a/|\\mathbf v|$."
+          },
+          {
+            "text": "The dot product is $(-2)(4)+(3)(1)=-5<0$, so the speed decreases."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u9-m004",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u9-m005",
+        "skillId": "u9-polar-derivatives",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A polar curve is $r=2+\\cos\\theta$. Find $dy/dx$ at $\\theta=\\pi/2$.</p>",
+        "choices": [
+          "$-2$",
+          "$-\\frac12$",
+          "$\\frac12$",
+          "$2$"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This uses a Cartesian derivative component rather than the quotient.",
+          "Both Cartesian derivative components are negative, giving a positive quotient.",
+          null,
+          "This takes dx/dy instead of dy/dx."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Use $dy/dx=(r'\\sin\\theta+r\\cos\\theta)/(r'\\cos\\theta-r\\sin\\theta)$. At $\\pi/2$, $r=2$ and $r'=-1$."
+          },
+          {
+            "text": "The quotient is $(-1)/(-2)=1/2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u9-m005",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u9-m006",
+        "skillId": "u9-polar-area",
+        "difficulty": 2,
+        "type": "mc",
+        "prompt": "<p>Find the area swept out by the polar curve $r=\\sqrt{2\\theta}$ from $\\theta=0$ to $\\theta=2$, bounded by the endpoint rays.</p>",
+        "choices": [
+          "1",
+          "2",
+          "4",
+          "8"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This introduces an extra factor of 1/2.",
+          null,
+          "This omits the 1/2 in the polar area formula.",
+          "This uses an incorrect antiderivative for the angular variable."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The polar area formula is $A=\\frac12\\int_0^2r^2\\,d\\theta=\\frac12\\int_0^2 2\\theta\\,d\\theta$."
+          },
+          {
+            "text": "This equals $[\\theta^2/2]_0^2=2$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u9-m006",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u9-m007",
+        "skillId": "u9-polar-area-between",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Find the area inside $r=3\\cos\\theta$ and outside $r=\\cos\\theta$. Each circle is traced once using $-\\pi/2\\le\\theta\\le\\pi/2$.</p>",
+        "choices": [
+          "$\\pi$",
+          "$2\\pi$",
+          "$4\\pi$",
+          "$8\\pi$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This takes half the required difference of circle areas.",
+          null,
+          "This omits the polar area factor 1/2.",
+          "This omits the 1/2 and also replaces the integral of cosine squared by the full interval length."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "On this interval the outer radius is $3\\cos\\theta$ and the inner is $\\cos\\theta$. Thus $A=4\\int_{-\\pi/2}^{\\pi/2}\\cos^2\\theta\\,d\\theta$."
+          },
+          {
+            "text": "The integral of cosine squared is $\\pi/2$, giving $A=2\\pi$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u9-m007",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u9-m008",
+        "skillId": "u9-parametric-derivatives",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>At $t=2$, a parametric curve has $x'=-2$, $y'=6$, $x''=1$, and $y''=4$. Find $d^2y/dx^2$ at that point.</p>",
+        "choices": [
+          "$-\\frac72$",
+          "$-\\frac74$",
+          "$\\frac74$",
+          "$\\frac23$"
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "This is the derivative of dy/dx with respect to t, before dividing by x prime.",
+          "This drops the negative sign in the cubed denominator.",
+          null,
+          "This divides y double prime by y prime instead of differentiating the slope with respect to x."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The second derivative is $(y''x'-y'x'')/(x')^3$."
+          },
+          {
+            "text": "Substitute to obtain $(4(-2)-6(1))/(-2)^3=(-14)/(-8)=7/4$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u9-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ],
+    "unit-10": [
+      {
+        "id": "u10-m001",
+        "skillId": "u10-series-and-geometric",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>A correction algorithm has signed correction $e_n=10(-1/5)^n$ on step $n$, beginning at $n=1$. What is the sum of all its corrections?</p>",
+        "choices": [
+          "$-\\frac53$",
+          "$\\frac{25}{3}$",
+          "$\\frac52$",
+          "$-2$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This includes the n=0 term, although corrections start at n=1.",
+          "This sums absolute correction magnitudes rather than signed corrections.",
+          "This reports only the first correction."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The first correction is $-2$ and the common ratio is $-1/5$, whose magnitude is less than 1."
+          },
+          {
+            "text": "The sum is $-2/[1-(-1/5)]=-2/(6/5)=-5/3$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u10-m001",
+        "representation": "context",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u10-m002",
+        "skillId": "u10-integral-and-p-series",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Which statement correctly classifies $\\sum_{n=1}^\\infty n/(1+n^2)$?</p>",
+        "choices": [
+          "It converges because its terms tend to zero.",
+          "It converges because the denominator is quadratic.",
+          "It diverges because the corresponding integral grows without bound.",
+          "It diverges because its terms tend to one."
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "Terms tending to zero are necessary but not sufficient for convergence.",
+          "The linear numerator makes the terms comparable to 1/n.",
+          null,
+          "The terms tend to zero, not one."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The function $x/(1+x^2)$ is positive, continuous, and decreasing for $x\\ge1$."
+          },
+          {
+            "text": "Its integral from $1$ to $b$ is $\\frac12\\ln(1+b^2)-\\frac12\\ln2$, which grows without bound. The integral test gives divergence."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u10-m002",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u10-m003",
+        "skillId": "u10-comparison-tests",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Let $a_n=(\\sqrt{n+1}-\\sqrt n)/n$. Which limit comparison correctly establishes convergence of $\\sum_{n=1}^\\infty a_n$?</p>",
+        "choices": [
+          "Compare with $1/n$: the ratio tends to 1.",
+          "Compare with $1/n^{3/2}$: the ratio tends to $1/2$.",
+          "Compare with $1/n^2$: the ratio tends to $1/2$.",
+          "Compare with $1/\\sqrt n$: the ratio tends to 1."
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "The ratio to 1/n tends to zero, not one.",
+          null,
+          "The ratio to 1/n squared grows without bound.",
+          "The ratio to 1/square-root n tends to zero."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Rationalize: $a_n=1/[n(\\sqrt{n+1}+\\sqrt n)]$."
+          },
+          {
+            "text": "Then $a_n/(1/n^{3/2})=\\sqrt n/(\\sqrt{n+1}+\\sqrt n)\\to1/2$. The comparison p-series has $p=3/2>1$, so it converges."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u10-m003",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u10-m004",
+        "skillId": "u10-alternating-and-ratio",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Which statement correctly classifies $\\sum_{n=1}^\\infty(-1)^n n!/3^n$?</p>",
+        "choices": [
+          "It converges absolutely because the denominator is exponential.",
+          "It converges conditionally because it alternates.",
+          "It diverges because its terms do not tend to zero.",
+          "It converges because the absolute ratio tends to 1/3."
+        ],
+        "answerIndex": 2,
+        "misconceptions": [
+          "Factorial growth eventually exceeds every fixed-base exponential.",
+          "Alternation alone does not give convergence.",
+          null,
+          "The ratio is (n+1)/3, not 1/3."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The successive absolute-term ratio is $(n+1)/3$, which grows without bound."
+          },
+          {
+            "text": "For all sufficiently large n the magnitudes grow instead of tending to zero. Therefore the series diverges."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u10-m004",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u10-m005",
+        "skillId": "u10-error-bounds",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Approximate $\\arctan(1/2)$ by the first two nonzero Maclaurin terms, $1/2-(1/2)^3/3$. What does the alternating-series estimate imply?</p>",
+        "choices": [
+          "An overestimate with error at most $1/24$.",
+          "An underestimate with error at most $1/160$.",
+          "An overestimate with error at most $1/160$.",
+          "An underestimate with error at most $1/896$."
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This uses the last included term rather than the first omitted term and reverses error direction.",
+          null,
+          "The next term is positive, so the truncated value is below the sum.",
+          "This skips the first omitted term and uses the following one."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The terms are $x-x^3/3+x^5/5-\\cdots$. At $x=1/2$ the magnitudes decrease to zero."
+          },
+          {
+            "text": "The first omitted term is positive and equals $(1/2)^5/5=1/160$. Thus the approximation is low with error at most $1/160$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u10-m005",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u10-m006",
+        "skillId": "u10-taylor-polynomials",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>The function $y=f(x)$ solves $y'=xy$ with $f(0)=2$. Which is its fourth-degree Maclaurin polynomial?</p>",
+        "choices": [
+          "$2+2x+x^2$",
+          "$2+x^2+\\frac{x^4}{4}$",
+          "$2+x^2+\\frac{x^4}{2}$",
+          "$2+\\frac{x^2}{2}+\\frac{x^4}{8}$"
+        ],
+        "answerIndex": 1,
+        "misconceptions": [
+          "This introduces an odd-power term even though the solution depends on x squared.",
+          null,
+          "This omits a factorial contribution in the fourth-degree coefficient.",
+          "This fails to multiply the nonconstant exponential-series terms by the initial factor 2."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "Separation and the initial condition give $f(x)=2e^{x^2/2}$."
+          },
+          {
+            "text": "Substitute into the exponential series: $2[1+x^2/2+(x^2/2)^2/2!+\\cdots]=2+x^2+x^4/4+\\cdots$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u10-m006",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u10-m007",
+        "skillId": "u10-interval-of-convergence",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>Find the interval of convergence of $\\displaystyle\\sum_{n=1}^\\infty\\frac{(x+1)^n}{n^2 2^n}$.</p>",
+        "choices": [
+          "(-3,1)",
+          "[-3,1)",
+          "(-3,1]",
+          "[-3,1]"
+        ],
+        "answerIndex": 3,
+        "misconceptions": [
+          "Both endpoints converge by absolute comparison with a p-series.",
+          "At x=1 the terms form the convergent p-series with p=2.",
+          "At x=-3 the absolute values form the convergent p-series with p=2.",
+          null
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The ratio test gives $|x+1|/2<1$, or $-3<x<1$."
+          },
+          {
+            "text": "At both endpoints, the absolute terms are $1/n^2$, which sum to a finite value. Therefore both endpoints are included."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u10-m007",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      },
+      {
+        "id": "u10-m008",
+        "skillId": "u10-taylor-series-and-manipulation",
+        "difficulty": 3,
+        "type": "mc",
+        "prompt": "<p>What is the coefficient of $x^6$ in the Maclaurin series of $e^{x^2}\\cos x$?</p>",
+        "choices": [
+          "$-\\frac{31}{720}$",
+          "$\\frac16$",
+          "$-\\frac1{720}$",
+          "$\\frac{31}{720}$"
+        ],
+        "answerIndex": 0,
+        "misconceptions": [
+          null,
+          "This keeps only the x-sixth contribution from the exponential factor.",
+          "This keeps only the x-sixth contribution from the cosine factor.",
+          "This reverses the sign of the combined coefficient."
+        ],
+        "hints": [],
+        "solution": [
+          {
+            "text": "The needed terms are $e^{x^2}=1+x^2+x^4/2+x^6/6+\\cdots$ and $\\cos x=1-x^2/2+x^4/24-x^6/720+\\cdots$."
+          },
+          {
+            "text": "Collect all degree-six products: $1/6-1/4+1/24-1/720=(120-180+30-1)/720=-31/720$."
+          }
+        ],
+        "bank": "mastery",
+        "conceptFamilyId": "u10-m008",
+        "representation": "analytical",
+        "calculatorPolicy": "not-permitted",
+        "apStyle": true
+      }
+    ]
+  },
+  "freeResponse": [
+    {
+      "id": "u6-frq-m001",
+      "unitId": "unit-06",
+      "title": "Accumulating a changing transfer rate",
+      "prompt": "<p>A data transfer runs at rate $r(t)=te^{-t}$ megabytes per second for $t\\ge0$, measured in seconds. Let $B(t)=\\int_0^t r(s)\\,ds$ be the cumulative megabytes transferred. Give exact answers.</p>",
+      "skillIds": [
+        "u6-integration-by-parts",
+        "u6-ftc-accumulation",
+        "u6-improper-integral-limits"
+      ],
+      "difficulty": 3,
+      "bank": "mastery",
+      "apStyle": true,
+      "courseScope": "bc",
+      "calculatorPolicy": "not-permitted",
+      "points": 9,
+      "gradingMode": "self-check",
+      "gradingNote": "Use the worked solution and point checklist to review your own written response. These points are not an automated grade or an official AP score.",
+      "parts": [
+        {
+          "label": "a",
+          "prompt": "<p>Find $B(2)$. Show the setup and the integration method.</p>",
+          "points": 3,
+          "solution": [
+            {
+              "text": "Set $B(2)=\\int_0^2te^{-t}\\,dt$. Integration by parts with $u=t$ and $dv=e^{-t}dt$ gives antiderivative $-(t+1)e^{-t}$."
+            },
+            {
+              "text": "Evaluate the endpoints: $B(2)=[-(t+1)e^{-t}]_0^2=1-3e^{-2}$ megabytes."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Sets up $\\int_0^2te^{-t}\\,dt$."
+            },
+            {
+              "points": 1,
+              "criterion": "Uses integration by parts correctly to obtain $-(t+1)e^{-t}$."
+            },
+            {
+              "points": 1,
+              "criterion": "Evaluates to $1-3e^{-2}$ megabytes."
+            }
+          ]
+        },
+        {
+          "label": "b",
+          "prompt": "<p>Find the average transfer rate over $0\\le t\\le2$. Include units.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "The average value of the rate is $\\frac1{2-0}\\int_0^2 r(t)\\,dt$."
+            },
+            {
+              "text": "It equals $(1-3e^{-2})/2$ megabytes per second."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Divides the rate integral by the interval length 2."
+            },
+            {
+              "points": 1,
+              "criterion": "Gives $(1-3e^{-2})/2$ with rate units."
+            }
+          ]
+        },
+        {
+          "label": "c",
+          "prompt": "<p>At $t=2$, is $B$ increasing or decreasing, and is the transfer rate $r$ increasing or decreasing? Justify both conclusions.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "By the Fundamental Theorem, $B'(2)=r(2)=2e^{-2}>0$, so cumulative transfer is increasing."
+            },
+            {
+              "text": "The rate derivative is $r'(t)=(1-t)e^{-t}$, so $r'(2)=-e^{-2}<0$. The rate is decreasing."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "States that B increases and supports it using $B'(2)=2e^{-2}>0$."
+            },
+            {
+              "points": 1,
+              "criterion": "States that r decreases and supports it using $r'(2)=-e^{-2}<0$."
+            }
+          ]
+        },
+        {
+          "label": "d",
+          "prompt": "<p>Does the total amount transferred remain finite if the model continues for all $t\\ge0$? Use an improper integral and evaluate it.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "The total is $\\lim_{b\\to\\infty}\\int_0^b te^{-t}dt=\\lim_{b\\to\\infty}[1-(b+1)e^{-b}]$."
+            },
+            {
+              "text": "Exponential decay gives $(b+1)e^{-b}\\to0$. The total is finite and equals 1 megabyte."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Expresses the improper integral using a limit with upper bound tending to infinity."
+            },
+            {
+              "points": 1,
+              "criterion": "Evaluates the limit as 1 megabyte and concludes it is finite."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "u7-frq-m001",
+      "unitId": "unit-07",
+      "title": "Simulating logistic growth",
+      "prompt": "<p>A population $P(t)$ follows $P'=0.5P(1-P/100)$ with $P(0)=20$, where $P$ is measured in individuals and $t$ in days.</p>",
+      "skillIds": [
+        "u7-modeling-and-verifying",
+        "u7-euler-method",
+        "u7-logistic-models"
+      ],
+      "difficulty": 3,
+      "bank": "mastery",
+      "apStyle": true,
+      "courseScope": "bc",
+      "calculatorPolicy": "not-permitted",
+      "points": 9,
+      "gradingMode": "self-check",
+      "gradingNote": "Use the worked solution and point checklist to review your own written response. These points are not an automated grade or an official AP score.",
+      "parts": [
+        {
+          "label": "a",
+          "prompt": "<p>Find $P'(0)$ and interpret its meaning in context.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "Substitution gives $P'(0)=0.5(20)(1-20/100)=8$."
+            },
+            {
+              "text": "Initially the population is increasing at 8 individuals per day."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Calculates the initial derivative as 8."
+            },
+            {
+              "points": 1,
+              "criterion": "Interprets it as the instantaneous initial increase, in individuals per day."
+            }
+          ]
+        },
+        {
+          "label": "b",
+          "prompt": "<p>Use Euler's method with two steps of size 1 day to estimate $P(2)$. Show both updates.</p>",
+          "points": 3,
+          "solution": [
+            {
+              "text": "The first update uses the initial slope 8: $P(1)\\approx20+1(8)=28$."
+            },
+            {
+              "text": "The slope at the approximate state 28 is $0.5(28)(1-28/100)=10.08$. Thus $P(2)\\approx28+10.08=38.08$."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Obtains the first Euler state 28."
+            },
+            {
+              "points": 1,
+              "criterion": "Recomputes the slope at the approximate state 28 to get 10.08."
+            },
+            {
+              "points": 1,
+              "criterion": "Obtains the second Euler state 38.08 individuals."
+            }
+          ]
+        },
+        {
+          "label": "c",
+          "prompt": "<p>At what population is the growth rate greatest, and what is that greatest rate? Justify the population value.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "As a function of population, the rate is $g(P)=0.5P-0.005P^2$, a concave-down quadratic. Its derivative $0.5-0.01P$ vanishes at $P=50$."
+            },
+            {
+              "text": "At that population, $g(50)=0.5(50)(0.5)=12.5$ individuals per day."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Identifies P=50 and justifies the maximum using the rate quadratic or its derivative sign change."
+            },
+            {
+              "points": 1,
+              "criterion": "Calculates the greatest growth rate as 12.5 individuals per day."
+            }
+          ]
+        },
+        {
+          "label": "d",
+          "prompt": "<p>The solution has the form $P(t)=100/(1+Ae^{-t/2})$. Determine $A$ and $\\lim_{t\\to\\infty}P(t)$.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "The initial condition gives $20=100/(1+A)$, so $A=4$."
+            },
+            {
+              "text": "As $t\\to\\infty$, $e^{-t/2}\\to0$, and the population approaches 100 individuals."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Uses the initial condition to obtain A=4."
+            },
+            {
+              "points": 1,
+              "criterion": "Evaluates the long-term limit as 100 individuals."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "u9-frq-m001",
+      "unitId": "unit-09",
+      "title": "Following a robot path",
+      "prompt": "<p>A robot's coordinates in meters are $x(t)=t^2-2t$ and $y(t)=t^3-3t$ for $0\\le t\\le3$, with $t$ in seconds.</p>",
+      "skillIds": [
+        "u9-parametric-derivatives",
+        "u9-vector-valued-functions",
+        "u9-vector-motion",
+        "u9-parametric-arc-length"
+      ],
+      "difficulty": 3,
+      "bank": "mastery",
+      "apStyle": true,
+      "courseScope": "bc",
+      "calculatorPolicy": "not-permitted",
+      "points": 9,
+      "gradingMode": "self-check",
+      "gradingNote": "Use the worked solution and point checklist to review your own written response. These points are not an automated grade or an official AP score.",
+      "parts": [
+        {
+          "label": "a",
+          "prompt": "<p>Find the velocity and acceleration vectors at $t=2$.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "Differentiation gives $\\mathbf v(t)=\\langle2t-2,3t^2-3\\rangle$ and $\\mathbf a(t)=\\langle2,6t\\rangle$."
+            },
+            {
+              "text": "Thus $\\mathbf v(2)=\\langle2,9\\rangle$ m/s and $\\mathbf a(2)=\\langle2,12\\rangle$ m/s squared."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Gives the velocity vector $\\langle2,9\\rangle$."
+            },
+            {
+              "points": 1,
+              "criterion": "Gives the acceleration vector $\\langle2,12\\rangle$."
+            }
+          ]
+        },
+        {
+          "label": "b",
+          "prompt": "<p>Find an equation of the line tangent to the robot's path at $t=2$.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "The point is $(x(2),y(2))=(0,2)$, and the slope is $y'(2)/x'(2)=9/2$."
+            },
+            {
+              "text": "The tangent line is $y-2=(9/2)x$."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Computes the tangent slope 9/2."
+            },
+            {
+              "points": 1,
+              "criterion": "Uses the correct point to give $y-2=(9/2)x$."
+            }
+          ]
+        },
+        {
+          "label": "c",
+          "prompt": "<p>Find $d^2y/dx^2$ at $t=2$ and state the local concavity of the path there.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "For $t\\ne1$, $dy/dx=(3t^2-3)/(2t-2)=3(t+1)/2$. Differentiate with respect to t and divide by $x'=2t-2$."
+            },
+            {
+              "text": "The second derivative at 2 is $(3/2)/2=3/4>0$, so the path is concave up there."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Differentiates dy/dx with respect to t and divides by dx/dt."
+            },
+            {
+              "points": 1,
+              "criterion": "Obtains 3/4 and concludes concave up."
+            }
+          ]
+        },
+        {
+          "label": "d",
+          "prompt": "<p>Find all times in the interval when the robot is at rest. Write, but do not evaluate, an integral for its total distance traveled on the interval.</p>",
+          "points": 3,
+          "solution": [
+            {
+              "text": "Rest requires both $2t-2=0$ and $3t^2-3=0$. Their only common solution in the interval is $t=1$."
+            },
+            {
+              "text": "Total distance is $\\int_0^3\\sqrt{(2t-2)^2+(3t^2-3)^2}\\,dt$."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Identifies t=1 by requiring both velocity components to vanish."
+            },
+            {
+              "points": 1,
+              "criterion": "Uses the speed integrand $\\sqrt{(2t-2)^2+(3t^2-3)^2}$."
+            },
+            {
+              "points": 1,
+              "criterion": "Forms the definite integral with limits 0 and 3 and differential dt."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "u10-frq-m001",
+      "unitId": "unit-10",
+      "title": "Series, endpoints, and approximation error",
+      "prompt": "<p>Let $f(x)=\\sum_{n=0}^{\\infty}(-1)^n x^{2n+1}/[(2n+1)3^n]$ wherever the series converges. Give exact answers.</p>",
+      "skillIds": [
+        "u10-interval-of-convergence",
+        "u10-alternating-and-ratio",
+        "u10-error-bounds",
+        "u10-taylor-series-and-manipulation"
+      ],
+      "difficulty": 3,
+      "bank": "mastery",
+      "apStyle": true,
+      "courseScope": "bc",
+      "calculatorPolicy": "not-permitted",
+      "points": 9,
+      "gradingMode": "self-check",
+      "gradingNote": "Use the worked solution and point checklist to review your own written response. These points are not an automated grade or an official AP score.",
+      "parts": [
+        {
+          "label": "a",
+          "prompt": "<p>Write the first three nonzero terms of the Maclaurin series.</p>",
+          "points": 1,
+          "solution": [
+            {
+              "text": "Substitute $n=0,1,2$ into the given general term."
+            },
+            {
+              "text": "The terms are $x-x^3/9+x^5/45$."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Gives $x-x^3/9+x^5/45$."
+            }
+          ]
+        },
+        {
+          "label": "b",
+          "prompt": "<p>Find the radius and interval of convergence. Justify the conclusion at each endpoint.</p>",
+          "points": 3,
+          "solution": [
+            {
+              "text": "The absolute successive-term ratio tends to $x^2/3$, so convergence holds for $|x|<\\sqrt3$ and the radius is $\\sqrt3$."
+            },
+            {
+              "text": "At each endpoint the series is a nonzero constant multiple of $\\sum(-1)^n/(2n+1)$. The term magnitudes decrease to zero, so both endpoints converge by the alternating-series test. The interval is $[-\\sqrt3,\\sqrt3]$."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Uses the ratio test to obtain radius square root of 3."
+            },
+            {
+              "points": 1,
+              "criterion": "Correctly tests and includes the left endpoint."
+            },
+            {
+              "points": 1,
+              "criterion": "Correctly tests and includes the right endpoint."
+            }
+          ]
+        },
+        {
+          "label": "c",
+          "prompt": "<p>Use the first three nonzero terms to approximate $f(1)$. Show that the absolute error is less than $0.006$.</p>",
+          "points": 3,
+          "solution": [
+            {
+              "text": "The approximation is $1-1/9+1/45=41/45$."
+            },
+            {
+              "text": "At 1, the alternating term magnitudes decrease to zero. The first omitted magnitude is $1/(7\\cdot27)=1/189<0.006$, which bounds the absolute error."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Computes the approximation 41/45."
+            },
+            {
+              "points": 1,
+              "criterion": "Establishes decreasing magnitudes tending to zero for the alternating-series bound."
+            },
+            {
+              "points": 1,
+              "criterion": "Uses the first omitted magnitude 1/189 and compares it with 0.006."
+            }
+          ]
+        },
+        {
+          "label": "d",
+          "prompt": "<p>Find a rational expression for $f'(x)$ on the interior of the convergence interval.</p>",
+          "points": 2,
+          "solution": [
+            {
+              "text": "Termwise differentiation gives $f'(x)=\\sum_{n=0}^\\infty(-1)^nx^{2n}/3^n=\\sum_{n=0}^\\infty(-x^2/3)^n$."
+            },
+            {
+              "text": "The geometric-series formula gives $f'(x)=1/(1+x^2/3)=3/(3+x^2)$ for $|x|<\\sqrt3$."
+            }
+          ],
+          "rubric": [
+            {
+              "points": 1,
+              "criterion": "Differentiates to obtain the geometric power series."
+            },
+            {
+              "points": 1,
+              "criterion": "Sums it to the rational expression $3/(3+x^2)$."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

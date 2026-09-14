@@ -21,6 +21,8 @@ jobs:
           node --check public/app.js
           node --check public/engine.js
           node --check public/viz.js
+          node --check public/study-lab.js
+          node --check public/courses.js
           node --check public/canvas-insights.js
           node --check scripts/validate-content.mjs
           node --check scripts/check-math.mjs
@@ -28,10 +30,13 @@ jobs:
           node --check scripts/lint-ui.mjs
 
       - name: Engine, Canvas-insights, and store unit tests
-        run: node --test test/engine.test.mjs test/canvas-insights.test.mjs test/store.test.mjs
+        run: npm test
 
       - name: Language lint of app text (CLAUDE.md invariant 3)
-        run: node scripts/lint-ui.mjs
+        run: npm run lint
+
+      - name: Independent mastery bank and rubric validation
+        run: node scripts/check-mastery-bank.mjs
 
       # Units land incrementally while the curriculum is authored; validate
       # every unit file that exists rather than failing on the ones to come.
