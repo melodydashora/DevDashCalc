@@ -326,6 +326,61 @@ export async function dbSet(key, value) {
     [checkKey(key), JSON.stringify(value)]);
 }
 
+// Source-location histories are append-only. Reconcile replicas by value,
+// retaining every prior occurrence, including legacy entries without IDs.
+// A JSONB database may reorder object keys, so compare canonical JSON values.
+function recordIdentity(value) {
+  if (Array.isArray(value)) return `[${value.map(recordIdentity).join(',')}]`;
+  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${recordIdentity(value[key])}`).join(',')}}`;
+  return JSON.stringify(value);
+}
+
+export function mergeAppendOnlyRecords(existing, incoming) {
+  if (!Array.isArray(existing) || !Array.isArray(incoming)) throw new TypeError('Source history must be an array.');
+  const merged = [...existing], counts = new Map(), observed = new Map();
+  for (const entry of existing) {
+    const identity = recordIdentity(entry);
+    counts.set(identity, (counts.get(identity) || 0) + 1);
+  }
+  for (const entry of incoming) {
+    const identity = recordIdentity(entry), occurrence = (observed.get(identity) || 0) + 1;
+    observed.set(identity, occurrence);
+    if (occurrence > (counts.get(identity) || 0)) merged.push(entry);
+  }
+  return merged;
+}
+
+export async function dbAppendRecords(key, records) {
+  if (!Array.isArray(records)) throw new TypeError('Source history must be an array.');
+  const cfg = config();
+  await ensureTable(cfg);
+  // ON CONFLICT locks the current row before combining histories. Concurrent
+  // server instances therefore cannot replace one another's additions. Match
+  // repeated values by occurrence, rather than removing any prior duplicate.
+  // Malformed/non-array stored JSON raises an error and leaves that row intact.
+  const rows = await pgQuery(cfg,
+    `INSERT INTO ${STORE_TABLE} AS saved (key, value, updated_at) VALUES ($1, $2, now())
+     ON CONFLICT (key) DO UPDATE SET value = (
+       saved.value::jsonb || COALESCE((
+         SELECT jsonb_agg(candidate.item ORDER BY candidate.ordinality)
+         FROM (
+           SELECT incoming.item, incoming.ordinality,
+                  row_number() OVER (PARTITION BY incoming.item ORDER BY incoming.ordinality) AS occurrence
+           FROM jsonb_array_elements(EXCLUDED.value::jsonb) WITH ORDINALITY AS incoming(item, ordinality)
+         ) AS candidate
+         WHERE candidate.occurrence > (
+           SELECT count(*) FROM jsonb_array_elements(saved.value::jsonb) AS previous(item)
+           WHERE previous.item = candidate.item
+         )
+       ), '[]'::jsonb)
+     )::text, updated_at = now()
+     WHERE jsonb_typeof(saved.value::jsonb) = 'array'
+     RETURNING value`, [checkKey(key), JSON.stringify(records)]);
+  const merged = JSON.parse(rows[0]?.[0] || 'null');
+  if (!Array.isArray(merged)) throw new Error('Source history append did not return an array.');
+  return merged;
+}
+
 // Seeding an existing file into the database must never overwrite a value
 // the database already holds — the database copy may be newer than a file
 // restored by a redeploy.

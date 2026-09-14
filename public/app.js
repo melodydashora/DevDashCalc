@@ -6,6 +6,7 @@ import * as E from '/engine.js';
 import * as CI from '/canvas-insights.js';
 import { explorersFor, mountExplorer, explorerTitle } from '/viz.js';
 import { mountStudyLab } from '/study-lab.js';
+import { mountPageCoach } from '/page-coach.js';
 import { activateFocusProfile, subscribeFocusSession } from '/focus-planner.js';
 import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
 
@@ -18,6 +19,9 @@ let tickTimer = null;        // optional elapsed-time display
 let labCleanup = null;
 let spatialCleanup = null;
 let focusCleanup = null;
+let pageCoachCleanup = null;
+let activeQuestionCoach = null;
+let coachCanvasReference = null;
 let activeProfile = 'learner';
 let switchingProfile = false;
 let profiles = [{ id: 'learner', name: 'My workspace' }];
@@ -62,6 +66,9 @@ function announce(text) { $('#live-region').textContent = text; }
 // Conversation lives in memory per question; only this question's content and
 // the learner's answer to it are sent to the server.
 function mountTutor(container, unit, q, ctx) {
+  if (/^#\/(?:practice|mastery|diagnostic|lesson)(?:\/|$)/.test(location.hash)
+      && (ctx.phase === 'before-answer' || activeQuestionCoach?.q.id === q.id)) activeQuestionCoach = { container, unit, q, ctx };
+  pageCoachCleanup?.refresh();
   const before = ctx.phase === 'before-answer';
   if (!TUTOR.available) {
     container.innerHTML = '<section class="coach-card"><h3>Astra AI coach</h3><p>AI coaching is not connected on this server yet. Built-in hints and worked solutions are available.</p></section>';
@@ -202,6 +209,7 @@ async function loadProgress(profile = activeProfile) {
 async function switchProfile(profile) {
   if (switchingProfile || profile === activeProfile || !profiles.some((p) => p.id === profile)) return;
   switchingProfile = true;
+  pageCoachCleanup?.(); pageCoachCleanup = null;
   mountView('<h1>Opening learner workspace</h1><p>Your current progress is being saved.</p>');
   document.querySelectorAll('#study-controls select').forEach((select) => { select.disabled = true; });
   clearTimeout(saveTimer);
@@ -294,6 +302,8 @@ function setNav(active) {
 }
 
 function mountView(html, { breadcrumb = [], nav = '' } = {}) {
+  activeQuestionCoach = null;
+  coachCanvasReference = null;
   clearInterval(tickTimer);
   if (labCleanup) { labCleanup(); labCleanup = null; }
   if (spatialCleanup) { spatialCleanup(); spatialCleanup = null; }
@@ -506,7 +516,7 @@ function mountQuestion(container, unit, q, opts, done) {
 function canvasPaceHtml() {
   if (!CANVAS.connected || !CANVAS.insights) return '<span class="kicker">School pace</span><h2>Bring your schoolwork into focus</h2><p>Canvas can suggest what to study next using upcoming work. Your independent learning stays open.</p><a class="btn secondary" href="#/canvas">Open Canvas planner</a>';
   const ins = CANVAS.insights;
-  const items = [...ins.plan.overdueOpen, ...ins.plan.buckets.flatMap((b) => b.items)];
+  const items = [...ins.plan.overdueOpen, ...ins.plan.buckets.flatMap((b) => b.items), ...ins.plan.noDueDate, ...ins.plan.later];
   const next = items[0];
   if (!next) return '<span class="kicker">School pace</span><h2>Room to explore</h2><p>No open deadlines in the selected Canvas view for the next five days. Choose any learning module.</p><a class="btn secondary" href="#/canvas">Change Canvas course</a>';
   const topicRules = [
@@ -587,12 +597,12 @@ async function viewFocus() {
     const { mountFocusPlanner } = await import('/focus-planner.js');
     if (!host.isConnected || profileId !== activeProfile) return;
     const ins = CANVAS.insights;
-    const task = ins && [...ins.plan.overdueOpen, ...ins.plan.buckets.flatMap((b) => b.items), ...ins.plan.later][0];
+    const task = ins && [...ins.plan.overdueOpen, ...ins.plan.buckets.flatMap((b) => b.items), ...ins.plan.noDueDate, ...ins.plan.later][0];
     const unit = [...allUnits()].filter((u) => !S.unitsPassed[u.id]).sort((a, b) => E.unitMastery(S, b) - E.unitMastery(S, a) || a.number - b.number)[0] || allUnits()[0];
     host.innerHTML = '';
     focusCleanup = mountFocusPlanner(host, {
       profileId, subject: S.settings.subject, courseLabel: subjectLabel(),
-      canvasTask: task ? { name: task.name, dueLabel: task.dueAt ? canvasDateTime(task.dueAt) : 'No due date', href: task.htmlUrl || '#/canvas/plan' } : null,
+      canvasTask: task ? { name: task.name, dueLabel: task.dueAt ? canvasDateTime(task.dueAt) : 'Due date needs checking', href: task.htmlUrl || '#/canvas/plan' } : null,
       suggestedUnit: unit ? { id: unit.id, title: unit.title } : null,
     });
   } catch {
@@ -1384,6 +1394,12 @@ function canvasTermsHtml() {
 
 // Shared wiring for every connected Canvas page.
 function wireCanvasControls(root, rerender) {
+  root.querySelectorAll('.canvas-inspect-course').forEach(button => button.addEventListener('click', () => {
+    const course = CANVAS.snapshot?.courses.find(c => c.id === button.dataset.courseId);
+    if (!course) return;
+    selectCanvasCourse(course.id);
+    location.hash = `#/canvas/course/${course.id}`;
+  }));
   const selectionChanged = () => {
     if (location.hash.startsWith('#/canvas/course/')) location.hash = '#/canvas';
     else rerender();
@@ -1540,7 +1556,7 @@ const canvasCountsLine = (ins) => {
 function canvasItemHtml(item, attention) {
   const side = [];
   const due = canvasDateTime(item.dueAt);
-  side.push(due ? `Due ${esc(due)}` : 'No due date');
+  side.push(due ? `Due ${esc(due)}` : 'Due date not reported in this data');
   if (item.pointsPossible !== null) side.push(`${esc(String(item.pointsPossible))} points possible`);
   if (item.attemptsRemaining !== null) {
     side.push(item.attemptsRemaining === 1 ? '1 attempt remains' : `${item.attemptsRemaining} attempts remain`);
@@ -1554,7 +1570,7 @@ function canvasItemHtml(item, attention) {
   const link = item.htmlUrl ? ` <a href="${esc(item.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas (new tab)</a>` : '';
   return `<div class="canvas-item${attention ? ' attention' : ''}">
     <div><strong>${esc(item.name)}</strong><span class="canvas-meta">${esc(item.courseName)}</span></div>
-    <div class="canvas-item-side"><span class="canvas-meta">${side.join(' · ')}</span>${tags.join(' ')}${link}</div>
+    <div class="canvas-item-side"><span class="canvas-meta">${side.join(' · ')}</span>${tags.join(' ')}${link}<button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(item.courseId)}" data-item-id="${esc(item.assignmentId)}">Find instructions</button></div>
   </div>`;
 }
 
@@ -1592,6 +1608,16 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
     body.innerHTML = `${canvasTabsHtml(activeTab)}${canvasHeadHtml()}${canvasTermsHtml()}${canvasNoteHtml()}${bodyBuilder()}`;
     wireCanvasControls(body, rerender);
     if (wire) wire(body);
+    body.querySelectorAll('.canvas-ask-instructions').forEach(button => button.addEventListener('click', () => {
+      const course = CANVAS.snapshot?.courses.find(c => c.id === button.dataset.courseId);
+      const moduleItem = course?.modules.flatMap(m => m.items || []).find(i => i.id === button.dataset.moduleItemId);
+      const assignment = course?.assignments.find(a => a.id === button.dataset.itemId);
+      const item = moduleItem || assignment;
+      if (!course || !item) return;
+      coachCanvasReference = { selectedCourseId: course.id, ...(moduleItem ? { moduleItemId: item.id } : { itemId: item.id }) };
+      pageCoachCleanup?.ask(`Find the instructions for "${item.title || item.name}" in "${course.name}". Explain the first step and check any due-date information. State what could not be read.`);
+      $('#page-coach-slot').scrollIntoView({ behavior: 'auto', block: 'start' });
+    }));
     CANVAS.note = '';
     renderMath(body);
   })();
@@ -1625,7 +1651,7 @@ function viewCanvas() {
       </div></details>` : '';
     const stale = ins.staleCourses.length ? `<details class="explorer-details"><summary>Courses not shown (${ins.staleCourses.length})</summary>
       <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; Students4AI only hides them here.</p>
-      <ul>${ins.staleCourses.map((c) => `<li>${esc(c.name)}</li>`).join('')}</ul></div></details>` : '';
+      <ul>${ins.staleCourses.map((c) => `<li>${esc(c.name)} <button type="button" class="quiet canvas-inspect-course" data-course-id="${esc(c.id)}">Inspect course materials</button></li>`).join('')}</ul></div></details>` : '';
     const otherTerms = ins.otherTermCourses.length ? `<details class="explorer-details"><summary>Courses in other terms (${ins.otherTermCourses.length})</summary>
       <div class="explorer-body"><p class="canvas-meta">These courses are in terms that are not selected under Terms shown. Select their term above to include them.</p>
       <ul>${ins.otherTermCourses.map((c) => `<li>${esc(c.name)} — ${esc(c.termName)}</li>`).join('')}</ul></div></details>` : '';
@@ -1693,7 +1719,8 @@ Thank you,
       ${canvasSectionHtml('Past due, and Canvas still accepts a submission', ins.plan.overdueOpen, true, '')}
       ${buckets}
       ${canvasSectionHtml('Due later than 5 days from now', ins.plan.later, false, '')}
-      ${canvasSectionHtml('No due date', ins.plan.noDueDate, false, '')}
+      ${ins.plan.noDueDate.length ? '<p class="canvas-note">Some work has no usable due date in the assignment data. A teacher may put dates in instructions, a schedule page, or a linked file. Use Find instructions to check the source; these tasks still belong in your plan.</p>' : ''}
+      ${canvasSectionHtml('Due date needs checking', ins.plan.noDueDate, false, '')}
       ${gaps}
       ${closed}
     </div>`;
@@ -1807,7 +1834,8 @@ function viewCanvasCourse(courseId) {
       return `<div class="card"><p>That course was not in the last Canvas load. Choose a course from the <a href="#/canvas">Canvas overview</a>.</p></div>`;
     }
     const row = CANVAS.insights.perCourse.find((r) => r.courseId === course.id);
-    if (!row) return `<div class="card"><h2>${esc(course.name)}</h2><p>This course is outside the current course or term selection. Choose it in the Canvas course dropdown to view its current summary.</p><a class="btn secondary" href="#/canvas">Back to Canvas overview</a></div>`;
+    const selectedOlderCourse = CANVAS.selectedCourseId === course.id && (!CANVAS.termIds?.length || !course.term?.id || CANVAS.termIds.includes(String(course.term.id)));
+    if (!row && !selectedOlderCourse) return `<div class="card"><h2>${esc(course.name)}</h2><p>This course is outside the current course or term selection. Choose it in the Canvas course dropdown to view its current summary.</p><a class="btn secondary" href="#/canvas">Back to Canvas overview</a></div>`;
     const p = course.moduleProgress;
     const stats = `<div class="canvas-stats">
       ${p && p.requirementCount > 0
@@ -1824,7 +1852,7 @@ function viewCanvasCourse(courseId) {
           : (items.length ? `<ul>${items.map((it) => {
               const req = it.completionRequirement;
               const state = req ? (req.completed ? 'requirement complete' : 'requirement not complete') : 'no completion requirement';
-              return `<li>${esc(it.title)} <span class="canvas-meta">(${esc(it.type)} · ${state})</span></li>`;
+              return `<li>${esc(it.title)} <span class="canvas-meta">(${esc(it.type)} · ${state})</span>${it.htmlUrl ? ` <a href="${esc(it.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas</a>` : ''} <button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(course.id)}" data-module-item-id="${esc(it.id)}">Find instructions</button></li>`;
             }).join('')}</ul>` : '<p class="canvas-meta">This module has no items.</p>');
         return `<details class="explorer-details" open><summary>${esc(m.name)}</summary><div class="explorer-body">${lines}</div></details>`;
       }).join('')}` : '';
@@ -1844,7 +1872,7 @@ function viewCanvasCourse(courseId) {
       const remaining = CI.attemptsRemaining(a);
       const side = [];
       const due = canvasDateTime(a.dueAt);
-      side.push(due ? `Due ${esc(due)}` : 'No due date');
+      side.push(due ? `Due ${esc(due)}` : a.dueDateStatus === 'no-date' ? 'Canvas returned an empty due-date field; check instructions' : 'Due-date field unavailable; check instructions');
       side.push(sub && sub.score !== null
         ? `${sub.score} of ${a.pointsPossible === null ? 'unknown' : a.pointsPossible} points`
         : (a.pointsPossible === null ? 'No points value' : `${a.pointsPossible} points possible`));
@@ -1852,13 +1880,15 @@ function viewCanvasCourse(courseId) {
       const attention = Boolean(sub && sub.missing && !sub.excused);
       return `<div class="canvas-item${attention ? ' attention' : ''}">
         <div><strong>${esc(a.name)}</strong><span class="canvas-meta">${side.join(' · ')}</span></div>
-        <div class="canvas-item-side"><span class="tag">${state}</span>${sub && sub.late && sub.submittedAt ? '<span class="tag">Submitted late</span>' : ''}${a.isQuiz ? '<span class="tag">Quiz</span>' : ''}</div>
+        <div class="canvas-item-side"><span class="tag">${state}</span>${sub && sub.late && sub.submittedAt ? '<span class="tag">Submitted late</span>' : ''}${a.isQuiz ? '<span class="tag">Quiz</span>' : ''}${a.htmlUrl ? ` <a href="${esc(a.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas</a>` : ''}<button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(course.id)}" data-item-id="${esc(a.id)}">Find instructions</button></div>
       </div>`;
     }).join('');
     return `<div class="card">
       <h2>${esc(course.name)}</h2>
+      ${!row ? '<p class="canvas-note">This older course is outside the automatic planner. Its materials remain available here, including work without dates. Find instructions can inspect a specific item.</p>' : ''}
       <p class="canvas-meta">${esc(course.courseCode || 'Canvas course')}${course.term ? ` · ${esc(course.term.name)}` : ''}${course.score !== null ? ` · Current score ${course.score}${course.grade ? ` (${esc(course.grade)})` : ''}` : ' · No current score'}</p>
       ${course.assignmentsError ? `<p class="canvas-note">${esc(course.assignmentsError)}</p>` : ''}
+      ${course.modulesError ? `<p class="canvas-note">${esc(course.modulesError)}</p>` : ''}
       ${course.assignmentsTruncated ? '<p class="canvas-meta">Canvas returned more assignments than could be loaded; the list below is incomplete.</p>' : ''}
       ${course.modulesTruncated ? '<p class="canvas-meta">Canvas returned more modules or module items than could be loaded; the module list below is incomplete.</p>' : ''}
       ${stats}
@@ -1908,6 +1938,45 @@ function router() {
   else if (route === 'canvas') viewCanvas();
   else if (route === 'settings') viewSettings();
   else viewHome();
+  ensurePageCoach();
+}
+
+function ensurePageCoach() {
+  if (pageCoachCleanup) { pageCoachCleanup.refresh(); return; }
+  pageCoachCleanup = mountPageCoach($('#page-coach-slot'), {
+    context: () => ({ route: location.hash || '#/home', subject: S.settings.subject,
+      selectedCourseId: CANVAS.selectedCourseId, termIds: CANVAS.termIds || [],
+      questionId: activeQuestionCoach?.q.id, unitId: activeQuestionCoach?.unit.id,
+      questionPhase: activeQuestionCoach?.ctx.phase,
+      ...coachCanvasReference,
+      title: coachCanvasReference ? 'Canvas instructions' : $('h1', viewEl())?.textContent,
+    }),
+    renderMath,
+    request: async (payload, { signal }) => {
+      const profile = activeProfile;
+      const question = activeQuestionCoach?.container.isConnected ? activeQuestionCoach : null;
+      // Both coach boxes share the verified question handler and hint-credit
+      // callback. The page box cannot bypass an assisted mastery/placement.
+      const asksForSchool = /canvas|due.date|schedule|school/i.test(payload.message);
+      if (question && !coachCanvasReference && !asksForSchool) {
+        const { unit, q, ctx } = question;
+        const response = await fetch('/api/tutor', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          unitId: unit.id, questionId: q.id, phase: ctx.phase || 'before-answer',
+          learnerAnswer: ctx.learnerAnswer, chosenIndex: ctx.chosenIndex, history: ctx.history,
+          followUp: payload.message, transcript: payload.transcript,
+        }) });
+        const data = await response.json();
+        if (!response.ok || data.error) throw new Error(data.error || 'The question coach could not answer.');
+        if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
+        if (data.text) ctx.onHelp?.();
+        return data;
+      }
+      const { res, data } = await canvasApi('/api/canvas/coach', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!res.ok || data.error) throw new Error(data.error || 'The study coach could not answer.');
+      if (question && data.text && profile === activeProfile && !signal.aborted) question.ctx.onHelp?.();
+      return data;
+    },
+  });
 }
 
 async function boot() {

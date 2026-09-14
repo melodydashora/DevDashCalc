@@ -63,6 +63,89 @@ const isoOrNull = (v) => {
 };
 const timeOf = (iso) => (iso === null ? null : Date.parse(iso));
 
+// Bounded reference material for on-demand coaching. HTML is retained as data,
+// never as trusted markup or instructions; callers must render safely and keep
+// Canvas credentials and signed download URLs out of model context.
+export const CANVAS_CONTENT_LIMITS = Object.freeze({
+  html: 60_000, explanation: 4_000, rubricCriteria: 50,
+  rubricRatings: 10, rubricText: 24_000, assignmentDates: 50, locator: 2_048, url: 4_096,
+});
+const boundedText = (value, limit) => typeof value === 'string' ? value.slice(0, limit) : null;
+const textWasTruncated = (value, limit) => typeof value === 'string' && value.length > limit;
+const locatorOrNull = (value, limit = CANVAS_CONTENT_LIMITS.locator) => typeof value === 'string' && value.length > 0 && value.length <= limit ? value : null;
+const idOrNull = (value) => (typeof value === 'string' || typeof value === 'number' && Number.isSafeInteger(value)) ? locatorOrNull(String(value), 128) : null;
+const integerOrNull = (value, min) => {
+  const number = numOrNull(value);
+  return Number.isSafeInteger(number) && number >= min ? number : null;
+};
+const booleanOrNull = (value) => typeof value === 'boolean' ? value : null;
+const dueDateStatus = (raw) => {
+  if (!raw || !Object.prototype.hasOwnProperty.call(raw, 'due_at') || raw.due_at === undefined) return 'not-provided';
+  if (raw.due_at === null) return 'no-date';
+  return isoOrNull(raw.due_at) === null ? 'invalid' : 'dated';
+};
+const referenceUrlOrNull = (value) => {
+  if (!locatorOrNull(value, CANVAS_CONTENT_LIMITS.url)) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && !url.username && !url.password ? value : null;
+  } catch { return null; }
+};
+
+function normalizeRubric(raw) {
+  const source = Array.isArray(raw) ? raw : [];
+  let remaining = CANVAS_CONTENT_LIMITS.rubricText;
+  let truncated = source.length > CANVAS_CONTENT_LIMITS.rubricCriteria;
+  const text = (value) => {
+    const limit = Math.min(CANVAS_CONTENT_LIMITS.explanation, remaining);
+    const result = boundedText(value, limit);
+    if (textWasTruncated(value, limit)) truncated = true;
+    remaining -= result?.length || 0;
+    return result;
+  };
+  const criteria = source.slice(0, CANVAS_CONTENT_LIMITS.rubricCriteria)
+    .filter((criterion) => criterion && typeof criterion === 'object' && !Array.isArray(criterion))
+    .map((criterion) => {
+      const ratings = Array.isArray(criterion.ratings) ? criterion.ratings : [];
+      if (ratings.length > CANVAS_CONTENT_LIMITS.rubricRatings) truncated = true;
+      return {
+        id: idOrNull(criterion.id), description: text(criterion.description),
+        longDescription: text(criterion.long_description), points: numOrNull(criterion.points),
+        criterionUseRange: booleanOrNull(criterion.criterion_use_range),
+        ratings: ratings.slice(0, CANVAS_CONTENT_LIMITS.rubricRatings)
+          .filter((rating) => rating && typeof rating === 'object' && !Array.isArray(rating))
+          .map((rating) => ({ id: idOrNull(rating.id), description: text(rating.description), longDescription: text(rating.long_description), points: numOrNull(rating.points) })),
+      };
+    });
+  return { criteria, truncated };
+}
+
+export function normalizeCanvasPage(raw) {
+  return {
+    id: idOrNull(raw?.page_id), pageUrl: locatorOrNull(raw?.url),
+    title: boundedText(raw?.title, CANVAS_CONTENT_LIMITS.explanation),
+    htmlUrl: referenceUrlOrNull(raw?.html_url),
+    bodyHtml: boundedText(raw?.body, CANVAS_CONTENT_LIMITS.html),
+    bodyTruncated: textWasTruncated(raw?.body, CANVAS_CONTENT_LIMITS.html),
+    updatedAt: isoOrNull(raw?.updated_at), published: booleanOrNull(raw?.published),
+    lockedForUser: booleanOrNull(raw?.locked_for_user),
+    lockExplanation: boundedText(raw?.lock_explanation, CANVAS_CONTENT_LIMITS.explanation),
+  };
+}
+
+export function normalizeCanvasDiscussion(raw) {
+  return {
+    id: idOrNull(raw?.id), assignmentId: idOrNull(raw?.assignment_id),
+    title: boundedText(raw?.title, CANVAS_CONTENT_LIMITS.explanation),
+    htmlUrl: referenceUrlOrNull(raw?.html_url),
+    bodyHtml: boundedText(raw?.message, CANVAS_CONTENT_LIMITS.html),
+    bodyTruncated: textWasTruncated(raw?.message, CANVAS_CONTENT_LIMITS.html),
+    updatedAt: isoOrNull(raw?.updated_at), published: booleanOrNull(raw?.published),
+    lockedForUser: booleanOrNull(raw?.locked_for_user),
+    lockExplanation: boundedText(raw?.lock_explanation, CANVAS_CONTENT_LIMITS.explanation),
+  };
+}
+
 // --------------------------------------------------------- URL validation
 // The Canvas base URL must be HTTPS against a public host: credentials are
 // never sent in clear text, and the server proxy cannot be pointed at local
@@ -182,11 +265,28 @@ export function normalizeAssignment(raw, groupId = '') {
   const rawSub = Array.isArray(raw?.submission) ? raw.submission[0] : raw?.submission;
   const sub = rawSub && typeof rawSub === 'object' ? rawSub : null;
   const types = Array.isArray(raw?.submission_types) ? raw.submission_types : [];
+  const rubric = normalizeRubric(raw?.rubric);
+  const allDates = Array.isArray(raw?.all_dates) ? raw.all_dates : [];
   return {
     id: str(raw?.id),
     groupId: str(groupId || raw?.assignment_group_id),
     name: str(raw?.name) || 'Untitled assignment',
     dueAt: isoOrNull(raw?.due_at),
+    // dueAt remains Canvas's effective date for the requesting learner. The
+    // supporting dates below must never replace it with another section's date.
+    dueDateStatus: dueDateStatus(raw),
+    hasOverrides: booleanOrNull(raw?.has_overrides),
+    updatedAt: isoOrNull(raw?.updated_at),
+    allDatesProvided: Array.isArray(raw?.all_dates),
+    allDatesTruncated: allDates.length > CANVAS_CONTENT_LIMITS.assignmentDates,
+    allDates: allDates.slice(0, CANVAS_CONTENT_LIMITS.assignmentDates)
+      .filter((date) => date && typeof date === 'object' && !Array.isArray(date))
+      .map((date) => ({
+        id: idOrNull(date.id), base: booleanOrNull(date.base),
+        title: boundedText(date.title, CANVAS_CONTENT_LIMITS.explanation),
+        dueAt: isoOrNull(date.due_at), dueDateStatus: dueDateStatus(date),
+        unlockAt: isoOrNull(date.unlock_at), lockAt: isoOrNull(date.lock_at),
+      })),
     lockAt: isoOrNull(raw?.lock_at),
     unlockAt: isoOrNull(raw?.unlock_at),
     lockedForUser: Boolean(raw?.locked_for_user),
@@ -194,6 +294,12 @@ export function normalizeAssignment(raw, groupId = '') {
     pointsPossible: numOrNull(raw?.points_possible),
     isQuiz: Boolean(raw?.is_quiz_assignment) || types.includes('online_quiz'),
     htmlUrl: str(raw?.html_url) || null,
+    descriptionHtml: boundedText(raw?.description, CANVAS_CONTENT_LIMITS.html),
+    descriptionTruncated: textWasTruncated(raw?.description, CANVAS_CONTENT_LIMITS.html),
+    submissionTypes: types.filter((type) => typeof type === 'string' && type.length <= 100).slice(0, 20),
+    lockExplanation: boundedText(raw?.lock_explanation, CANVAS_CONTENT_LIMITS.explanation),
+    rubric: rubric.criteria,
+    rubricTruncated: rubric.truncated,
     submission: sub
       ? {
           submittedAt: isoOrNull(sub.submitted_at),
@@ -214,11 +320,24 @@ export function normalizeModuleItem(raw) {
   const req = raw?.completion_requirement && typeof raw.completion_requirement === 'object'
     ? raw.completion_requirement
     : null;
+  const details = raw?.content_details && typeof raw.content_details === 'object' && !Array.isArray(raw.content_details)
+    ? raw.content_details : null;
   return {
     id: str(raw?.id),
     type: str(raw?.type),
     title: str(raw?.title) || 'Untitled item',
     contentId: raw?.content_id === null || raw?.content_id === undefined ? null : str(raw.content_id),
+    moduleId: idOrNull(raw?.module_id),
+    pageUrl: locatorOrNull(raw?.page_url),
+    htmlUrl: referenceUrlOrNull(raw?.html_url),
+    position: integerOrNull(raw?.position, 1),
+    indent: integerOrNull(raw?.indent, 0),
+    contentDetails: details ? {
+      dueAt: isoOrNull(details.due_at), unlockAt: isoOrNull(details.unlock_at), lockAt: isoOrNull(details.lock_at),
+      lockedForUser: booleanOrNull(details.locked_for_user),
+      lockExplanation: boundedText(details.lock_explanation, CANVAS_CONTENT_LIMITS.explanation),
+      pointsPossible: numOrNull(details.points_possible),
+    } : null,
     completionRequirement: req
       ? {
           type: str(req.type),

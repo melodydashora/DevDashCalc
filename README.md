@@ -346,6 +346,45 @@ DevDashCalc (repo root)
   (JS, CSS, and woff2 fonts, ~600 KB) so math renders with or without
   internet access — no CDN dependency at runtime.
 
+## Study coach and finding Canvas instructions
+
+An Astra study-coach box sits below every screen, with quick requests to pick
+a next step, find instructions, explain the current page, and check missing
+due dates. Replies identify GPT-6 Astra or the GPT-5.6 Sol fallback, link to
+retrieved sources, show lookup limitations, and provide explicit navigation
+buttons. The student chooses each action. Conversations stay in tab memory
+and clear when the learner, course, terms, resource, or active question changes.
+During a live question, both coach boxes share the canonical tutor and hint
+accounting; help cannot silently earn an independent mastery pass.
+
+Canvas assignments and module items have **Find instructions** buttons. The
+server reconstructs the selected workspace and course, then reads up to four
+typed resources from existing assignments, modules, pages, the course home
+page, and syllabus references. Publicly shared Google Docs linked from those
+materials can be read as bounded text, using no Canvas or Google credentials.
+That text lookup shares the same four-detail budget. Private documents stay
+explicitly unread with a link to open them. Files and external tools may provide links and metadata without
+readable contents; that limitation is shown. This is a bounded lookup, not a
+claim that every teacher resource or external document was searched.
+
+The app distinguishes a reported date, an explicitly empty date field, an
+omitted/invalid field, and deadline text inside instructions. Teacher prose
+never becomes an official deadline automatically. Undated assignments remain
+in the plan and are now considered by Home and the study-session picker.
+Older courses remain outside automatic pacing, with an explicit option to
+inspect their materials without deleting the older-course rule.
+
+Successful source locations become additional retrieval hints in the existing
+file/Postgres store (`cv-rule-<profile>`), scoped to the Canvas account and
+course. Old entries and versions remain intact. New hints never alter grades,
+submit work, change instructor rules, remove old rules, or authorize arbitrary
+SQL or URL access. The current learner selector provides family workspaces;
+it is not a replacement for authenticated accounts before public multi-user use.
+
+The implementation is in `public/page-coach.js`, `study-coach-context.js`,
+`canvas-retrieval.js`, and the server's `/api/canvas/coach` handler. It uses
+Node built-ins and the existing Replit `OPENAI_API_KEY`; no installation is needed.
+
 ## Adding or editing content
 
 Read `content/schema.md`, edit the unit JSON, then run `npm run validate`.
