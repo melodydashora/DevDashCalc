@@ -92,7 +92,8 @@ function mountTutor(container, unit, q, ctx) {
     const addMsg = (role, text) => {
       const div = document.createElement('div');
       div.className = `tutor-msg ${role}`;
-      const paragraphs = esc(text).split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+      const formatted = esc(text).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      const paragraphs = formatted.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
       div.innerHTML = `<span class="tutor-who">${role === 'user' ? 'You' : 'Coach'}</span>${paragraphs}`;
       log.appendChild(div);
       renderMath(div);
@@ -189,7 +190,13 @@ async function loadProgress(profile = activeProfile) {
   } catch { /* offline is fine */ }
   try { local = JSON.parse(localStorage.getItem(progressKey(profile)) || 'null'); } catch { /* ignore */ }
   const pick = (server?.savedAt || 0) >= (local?.savedAt || 0) ? server : local;
-  return ensureAppFields(pick || E.newState());
+  const state = ensureAppFields(pick || E.newState());
+  const entry = profiles.find((item) => item.id === profile);
+  if (entry && state.settings.name && entry.name !== state.settings.name) {
+    entry.name = String(state.settings.name).slice(0, 40);
+    try { localStorage.setItem('students4ai-profiles', JSON.stringify(profiles)); } catch { /* optional */ }
+  }
+  return state;
 }
 
 async function switchProfile(profile) {
