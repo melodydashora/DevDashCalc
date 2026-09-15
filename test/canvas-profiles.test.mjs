@@ -66,8 +66,9 @@ globalThis.fetch = async (url, options = {}) => {
   // catches any cache or preference lookup accidentally keyed by course only.
   if (endpoint === 'courses') return answer([{ id: '99', name: user.name + ' calculus course', course_code: 'CALC-BC', term: { id: '11', name: 'Fixture term' }, enrollments: [{ computed_current_score: Number(user.id) / 10 }] }]);
   if (endpoint === 'users/self/missing_submissions') return answer([]);
-  if (endpoint === 'courses/99/assignment_groups') return answer([{ id: '1', name: 'Work', assignments: [{ id: '7', name: user.name + ' assignment', points_possible: 10, submission: { workflow_state: 'unsubmitted' } }] }]);
+  if (endpoint === 'courses/99/assignment_groups') return answer([{ id: '1', name: 'Work', assignments: Array.from({ length: user.id === '900' ? 6 : 1 }, (_, i) => ({ id: String(7 + i), name: user.name + ' assignment' + (user.id === '900' ? ' ' + (i + 1) : ''), points_possible: 10, submission: { workflow_state: 'unsubmitted' } })) }]);
   if (endpoint === 'courses/99/assignments/7') return answer({ id:'7', name:user.name + ' assignment', description:'<p>' + user.name + ' instructions: read chapter 2 before the class on Friday.</p>', due_at:null, html_url:'https://school.example/courses/99/assignments/7' });
+  if (user.id === '900' && ['8','9','10','11','12'].some(id => endpoint === 'courses/99/assignments/' + id)) return answer({ id:endpoint.split('/').pop(), name:user.name + ' assignment', description:'<p>Review this assignment.</p>', due_at:null });
   if (endpoint === 'courses/99/pages' && user.id === '900') return answer({ message: 'Page list is unavailable' }, 404);
   if (endpoint === 'courses/99/pages') return answer([{page_id:'12',url:'weekly-plan',title:user.name + ' weekly schedule',html_url:'https://school.example/courses/99/pages/weekly-plan'}]);
   if (endpoint === 'courses/99/pages/weekly-plan') return answer({page_id:'12',url:'weekly-plan',title:user.name + ' weekly schedule',body:'<p>Read the limits instructions before class.</p>'});
@@ -280,6 +281,28 @@ test('a readable front page finds linked instructions despite page-index failure
   const history = JSON.parse(await readFile(join(sandbox, `data/cv-rule-${profile}.json`), 'utf8'));
   assert.ok(history.some(entry => entry.type === 'page' && entry.id === '13'));
   assert.ok(history.some(entry => entry.type === 'syllabus' && entry.id === '99'));
+});
+
+test('the next-step quick button and common planning questions retrieve current assessment sources before unrelated assignments', async () => {
+  for (const [index, message] of [
+    'Help me choose my next step',
+    'Help me prioritize my work',
+    'How should I prioritise my homework?',
+    'Help me with time management',
+    'Make a study plan',
+  ].entries()) {
+    const profile = `coach-planning-${index}`;
+    const connected = await connect(profile, 'test-page-index-denied-secret', false);
+    const result = await api('coach', { profile, method: 'POST', cookie: connected.cookie, body: {
+      pageContext: { route: '#/canvas/plan', subject: 'calculus-bc', selectedCourseId: '99' }, message,
+    } });
+    assert.equal(result.status, 200, message);
+    assert.match(result.data.text, /prepare the product and quotient rules for September 15/, message);
+    assert.ok(result.data.sources.some(source => source.discovery === 'front-page' && source.sourceState === 'available'), message);
+    assert.ok(result.data.sources.some(source => source.href === 'https://docs.google.com/document/d/fixtureassessmentplan/edit' && source.sourceState === 'available'), message);
+    assert.ok(result.data.sources.some(source => source.href === 'https://docs.google.com/document/d/fixtureprivatecalendar/edit' && source.sourceState === 'read_failed'), message);
+    assert.doesNotMatch(result.data.text, /Calendar confidential contents/, message);
+  }
 });
 
 test('a pending coach reply cannot return old-account data or a stale cookie after reconnect', async () => {
