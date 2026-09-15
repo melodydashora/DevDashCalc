@@ -6,7 +6,7 @@ import * as E from '/engine.js';
 import * as CI from '/canvas-insights.js';
 import { explorersFor, mountExplorer, explorerTitle } from '/viz.js';
 import { mountStudyLab } from '/study-lab.js';
-import { mountPageCoach } from '/page-coach.js';
+import { mountPageCoach, coachReplyIdentity, appendReply } from '/page-coach.js';
 import { activateFocusProfile, pauseFocusSessions, subscribeFocusSession } from '/focus-planner.js';
 import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
 import { apiFetch, captureEnrollment, isSignupRoute, accountGateKey, getAccountSession, mountAccountGate } from '/auth-ui.js';
@@ -2100,8 +2100,9 @@ function viewCanvasAssessment() {
   canvasPage(() => {
     const prior = CANVAS.assessment ? `
       <h3>Latest assessment</h3>
+      ${CANVAS.assessment.model ? `<p class="canvas-meta">${esc(coachReplyIdentity(CANVAS.assessment.model, CANVAS.assessment.fallback).caption)}</p>` : ''}
       <p class="canvas-meta">Generated ${esc(canvasDateTime(new Date(CANVAS.assessment.at).toISOString()) || '')} from a fresh pull of your Canvas data. It is kept until you leave or reload the app.</p>
-      <div class="canvas-assessment">${CANVAS.assessment.text.split(/\n{2,}/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('')}</div>` : '';
+      <div class="canvas-assessment"></div>` : '';
     return `<div class="card">
       <h2>Assessment</h2>
       <p class="canvas-meta">The assessment is written by the same AI service as the math tutor, from the Canvas data shown on The plan and Grades. It never receives your token. Canvas data is authoritative; where the assessment and Canvas disagree, Canvas is right.</p>
@@ -2114,6 +2115,8 @@ function viewCanvasAssessment() {
     </div>`;
   },
   ['Canvas', 'Assessment'], 'assessment', (body) => {
+    const assessment = $('.canvas-assessment', body);
+    if (assessment && CANVAS.assessment) { appendReply(assessment, CANVAS.assessment.text); renderMath(assessment); }
     const btn = $('.canvas-assess-btn', body);
     if (!btn) return;
     const status = $('.canvas-assess-status', body);
@@ -2136,7 +2139,7 @@ function viewCanvasAssessment() {
         // The finished assessment lives in CANVAS state, not in this page's
         // DOM, so navigating away while it was being written cannot lose it.
         if (requestProfile !== activeProfile || lens !== JSON.stringify({ termIds: CANVAS.termIds || [], selectedSubject: S.settings.subject, selectedCourseId: CANVAS.selectedCourseId })) return;
-        CANVAS.assessment = { text: data.text, at: Date.now() };
+        CANVAS.assessment = { text: data.text, at: Date.now(), model: data.model, fallback: Boolean(data.fallback) };
         announce('Assessment ready.');
         if ((location.hash || '') === '#/canvas/assessment') router();
       } catch (e) {

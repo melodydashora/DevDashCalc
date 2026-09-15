@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { appendMixedPrompt, mixedSubjectLabel, mixedProviderLabel, mixedSummaryAfter } from '../public/mixed-study.js';
 
 class FixtureNode {
-  constructor(tag, text = '') { this.tagName = tag.toUpperCase(); this.children = []; this.text = text; }
+  constructor(tag, text = '') { this.tagName = tag.toUpperCase(); this.children = []; this.text = text; this.attributes = {}; }
   set textContent(text) { this.text = text; this.children = []; }
   get textContent() { return this.text + this.children.map((child) => child.textContent).join(''); }
   set innerHTML(_) { throw new Error('Prompt rendering must not parse arbitrary HTML'); }
   appendChild(child) { this.children.push(child); return child; }
+  setAttribute(name, value) { this.attributes[name] = value; }
 }
 function withFixture(callback) {
   const original = globalThis.document;
@@ -45,10 +46,18 @@ test('generated prompt supports nested lists, basic tables and line breaks', () 
 test('subject and provider labels identify the actual course and source', () => {
   assert.equal(mixedSubjectLabel('physics'), 'AP Physics 1');
   assert.equal(mixedSubjectLabel('calculus-bc'), 'AP Calculus BC');
-  assert.equal(mixedProviderLabel('gpt-6-astra'), 'GPT-6 Astra');
-  assert.equal(mixedProviderLabel('gpt-5.6-sol'), 'GPT-5.6 Sol (backup)');
+  for (const [model, label] of [
+    ['claude-fable-5-1', 'Claude Fable 5.1'], ['claude-opus-5', 'Claude Opus 5'],
+    ['gpt-6-astra', 'GPT-6 Astra'], ['gpt-5.6-sol', 'GPT-5.6 Sol'],
+  ]) {
+    assert.equal(mixedProviderLabel(model), label);
+    assert.equal(mixedProviderLabel(model, true), `${label} (backup)`);
+  }
   assert.equal(mixedProviderLabel(null), 'Verified question generator');
-  assert.match(mixedProviderLabel('test-provider'), /test-provider/);
+  assert.equal(mixedProviderLabel('future-model-v2', true), 'AI model: future-model-v2 (backup)');
+  for (const model of ['anthropic', 'openai', 'google', 'gemini', '<script>bad</script>', 'x'.repeat(81), {}]) {
+    assert.equal(mixedProviderLabel(model), 'AI coach (model not reported)');
+  }
 });
 
 test('an older answer response cannot erase newly received coaching assistance', () => {

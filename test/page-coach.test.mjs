@@ -1,6 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { safeCoachHref, coachContextLabel, coachConversationScope, coachSourceDetail, parseCoachMarkdown, appendReply } from '../public/page-coach.js';
+import { safeCoachHref, coachContextLabel, coachConversationScope, coachSourceDetail, coachReplyIdentity, parseCoachMarkdown, appendReply } from '../public/page-coach.js';
+
+test('reply identity names the actual model and derives backup status from the response', () => {
+  for (const [model, name] of [
+    ['claude-fable-5-1', 'Claude Fable 5.1'], ['claude-opus-5', 'Claude Opus 5'],
+    ['gpt-6-astra', 'GPT-6 Astra'], ['gpt-5.6-sol', 'GPT-5.6 Sol'],
+  ]) {
+    assert.deepEqual(coachReplyIdentity(model), { speaker: name, caption: `Reply from ${name}` });
+    assert.deepEqual(coachReplyIdentity(model, true), { speaker: name, caption: `Reply from ${name} · backup coach` });
+  }
+});
+
+test('reply identity distinguishes source lookup, future models, and unknown model metadata', () => {
+  assert.deepEqual(coachReplyIdentity(null), { speaker: 'Study lookup', caption: 'Source lookup (AI unavailable)' });
+  assert.deepEqual(coachReplyIdentity('future-model-v2', true), { speaker: 'AI coach', caption: 'Reply from AI model: future-model-v2 · backup coach' });
+  for (const model of ['anthropic', 'openai', 'google', 'gemini', '<script>bad</script>', 'x'.repeat(81), {}]) {
+    assert.deepEqual(coachReplyIdentity(model), { speaker: 'AI coach', caption: 'Reply from AI coach (model not reported)' });
+  }
+});
 
 test('coach links allow known study destinations without accepting arbitrary hash commands', () => {
   for (const href of ['#/home', '#/focus', '#/mixed', '#/review', '#/settings', '#/diagnostic', '#/canvas', '#/canvas/plan', '#/canvas/grades', '#/canvas/assessment', '#/canvas/course/123', '#/unit/unit-09', '#/practice/unit-09', '#/mastery/unit-09', '#/lesson/unit-09/u9-l1']) {
@@ -11,9 +29,10 @@ test('coach links allow known study destinations without accepting arbitrary has
   }
 });
 
-test('external coach links require HTTPS and reject credentials, script URLs, and relative URLs', () => {
+test('external coach links accept HTTP and HTTPS but reject credentials, scripts, and relative URLs', () => {
   assert.equal(safeCoachHref('https://school.example/courses/42?module_item_id=123'), 'https://school.example/courses/42?module_item_id=123');
-  for (const href of ['javascript:alert(1)', 'data:text/html,x', 'file:///C:/secret', '//evil.example', 'https://user:pass@example.com', 'http://example.com', '/api/coach', ' https://example.com', 'https://example.com ', '']) {
+  assert.equal(safeCoachHref('http://example.com'), 'http://example.com/');
+  for (const href of ['javascript:alert(1)', 'data:text/html,x', 'file:///C:/secret', '//evil.example', 'https://user:pass@example.com', '/api/coach', ' https://example.com', 'https://example.com ', '']) {
     assert.equal(safeCoachHref(href), null, href);
   }
   for (const href of [null, undefined, 12, {}, 'https://example.com/' + 'x'.repeat(2048)]) assert.equal(safeCoachHref(href), null);
@@ -95,7 +114,7 @@ test('rendered tables are bounded to 50 rows and eight columns', () => {
   assert.equal(table.totalColumns, 10);
 });
 
-test('reply DOM uses semantic nodes and keeps HTML and links inert', () => {
+test('reply DOM uses semantic nodes and keeps HTML and unsafe links inert', () => {
   class FixtureNode {
     constructor(tag, text = '') { this.tag = tag; this.children = []; this.attributes = {}; this.text = text; }
     set textContent(text) { this.text = text; this.children = []; }

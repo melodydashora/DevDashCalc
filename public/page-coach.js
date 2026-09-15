@@ -1,17 +1,28 @@
 // Persistent page-level coaching. The host supplies context and transport;
 // this module stores conversation only in memory and never writes to Canvas.
+import { appendTutorInline, safeTutorHref } from './tutor-text.js';
 const MAX_MESSAGE = 2000;
 const MAX_REPLY = 24000;
 const QUICK_PROMPTS = ['Help me choose my next step', 'Find my Canvas instructions', 'Explain this page', 'Check missing due dates'];
 let nextCoachId = 0;
 
+export function coachReplyIdentity(model, fallback = false) {
+  if (model == null || (typeof model === 'string' && !model.trim())) {
+    return { speaker: 'Study lookup', caption: 'Source lookup (AI unavailable)' };
+  }
+  const names = new Map([
+    ['claude-fable-5-1', 'Claude Fable 5.1'], ['claude-opus-5', 'Claude Opus 5'],
+    ['gpt-6-astra', 'GPT-6 Astra'], ['gpt-5.6-sol', 'GPT-5.6 Sol'],
+  ]);
+  const modelId = typeof model === 'string' && /^[a-z0-9][a-z0-9._:-]{0,79}$/i.test(model) ? model : '';
+  const providerOnly = /^(?:anthropic|openai|google|gemini)$/i.test(modelId);
+  const speaker = names.get(modelId) || 'AI coach';
+  const attribution = names.get(modelId) || (modelId && !providerOnly ? `AI model: ${modelId}` : 'AI coach (model not reported)');
+  return { speaker, caption: `Reply from ${attribution}${fallback ? ' · backup coach' : ''}` };
+}
+
 export function safeCoachHref(value) {
-  if (typeof value !== 'string' || value.length > 2048 || value !== value.trim()) return null;
-  if (/^#\/(?:home|focus|mixed|review|settings|diagnostic|canvas(?:\/(?:plan|grades|assessment|course\/[0-9]+))?|(?:unit|practice|mastery)\/[a-z0-9-]{1,64}|lesson\/[a-z0-9-]{1,64}\/[a-z0-9-]{1,64})$/.test(value)) return value;
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' && !url.username && !url.password ? url.href : null;
-  } catch { return null; }
+  return safeTutorHref(value);
 }
 
 export function coachContextLabel(context = {}) {
@@ -58,13 +69,7 @@ function element(tag, className = '', text = '') {
 }
 
 function appendInline(node, text) {
-  // A small, text-only Markdown subset. AI text never becomes HTML or links.
-  const parts = text.split(/(\*\*[^*\n]+\*\*|\x60[^\x60\n]+\x60)/g);
-  for (const part of parts) {
-    if (part.startsWith('**') && part.endsWith('**') && part.length > 4) node.appendChild(element('strong', '', part.slice(2, -2)));
-    else if (part.startsWith('\x60') && part.endsWith('\x60') && part.length > 2) node.appendChild(element('code', '', part.slice(1, -1)));
-    else node.appendChild(document.createTextNode(part));
-  }
+  appendTutorInline(node, text);
 }
 
 function tableCells(line) {
@@ -82,7 +87,7 @@ function tableCells(line) {
   return cells;
 }
 
-/** Bounded, text-only Markdown blocks. HTML and model-generated links stay text. */
+/** Bounded Markdown blocks. Inline links use the shared URL-checked DOM renderer. */
 export function parseCoachMarkdown(value) {
   const lines = String(value ?? '').slice(0, MAX_REPLY).replace(/\r\n?/g, '\n').split('\n');
   const blocks = [];
@@ -268,9 +273,9 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
     form.setAttribute('aria-busy', String(value));
   }
 
-  function addMessage(role, text, caption) {
+  function addMessage(role, text, caption, speaker = 'AI coach') {
     const bubble = element('article', `page-coach-message ${role}`);
-    bubble.appendChild(element('p', 'page-coach-who', role === 'user' ? 'You' : 'Astra'));
+    bubble.appendChild(element('p', 'page-coach-who', role === 'user' ? 'You' : speaker));
     if (caption) bubble.appendChild(element('p', 'page-coach-message-context', caption));
     const content = element('div', 'page-coach-message-content');
     if (role === 'user') content.textContent = text;
@@ -302,7 +307,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
       const details = element('details', 'page-coach-limitations');
       details.appendChild(element('summary', '', 'Source lookup limits'));
       const list = element('ul');
-      for (const limitation of limitations) list.appendChild(element('li', '', limitation.slice(0, 700)));
+      for (const limitation of limitations) { const li = element('li'); appendTutorInline(li, limitation.slice(0, 700)); list.appendChild(li); }
       details.appendChild(list); bubble.appendChild(details);
     }
     if (Number.isSafeInteger(result.rulesAdded) && result.rulesAdded > 0) {
@@ -318,8 +323,10 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
         const li = element('li');
         const href = safeCoachHref(source.href);
         if (href) li.appendChild(makeLink(source.label.slice(0, 180), href));
-        else li.textContent = source.label.slice(0, 180);
-        if (typeof source.detail === 'string' && source.detail.trim()) li.appendChild(element('span', 'page-coach-source-detail', coachSourceDetail(source.detail)));
+        else appendTutorInline(li, source.label.slice(0, 180));
+        if (typeof source.detail === 'string' && source.detail.trim()) {
+          const detail = element('span', 'page-coach-source-detail'); appendTutorInline(detail, coachSourceDetail(source.detail)); li.appendChild(detail);
+        }
         list.appendChild(li);
       }
       if (list.children.length) { sourceBox.appendChild(list); bubble.appendChild(sourceBox); }
@@ -389,8 +396,8 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
       if (disposed || generation !== ownGeneration) return;
       if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('Empty coach reply');
       const reply = result.text.trim().slice(0, MAX_REPLY);
-      const modelLabel = result.model === 'gpt-6-astra' ? 'Reply from GPT-6 Astra' : result.model === 'gpt-5.6-sol' ? 'Reply from GPT-5.6 Sol · backup coach' : result.model ? 'AI coach reply' : 'Source lookup (AI unavailable)';
-      const bubble = addMessage('assistant', reply, modelLabel);
+      const identity = coachReplyIdentity(result.model, result.fallback);
+      const bubble = addMessage('assistant', reply, identity.caption, identity.speaker);
       addReferences(bubble, result);
       if (!result.refusal) addMemoryEditor(bubble, reply, turn.pageContext);
       turn.bubble.classList.remove('is-pending');
