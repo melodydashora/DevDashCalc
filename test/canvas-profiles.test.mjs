@@ -217,6 +217,12 @@ test('page coach reads typed source instructions, distinguishes missing dates an
   assert.equal(result.status,200);
   assert.match(result.data.text,/Original learner instructions/);
   assert.match(result.data.text,/not_reported/);
+  // The fake provider echoes its actual request, so this checks the timezone
+  // guidance reaches the model alongside unchanged zoned source timestamps.
+  assert.match(result.data.text,/For retrieval time, refer the learner to the time displayed on the source card/);
+  assert.match(result.data.text,/Do not convert a UTC or offset timestamp into an unqualified calendar date/);
+  assert.match(result.data.text,/reproduce the full supplied timestamp verbatim, including its Z or numeric timezone offset/);
+  assert.ok(result.data.sources.some(source => /T.*Z$/.test(source.readAt) && result.data.text.includes(source.readAt)));
   assert.ok(result.data.sources.some(s=>s.href==='https://school.example/courses/99/assignments/7'));
   assert.ok(result.data.rulesAdded >= 3, 'instruction, syllabus and front-page discoveries are retained');
   const first = JSON.parse(await readFile(join(sandbox,'data/cv-rule-learner.json'),'utf8'));
