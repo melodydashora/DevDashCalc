@@ -9,9 +9,10 @@ import { mountStudyLab } from '/study-lab.js';
 import { mountPageCoach } from '/page-coach.js';
 import { activateFocusProfile, pauseFocusSessions, subscribeFocusSession } from '/focus-planner.js';
 import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
-import { apiFetch, captureEnrollment, hasEnrollment, getAccountSession, mountAccountGate } from '/auth-ui.js';
+import { apiFetch, captureEnrollment, isSignupRoute, accountGateKey, getAccountSession, mountAccountGate } from '/auth-ui.js';
 import { mountStudentMemos, saveStudentMemo } from '/continuity-ui.js';
 import { homeCourseGroups, currentHomeTermIds, canvasRefreshDue } from '/student-home.js';
+import { mountCanvasAccount } from '/canvas-account.js';
 
 // ---------------------------------------------------------------- data & state
 const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [], freeResponse: [] };
@@ -35,6 +36,7 @@ let accountGateRoute = '';
 let accountGateNotice = '';
 let signingOut = false;
 let memosCleanup = null;
+let canvasAccountCleanup = null;
 let activeProfile = 'learner';
 let switchingProfile = false;
 let profiles = [{ id: 'learner', name: 'My workspace' }];
@@ -73,11 +75,11 @@ function applyAccountWorkspaces() {
   try { sessionStorage.setItem('students4ai-active-profile', activeProfile); } catch { /* optional */ }
 }
 
-function showAccountGate(notice = '') {
-  if (notice) accountGateNotice = notice;
-  const route = hasEnrollment() || (location.hash === '#/signup' && ACCOUNT?.allowSelfSignup) ? 'signup' : 'login';
+function showAccountGate(notice) {
+  if (notice !== undefined) accountGateNotice = notice;
+  const route = accountGateKey();
   if (accountGateActive && route === accountGateRoute && $('#account-form')) {
-    if (notice) $('#account-message').textContent = notice;
+    if (notice !== undefined) $('#account-message').textContent = notice;
     return;
   }
   accountGateRoute = route;
@@ -87,7 +89,8 @@ function showAccountGate(notice = '') {
   pageCoachCleanup?.(); pageCoachCleanup = null;
   resetCanvas();
   switchingProfile = false;
-  mountView('', { breadcrumb: ['Student sign-in'] });
+  const title = isSignupRoute() ? 'Create student account' : 'Student sign-in';
+  mountView('', { breadcrumb: [title] });
   S = null;
   $('#study-controls').hidden = true;
   $('#focus-status').hidden = true;
@@ -99,12 +102,13 @@ function showAccountGate(notice = '') {
   accountGateCleanup?.();
   accountGateCleanup = mountAccountGate(viewEl(), {
     session: ACCOUNT || {}, notice: accountGateNotice,
+    onSetupChanged: message => showAccountGate(message),
     onAuthenticated: async () => {
       history.replaceState(null, '', `${location.pathname}${location.search}#/home`);
       location.reload();
     },
   });
-  pageCoachCleanup = mountPageCoach($('#page-coach-slot'), { signedOut: true, context: () => ({ title: 'Student sign-in' }) });
+  pageCoachCleanup = mountPageCoach($('#page-coach-slot'), { signedOut: true, context: () => ({ title }) });
 }
 
 async function signOut(withoutSync = false) {
@@ -386,6 +390,7 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   const controlsFocused = $('#study-controls')?.contains(document.activeElement);
   canvasBackgroundRefresh = null;
   memosCleanup?.(); memosCleanup = null;
+  canvasAccountCleanup?.(); canvasAccountCleanup = null;
   activeQuestionCoach = null;
   if (mixedCleanup) { mixedCleanup(); mixedCleanup = null; }
   activeMixedQuestion = null;
@@ -650,7 +655,7 @@ function mountSpatialSection(parent) {
 function homeClassesHtml() {
   const heading = '<span class="kicker">Your school workspace</span><h2>Your current classes</h2>';
   if (!CANVAS.checked) return heading + '<p>Checking your Canvas connection.</p>';
-  if (!CANVAS.connected) return heading + '<p>Connect your Canvas account to build this area from your own courses.</p><a class="btn secondary" href="#/canvas">Open Canvas</a>';
+  if (!CANVAS.connected) return heading + '<p>Canvas is optional. Your lessons, practice, and mastery checks are ready to use. Add your Canvas token in Settings whenever you want to include your school courses.</p><a class="btn secondary" href="#/settings">Set up Canvas in Settings</a>';
   if (!CANVAS.snapshot) return heading + '<p>Loading your courses from Canvas.</p>' + canvasNoteHtml() + '<button type="button" class="secondary home-refresh">Try loading Canvas again</button>';
   const groups = homeCourseGroups(CANVAS.snapshot, Date.now());
   const cards = courses => courses.map(course => {
@@ -1290,12 +1295,12 @@ function viewSettings() {
   const v = mountView(`
     <h1>Settings</h1>
     <div class="card">
-      <h2>Learner workspaces</h2>
+      <h2>${ACCOUNT?.authRequired ? 'Account information' : 'Learner workspaces'}</h2>
       ${ACCOUNT?.authRequired ? `<p>Signed in as <strong>${esc(ACCOUNT.user.username)}</strong>. Your account opens the same workspace on each computer.</p><p>The Learner menu contains only workspaces this account can access. Each student signs in with their own account.</p><div class="account-identity"><button type="button" class="secondary" id="account-signout">Save and sign out</button><span id="account-save-status" role="status"></span></div>` : `<p>Each workspace keeps its own practice history, course choice, and display settings. Switch learners using the dropdown above.</p>
       <form id="add-learner" class="numeric-row"><label>New learner name <input name="learnerName" type="text" maxlength="40" required></label><label>Starting course <select name="subject">${STUDY_SUBJECTS.map((course) => `<option value="${course.id}">${esc(course.label)}</option>`).join('')}</select></label><button type="submit">Add learner</button></form>
       <p class="session-progress">Each learner connects their own Canvas account from the Canvas tab. Switching learners also switches the Canvas connection. These are shared-device workspaces, without a separate sign-in for each learner.</p>`}
-      <p><a class="btn secondary" href="#/canvas">Manage this learner’s Canvas connection</a></p>
     </div>
+    <section class="card canvas-account-card" id="canvas-account-settings"></section>
     ${ACCOUNT?.authRequired ? '<section class="card" id="student-memos"></section>' : ''}
     <div class="card">
       <h2>Display</h2>
@@ -1336,6 +1341,44 @@ function viewSettings() {
   `, { breadcrumb: ['Home', 'Settings'], nav: 'settings' });
 
   $('#account-signout', v)?.addEventListener('click', () => signOut());
+  const settingsProfile = activeProfile;
+  const connectionSummary = (notice = '', retryDisconnect = false) => ({
+    connected: CANVAS.connected, userName: CANVAS.user?.name || '', host: CANVAS.host,
+    remembered: CANVAS.remembered, prepared: CANVAS.connectionSource === 'secret', notice, retryDisconnect,
+  });
+  const ensureSettingsProfile = () => {
+    if (activeProfile !== settingsProfile || switchingProfile || accountGateActive) throw new Error('The selected account changed.');
+  };
+  canvasAccountCleanup = mountCanvasAccount($('#canvas-account-settings', v), {
+    profileName: s.name || profiles.find(profile => profile.id === activeProfile)?.name || ACCOUNT?.user?.username || 'This learner',
+    loadConnection: async () => {
+      await canvasEnsureSession();
+      ensureSettingsProfile();
+      if (!CANVAS.checked) throw new Error('Canvas connection status could not be checked.');
+      return connectionSummary();
+    },
+    connect: async credentials => {
+      ensureSettingsProfile();
+      canvasGeneration++;
+      const { res, data } = await canvasApi('/api/canvas/session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentials),
+      });
+      if (!res.ok) throw new Error('Canvas did not accept or save the new connection.');
+      resetCanvas(); applyCanvasConnection(data); CANVAS.checked = true;
+      void loadSchoolContext(true);
+      return connectionSummary();
+    },
+    disconnect: async () => {
+      ensureSettingsProfile();
+      canvasGeneration++;
+      const { res, data } = await canvasApi('/api/canvas/session', { method: 'DELETE' });
+      if (!res.ok) throw new Error('Canvas could not be disconnected.');
+      resetCanvas(); applyCanvasConnection(data); CANVAS.checked = true;
+      return connectionSummary(data?.durableDeleted === false
+        ? 'Canvas is disconnected, but some saved connection data could not be removed. Retry disconnecting when the server is available.'
+        : 'Canvas is disconnected. Your lessons and saved learning progress are still available.', data?.durableDeleted === false);
+    },
+  });
   if ($('#student-memos', v)) memosCleanup = mountStudentMemos($('#student-memos', v), { profileId: activeProfile });
   $('#add-learner', v)?.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1592,6 +1635,7 @@ function canvasHeadHtml() {
     <p class="canvas-meta">Connection source: ${esc(source)}${asOf || '.'}</p>
     <div class="btn-row">
       <button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh Canvas data' : 'Load Canvas data'}</button>
+      <a class="btn secondary" href="#/settings">Update Canvas token in Settings</a>
       <button type="button" class="quiet canvas-disconnect">Disconnect</button>
     </div>
   </div>`;
@@ -2199,7 +2243,7 @@ const SAFE_ID = /^[a-z0-9-]{1,64}$/;
 
 function router() {
   captureEnrollment();
-  if (ACCOUNT?.authRequired && hasEnrollment()) { showAccountGate(ACCOUNT.authenticated ? `This browser is signed in as ${ACCOUNT.user.username}. Creating another student account will switch this browser to that student.` : ''); return; }
+  if (ACCOUNT?.authRequired && isSignupRoute()) { showAccountGate(); return; }
   if (ACCOUNT?.authRequired && (!ACCOUNT.authenticated || accountGateActive)) { showAccountGate(); return; }
   if (switchingProfile) return;
   const hash = location.hash || '#/home';
@@ -2306,8 +2350,8 @@ async function boot() {
       ACCOUNT.authenticated = false;
       showAccountGate('Your sign-in expired. Sign in again to continue.');
     });
-    if (ACCOUNT.authRequired && (!ACCOUNT.authenticated || hasEnrollment())) {
-      showAccountGate(ACCOUNT.authenticated ? `This browser is signed in as ${ACCOUNT.user.username}. Creating another student account will switch this browser to that student.` : '');
+    if (ACCOUNT.authRequired && (!ACCOUNT.authenticated || isSignupRoute())) {
+      showAccountGate();
       return;
     }
     if (ACCOUNT.authRequired) applyAccountWorkspaces();

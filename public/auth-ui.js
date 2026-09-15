@@ -1,17 +1,25 @@
 // Account screens never load student progress or Canvas data before sign-in.
-// Enrollment tokens live only in memory after being removed from the URL.
-let enrollmentToken = '';
+// Keep an invitation in this tab across reloads; never store account passwords.
+import { createEnrollmentSetup, parseEnrollmentInput } from './enrollment-setup.js';
+let setupState;
+function enrollment() {
+  if (!setupState) {
+    let storage;
+    try { storage = window.sessionStorage; } catch { /* The original setup fragment is the fallback. */ }
+    setupState = createEnrollmentSetup({ location, history, storage });
+  }
+  return setupState;
+}
 
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export function captureEnrollment() {
-  if (!location.hash.startsWith('#/signup?')) return;
-  const params = new URLSearchParams(location.hash.slice(location.hash.indexOf('?') + 1));
-  enrollmentToken = params.get('enrollment') || '';
-  history.replaceState(null, '', `${location.pathname}${location.search}#/signup`);
+  return enrollment().capture();
 }
 
-export const hasEnrollment = () => Boolean(enrollmentToken);
+export const isSignupRoute = () => location.hash.split('?')[0] === '#/signup';
+// Used only to invalidate a rendered gate when a different invitation arrives.
+export const accountGateKey = () => `${isSignupRoute() ? 'signup' : 'login'}:${enrollment().token()}`;
 
 export async function apiFetch(path, options) {
   const response = await fetch(path, options);
@@ -28,30 +36,36 @@ export async function getAccountSession() {
   return response.json();
 }
 
-export function mountAccountGate(root, { session = {}, notice = '', onAuthenticated }) {
+export function mountAccountGate(root, { session = {}, notice = '', onAuthenticated, onSetupChanged }) {
   let disposed = false;
   let pending = false;
-  const setup = Boolean(enrollmentToken) || (location.hash === '#/signup' && session.allowSelfSignup);
+  const setup = isSignupRoute();
+  const enrollmentToken = enrollment().token();
+  const needsInvitation = setup && !enrollmentToken && !session.allowSelfSignup;
   root.innerHTML = `<section class="account-screen" aria-labelledby="account-title">
     <p class="account-kicker">STUDENTS4AI</p>
     <h1 id="account-title">${setup ? 'Make this learning space yours' : 'Your learning space, wherever you study'}</h1>
-    <p>${setup ? (enrollmentToken ? 'Choose a student username and password. Your setup link connects the workspace prepared for you.' : 'Choose a student username and password to start a new learning workspace.') : 'Sign in to open your courses, saved progress, and Canvas connection.'}</p>
-    ${!setup && location.hash === '#/signup' ? '<p class="card">Reopen your private account setup link to continue. Setup links are not kept when this page reloads.</p>' : ''}
-    ${window.top !== window ? `<p class="card">Open the app in its own tab for student sign-in. <a href="${escape(location.origin + location.pathname + (enrollmentToken ? '#/signup?enrollment=' + encodeURIComponent(enrollmentToken) : '#/login'))}" target="_blank" rel="noopener noreferrer">Open Students4AI</a></p>` : ''}
+    <p>${setup ? (needsInvitation ? 'Use your invitation to connect to the classes and progress prepared for you.' : enrollmentToken ? 'Choose a student username and password. Your invitation connects the workspace prepared for you.' : 'Choose a student username and password to start a new learning workspace.') : 'Sign in to open your courses, saved progress, and Canvas connection.'}</p>
+    ${setup && session.authenticated ? `<p class="card">This browser is signed in as ${escape(session.user?.username)}. Creating another student account will switch this browser to that student.</p>` : ''}
+    ${window.top !== window ? `<p class="card">Open the app in its own tab to ${setup ? 'create your account' : 'sign in'}. <a href="${escape(location.origin + location.pathname + (setup ? enrollmentToken ? '#/signup?enrollment=' + encodeURIComponent(enrollmentToken) : '#/signup' : '#/login'))}" target="_blank" rel="noopener noreferrer">Open Students4AI</a></p>` : ''}
     <div class="card account-card">
       <h2>${setup ? 'Set up your student account' : 'Student sign-in'}</h2>
       <form id="account-form">
+        ${needsInvitation ? `<label for="account-invitation">Your setup link or invitation code</label>
+        <input id="account-invitation" name="invitation" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" required maxlength="2048" aria-describedby="invitation-help">
+        <p id="invitation-help" class="session-progress">Paste the private link provided for you, or its invitation code. Use your own invitation so your existing work stays with you. To get an invitation, ask the person who set up your learning space.</p>` : `
         <label for="account-username">Student username</label>
         <input id="account-username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required minlength="3" maxlength="32" pattern="[a-zA-Z0-9_-]+" aria-describedby="username-help">
         <p id="username-help" class="session-progress">3–32 letters, numbers, underscores, or hyphens.</p>
         <label for="account-password">Password</label>
         <input id="account-password" name="password" type="password" autocomplete="${setup ? 'new-password' : 'current-password'}" required ${setup ? 'minlength="15"' : ''} maxlength="256" ${setup ? 'aria-describedby="password-help"' : ''}>
-        ${setup ? '<p id="password-help" class="session-progress">Use 15 or more characters. A phrase you can remember works well.</p><label for="account-confirm">Confirm password</label><input id="account-confirm" name="confirmPassword" type="password" autocomplete="new-password" required maxlength="256">' : ''}
+        ${setup ? '<p id="password-help" class="session-progress">Use 15 or more characters. A phrase you can remember works well.</p><label for="account-confirm">Confirm password</label><input id="account-confirm" name="confirmPassword" type="password" autocomplete="new-password" required maxlength="256">' : ''}`}
         <p id="account-message" class="account-message" role="status" aria-live="polite">${escape(notice)}</p>
-        <button type="submit">${setup ? 'Create my account' : 'Sign in'}</button>
+        <button type="submit">${needsInvitation ? 'Continue to account setup' : setup ? 'Create my account' : 'Sign in'}</button>
       </form>
-      <p class="session-progress">${setup ? 'Use the same account on your own computer. Your Canvas token stays on the server.' : 'First visit: open the private account setup link provided for you. If you need help signing in, contact the app owner.'}</p>
-      ${setup ? '<button type="button" class="quiet" id="account-back">I already have an account</button>' : session.allowSelfSignup ? '<a href="#/signup">Create a student account</a>' : ''}
+      ${setup && enrollmentToken ? '<p class="session-progress">Your invitation is ready. You can refresh this tab and continue setup.</p><button type="button" class="quiet" id="account-change-invitation">Use a different invitation</button>' : ''}
+      <p class="session-progress">${setup ? 'After setup, use your account on any of your devices.' : 'Create your student account to get started.'}</p>
+      ${setup ? '<button type="button" class="quiet account-switch" id="account-back">I already have an account — sign in</button>' : '<a class="account-switch" href="#/signup">Create account</a>'}
     </div>
     <p class="account-note">Your classes. Your pace.<br>Ask for help. Keep building understanding.</p>
   </section>`;
@@ -61,6 +75,18 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
     event.preventDefault();
     if (pending || disposed) return;
     const values = new FormData(form);
+    if (needsInvitation) {
+      const token = parseEnrollmentInput(values.get('invitation'), location.origin);
+      if (!token) {
+        status.textContent = 'Paste your complete Students4AI setup link or its 43-character invitation code.';
+        form.elements.invitation.setAttribute('aria-invalid', 'true');
+        form.elements.invitation.focus();
+        return;
+      }
+      enrollment().remember(token);
+      onSetupChanged('');
+      return;
+    }
     const password = String(values.get('password') || '');
     if (setup && password !== values.get('confirmPassword')) {
       status.textContent = 'The passwords do not match. Enter the same password in both fields.';
@@ -81,13 +107,19 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
         body: JSON.stringify({ username: String(values.get('username') || '').trim(), password, ...(setup && enrollmentToken ? { enrollmentToken } : {}) }),
       });
       const data = await response.json().catch(() => ({}));
+      if (disposed) return;
       if (!response.ok || !data.authenticated) {
+        if (setup && ['INVALID_ENROLLMENT', 'ENROLLMENT_REQUIRED', 'WORKSPACE_ALREADY_OWNED'].includes(data.code)) {
+          enrollment().clear();
+          onSetupChanged(data.error || 'This invitation is unavailable. Use a new invitation, or sign in if you already created your account.');
+          return;
+        }
         status.textContent = data.error || 'Sign-in is temporarily unavailable. Try again in a moment.';
         return;
       }
       if (disposed) return;
       form.reset();
-      enrollmentToken = '';
+      enrollment().clear();
       await onAuthenticated(data);
     } catch {
       if (!disposed) status.textContent = 'Sign-in could not reach the server. Check your connection and try again.';
@@ -98,8 +130,15 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
     }
   });
   root.querySelector('#account-back')?.addEventListener('click', () => {
-    enrollmentToken = '';
+    if (pending || disposed) return;
+    enrollment().clear();
     location.hash = '#/login';
+    onSetupChanged('');
+  });
+  root.querySelector('#account-change-invitation')?.addEventListener('click', () => {
+    if (pending || disposed) return;
+    enrollment().clear();
+    onSetupChanged('');
   });
   return () => { disposed = true; form.reset(); };
 }

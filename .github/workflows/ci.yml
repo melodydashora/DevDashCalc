@@ -20,6 +20,8 @@ jobs:
           node --check auth.js
           node --check account-store.js
           node --check public/auth-ui.js
+          node --check public/enrollment-setup.js
+          node --check public/canvas-account.js
           node --check public/continuity-ui.js
           node --check public/student-home.js
           node --check continuity-store.js
