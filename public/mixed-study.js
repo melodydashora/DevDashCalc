@@ -1,6 +1,7 @@
 // One question at a time across selected courses. The server owns generation,
 // answer keys, grading and adaptation; this view never guesses correctness.
 import { apiFetch } from './auth-ui.js';
+import { appendTutorInline } from './tutor-text.js';
 const workspaces = new Map();
 let nextViewId = 0;
 
@@ -15,6 +16,10 @@ function button(text, action, className = 'secondary') {
   const el = node('button', className, text); el.type = 'button'; el.addEventListener('click', action); return el;
 }
 
+function linkedNode(tag, className, text) {
+  const el = node(tag, className); appendTutorInline(el, text); return el;
+}
+
 // Author-controlled prompts use a small HTML vocabulary. Preserve its structure
 // without copying attributes, executing markup, or enabling embedded resources.
 export function appendMixedPrompt(container, value) {
@@ -24,7 +29,12 @@ export function appendMixedPrompt(container, value) {
   for (const token of String(value ?? '').split(/(<\/?[a-zA-Z][^>]*>)/g)) {
     if (!token) continue;
     const tag = /^<(\/)?([a-zA-Z][a-zA-Z0-9]*)\b[^>]*>$/.exec(token);
-    if (!tag || !allowed.has(tag[2].toLowerCase())) { stack.at(-1).appendChild(document.createTextNode(decode(token))); continue; }
+    if (!tag) {
+      if (stack.some(el => el.tagName?.toLowerCase() === 'code')) stack.at(-1).appendChild(document.createTextNode(decode(token)));
+      else appendTutorInline(stack.at(-1), decode(token));
+      continue;
+    }
+    if (!allowed.has(tag[2].toLowerCase())) { stack.at(-1).appendChild(document.createTextNode(decode(token))); continue; }
     const name = tag[2].toLowerCase();
     if (tag[1]) {
       const index = stack.findLastIndex((el, index) => index > 0 && el.tagName.toLowerCase() === name);
@@ -50,9 +60,15 @@ export function mixedSummaryAfter(current, incoming) {
 }
 
 export function mixedProviderLabel(model, fallback = false) {
-  if (model === 'gpt-6-astra') return 'GPT-6 Astra';
-  if (model === 'gpt-5.6-sol') return 'GPT-5.6 Sol (backup)';
-  return model ? `AI model: ${String(model).slice(0, 80)}${fallback ? ' (backup)' : ''}` : 'Verified question generator';
+  if (model == null || (typeof model === 'string' && !model.trim())) return 'Verified question generator';
+  const names = new Map([
+    ['claude-fable-5-1', 'Claude Fable 5.1'], ['claude-opus-5', 'Claude Opus 5'],
+    ['gpt-6-astra', 'GPT-6 Astra'], ['gpt-5.6-sol', 'GPT-5.6 Sol'],
+  ]);
+  const modelId = typeof model === 'string' && /^[a-z0-9][a-z0-9._:-]{0,79}$/i.test(model) ? model : '';
+  const providerOnly = /^(?:anthropic|openai|google|gemini)$/i.test(modelId);
+  const label = names.get(modelId) || (modelId && !providerOnly ? `AI model: ${modelId}` : 'AI coach (model not reported)');
+  return `${label}${fallback ? ' (backup)' : ''}`;
 }
 
 function newWorkspace() {
@@ -295,7 +311,7 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
     const top = node('div', 'mixed-question-top');
     top.append(node('span', 'mixed-subject-tag', mixedSubjectLabel(question.subject)), node('span', 'mixed-level-tag', `Level ${question.difficulty || 1} of 3`)); card.appendChild(top);
     const heading = node('h2', '', topic?.title || 'Mixed study question'); heading.tabIndex = -1; card.appendChild(heading);
-    const why = node('div', 'mixed-why'); why.append(node('strong', '', 'Why this question'), node('p', '', state.reason)); card.appendChild(why);
+    const why = node('div', 'mixed-why'); why.append(node('strong', '', 'Why this question'), linkedNode('p', '', state.reason)); card.appendChild(why);
     const prompt = node('div', 'mixed-prompt'); appendMixedPrompt(prompt, question.prompt); card.appendChild(prompt);
     card.appendChild(node('p', 'mixed-source', question.model || question.provider ? `Question wording: ${mixedProviderLabel(question.model || question.provider, question.fallback)}. Answer checked independently.` : 'Generated from a verified question template. Astra is available for explanations.'));
     const options = node('fieldset', 'mixed-answer-options');
@@ -311,7 +327,7 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
     card.appendChild(options);
     if (state.hints.length) {
       const hintBox = node('aside', 'mixed-hints'); hintBox.appendChild(node('h3', '', 'Hints used'));
-      const list = node('ol'); for (const text of state.hints) list.appendChild(node('li', '', text)); hintBox.appendChild(list); card.appendChild(hintBox);
+      const list = node('ol'); for (const text of state.hints) list.appendChild(linkedNode('li', '', text)); hintBox.appendChild(list); card.appendChild(hintBox);
     }
     if (!state.feedback) {
       const actions = node('div', 'btn-row'); actions.appendChild(button('Check answer', checkAnswer, ''));
@@ -322,20 +338,20 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
       const feedback = node('section', `mixed-feedback ${state.feedback.correct ? 'is-correct' : 'is-not-yet'}`);
       const title = node('h3', '', state.feedback.correct ? 'Correct.' : 'Not yet.'); title.tabIndex = -1; feedback.appendChild(title);
       if (state.assisted) feedback.appendChild(node('p', 'mixed-help-note', 'Recorded with help. This practice still guides your next question.'));
-      if (state.feedback.misconception) feedback.appendChild(node('p', '', state.feedback.misconception));
+      if (state.feedback.misconception) feedback.appendChild(linkedNode('p', '', state.feedback.misconception));
       if (Number.isInteger(state.feedback.answerIndex) && question.choices[state.feedback.answerIndex] !== undefined) feedback.appendChild(node('p', 'mixed-verified-answer', `Verified answer: ${String.fromCharCode(65 + state.feedback.answerIndex)}. ${question.choices[state.feedback.answerIndex]}`));
       feedback.appendChild(node('h4', '', 'Worked solution'));
       const solution = state.feedback.solution;
       if (Array.isArray(solution)) {
         const list = node('ol');
         for (const step of solution) {
-          const item = node('li', '', typeof step === 'string' ? step : String(step.text || ''));
+          const item = linkedNode('li', '', typeof step === 'string' ? step : String(step.text || ''));
           if (step && typeof step.math === 'string' && step.math.trim()) item.appendChild(node('div', 'mixed-step-math', `$$${step.math}$$`));
           list.appendChild(item);
         }
         feedback.appendChild(list);
       }
-      else feedback.appendChild(node('div', 'mixed-solution', String(solution || 'The verified answer was checked by the study service.')));
+      else feedback.appendChild(linkedNode('div', 'mixed-solution', String(solution || 'The verified answer was checked by the study service.')));
       card.appendChild(feedback);
       const actions = node('div', 'btn-row');
       if (state.target && state.completed >= state.target) actions.appendChild(button('See session summary', finish, ''));

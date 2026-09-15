@@ -36,6 +36,7 @@ jobs:
           node --check mixed-practice.js
           node --check mixed-practice-api.js
           node --check public/page-coach.js
+          node --check public/tutor-text.js
           node --check public/mixed-study.js
           node --check store.js
           node --check public/app.js
