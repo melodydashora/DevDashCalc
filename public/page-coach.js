@@ -19,6 +19,7 @@ export function coachContextLabel(context = {}) {
   const pages = { home: 'Home', focus: 'Study session', review: 'Review', settings: 'Settings', diagnostic: 'Placement check', canvas: 'Canvas', unit: 'Learning module', lesson: 'Lesson', practice: 'Practice question', mastery: 'Mastery check' };
   const subjects = { 'calculus-bc': 'AP Calculus BC', 'calculus-ab': 'AP Calculus AB', physics: 'Physics', all: 'All courses' };
   const page = typeof context.title === 'string' && context.title.trim() ? context.title.slice(0, 120) : pages[route] || 'Current page';
+  if (context.canvasCourse === true) return page;
   return subjects[context.subject] ? `${page} · ${subjects[context.subject]}` : page;
 }
 

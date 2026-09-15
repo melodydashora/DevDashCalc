@@ -53,7 +53,7 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
       <p class="session-progress">${setup ? 'Use the same account on your own computer. Your Canvas token stays on the server.' : 'First visit: open the private account setup link provided for you. If you need help signing in, contact the app owner.'}</p>
       ${setup ? '<button type="button" class="quiet" id="account-back">I already have an account</button>' : session.allowSelfSignup ? '<a href="#/signup">Create a student account</a>' : ''}
     </div>
-    <p class="account-note">Calculus BC · Calculus AB · Physics<br>Choose your pace. Ask for help. Keep building understanding.</p>
+    <p class="account-note">Your classes. Your pace.<br>Ask for help. Keep building understanding.</p>
   </section>`;
   const form = root.querySelector('#account-form');
   const status = root.querySelector('#account-message');

@@ -19,6 +19,7 @@ import {
 } from './public/canvas-insights.js';
 import { hasDatabase, dbGet, dbSet, dbSeed, dbDelete, dbAppendRecords, mergeAppendOnlyRecords } from './store.js';
 import { normalizeSubjectId } from './public/courses.js';
+import { courseTimeStatus } from './public/student-home.js';
 import { gradeAnswer } from './public/engine.js';
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
@@ -620,7 +621,9 @@ async function canvasSnapshot(session) {
     'include[]': ['total_scores', 'term'],
   });
   const allCourses = coursesPage.items.map(normalizeCourse).filter((c) => CANVAS_NUMERIC_ID.test(c.id));
-  allCourses.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const timingRank = { current: 0, unknown: 1, upcoming: 2, past: 3 };
+  const readTime = Date.now();
+  allCourses.sort((a, b) => timingRank[courseTimeStatus(a, readTime)] - timingRank[courseTimeStatus(b, readTime)] || a.name.localeCompare(b.name));
   const kept = allCourses.slice(0, CANVAS_MAX_COURSES);
   const coursesTruncated = coursesPage.truncated || allCourses.length > kept.length;
 
