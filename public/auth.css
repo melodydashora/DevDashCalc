@@ -12,6 +12,12 @@
 .account-message { min-height: 1.6em; color: var(--notyet); }
 .account-card form button { width: 100%; margin: .2rem 0 .7rem; }
 .account-note { font-size: .9rem; }
+.account-switch { display: inline-block; margin-top: .5rem; padding: .7rem 1rem; border: 1px solid var(--accent); border-radius: 7px; font-weight: 600; }
+.canvas-account-card { overflow-wrap: anywhere; }
+.canvas-account-card form { display: grid; gap: .7rem; max-width: 620px; }
+.canvas-account-card input:not([type="checkbox"]) { width: 100%; min-width: 0; padding: .7rem .8rem; border: 1px solid var(--border); border-radius: 7px; font: inherit; background: var(--surface); color: var(--text); }
+.canvas-account-card [hidden] { display: none; }
+.canvas-account-card label { display: block; }
 .account-identity { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
 .account-identity button { padding: .35rem .65rem; font-size: .85rem; }
 .save-notice { color: var(--notyet); background: var(--notyet-soft); }

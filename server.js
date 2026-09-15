@@ -383,9 +383,22 @@ async function canvasStoreSave(profileId, baseUrl, token) {
   await mkdir(DATA, { recursive: true });
   const file = canvasCredentialFile(profileId);
   const tmp = `${file}.${randomUUID()}.tmp`;
-  await writeFile(tmp, JSON.stringify({ baseUrl, token }), { encoding: 'utf8', mode: 0o600 });
+  const value = { baseUrl, token };
+  await writeFile(tmp, JSON.stringify(value), { encoding: 'utf8', mode: 0o600 });
+  if (hasDatabase()) {
+    try {
+      // Keep the previous local credential, mode, and live session until the
+      // durable write has succeeded. A queued background write is too early
+      // to tell a learner that their replacement token has been remembered.
+      const key = canvasCredentialKey(profileId);
+      await enqueue(key, () => dbSet(key, value));
+    } catch {
+      try { await unlink(tmp); } catch { /* Never expose credential-write errors. */ }
+      return false;
+    }
+  }
   await rename(tmp, file);
-  storeWrite(canvasCredentialKey(profileId), { baseUrl, token });
+  return true;
 }
 
 async function canvasStoreLoad(profileId) {
@@ -965,10 +978,13 @@ async function handleCanvas(req, res, url) {
         } catch (e) {
           return sendCanvasError(req, res, e, null, profileId, false);
         }
+        if (remember && !await canvasStoreSave(profileId, baseUrl, token)) {
+          return sendJson(res, 503, { profileId, code: 'canvas-save-unavailable',
+            error: 'Canvas verified this token, but saving the updated connection could not be confirmed. Try again in a moment.' });
+        }
         await canvasSecretStateSave(profileId, true, remember ? 'manual' : 'manual-session');
         canvasSecretFailures.delete(profileId);
-        if (remember) await canvasStoreSave(profileId, baseUrl, token);
-        else await canvasStoreDelete(profileId);
+        if (!remember) await canvasStoreDelete(profileId);
         // Replacing one connection cannot leave an old cookie for that same
         // workspace pointing to the previous person's Canvas account.
         for (const [id, session] of canvasSessions) {

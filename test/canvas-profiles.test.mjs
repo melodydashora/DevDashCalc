@@ -100,19 +100,19 @@ const storeShim = `import * as real from './store-real.js';
 export const mergeAppendOnlyRecords = real.mergeAppendOnlyRecords;
 const clone = value => JSON.parse(JSON.stringify(value));
 const state = () => globalThis.fixtureDb;
-const beforeWrite = async () => {
+const beforeWrite = async key => {
   if (state().nextGate) { const gate = state().nextGate; state().nextGate = null; await globalThis.fixtureWait(gate); }
-  if (state().failWrites) throw new Error('Fabricated database outage');
+  if (state().failWrites || state().failWriteKey === key) throw new Error(state().writeFailureMessage || 'Fabricated database outage');
 };
 export const hasDatabase = () => state().enabled || real.hasDatabase();
 export const dbGet = async key => state().enabled ? clone(state().rows.get(key) ?? null) : real.dbGet(key);
 export const dbSet = async (key, value) => {
   if (!state().enabled) return real.dbSet(key, value);
-  await beforeWrite(); state().rows.set(key, clone(value));
+  await beforeWrite(key); state().rows.set(key, clone(value));
 };
 export const dbAppendRecords = async (key, value) => {
   if (!state().enabled) return real.dbAppendRecords(key, value);
-  await beforeWrite();
+  await beforeWrite(key);
   const merged = real.mergeAppendOnlyRecords(state().rows.get(key) ?? [], value);
   state().rows.set(key, clone(merged)); return clone(merged);
 };
@@ -410,6 +410,86 @@ test('failed replacement, disconnect, and revoked token affect only the selected
   assert.equal((await api('session', { profile: 'student-esha' })).data.connected, false);
   assert.equal((await api('session')).data.user.name, 'Original learner');
   assert.doesNotMatch(output, /test-(rejected|expiring)-secret/, 'upstream messages cannot echo tokens into logs');
+});
+
+test('a failed remembered-token database write preserves the existing connection and other workspaces', async () => {
+  const profile = 'credential-save-failed', otherProfile = 'credential-save-independent';
+  const authKey = `cv-auth-${profile}`, modeKey = `cv-env-${profile}`;
+  const authFile = join(sandbox, `data/${authKey}.json`), modeFile = join(sandbox, `data/${modeKey}.json`);
+  await fixtureDatabase({ enabled: true, rows: [], failWrites: false, failWriteKey: null });
+  try {
+    const original = await connect(profile, originalToken);
+    const other = await connect(otherProfile, eshaToken);
+    const originalFile = await readFile(authFile, 'utf8'), originalModeFile = await readFile(modeFile, 'utf8');
+    const originalRows = await fixtureDatabase({});
+    const logStart = output.length;
+    await fixtureDatabase({ failWriteKey: authKey, writeFailureMessage: 'Private database detail contains test-other-secret and Bearer fixture credential' });
+    const failed = await connect(profile, 'test-other-secret');
+    assert.equal(failed.status, 503);
+    assert.equal(failed.data.code, 'canvas-save-unavailable');
+    assert.equal(failed.data.remembered, undefined);
+    assert.equal(failed.rawCookie, '', 'failed replacement cannot replace the current browser session');
+    assert.doesNotMatch(JSON.stringify(failed.data), /Private database|Bearer|test-other-secret/);
+    assert.equal((await api('session', { profile, cookie: original.cookie })).data.user.name, 'Original learner');
+    assert.equal((await api('session', { profile })).data.user.name, 'Original learner');
+    assert.equal(await readFile(authFile, 'utf8'), originalFile);
+    assert.equal(await readFile(modeFile, 'utf8'), originalModeFile);
+    const rows = await fixtureDatabase({});
+    assert.deepEqual(rows.get(authKey), originalRows.get(authKey));
+    assert.deepEqual(rows.get(modeKey), originalRows.get(modeKey));
+    assert.equal((await readdir(join(sandbox, 'data'))).filter(name => name.startsWith(`${authKey}.json.`)).length, 0, 'failed staged credential is removed');
+    assert.equal((await api('session', { profile: otherProfile, cookie: other.cookie })).data.user.name, 'Esha');
+    const otherUpdate = await connect(otherProfile, 'test-other-secret');
+    assert.equal(otherUpdate.status, 200);
+    assert.equal(otherUpdate.data.remembered, true);
+    assert.equal((await api('session', { profile: otherProfile, cookie: otherUpdate.cookie })).data.user.name, 'Other learner');
+    assert.doesNotMatch(output.slice(logStart), /Private database|Bearer|test-other-secret/, 'database errors cannot leak supplied credentials into logs');
+    const savedRows = await fixtureDatabase({});
+    await stopServer(); await startServer();
+    await fixtureDatabase({ enabled: true, rows: [...savedRows], failWrites: false });
+    assert.equal((await api('session', { profile })).data.user.name, 'Original learner', 'restart restores the original durable token');
+    assert.equal((await api('session', { profile: otherProfile })).data.user.name, 'Other learner');
+  } finally {
+    await fixtureDatabase({ enabled: false, rows: [], failWrites: false, failWriteKey: null, writeFailureMessage: null });
+  }
+});
+
+test('remembered replacement waits for its credential database write before changing files or connection mode', async () => {
+  const profile = 'credential-save-held', otherProfile = 'credential-save-parallel';
+  const authKey = `cv-auth-${profile}`, modeKey = `cv-env-${profile}`;
+  const authFile = join(sandbox, `data/${authKey}.json`), modeFile = join(sandbox, `data/${modeKey}.json`);
+  await fixtureDatabase({ enabled: true, rows: [], failWrites: false, failWriteKey: null });
+  let pending;
+  try {
+    await connect(profile, originalToken);
+    const other = await connect(otherProfile, eshaToken);
+    const originalFile = await readFile(authFile, 'utf8'), originalModeFile = await readFile(modeFile, 'utf8');
+    const originalRows = await fixtureDatabase({ nextGate: 'credential-write-gate' });
+    const reached = waitingFor('credential-write-gate');
+    let completed = false;
+    pending = connect(profile, 'test-other-secret').then(result => { completed = true; return result; });
+    await reached;
+    assert.equal((await api('session', { profile: otherProfile, cookie: other.cookie })).data.user.name, 'Esha');
+    assert.equal((await connect(otherProfile, originalToken)).status, 200, 'other workspace writes do not wait for this credential');
+    assert.equal(completed, false, 'no success response before the durable credential write');
+    assert.equal(await readFile(authFile, 'utf8'), originalFile);
+    assert.equal(await readFile(modeFile, 'utf8'), originalModeFile);
+    const heldRows = await fixtureDatabase({});
+    assert.deepEqual(heldRows.get(authKey), originalRows.get(authKey));
+    assert.deepEqual(heldRows.get(modeKey), originalRows.get(modeKey));
+    child.send({ release: 'credential-write-gate' });
+    const updated = await pending;
+    assert.equal(updated.status, 200);
+    assert.equal(updated.data.remembered, true);
+    assert.equal(updated.data.user.name, 'Other learner');
+    assert.equal((await fixtureDatabase({})).get(authKey).token, 'test-other-secret');
+    assert.equal(JSON.parse(await readFile(authFile, 'utf8')).token, 'test-other-secret');
+    assert.equal((await api('session', { profile, cookie: updated.cookie })).data.user.name, 'Other learner');
+  } finally {
+    child.send({ release: 'credential-write-gate' });
+    if (pending) await pending;
+    await fixtureDatabase({ enabled: false, rows: [], failWrites: false, failWriteKey: null, nextGate: null });
+  }
 });
 
 test('remembered profile connections survive restart independently and invalid ids never alias the learner', async () => {

@@ -47,7 +47,16 @@ session and a fresh workspace permission check. Browser copies of workspace
 lists cannot grant access. Open Replit's app preview in its own tab when the
 embedded preview blocks sign-in cookies.
 
-`AUTH_ALLOW_SIGNUP=1` is an explicit later option for a new random workspace;
+The sign-in screen has a **Create account** entry. In invitation-only mode,
+paste the private setup link or invitation code; unfinished setup survives a
+page refresh in that tab. Passwords are never saved in browser storage.
+
+After signing in, **Settings → Canvas connection** lets a student add or update
+their own Canvas token, see the verified connection, or disconnect. Canvas is
+optional: lessons, practice, and mastery checks work without it. Remembered
+token updates wait for the database write before reporting success.
+
+`AUTH_ALLOW_SIGNUP=1` is an explicit option for a new random workspace;
 it never lets a student claim an existing workspace by submitting its ID.
 Password reset, recovery email, administrative account screens, and Canvas
 OAuth are not implemented. Rotating `SESSION_SECRET` invalidates existing
