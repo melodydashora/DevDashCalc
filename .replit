@@ -6,9 +6,10 @@ run = "node server.js"
 # The server reads PORT; Replit's webview maps local 8080 to external 80.
 [env]
 PORT = "8080"
+AUTH_REQUIRED = "1"
 
 [deployment]
-run = ["sh", "-c", "node server.js"]
+run = ["sh", "-c", "AUTH_REQUIRED=1 node server.js"]
 deploymentTarget = "cloudrun"
 
 [[ports]]

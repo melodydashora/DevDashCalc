@@ -167,7 +167,7 @@ export function appendReply(node, text) {
  * cleanup.ask(message) is for explicit user actions elsewhere on the page;
  * cleanup.focus(message?) opens a draft without submitting it.
  */
-export function mountPageCoach(container, { context = () => ({}), request, renderMath } = {}) {
+export function mountPageCoach(container, { context = () => ({}), request, renderMath, saveMemo, mountNotes, signedOut = false } = {}) {
   const id = `page-coach-${++nextCoachId}`;
   let disposed = false;
   let busy = false;
@@ -176,6 +176,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   let pendingTurn = null;
   let retryTurn = null;
   let lastScope = null;
+  let notesCleanup = null;
   const transcript = [];
   const removers = [];
   const on = (target, type, handler) => {
@@ -196,6 +197,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   const tag = element('span', 'page-coach-tag', 'ONE NEXT STEP');
   header.append(title, tag);
   const intro = element('p', 'page-coach-intro', 'Ask Astra to explain this page, find your school instructions, or help you choose what to do next.');
+  if (signedOut) intro.textContent = 'Sign in to get personalized study help from Astra. Your courses, saved learning notes, and progress stay connected to your account.';
   const contextLine = element('p', 'page-coach-context');
   const quickRow = element('div', 'page-coach-quick');
   quickRow.setAttribute('aria-label', 'Quick requests for Astra');
@@ -217,8 +219,30 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   const status = element('span', 'page-coach-status'); status.setAttribute('role', 'status');
   actions.append(send, cancel, retry, status);
   form.append(label, input, actions);
-  const note = element('p', 'page-coach-note', 'You choose the next action. Suggested links open only when you click them. This conversation stays in this tab.'); note.id = `${id}-note`;
-  card.append(header, intro, contextLine, quickRow, log, form, note);
+  const note = element('p', 'page-coach-note', `You choose the next action. Suggested links open only when you click them. This conversation stays in this tab.${saveMemo ? ' Save a learning note when you want Astra to remember something for a future session.' : ''}`); note.id = `${id}-note`;
+  if (signedOut) {
+    quickRow.hidden = true; form.hidden = true; log.hidden = true;
+    note.textContent = 'Personalized coaching starts after sign-in. Ask the app owner for help with account setup.';
+  }
+  const workspace = element('div', 'page-coach-workspace');
+  const conversation = element('div', 'page-coach-conversation');
+  const notebook = element('aside', 'page-coach-notebook'); notebook.hidden = true;
+  notebook.id = `${id}-notebook`; notebook.setAttribute('aria-label', 'Coach Notes');
+  conversation.append(intro, contextLine, quickRow, log, form, note);
+  workspace.append(conversation, notebook);
+  if (typeof mountNotes === 'function' && !signedOut) {
+    const notesButton = element('button', 'secondary', 'Coach Notes'); notesButton.type = 'button';
+    notesButton.setAttribute('aria-controls', notebook.id); notesButton.setAttribute('aria-expanded', 'false');
+    on(notesButton, 'click', () => {
+      notebook.hidden = !notebook.hidden;
+      notesButton.setAttribute('aria-expanded', String(!notebook.hidden));
+      workspace.classList.toggle('notes-open', !notebook.hidden);
+      notesCleanup?.(); notesCleanup = null;
+      if (!notebook.hidden) notesCleanup = mountNotes(notebook);
+    });
+    header.appendChild(notesButton);
+  }
+  card.append(header, workspace);
   container.replaceChildren(card);
 
   function refresh() {
@@ -301,6 +325,42 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
     return link;
   }
 
+  function addMemoryEditor(bubble, reply, pageContext) {
+    if (typeof saveMemo !== 'function') return;
+    const details = element('details', 'coach-memo-editor');
+    details.appendChild(element('summary', '', 'Remember a learning note from this reply'));
+    const label = element('label', '', 'Review the note before saving');
+    const input = element('textarea'); input.rows = 4; input.maxLength = 2000;
+    input.value = reply.slice(0, 2000); label.appendChild(input);
+    const help = element('p', 'session-progress', reply.length > 2000 ? 'This reply is longer than a note. The first 2000 characters are shown; edit this to keep the part that helps you.' : 'Edit this to keep the explanation or study strategy that helps you. Earlier notes stay saved.');
+    const button = element('button', 'secondary', 'Save learning note'); button.type = 'button';
+    const state = element('p', 'session-progress'); state.setAttribute('role', 'status');
+    details.append(label, help, button, state); bubble.appendChild(details);
+    let clientRequestId = '', pendingText = '';
+    on(button, 'click', async () => {
+      if (disposed || button.disabled || !bubble.isConnected) return;
+      const text = input.value.trim();
+      if (!text) { state.textContent = 'Write the note you want to keep.'; return; }
+      if (text !== pendingText) { pendingText = text; clientRequestId = crypto.randomUUID(); }
+      button.disabled = true; state.textContent = 'Saving this note for future study.';
+      try {
+        await saveMemo({ text, type: 'coach_note', clientRequestId, source: {
+          kind: pageContext.questionId ? 'question-coach' : 'study-coach',
+          ...(pageContext.subject ? { subject: pageContext.subject } : {}),
+          ...(pageContext.unitId ? { unitId: pageContext.unitId } : {}),
+          ...(pageContext.questionId ? { questionId: pageContext.questionId } : {}),
+        } });
+        if (disposed || !bubble.isConnected) return;
+        state.textContent = 'Saved. You can read your learning notes in Settings.';
+        input.disabled = true; button.textContent = 'Note saved';
+      } catch (error) {
+        if (disposed || !bubble.isConnected) return;
+        state.textContent = error.message || 'The note could not be saved. Your draft is still here.';
+        button.disabled = false;
+      }
+    });
+  }
+
   async function ask(turn) {
     const ownGeneration = ++generation;
     pendingTurn = turn;
@@ -317,6 +377,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
       const modelLabel = result.model === 'gpt-6-astra' ? 'Reply from GPT-6 Astra' : result.model === 'gpt-5.6-sol' ? 'Reply from GPT-5.6 Sol · backup coach' : result.model ? 'AI coach reply' : 'Source lookup (AI unavailable)';
       const bubble = addMessage('assistant', reply, modelLabel);
       addReferences(bubble, result);
+      if (!result.refusal) addMemoryEditor(bubble, reply, turn.pageContext);
       turn.bubble.classList.remove('is-pending');
       transcript.push({ role: 'user', text: turn.message }, { role: 'assistant', text: reply });
       if (transcript.length > 12) transcript.splice(0, transcript.length - 12);
@@ -334,7 +395,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   }
 
   function begin(message) {
-    if (disposed) return;
+    if (disposed || signedOut) return;
     refresh();
     if (busy) return;
     const text = String(message || '').trim().slice(0, MAX_MESSAGE);
@@ -366,6 +427,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   const cleanup = () => {
     if (disposed) return;
     disposed = true; generation += 1; pendingController?.abort();
+    notesCleanup?.();
     transcript.length = 0; retryTurn = null; pendingTurn = null;
     for (const remove of removers) remove();
     card.remove();

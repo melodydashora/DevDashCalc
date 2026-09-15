@@ -17,6 +17,12 @@ jobs:
       - name: Syntax check
         run: |
           node --check server.js
+          node --check auth.js
+          node --check account-store.js
+          node --check public/auth-ui.js
+          node --check public/continuity-ui.js
+          node --check continuity-store.js
+          node --check scripts/create-enrollment.mjs
           node --check ai-coach.js
           node --check canvas-retrieval.js
           node --check study-coach-context.js
