@@ -136,8 +136,9 @@ Breaking any of these is a regression even if the code works:
   2,000 characters, and no edit/delete API exists. The notes API pages 30 records;
   the general study coach initially reads the ten newest and discloses omitted counts.
   The authenticated coach can page through older notes and saved learning
-  records using a closed read-only tool. Record lookups use Responses and
-  recheck ownership; credentials and authentication tables are excluded.
+  records using a closed read-only tool. Record lookups use the provider's
+  tool transport and recheck ownership; credentials and authentication tables
+  are excluded.
   Notes are untrusted context and cannot override existing rules, verified keys,
   current Canvas evidence, or the current student's instruction.
 - Passwords use salted scrypt (N=131072,r=8,p=1); random session/enrollment

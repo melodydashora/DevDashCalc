@@ -32,6 +32,30 @@ function textMessages(messages) {
   return output;
 }
 
+function anthropicSchema(parameters) {
+  const schema = JSON.parse(JSON.stringify(parameters));
+  const adapt = node => {
+    if (!object(node)) return;
+    // Anthropic strict schemas reject numeric bounds. Keep the guidance in the
+    // provider copy; the original schema and local dispatcher retain the limits.
+    const bounds = ['minimum', 'maximum'].filter(key => Object.hasOwn(node, key));
+    if (bounds.length) {
+      node.description = [node.description, ...bounds.map(key => `${key === 'minimum' ? 'Minimum' : 'Maximum'}: ${node[key]}.`)]
+        .filter(Boolean).join(' ');
+      for (const key of bounds) delete node[key];
+    }
+    for (const key of ['properties', 'patternProperties', '$defs', 'definitions']) {
+      if (object(node[key])) Object.values(node[key]).forEach(adapt);
+    }
+    for (const key of ['items', 'additionalProperties', 'not', 'if', 'then', 'else']) adapt(node[key]);
+    for (const key of ['anyOf', 'oneOf', 'allOf', 'prefixItems']) {
+      if (Array.isArray(node[key])) node[key].forEach(adapt);
+    }
+  };
+  adapt(schema);
+  return schema;
+}
+
 function translateTools(lookup) {
   if (!lookup) return [];
   if (typeof lookup.assertCurrent !== 'function' || typeof lookup.execute !== 'function'
@@ -40,7 +64,7 @@ function translateTools(lookup) {
     if (tool?.type !== 'function' || typeof tool.name !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(tool.name)
       || typeof tool.description !== 'string' || !object(tool.parameters)) fail('invalid record lookup');
     return { name: tool.name, description: tool.description,
-      input_schema: JSON.parse(JSON.stringify(tool.parameters)), ...(tool.strict === true ? { strict: true } : {}) };
+      input_schema: anthropicSchema(tool.parameters), ...(tool.strict === true ? { strict: true } : {}) };
   });
 }
 

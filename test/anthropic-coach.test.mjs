@@ -64,7 +64,9 @@ test('record tool round trip preserves complete opaque assistant blocks and unch
     bodies.push(body);
     if (bodies.length === 1) {
       assert.equal(body.system, `${request().system}\n${RECORD_SYSTEM}`);
-      assert.deepEqual(body.tools, reads.tools.map(tool => ({ name: tool.name, description: tool.description, input_schema: tool.parameters, strict: true })));
+      assert.equal(body.tools[0].name, reads.tools[0].name);
+      assert.equal(body.tools[0].strict, true);
+      assert.deepEqual(body.tools[0].input_schema.required, reads.tools[0].parameters.required);
       assert.deepEqual(body.tool_choice, { type: 'auto' });
       return response(first);
     }
@@ -86,6 +88,36 @@ test('record tool round trip preserves complete opaque assistant blocks and unch
   assert.equal(JSON.stringify(history), untouched);
   assert.equal(result.recordReads[0].count, 1);
   assert.doesNotMatch(JSON.stringify(result), /opaque-thinking|opaque-redacted|synthetic-anthropic/);
+});
+
+test('Anthropic strict tool schemas omit numeric bounds without changing shared schema or local validation', async () => {
+  let noteReads = 0;
+  const records = lookup({ readNotes: async () => { noteReads++; return {}; } });
+  const originalTools = structuredClone(records.tools);
+  let transmitted;
+  const result = await completeAnthropicCoach(request({ lookup: records, fetchImpl: async (_, options) => {
+    transmitted = JSON.parse(options.body).tools[0];
+    return response(answer());
+  } }));
+  assert.ok(result.text);
+  assert.equal(transmitted.strict, true);
+  assert.deepEqual(transmitted.input_schema, {
+    ...originalTools[0].parameters,
+    properties: {
+      ...originalTools[0].parameters.properties,
+      offset: { type: 'integer', description: 'Minimum: 0. Maximum: 100000.' },
+    },
+  });
+  assert.equal(Object.hasOwn(transmitted.input_schema.properties.offset, 'minimum'), false);
+  assert.equal(Object.hasOwn(transmitted.input_schema.properties.offset, 'maximum'), false);
+  assert.deepEqual(records.tools, originalTools);
+  assert.equal(records.tools[0].parameters.properties.offset.minimum, 0);
+  assert.equal(records.tools[0].parameters.properties.offset.maximum, 100000);
+  for (const offset of [-1, 100001, 0.5]) {
+    const rejected = await records.execute('read_student_records', { collection: 'saved_notes', offset });
+    assert.equal(rejected.state, 'invalid_request');
+  }
+  assert.equal(noteReads, 0);
 });
 
 test('classifier refusals discard partial output and requested tools without retrying', async () => {
