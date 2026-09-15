@@ -20,6 +20,14 @@
 .memo-form button { justify-self: start; }
 .memo-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .memo-status { min-height: 1.5em; }
+.home-classes { margin: 1.5rem 0 2rem; }
+.home-class-card h3 { margin-top: 0; font-size: 1.05rem; }
+.home-class-card .btn-row { margin-top: auto; }
+.home-class-card { display: flex; flex-direction: column; }
+.home-course-group { margin: 1rem 0; }
+.home-course-group > summary { cursor: pointer; font-weight: 600; padding: .6rem 0; }
+.home-course-group .unit-grid { margin-top: .75rem; }
+.home-refresh { margin-top: 1rem; }
 .coach-memo-editor { padding-top: .8rem; border-top: 1px solid var(--border); }
 .page-coach-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.1rem; }
 .page-coach-workspace.notes-open { grid-template-columns: minmax(0, 1.25fr) minmax(270px, 1fr); }
@@ -28,3 +36,8 @@
 .page-coach-notebook h2 { margin-top: 0; }
 @media (max-width: 760px) { .page-coach-workspace.notes-open { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 520px) { .account-screen { margin: 1.25rem auto; } .account-card { padding: 1rem; } }
+@media (max-width: 520px) {
+  .page-coach-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .page-coach-log { max-height: 20rem; }
+  .home-class-card .btn-row > * { min-height: 44px; }
+}

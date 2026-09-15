@@ -11,6 +11,7 @@ import { activateFocusProfile, pauseFocusSessions, subscribeFocusSession } from 
 import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
 import { apiFetch, captureEnrollment, hasEnrollment, getAccountSession, mountAccountGate } from '/auth-ui.js';
 import { mountStudentMemos, saveStudentMemo } from '/continuity-ui.js';
+import { homeCourseGroups, currentHomeTermIds, canvasRefreshDue } from '/student-home.js';
 
 // ---------------------------------------------------------------- data & state
 const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [], freeResponse: [] };
@@ -302,8 +303,8 @@ function studyControls() {
     S.settings.subject = normalizeSubjectId(e.target.value);
     CANVAS.selectedCourseId = null;
     CANVAS.assessment = null;
-    const current = CI.currentTermId(CANVAS.terms, Date.now());
-    CANVAS.termIds = current ? [current] : null;
+    const current = currentHomeTermIds(CANVAS.terms, Date.now());
+    CANVAS.termIds = current.length ? current : null;
     if (CANVAS.snapshot) canvasRebuildInsights();
     save();
     if (location.hash.startsWith('#/canvas/course/')) location.hash = '#/canvas';
@@ -646,6 +647,70 @@ function mountSpatialSection(parent) {
   parent.appendChild(details);
 }
 
+function homeClassesHtml() {
+  const heading = '<span class="kicker">Your school workspace</span><h2>Your current classes</h2>';
+  if (!CANVAS.checked) return heading + '<p>Checking your Canvas connection.</p>';
+  if (!CANVAS.connected) return heading + '<p>Connect your Canvas account to build this area from your own courses.</p><a class="btn secondary" href="#/canvas">Open Canvas</a>';
+  if (!CANVAS.snapshot) return heading + '<p>Loading your courses from Canvas.</p>' + canvasNoteHtml() + '<button type="button" class="secondary home-refresh">Try loading Canvas again</button>';
+  const groups = homeCourseGroups(CANVAS.snapshot, Date.now());
+  const cards = courses => courses.map(course => {
+    const assignments = Array.isArray(course.assignments) ? course.assignments : [];
+    const undated = assignments.filter(item => !item.dueAt).length;
+    return `<article class="card home-class-card"><h3>${esc(course.name)}</h3><p class="canvas-meta">${esc(course.term?.name || 'Term dates not supplied')}${course.assignmentsError ? ' · Assignment read incomplete' : ` · ${assignments.length} assignments loaded`}</p>${undated ? `<p class="canvas-meta">${undated} without a reported due date. Astra can check the instructions.</p>` : ''}<div class="btn-row"><a class="btn secondary" href="#/canvas/course/${esc(course.id)}" data-home-course="${esc(course.id)}">Open class</a><button type="button" class="quiet" data-home-ask="${esc(course.id)}">Ask Astra about this class</button><button type="button" class="quiet" data-home-quick="${esc(course.id)}">Quick study with Astra</button></div></article>`;
+  }).join('');
+  return heading + '<p>Choose any class for its resources, assignments, and coaching. Astra can help across your Canvas subjects.</p>' +
+    `<p class="canvas-meta">Refreshed ${esc(canvasDateTime(CANVAS.snapshot.fetchedAt))}. Canvas refreshes every five minutes while this app is visible.</p>` + canvasNoteHtml() +
+    (CANVAS.snapshot.coursesTruncated ? '<p class="canvas-note">Canvas returned a limited course list. Some classes may not be included in this load.</p>' : '') +
+    (groups.current.length ? `<div class="unit-grid">${cards(groups.current)}</div>` : '<p>Canvas has not confirmed a current term for the classes in this load. Check the additional courses below.</p>') +
+    (groups.unknown.length ? `<details class="home-course-group" data-home-group="unknown"><summary>Additional courses and school resources (${groups.unknown.length})</summary><p>Canvas did not supply enough term dates to label these classes current or past.</p><div class="unit-grid">${cards(groups.unknown)}</div></details>` : '') +
+    (groups.past.length ? `<details class="home-course-group" data-home-group="past"><summary>Past classes and practice (${groups.past.length})</summary><div class="unit-grid">${cards(groups.past)}</div></details>` : '') +
+    (groups.upcoming.length ? `<details class="home-course-group" data-home-group="upcoming"><summary>Upcoming classes (${groups.upcoming.length})</summary><div class="unit-grid">${cards(groups.upcoming)}</div></details>` : '') +
+    '<button type="button" class="secondary home-refresh">Refresh Canvas now</button>';
+}
+
+function refreshHomeClasses() {
+  const root = $('#home-classes');
+  if (!root) return;
+  const version = JSON.stringify([CANVAS.checked, CANVAS.connected, CANVAS.snapshot?.fetchedAt, CANVAS.note]);
+  if (root.dataset.renderVersion === version) return;
+  if (root.contains(document.activeElement)) { root.dataset.pendingRefresh = 'true'; return; }
+  const expanded = new Set([...root.querySelectorAll('details[open]')].map(details => details.dataset.homeGroup));
+  delete root.dataset.pendingRefresh;
+  root.dataset.renderVersion = version;
+  root.innerHTML = homeClassesHtml();
+  root.querySelectorAll('details').forEach(details => { details.open = expanded.has(details.dataset.homeGroup); });
+}
+
+function wireHomeClasses(root) {
+  root.dataset.renderVersion = JSON.stringify([CANVAS.checked, CANVAS.connected, CANVAS.snapshot?.fetchedAt, CANVAS.note]);
+  root.addEventListener('focusout', () => queueMicrotask(() => {
+    if (root.isConnected && root.dataset.pendingRefresh && !root.contains(document.activeElement)) refreshHomeClasses();
+  }));
+  root.addEventListener('click', async event => {
+    const open = event.target.closest('[data-home-course]');
+    if (open) { selectCanvasCourse(open.dataset.homeCourse); return; }
+    const ask = event.target.closest('[data-home-ask], [data-home-quick]');
+    if (ask) {
+      const course = CANVAS.snapshot?.courses.find(item => item.id === (ask.dataset.homeAsk || ask.dataset.homeQuick));
+      if (!course) return;
+      selectCanvasCourse(course.id);
+      coachCanvasReference = { subject: 'all', canvasCourse: true, selectedCourseId: course.id, termIds: course.term?.id ? [course.term.id] : [], title: course.name };
+      ensurePageCoach();
+      pageCoachCleanup.ask(ask.dataset.homeQuick
+        ? `Give me one short recall question for ${course.name}, using the current course resources you can read. Keep it short enough to read on my phone and wait for my answer before showing the explanation. If the topic is unclear, let me choose it first. This is practice, with no mastery credit.`
+        : `Help me use the current instructions and resources for ${course.name}. Let us choose one study step.`);
+      $('#page-coach-slot')?.scrollIntoView({ block: 'start' });
+      return;
+    }
+    const refresh = event.target.closest('.home-refresh');
+    if (refresh) {
+      refresh.disabled = true; refresh.textContent = 'Refreshing Canvas.';
+      await loadSchoolContext(true);
+      if (refresh.isConnected) { refresh.disabled = false; refresh.textContent = 'Refresh Canvas now'; }
+    }
+  });
+}
+
 function viewHome() {
   const m = CONTENT.manifest;
   const units = allUnits();
@@ -663,6 +728,7 @@ function viewHome() {
   }).join('');
   const v = mountView(
     '<section class="dashboard-hero"><div><span class="kicker">Students4AI / ' + esc(subjectLabel()) + '</span><h1>Your next idea starts here' + name + '.</h1><p>Move a graph. Test a prediction. Build understanding.</p><p>Practice adapts to your answers. Canvas helps set your pace. Every module stays open.</p><div class="btn-row">' + (next ? '<a class="btn" href="#/practice/' + next.id + '">Continue learning</a>' : '') + '<a class="btn secondary" href="#/canvas/plan">My school plan</a></div></div></section>' +
+    '<section class="home-classes" id="home-classes">' + homeClassesHtml() + '</section>' +
     '<div class="dashboard-stats"><div><strong>' + units.length + '</strong><span>open modules</span></div><div><strong>' + average + '<small> / 100</small></strong><span>average skill progress</span></div><div><strong>' + passed + '</strong><span>mastery checks passed</span></div><div><strong>' + due.length + '</strong><span>skills ready for review</span></div></div>' +
     (CONTENT.failed.length ? '<div class="card"><p>' + esc(CONTENT.failed.join('; ')) + '</p></div>' : '') +
     '<div id="home-study-lab"></div><div class="unit-grid"><section class="card" id="school-pace">' + canvasPaceHtml() + '</section><section class="card"><span class="kicker">Your learning pace</span><h2>' + (average >= 80 ? 'Explain. Connect. Extend.' : average >= 35 ? 'Make the next connection' : 'Try an idea, then test it') + '</h2><p>' + (average >= 80 ? 'Practice now emphasizes harder applications. Try independent AP-style questions and explain your reasoning.' : 'Adaptive practice returns to skills that need attention and increases difficulty as your answers show understanding.') + '</p><div class="btn-row">' + (next ? '<a class="btn secondary" href="#/practice/' + next.id + '">Practice at my level</a>' : '') + '<a class="btn quiet" href="#/review">Review skills</a></div></section></div>' +
@@ -671,6 +737,10 @@ function viewHome() {
     { breadcrumb: ['Home'], nav: 'home' });
   labCleanup = mountStudyLab($('#home-study-lab', v), { motion: document.documentElement.dataset.motion, course: S.settings.subject === 'calculus-ab' ? 'ab' : S.settings.subject === 'physics' ? 'physics' : 'bc', mastery: average });
   if (S.settings.subject !== 'calculus-ab') mountSpatialSection($('#home-study-lab', v));
+  wireHomeClasses($('#home-classes', v));
+  // Study tools remain in navigation for every learner. Home highlights the
+  // mixed BC/physics bank only when that is the chosen independent subject.
+  if (['calculus-bc', 'physics'].includes(S.settings.subject)) {
   const focusEntry = document.createElement('section');
   focusEntry.className = 'card focus-entry';
   focusEntry.innerHTML = '<div><span class="kicker">Make time for one next step</span><h2>Choose a short study session</h2><p>Set the time you have, choose one task, and use a small checklist. Pause whenever you need.</p></div><a class="btn" href="#/focus">Plan my study session</a>';
@@ -679,6 +749,8 @@ function viewHome() {
   mixedEntry.className = 'card focus-entry';
   mixedEntry.innerHTML = '<div><span class="kicker">Physics + Calculus BC</span><h2>Build your own question session</h2><p>Choose topics from either subject or mix both. Fresh questions adapt to the specific patterns in your answers.</p></div><a class="btn" href="#/mixed">Open mixed practice</a>';
   v.insertBefore(mixedEntry, $('.dashboard-stats', v));
+  }
+  loadSchoolContext();
   S.lastLocation = '#/home'; save();
 }
 
@@ -1356,15 +1428,17 @@ function applyCanvasConnection(data) {
   CANVAS.secretIssue = String(data?.secretIssue || '');
 }
 
-async function loadSchoolContext() {
+async function loadSchoolContext(force = false) {
+  if (!S || accountGateActive || switchingProfile) return;
   const generation = canvasGeneration;
   try {
     await canvasEnsureSession();
     if (generation !== canvasGeneration) return;
-    if (CANVAS.connected && !CANVAS.snapshot) await canvasLoadSnapshot();
+    if (CANVAS.connected && (force || canvasRefreshDue(CANVAS.snapshot?.fetchedAt, Date.now()))) await canvasLoadSnapshot();
     if (generation !== canvasGeneration) return;
     const pace = $('#school-pace');
     if (pace) pace.innerHTML = canvasPaceHtml();
+    refreshHomeClasses();
     // Canvas pages already watch this shared load. Refresh their data region
     // without replacing the page shell, learner menu, or focused heading.
     canvasBackgroundRefresh?.();
@@ -1450,7 +1524,16 @@ async function canvasEnsureSession() {
 
 // Loads one consistent snapshot and computes the insights from it. Returns
 // true on success; on failure it stores a calm note in CANVAS.note.
-async function canvasLoadSnapshot() {
+let canvasSnapshotPending = null;
+function canvasLoadSnapshot() {
+  if (canvasSnapshotPending?.generation === canvasGeneration) return canvasSnapshotPending.promise;
+  const pending = { generation: canvasGeneration };
+  pending.promise = fetchCanvasSnapshot().finally(() => { if (canvasSnapshotPending === pending) canvasSnapshotPending = null; });
+  canvasSnapshotPending = pending;
+  return pending.promise;
+}
+
+async function fetchCanvasSnapshot() {
   const generation = canvasGeneration;
   try {
     const { res, data } = await canvasApi('/api/canvas/snapshot');
@@ -1476,8 +1559,8 @@ async function canvasLoadSnapshot() {
     const validIds = new Set(CANVAS.terms.map((t) => t.id));
     if (CANVAS.termIds) CANVAS.termIds = CANVAS.termIds.filter((id) => validIds.has(id));
     if (!CANVAS.termIds || !CANVAS.termIds.length) {
-      const current = CI.currentTermId(CANVAS.terms, Date.now());
-      CANVAS.termIds = current ? [current] : null;
+      const current = currentHomeTermIds(CANVAS.terms, Date.now());
+      CANVAS.termIds = current.length ? current : null;
     }
     canvasRebuildInsights();
     CANVAS.note = '';
@@ -1597,8 +1680,8 @@ function wireCanvasControls(root, rerender) {
 function selectCanvasCourse(value) {
   CANVAS.selectedCourseId = value === 'subject' ? null : value;
   const course = CANVAS.snapshot?.courses.find((item) => item.id === value);
-  const termId = value === 'subject' ? CI.currentTermId(CANVAS.terms, Date.now()) : course?.term?.id;
-  CANVAS.termIds = termId ? [termId] : null;
+  const termIds = value === 'subject' ? currentHomeTermIds(CANVAS.terms, Date.now()) : course?.term?.id ? [course.term.id] : [];
+  CANVAS.termIds = termIds.length ? termIds : null;
   CANVAS.assessment = null;
   canvasRebuildInsights();
 }
@@ -2152,7 +2235,7 @@ function ensurePageCoach() {
       sessionId: activeMixedQuestion?.sessionId,
       questionPhase: activeMixedQuestion?.phase || activeQuestionCoach?.ctx.phase,
       ...coachCanvasReference,
-      title: coachCanvasReference ? 'Canvas instructions' : activeMixedQuestion?.title || $('h1', viewEl())?.textContent,
+      title: coachCanvasReference ? coachCanvasReference.title || 'Canvas instructions' : activeMixedQuestion?.title || $('h1', viewEl())?.textContent,
     }),
     renderMath,
     mountNotes: ACCOUNT?.authRequired ? (root) => mountStudentMemos(root, { profileId: activeProfile }) : undefined,
@@ -2212,6 +2295,10 @@ function ensurePageCoach() {
 async function boot() {
   try {
     captureEnrollment();
+    const refreshVisibleSchool = () => { if (!document.hidden) loadSchoolContext(); };
+    setInterval(refreshVisibleSchool, 300000);
+    document.addEventListener('visibilitychange', refreshVisibleSchool);
+    window.addEventListener('focus', refreshVisibleSchool);
     ACCOUNT = await getAccountSession();
     window.addEventListener('hashchange', router);
     window.addEventListener('students4ai-auth-required', () => {

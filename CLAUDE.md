@@ -63,6 +63,7 @@ Breaking any of these is a regression even if the code works:
 | Mixed Physics/BC topic picker, questions, pause and resume | `public/mixed-study.js`, `public/mixed-study.css` |
 | Computed question generators and private adaptive session service | `mixed-question-bank.js`, `mixed-practice.js`, `mixed-practice-api.js` |
 | BC/AB content and Canvas subject selection (pure, tested) | `public/courses.js` |
+| Student home course timing, current terms, and refresh rules (pure, tested) | `public/student-home.js` |
 | Responsive, themeable design system | `public/styles.css` |
 | Curriculum data | `content/unit-NN.json`, `content/manifest.json` |
 | Independent AP-style mastery bank and self-checked FRQs | `content/mastery-bank.json` |

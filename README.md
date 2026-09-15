@@ -66,6 +66,22 @@ Earlier notes remain stored; this bounded context is not guaranteed full recall.
 
 ## Canvas connections for Dev, Esha, and other learners
 
+The signed-in Home page lists that learner's current Canvas classes across all
+subjects. Canvas term dates separate current, past, and upcoming classes;
+undated school resources remain available in an additional-courses section.
+Missing assignment due dates never hide a class. A refresh runs on sign-in,
+when switching learners, every five minutes while visible, and on returning
+to a tab when the last snapshot is at least five minutes old. Concurrent
+snapshot requests share one load; the learner selector and coach draft stay
+mounted while course cards update.
+
+Each class has Open class, Ask Astra, and Quick study actions. Quick study
+asks for one short recall question and waits for the learner's answer; it
+uses the chosen Canvas class and does not award mastery credit. AB homes do
+not promote the BC/Physics mixed bank. Every learner can still open the study
+planner and mixed lab from navigation. The full authored curriculum currently
+covers AB and BC; coaching across other Canvas subjects is a separate feature.
+
 Each learner can open **Canvas → Use my own Canvas token**, enter their
 school's HTTPS Canvas address and personal token, and connect. Settings also
 links to the selected learner's Canvas connection. The token field is masked
@@ -383,7 +399,7 @@ tests, with no hidden scoring:
 
 | Rule | Threshold |
 |---|---|
-| Term selection | Canvas keeps old courses "active", so views filter by enrollment term. The current term — the dated term containing today (`currentTermId`; an undated Default Term is never current) — is selected on each load; the learner can change it under "Terms shown". Unselected-term courses are listed by name, never silently dropped; term-less courses always show |
+| Term selection | Canvas keeps old courses "active", so views filter by enrollment term. All dated terms containing today are initially selected, including overlapping yearly and semester terms; an undated Default Term is never assumed current. The learner can change "Terms shown". Home separates current, past, upcoming, and undated classes; older classes remain available for practice and undated classes remain accessible |
 | Course visibility | A dropdown selects the current study subject, an exact Canvas course, or all courses. Explicit selections override older show/hide preferences and apply to the plan, grades, and assessment together. Other courses remain selectable. |
 | Due-date priority buckets | 4 h, 12 h, 24 h, 3 days, 5 days (`PLAN_BUCKETS`) |
 | Low graded score | below 70 percent of points (`LOW_SCORE_RATIO`) |

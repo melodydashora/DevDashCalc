@@ -163,7 +163,7 @@ before(async () => {
   for (const name of ['public', 'data', 'content']) await mkdir(join(sandbox, name));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
   for (const file of ['server.js', 'ai-coach.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
-    'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'public/engine.js', 'public/courses.js', 'public/canvas-insights.js']) {
+    'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
   await writeFile(join(sandbox, 'store.js'), storeStub);
