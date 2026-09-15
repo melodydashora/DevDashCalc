@@ -1138,6 +1138,7 @@ function viewSettings() {
       <p>Each workspace keeps its own practice history, course choice, and display settings. Switch learners using the dropdown above.</p>
       <form id="add-learner" class="numeric-row"><label>New learner name <input name="learnerName" type="text" maxlength="40" required></label><label>Starting course <select name="subject">${STUDY_SUBJECTS.map((course) => `<option value="${course.id}">${esc(course.label)}</option>`).join('')}</select></label><button type="submit">Add learner</button></form>
       <p class="session-progress">Each learner connects their own Canvas account from the Canvas tab. Switching learners also switches the Canvas connection. These are shared-device workspaces, without a separate sign-in for each learner.</p>
+      <p><a class="btn secondary" href="#/canvas">Manage this learner’s Canvas connection</a></p>
     </div>
     <div class="card">
       <h2>Display</h2>
@@ -1247,12 +1248,25 @@ function viewSettings() {
 // is kept in S, localStorage, or the progress export, so exporting Calc
 // Coach progress can never expose Canvas data. Course and assignment names
 // are external data and are shown as Canvas reports them.
-const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' };
+const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, connectionSource: '', secretName: '', secretConfigured: false, secretDisabled: false, secretBaseUrl: '', secretIssue: '', snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' };
 let canvasGeneration = 0;
 const staleCanvasRequest = (error) => error?.name === 'StaleCanvasRequest';
 function resetCanvas() {
   canvasGeneration++;
-  Object.assign(CANVAS, { checked: false, connected: false, user: null, host: '', remembered: false, snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' });
+  Object.assign(CANVAS, { checked: false, connected: false, user: null, host: '', remembered: false, connectionSource: '', secretName: '', secretConfigured: false, secretDisabled: false, secretBaseUrl: '', secretIssue: '', snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' });
+}
+
+function applyCanvasConnection(data) {
+  CANVAS.connected = Boolean(data?.connected);
+  CANVAS.user = CANVAS.connected ? data.user || null : null;
+  CANVAS.host = CANVAS.connected ? String(data.host || '') : '';
+  CANVAS.remembered = Boolean(CANVAS.connected && data.remembered);
+  CANVAS.connectionSource = CANVAS.connected ? String(data.connectionSource || (data.remembered ? 'saved' : 'session')) : '';
+  CANVAS.secretName = ['DEV_API_TOKEN', 'DEV_API_KEY', 'ESHA_API_TOKEN'].includes(data?.secretName) ? data.secretName : '';
+  CANVAS.secretConfigured = Boolean(data?.secretConfigured);
+  CANVAS.secretDisabled = Boolean(data?.secretDisabled);
+  CANVAS.secretBaseUrl = String(data?.secretBaseUrl || '');
+  CANVAS.secretIssue = String(data?.secretIssue || '');
 }
 
 async function loadSchoolContext() {
@@ -1333,10 +1347,8 @@ async function canvasEnsureSession() {
   try {
     const { res, data } = await canvasApi('/api/canvas/session');
     if (res.ok) {
-      CANVAS.connected = Boolean(data && data.connected);
-      CANVAS.user = CANVAS.connected ? data.user : null;
-      CANVAS.host = CANVAS.connected ? String(data.host || '') : '';
-      CANVAS.remembered = Boolean(CANVAS.connected && data.remembered);
+      applyCanvasConnection(data);
+      if (!CANVAS.connected && CANVAS.secretIssue) CANVAS.note = CANVAS.secretIssue;
       CANVAS.checked = true; // only a definitive answer is cached
     } else {
       CANVAS.connected = false; // transient server trouble: probe again next visit
@@ -1355,6 +1367,7 @@ async function canvasLoadSnapshot() {
     const { res, data } = await canvasApi('/api/canvas/snapshot');
     if (res.status === 401) {
       CANVAS.connected = false; CANVAS.user = null; CANVAS.snapshot = null; CANVAS.insights = null;
+      CANVAS.checked = false;
       CANVAS.note = data && data.reason === 'auth'
         ? 'Canvas did not accept the stored token, so the connection was removed. Connect again with a current token.'
         : 'The Canvas connection has ended. This happens after 8 hours or when the server restarts. Connect again to load current data.';
@@ -1399,10 +1412,12 @@ function canvasHeadHtml() {
   const selectedCourse = CANVAS.snapshot?.courses.find((course) => course.id === CANVAS.selectedCourseId);
   const selectionLabel = selectedCourse?.name || (CANVAS.selectedCourseId === 'all' ? 'All Canvas courses' : subjectLabel());
   const asOf = CANVAS.snapshot ? ` · Data as of ${esc(canvasDateTime(CANVAS.snapshot.fetchedAt) || CANVAS.snapshot.fetchedAt)}.` : '';
-  const remembered = CANVAS.remembered ? ' Connection remembered on this server.' : '';
+  const source = CANVAS.connectionSource === 'secret' ? `Replit secret (${CANVAS.secretName})`
+    : CANVAS.remembered ? 'Saved on this server' : 'Temporary server session';
   return `<div class="canvas-head">
     <h2>${esc(selectionLabel)}</h2>
-    <p class="canvas-meta">${esc(S.settings.name || profiles.find((profile) => profile.id === activeProfile)?.name || 'This learner')}’s workspace · Connected to ${esc(CANVAS.host)} as ${esc(name)}.${asOf}${remembered}</p>
+    <p class="canvas-meta">${esc(S.settings.name || profiles.find((profile) => profile.id === activeProfile)?.name || 'This learner')}’s workspace · Connected to ${esc(CANVAS.host)} as ${esc(name)}.</p>
+    <p class="canvas-meta">Connection source: ${esc(source)}${asOf || '.'}</p>
     <div class="btn-row">
       <button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh Canvas data' : 'Load Canvas data'}</button>
       <button type="button" class="quiet canvas-disconnect">Disconnect</button>
@@ -1465,8 +1480,11 @@ function wireCanvasControls(root, rerender) {
       canvasGeneration++;
       disconnect.disabled = true;
       let durable = true;
+      let connection = null;
       try {
-        const { data } = await canvasApi('/api/canvas/session', { method: 'DELETE' });
+        const { res, data } = await canvasApi('/api/canvas/session', { method: 'DELETE' });
+        if (!res.ok) throw new Error('Canvas disconnect did not finish.');
+        connection = data;
         durable = !data || data.durableDeleted !== false;
       } catch (error) {
         if (staleCanvasRequest(error)) return;
@@ -1475,10 +1493,12 @@ function wireCanvasControls(root, rerender) {
         return;
       }
       resetCanvas();
+      applyCanvasConnection(connection);
       CANVAS.checked = true;
       CANVAS.note = durable
-        ? 'Canvas is disconnected. The token is out of server memory and the saved copies are deleted.'
-        : 'Canvas is disconnected and the token is out of server memory. The saved database copy could not be removed this time; select Disconnect again to retry.';
+        ? 'Canvas is disconnected. Saved application copies of this learner’s token have been removed.'
+        : 'Canvas is disconnected. Some saved application copies could not be removed; reconnecting may restore a saved connection.';
+      if (CANVAS.secretName) CANVAS.note += ' The Replit secret remains in Secrets. Use the Replit connection button below to reconnect explicitly.';
       announce('Canvas is disconnected.');
       rerender();
     });
@@ -1503,33 +1523,73 @@ function canvasConnectHtml() {
     <p><strong>Exactly how this connection works:</strong></p>
     <ul class="rules-list">
       <li>You enter your school's Canvas web address and a Canvas access token.</li>
-      <li>The token is sent only to this Students4AI server. It is never stored in this browser and never added to your progress file or progress exports.</li>
+      <li>The token is sent to this Students4AI server and used for requests to your school’s Canvas address. It is never stored in this browser or added to your progress exports.</li>
       <li>With Remember selected, the server saves this learner’s address and token in server storage and the configured database so the connection survives restarts. Without it, the token stays only in server memory for up to 8 hours.</li>
       <li>Students4AI reads your active courses, assignments, submission status, scores, and module progress. It reads only; it never changes anything in Canvas.</li>
       <li>Canvas data never changes your Students4AI mastery scores and never unlocks anything.</li>
-      <li>The AI assessment page runs only when you select its button. It receives the Canvas data shown in this app, never the token. The math tutor is separate and never sees Canvas data.</li>
-      <li>Disconnect removes the token from server memory and deletes the saved copy at once. You can reconnect later with a new or existing token.</li>
+      <li>The AI assessment and school coach run when you ask for them. They receive the school information needed for your request, never the token.</li>
+      <li>Disconnect ends this learner’s connection and removes saved application copies. A token configured in Replit Secrets stays there, with automatic reconnection disabled until you reconnect explicitly.</li>
     </ul>
     <p>To create a token in Canvas, open Account, then Settings, then select New Access Token. Your school decides whether personal tokens are allowed.</p>
   </div>
+  ${CANVAS.secretName ? `<div class="card">
+    <h3>This learner’s Replit connection</h3>
+    <p>Secret name: <code>${esc(CANVAS.secretName)}</code>${CANVAS.secretBaseUrl ? ` · Canvas address: ${esc(CANVAS.secretBaseUrl)}` : ''}.</p>
+    <p>${CANVAS.secretConfigured ? (CANVAS.secretDisabled ? 'This connection is disconnected. You can reconnect using the configured secret.' : 'A Canvas token is configured for this workspace. The token stays on the server.') : 'Configure this named token and the learner’s Canvas address in Replit, then restart the app. You can also use your own token below.'}</p>
+    ${CANVAS.secretConfigured ? '<button type="button" class="canvas-use-secret">Connect using this learner’s Replit secret</button>' : ''}
+    <p class="canvas-secret-status canvas-meta" role="status"></p>
+  </div>` : ''}
   <div class="card">
+    <h3>Use my own Canvas token</h3>
+    <p>Enter the school address and token for the learner selected above. A token entered here takes priority over an automatically configured Replit connection.</p>
     <form id="canvas-connect" class="canvas-form">
       <label>Canvas web address
-        <input name="baseUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://yourschool.instructure.com" required>
+        <input name="baseUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://yourschool.instructure.com" value="${esc(CANVAS.secretBaseUrl)}" required>
       </label>
       <label>Access token
-        <input name="token" type="password" autocomplete="off" spellcheck="false" required>
+        <input name="token" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required>
       </label>
       <label class="canvas-remember"><input type="checkbox" name="remember" checked>
         <span>Remember this learner’s connection on this server. Disconnect removes this learner’s saved token.</span>
       </label>
       <div class="btn-row"><button type="submit">Connect and load my Canvas data</button></div>
-      <p class="canvas-meta canvas-connect-status"></p>
+      <p class="canvas-meta canvas-connect-status" role="status"></p>
     </form>
   </div>`;
 }
 
 function wireCanvasConnect(root, rerender) {
+  const secretButton = $('.canvas-use-secret', root);
+  if (secretButton) secretButton.addEventListener('click', async () => {
+    const status = $('.canvas-secret-status', root);
+    const manualButton = $('#canvas-connect button[type="submit"]', root);
+    secretButton.disabled = true;
+    if (manualButton) manualButton.disabled = true;
+    status.textContent = 'Step 1 of 2: confirming this learner’s Replit token with Canvas.';
+    try {
+      const { res, data } = await canvasApi('/api/canvas/session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ useServerSecret: true }),
+      });
+      if (!res.ok) {
+        status.textContent = data?.error || 'The Replit connection could not be used. Check its token and school address.';
+        secretButton.disabled = false;
+        if (manualButton) manualButton.disabled = false;
+        return;
+      }
+      resetCanvas();
+      applyCanvasConnection(data);
+      CANVAS.checked = true;
+      status.textContent = 'Step 2 of 2: loading this learner’s courses and assignments.';
+      const ok = await canvasLoadSnapshot();
+      announce(ok ? 'Canvas data loaded.' : 'Canvas connected. The data load did not finish.');
+      rerender();
+    } catch (error) {
+      if (staleCanvasRequest(error)) return;
+      status.textContent = 'Canvas could not be reached. Try the Replit connection again.';
+      secretButton.disabled = false;
+      if (manualButton) manualButton.disabled = false;
+    }
+  });
   const form = $('#canvas-connect', root);
   if (!form) return;
   form.addEventListener('submit', async (event) => {
@@ -1545,6 +1605,7 @@ function wireCanvasConnect(root, rerender) {
       return;
     }
     button.disabled = true;
+    if (secretButton) secretButton.disabled = true;
     $('input[name="token"]', form).value = '';
     resetCanvas();
     status.textContent = 'Step 1 of 2: confirming the token with Canvas.';
@@ -1557,13 +1618,11 @@ function wireCanvasConnect(root, rerender) {
       if (!res.ok) {
         status.textContent = (data && data.error) || 'Canvas did not accept that address or token. Check both and try again. Your calculus progress is not affected.';
         button.disabled = false;
+        if (secretButton) secretButton.disabled = false;
         return;
       }
-      CANVAS.connected = true;
+      applyCanvasConnection(data);
       CANVAS.checked = true;
-      CANVAS.user = data.user || null;
-      CANVAS.host = String(data.host || '');
-      CANVAS.remembered = Boolean(data.remembered);
       CANVAS.note = '';
       status.textContent = 'Step 2 of 2: loading courses and assignments from Canvas. This usually takes under a minute.';
       const ok = await canvasLoadSnapshot();
@@ -1573,6 +1632,7 @@ function wireCanvasConnect(root, rerender) {
       if (staleCanvasRequest(error)) return;
       status.textContent = 'Canvas could not be reached. Check the address and try again. Your calculus progress is not affected.';
       button.disabled = false;
+      if (secretButton) secretButton.disabled = false;
     }
   });
 }

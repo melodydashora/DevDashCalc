@@ -159,6 +159,96 @@ const canvasCookieName = (profileId) => profileId === 'learner' ? 'canvas_sessio
 // credential and preference records. Prefixes fit the store's 64-char limit.
 const canvasCredentialKey = (profileId) => profileId === 'learner' ? 'canvas-profile' : `cv-auth-${profileId}`;
 const canvasPreferenceKey = (profileId) => profileId === 'learner' ? 'canvas-prefs' : `cv-prefs-${profileId}`;
+const canvasSecretStateKey = (profileId) => `cv-env-${profileId}`;
+const canvasSecretFailures = new Map(); // bounded to the two explicitly bound profiles
+// Environment credentials are bound to exact workspace ids, never names,
+// aliases, or request-supplied destinations. They never enter the durable store.
+function canvasSecretBinding(profileId) {
+  const devSecretName = process.env.DEV_API_TOKEN === undefined && process.env.DEV_API_KEY !== undefined ? 'DEV_API_KEY' : 'DEV_API_TOKEN';
+  const bindings = [
+    { profileId: (process.env.DEV_CANVAS_PROFILE_ID || 'learner').trim(), name: devSecretName, url: process.env.DEV_CANVAS_URL || process.env.CANVAS_BASE_URL },
+    { profileId: (process.env.ESHA_CANVAS_PROFILE_ID || '').trim(), name: 'ESHA_API_TOKEN', url: process.env.ESHA_CANVAS_URL || process.env.CANVAS_BASE_URL },
+  ].filter(binding => CANVAS_PROFILE_ID.test(binding.profileId) && binding.profileId === profileId);
+  if (!bindings.length) return null;
+  if (bindings.length !== 1) return { configured: false, issue: 'Dev and Esha are bound to the same workspace. Give them different Canvas profile IDs in server configuration.' };
+  const binding = bindings[0];
+  const baseUrl = canvasBaseUrl(binding.url);
+  const token = String(process.env[binding.name] || '').trim();
+  const validToken = token.length > 0 && token.length <= 2048 && !/[\r\n]/.test(token);
+  return { name: binding.name, baseUrl, token, configured: Boolean(baseUrl && validToken), issue: !validToken
+    ? `${binding.name} is not configured with a valid access token on this server.`
+    : !baseUrl ? 'Set a valid HTTPS Canvas URL for this learner in server configuration.' : null };
+}
+
+async function canvasSecretStateLoad(profileId) {
+  const key = canvasSecretStateKey(profileId);
+  const read = await storeRead(key);
+  let local = null, localUnreadable = false, localPresent = false;
+  try { const raw = await readFile(join(DATA, `${key}.json`), 'utf8'); localPresent = true; local = JSON.parse(raw); } catch (error) { localUnreadable = error.code !== 'ENOENT'; }
+  const valid = value => value && typeof value.disabled === 'boolean' && Number.isFinite(value.updatedAt) && value.updatedAt >= 0;
+  if (localUnreadable || (localPresent && !valid(local)) || (read.value !== null && !valid(read.value))
+    || (!read.ok && hasDatabase() && !valid(local))) {
+    return { disabled: true, reason: 'unreadable', updatedAt: Math.max(Date.now(), ...[local, read.value].filter(valid).map(value => value.updatedAt)) };
+  }
+  // Use the newest setting across replicas so a failed database write cannot
+  // silently undo a later local disconnect or explicit reconnect.
+  return [read.value, local].filter(valid)
+    .sort((a, b) => b.updatedAt - a.updatedAt || Number(b.disabled) - Number(a.disabled))[0]
+    || { disabled: false, reason: null, updatedAt: 0 };
+}
+
+async function canvasSecretStateSave(profileId, disabled, reason = null) {
+  const key = canvasSecretStateKey(profileId);
+  const previous = await canvasSecretStateLoad(profileId);
+  const value = { disabled, reason, updatedAt: Math.max(Date.now(), previous.updatedAt + 1) };
+  await mkdir(DATA, { recursive: true });
+  const file = join(DATA, `${key}.json`), tmp = `${file}.${randomUUID()}.tmp`;
+  await writeFile(tmp, JSON.stringify(value), { encoding: 'utf8', mode: 0o600 });
+  await rename(tmp, file);
+  if (!hasDatabase()) return true;
+  try { await enqueue(key, () => dbSet(key, value)); return true; }
+  catch (error) { dbTrouble('Canvas connection preference write', error); return false; }
+}
+
+async function canvasSecretMetadata(profileId) {
+  const binding = canvasSecretBinding(profileId);
+  if (!binding) return {};
+  const state = await canvasSecretStateLoad(profileId);
+  const failure = canvasSecretFailures.get(profileId);
+  const issue = binding.issue || failure?.issue || (state.reason === 'rejected'
+    ? 'Canvas rejected the configured server token. Update it in Secrets, then explicitly reconnect.'
+    : state.reason === 'unreadable' ? 'The saved Canvas connection preference could not be read. Explicitly reconnect to choose a connection again.' : null);
+  return {
+    secretConfigured: binding.configured,
+    ...(binding.name ? { secretName: binding.name } : {}),
+    secretDisabled: state.disabled,
+    ...(binding.baseUrl ? { secretBaseUrl: binding.baseUrl } : {}),
+    ...(issue ? { secretIssue: issue } : {}),
+  };
+}
+
+async function verifyCanvasSecret(profileId, binding) {
+  const candidate = { profileId, baseUrl: binding.baseUrl, token: binding.token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS, user: null, remembered: true, source: 'secret' };
+  try {
+    const user = await canvasGet(candidate, 'users/self');
+    if (!CANVAS_NUMERIC_ID.test(String(user?.id || ''))) throw new CanvasError('canvas', 200, 'Canvas did not return a valid user identity');
+    candidate.user = { id: String(user.id), name: String(user.name || 'Canvas learner') };
+    canvasSecretFailures.delete(profileId);
+    return candidate;
+  } catch (error) {
+    const rejected = error instanceof CanvasError && error.kind === 'auth';
+    if (rejected) {
+      const previous = await canvasSecretStateLoad(profileId);
+      const manualSelected = ['manual', 'manual-session'].includes(previous.reason) || (!['secret', 'rejected', 'disconnected', 'unreadable'].includes(previous.reason) && await canvasStoreLoad(profileId));
+      const reason = previous.reason === 'unreadable' ? 'unreadable' : manualSelected ? (previous.reason === 'manual-session' ? 'manual-session' : 'manual') : 'rejected';
+      await canvasSecretStateSave(profileId, true, reason);
+    }
+    canvasSecretFailures.set(profileId, { retryAt: Date.now() + 60_000, issue: rejected
+      ? 'Canvas rejected the configured server token. Update it in Secrets, then explicitly reconnect.'
+      : 'The configured Canvas connection could not be verified right now. Try reconnecting, or try again in a minute.' });
+    throw error;
+  }
+}
 // Remembered reconnect, replacement, and disconnect must commit in request
 // order within one workspace. Other workspaces continue independently.
 const canvasConnectionOperations = new Map();
@@ -315,22 +405,37 @@ async function canvasSessionOrStored(req, res, profileId) {
   return withCanvasConnection(profileId, async () => {
     const found = canvasSession(req, profileId);
     if (found) return found;
-    const stored = await canvasStoreLoad(profileId);
-    if (!stored) return null;
+    const state = await canvasSecretStateLoad(profileId);
+    if (state.reason === 'disconnected') return null;
+    // An explicit switch must not resurrect a stale saved token if its database
+    // deletion failed. A manual connection sets reason=manual again.
+    const stored = ['secret', 'rejected', 'manual-session', 'unreadable'].includes(state.reason) ? null : await canvasStoreLoad(profileId);
+    const binding = stored ? null : canvasSecretBinding(profileId);
+    const secret = Boolean(binding?.configured && !state.disabled
+      && !(canvasSecretFailures.get(profileId)?.retryAt > Date.now()));
+    if (!stored && !secret) return null;
+    const credentials = stored || binding;
     // A cookie-less client with a remembered profile reuses the existing
     // remembered session instead of minting one per request.
     for (const [id, s] of canvasSessions) {
-      if (s.profileId === profileId && s.remembered && s.baseUrl === stored.baseUrl && s.token === stored.token && s.expiresAt > Date.now()) {
+      if (s.profileId === profileId && s.remembered && s.baseUrl === credentials.baseUrl && s.token === credentials.token && (s.source === 'secret') === secret && s.expiresAt > Date.now()) {
         setCanvasCookie(req, res, profileId, id, CANVAS_SESSION_TTL_MS / 1000);
         return { id, session: s };
       }
     }
-    const candidate = { profileId, baseUrl: stored.baseUrl, token: stored.token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS, user: null, remembered: true };
+    let candidate;
     try {
-      const user = await canvasGet(candidate, 'users/self');
-      candidate.user = { id: String(user?.id ?? ''), name: String(user?.name || 'Canvas learner') };
+      if (secret) candidate = await verifyCanvasSecret(profileId, binding);
+      else {
+        candidate = { profileId, baseUrl: stored.baseUrl, token: stored.token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS, user: null, remembered: true, source: 'saved' };
+        const user = await canvasGet(candidate, 'users/self');
+        candidate.user = { id: String(user?.id ?? ''), name: String(user?.name || 'Canvas learner') };
+      }
     } catch (e) {
-      if (e instanceof CanvasError && e.kind === 'auth') await canvasStoreDelete(profileId);
+      if (!secret && e instanceof CanvasError && e.kind === 'auth') {
+        await canvasStoreDelete(profileId);
+        if (canvasSecretBinding(profileId)) await canvasSecretStateSave(profileId, true, 'manual');
+      }
       console.error('[calc-coach] canvas: stored-profile reconnect failed:', e.message);
       return null;
     }
@@ -583,6 +688,7 @@ async function sendCanvasError(req, res, e, sessionId, profileId, dropStored = t
         // A late 401 from a replaced/disconnected session is about its old
         // token, and must not delete the current connection or its cookie.
         if (canvasSessions.get(sessionId)?.profileId !== profileId) return false;
+        await canvasSecretStateSave(profileId, true, canvasSessions.get(sessionId).source === 'secret' ? 'rejected' : 'disconnected');
         for (const [id, session] of canvasSessions) {
           if (session.profileId === profileId) canvasSessions.delete(id);
         }
@@ -594,6 +700,7 @@ async function sendCanvasError(req, res, e, sessionId, profileId, dropStored = t
     }
     return sendJson(res, 401, {
       profileId,
+      ...await canvasSecretMetadata(profileId),
       connected: false,
       reason: 'auth',
       error: 'Canvas did not accept the access token. It may have expired or been deleted. Create a new token in Canvas and connect again.',
@@ -738,7 +845,8 @@ async function handleCanvas(req, res, url) {
   if (path === '/api/canvas/session') {
     if (req.method === 'GET') {
       const found = await canvasSessionOrStored(req, res, profileId);
-      if (!found) return sendJson(res, 200, { profileId, connected: false });
+      if (!found) return sendJson(res, 200, { profileId, connected: false, ...await canvasSecretMetadata(profileId) });
+      const secretMetadata = await canvasSecretMetadata(profileId);
       if (!canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
       renewCanvasSession(req, res, found);
       return sendJson(res, 200, {
@@ -747,22 +855,47 @@ async function handleCanvas(req, res, url) {
         user: found.session.user,
         host: new URL(found.session.baseUrl).host,
         remembered: Boolean(found.session.remembered),
+        connectionSource: found.session.source || (found.session.remembered ? 'saved' : 'session'),
+        ...secretMetadata,
       });
     }
     if (req.method === 'DELETE') {
       return withCanvasConnection(profileId, async () => {
         // Disconnect this workspace only; other learners remain connected.
+        const secretDisabled = await canvasSecretStateSave(profileId, true, 'disconnected');
+        canvasSecretFailures.delete(profileId);
         for (const [id, session] of canvasSessions) {
           if (session.profileId === profileId) canvasSessions.delete(id);
         }
         const durableDeleted = await canvasStoreDelete(profileId);
         setCanvasCookie(req, res, profileId, '', 0);
-        return sendJson(res, 200, { profileId, connected: false, durableDeleted });
+        return sendJson(res, 200, { profileId, connected: false, durableDeleted: durableDeleted && secretDisabled, ...await canvasSecretMetadata(profileId) });
       });
     }
     if (req.method === 'POST') {
       let body;
       try { body = JSON.parse(await readBody(req, 20_000)); } catch { return sendJson(res, 400, { error: 'body must be valid JSON' }); }
+      if (body?.useServerSecret === true) {
+        if ('baseUrl' in body || 'token' in body) return sendJson(res, 400, { error: 'Server-secret connections use only the Canvas URL configured on the server.', ...await canvasSecretMetadata(profileId) });
+        return withCanvasConnection(profileId, async () => {
+          const binding = canvasSecretBinding(profileId);
+          if (!binding?.configured) return sendJson(res, 409, { profileId, error: binding?.issue || 'No server Canvas token is bound to this workspace.', ...await canvasSecretMetadata(profileId) });
+          let candidate;
+          try { candidate = await verifyCanvasSecret(profileId, binding); }
+          catch (error) { return sendCanvasError(req, res, error, null, profileId, false); }
+          // Validation completes before replacing any working session or saved
+          // credentials. Environment token values are never written to disk/DB.
+          const durableDeleted = await canvasStoreDelete(profileId);
+          const preferenceSaved = await canvasSecretStateSave(profileId, false, 'secret');
+          for (const [id, session] of canvasSessions) if (session.profileId === profileId) canvasSessions.delete(id);
+          evictCanvasSessions();
+          const id = randomUUID();
+          canvasSessions.set(id, candidate);
+          setCanvasCookie(req, res, profileId, id, CANVAS_SESSION_TTL_MS / 1000);
+          return sendJson(res, 200, { profileId, connected: true, user: candidate.user, host: new URL(candidate.baseUrl).host,
+            remembered: true, connectionSource: 'secret', durableDeleted: durableDeleted && preferenceSaved, ...await canvasSecretMetadata(profileId) });
+        });
+      }
       const baseUrl = canvasBaseUrl(body?.baseUrl);
       const token = typeof body?.token === 'string' ? body.token.trim() : '';
       const remember = Boolean(body?.remember);
@@ -770,13 +903,15 @@ async function handleCanvas(req, res, url) {
         return sendJson(res, 400, { error: 'Enter an HTTPS Canvas URL and an access token.' });
       }
       return withCanvasConnection(profileId, async () => {
-        const candidate = { profileId, baseUrl, token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS, user: null, remembered: remember };
+        const candidate = { profileId, baseUrl, token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS, user: null, remembered: remember, source: remember ? 'saved' : 'session' };
         try {
           const user = await canvasGet(candidate, 'users/self');
           candidate.user = { id: String(user?.id ?? ''), name: String(user?.name || 'Canvas learner') };
         } catch (e) {
           return sendCanvasError(req, res, e, null, profileId, false);
         }
+        await canvasSecretStateSave(profileId, true, remember ? 'manual' : 'manual-session');
+        canvasSecretFailures.delete(profileId);
         if (remember) await canvasStoreSave(profileId, baseUrl, token);
         else await canvasStoreDelete(profileId);
         // Replacing one connection cannot leave an old cookie for that same
@@ -789,7 +924,8 @@ async function handleCanvas(req, res, url) {
         const id = randomUUID();
         canvasSessions.set(id, candidate);
         setCanvasCookie(req, res, profileId, id, CANVAS_SESSION_TTL_MS / 1000);
-        return sendJson(res, 200, { profileId, connected: true, user: candidate.user, host: new URL(baseUrl).host, remembered: remember });
+        return sendJson(res, 200, { profileId, connected: true, user: candidate.user, host: new URL(baseUrl).host, remembered: remember,
+          connectionSource: candidate.source, ...await canvasSecretMetadata(profileId) });
       });
     }
     return sendJson(res, 405, { error: 'use GET, POST, or DELETE' });

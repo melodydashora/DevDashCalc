@@ -20,6 +20,55 @@ that learner, while the original learner's existing connection is preserved.
 New workspace identifiers use cryptographically random UUIDs. They are not a
 substitute for account authentication in a future public multi-user service.
 
+## Canvas connections for Dev, Esha, and other learners
+
+Each learner can open **Canvas → Use my own Canvas token**, enter their
+school's HTTPS Canvas address and personal token, and connect. Settings also
+links to the selected learner's Canvas connection. The token field is masked
+and is never prefilled, added to browser storage, or included in progress
+exports. With Remember selected, the existing server/database storage keeps
+the connection; otherwise it lasts only for the server session.
+
+For the current family setup, Replit Secrets can supply these two tokens:
+
+| Setting | Purpose |
+| --- | --- |
+| `DEV_API_TOKEN` | Dev's personal Canvas token |
+| `ESHA_API_TOKEN` | Esha's personal Canvas token |
+| `DEV_CANVAS_PROFILE_ID` | Dev's workspace ID; defaults to the original `learner` workspace |
+| `ESHA_CANVAS_PROFILE_ID` | Esha's existing workspace ID; required, with no name-based guessing |
+| `CANVAS_BASE_URL` | Shared Canvas address, currently `https://fisd.instructure.com` |
+| `DEV_CANVAS_URL`, `ESHA_CANVAS_URL` | Optional per-learner address overrides if their schools differ later |
+
+Tokens belong in Replit Secrets. Workspace IDs and school addresses are
+nonsecret server configuration and can go under `[env]` in `.replit`. Restart
+the workflow after changing its environment. Neither token is an OpenAI key;
+`OPENAI_API_KEY` remains the separate Astra/Sol coaching credential.
+Dev's existing `DEV_API_KEY` name is accepted only when `DEV_API_TOKEN` is
+absent. A rejected preferred token does not silently try the older name.
+The connection-source label identifies the name actually used.
+
+Named tokens are bound to stable workspace IDs and server-configured Canvas
+addresses. Changing a display name does not change the binding. A missing,
+invalid, or conflicting binding cannot fall back to the other learner's
+token. Server-secret values stay in the environment/session memory and are
+not copied into application credential files or database rows. The UI shows
+only their names, configured status, school address, and connection source.
+
+An existing manual session or remembered connection takes precedence. A
+successful manual connection disables automatic named-secret fallback for
+that workspace. Disconnect removes saved application credentials and disables
+automatic secret reconnection; it cannot delete Replit Secrets. The learner
+can explicitly reconnect with the displayed Replit connection button.
+
+These are still family workspaces on a shared application, not authenticated
+student accounts. Before public student enrollment, add sign-in and enforce
+account ownership of every workspace and Canvas connection. A future public
+service should also protect stored credentials with an appropriate managed
+credential store; arbitrary browser-supplied profile IDs are not authorization.
+
+## Study-session planning
+
 The optional **Study session** page supports planning with the learner's
 existing Canvas coursework and practice resources. It turns available time
 into one concrete next step:

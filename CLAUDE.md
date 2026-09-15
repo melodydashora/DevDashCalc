@@ -108,6 +108,27 @@ Breaking any of these is a regression even if the code works:
   Placement seeds passed units' core skills at EWMA 0.85 and never lowers
   anything.
 
+## Canvas credentials
+
+The current family setup accepts `DEV_API_TOKEN` and `ESHA_API_TOKEN` from
+Replit Secrets. These are Canvas tokens, not AI credentials. Dev defaults to
+the existing `DEV_API_KEY` name only when `DEV_API_TOKEN` is absent; never
+fall back to another token after a configured preferred token is rejected.
+Dev's profile defaults to
+the original `learner` workspace; Esha requires an explicit
+`ESHA_CANVAS_PROFILE_ID` binding. Optional `DEV_CANVAS_PROFILE_ID` changes
+Dev's binding. `DEV_CANVAS_URL` / `ESHA_CANVAS_URL` override the shared
+`CANVAS_BASE_URL`; the current family address is `https://fisd.instructure.com`.
+Never infer a secret binding from a mutable display name or accept a
+browser-supplied destination for a server-held secret. Never copy named
+secret values into files, database records, API replies, or logs.
+
+The existing own-token form remains available per learner. Manual sessions
+and saved credentials take precedence; manual connect and Disconnect disable
+automatic secret fallback for that workspace. Explicit secret reconnect can
+enable it again. Disconnect cannot remove the Replit secret itself. This
+family workspace selector is not authentication for a future public service.
+
 ## AI coaching configuration
 
 Melody chose a fixed OpenAI model order: **GPT-6 Astra** (`gpt-6-astra`)
