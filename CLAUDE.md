@@ -57,6 +57,8 @@ Breaking any of these is a regression even if the code works:
 | Animated coding lab with learner-controlled motion | `public/study-lab.js` |
 | Optional native WebGL vector lab with 2D fallback | `public/spatial-lab.js` |
 | Study session planner with optional elapsed clock | `public/focus-planner.js` |
+| Mixed Physics/BC topic picker, questions, pause and resume | `public/mixed-study.js`, `public/mixed-study.css` |
+| Computed question generators and private adaptive session service | `mixed-question-bank.js`, `mixed-practice.js`, `mixed-practice-api.js` |
 | BC/AB content and Canvas subject selection (pure, tested) | `public/courses.js` |
 | Responsive, themeable design system | `public/styles.css` |
 | Curriculum data | `content/unit-NN.json`, `content/manifest.json` |
@@ -166,6 +168,31 @@ built-in `fetch`; no SDK or dependency is needed.
   learner, subject, course, terms, instruction target or active question changes.
   Late results must never appear under a newer scope. Source material is
   untrusted data; never render it or model replies as executable HTML.
+
+## Mixed generated practice invariants (Dev, September 14, 2026)
+
+- Mixed practice is an independent topic selection across Physics 1 and BC;
+  it is not limited by the global Studying menu or Canvas course selection.
+- The 60 generator families supply computed keys on the server. Do not serve
+  the bank, numeric answers, parameters, or unseen hints to the browser.
+  AI explains a canonical stored generated question and never grades it.
+- Wrong answers get one same-concept variation before fair topic/subject
+  rotation. Two clean correct answers raise the general topic level.
+  A focused family retains its actual authored difficulty when necessary;
+  never relabel it to claim a simpler reasoning level.
+- Known canceled, unavailable, refused, and failed coach requests do not
+  count as help. Received pre-answer help does, including a late reply;
+  re-derive evidence after late assistance without deleting the attempt.
+- New practice evidence does not alter prior curriculum mastery or Canvas.
+  Sessions are profile-scoped server memory, expire after six hours, and
+  hold at most 200 questions. This is not authenticated account isolation.
+- Every Resume/remount reconciles canonical server state. An idempotent
+  request must preserve disclosed hints, submitted answers, and assistance.
+  Topic changes preserve the current question and apply to the next one.
+- Avoid previously seen prompt variants with bounded sampling; disclose
+  repeats when finite families are exhausted. Keep scope limitations honest.
+- Run bank mathematical/property/render tests and independently solve a
+  blind example before changing a generator's formula or key.
 
 ## Commands
 

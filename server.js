@@ -8,6 +8,8 @@ import { completeGPTCoach, COACH_MODELS } from './ai-coach.js';
 import { loadStudyCoachContext } from './study-coach-context.js';
 import { canvasDetailRequest, normalizeCanvasDetail, appendRetrievalHints } from './canvas-retrieval.js';
 import { readLinkedDocument } from './linked-documents.js';
+import { createMixedPracticeService } from './mixed-practice.js';
+import { createMixedPracticeApi } from './mixed-practice-api.js';
 import { readFile, writeFile, rename, mkdir, unlink } from 'node:fs/promises';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -984,7 +986,7 @@ async function handleStudyCoach(req, res, profileId) {
   if (found && !canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
   const sources = evidence.sources.map(s => ({ ...s, label: s.label || s.title || 'Canvas source', detail: `${s.sourceState || 'retrieved'}${s.readAt ? ` · Read ${s.readAt}` : ''}${s.updatedAt ? ` · Source updated ${s.updatedAt}` : ''}` }));
   if (!providerChain().length) return sendJson(res, 200, {
-    profileId, text: 'The AI coach is not configured on this server yet. The source lookup below still shows what could be retrieved. You can open those materials and use the study-session planner.',
+    profileId, available: false, text: 'The AI coach is not configured on this server yet. The source lookup below still shows what could be retrieved. You can open those materials and use the study-session planner.',
     sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded,
   });
   const transcript = (Array.isArray(body.transcript) ? body.transcript : []).slice(-8)
@@ -995,7 +997,7 @@ async function handleStudyCoach(req, res, profileId) {
   });
   if (found && !canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
   if (found) renewCanvasSession(req, res, found);
-  if (out.refusal) return sendJson(res, 200, { profileId, text: 'The coach could not help with that request. Ask about a study step or your course instructions.', model: out.model, fallback: out.fallback, sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded });
+  if (out.refusal) return sendJson(res, 200, { profileId, available: true, refusal: true, text: 'The coach could not help with that request. Ask about a study step or your course instructions.', model: out.model, fallback: out.fallback, sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded });
   if (!out.text) return sendJson(res, 502, { error: 'Astra and its backup could not answer this time. Your coursework and progress are unchanged.' });
   return sendJson(res, 200, { profileId, text: out.text + (out.truncated ? '\n\nThis reply stopped at its length limit. Ask a narrower follow-up for the remaining detail.' : ''), model: out.model, fallback: out.fallback, sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded });
 }
@@ -1016,6 +1018,16 @@ function providerChain() {
 }
 function completeWithFallback({ system, messages }) {
   return completeGPTCoach({ apiKey: process.env.OPENAI_API_KEY, system, messages });
+}
+// Load the generated bank only when mixed practice is requested. Its private
+// answer keys remain in this server process and are never static app assets.
+let mixedPracticeApiPromise;
+async function handleMixedPractice(req, res, url) {
+  if (!mixedPracticeApiPromise) mixedPracticeApiPromise = import('./mixed-question-bank.js').then(({ MIXED_TOPICS, generateMixedQuestion }) => {
+    const service = createMixedPracticeService({ topics: MIXED_TOPICS, generateQuestion: generateMixedQuestion });
+    return createMixedPracticeApi({ service, readBody, sendJson, complete: completeWithFallback, isConfigured: () => providerChain().length > 0 });
+  }).catch(error => { mixedPracticeApiPromise = null; throw error; });
+  return (await mixedPracticeApiPromise)(req, res, url);
 }
 const TUTOR_SYSTEM = `You are Astra, the AI coach inside Students4AI, an AP Calculus AB and BC learning app. The learner enjoys coding; do not assume professional experience or a particular age. Your coach name is Astra; never claim a particular model supplied a reply, because the app reports the actual model separately. Follow these rules exactly.
 
@@ -1172,7 +1184,7 @@ async function handleTutor(req, res, url) {
   const system = (beforeAnswer ? TUTOR_BEFORE_SYSTEM : TUTOR_SYSTEM) + (isFreeResponse ? `\n${TUTOR_FREE_RESPONSE_RULES}` : '');
   const out = await completeWithFallback({ system, messages });
   if (out.refusal) {
-    return sendJson(res, 200, { text: 'The coach cannot answer that particular request. You can ask about the idea or a step in this calculus problem.', model: out.model, fallback: out.fallback });
+    return sendJson(res, 200, { refusal: true, text: 'The coach cannot answer that particular request. You can ask about the idea or a step in this calculus problem.', model: out.model, fallback: out.fallback });
   }
   if (out.text) {
     const text = out.truncated
@@ -1191,6 +1203,7 @@ const server = createServer(async (req, res) => {
   try {
     if (path === '/api/health') return sendJson(res, 200, { ok: true, app: 'calc-coach' });
     if (path === '/api/tutor') return await handleTutor(req, res, url);
+    if (path.startsWith('/api/mixed/')) return await handleMixedPractice(req, res, url);
     if (path.startsWith('/api/canvas/')) return await handleCanvas(req, res, url);
 
     if (path === '/api/progress') {

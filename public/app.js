@@ -21,6 +21,8 @@ let spatialCleanup = null;
 let focusCleanup = null;
 let pageCoachCleanup = null;
 let activeQuestionCoach = null;
+let mixedCleanup = null;
+let activeMixedQuestion = null;
 let coachCanvasReference = null;
 let activeProfile = 'learner';
 let switchingProfile = false;
@@ -128,7 +130,7 @@ function mountTutor(container, unit, q, ctx) {
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
         if (typeof data.text !== 'string' || !data.text.trim()) throw new Error('No coach reply was returned.');
-        ctx.onHelp?.();
+        if (data.available !== false && !data.refusal) ctx.onHelp?.();
         $('.coach-model', container).textContent = data.model === 'gpt-5.6-sol' ? 'Reply from GPT-5.6 Sol · backup coach' : data.model === 'gpt-6-astra' ? 'Reply from GPT-6 Astra' : 'AI coach reply';
         if (followUp) transcript.push({ role: 'user', text: followUp });
         transcript.push({ role: 'assistant', text: data.text });
@@ -251,7 +253,7 @@ function studyControls() {
     if (CANVAS.snapshot) canvasRebuildInsights();
     save();
     if (location.hash.startsWith('#/canvas/course/')) location.hash = '#/canvas';
-    else if (location.hash.startsWith('#/canvas') || location.hash === '#/focus') router();
+    else if (location.hash.startsWith('#/canvas') || location.hash === '#/focus' || location.hash === '#/mixed') router();
     else { location.hash = '#/home'; router(); }
   });
 }
@@ -303,6 +305,8 @@ function setNav(active) {
 
 function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   activeQuestionCoach = null;
+  if (mixedCleanup) { mixedCleanup(); mixedCleanup = null; }
+  activeMixedQuestion = null;
   coachCanvasReference = null;
   clearInterval(tickTimer);
   if (labCleanup) { labCleanup(); labCleanup = null; }
@@ -579,7 +583,7 @@ function viewHome() {
     (CONTENT.failed.length ? '<div class="card"><p>' + esc(CONTENT.failed.join('; ')) + '</p></div>' : '') +
     '<div id="home-study-lab"></div><div class="unit-grid"><section class="card" id="school-pace">' + canvasPaceHtml() + '</section><section class="card"><span class="kicker">Your learning pace</span><h2>' + (average >= 80 ? 'Explain. Connect. Extend.' : average >= 35 ? 'Make the next connection' : 'Try an idea, then test it') + '</h2><p>' + (average >= 80 ? 'Practice now emphasizes harder applications. Try independent AP-style questions and explain your reasoning.' : 'Adaptive practice returns to skills that need attention and increases difficulty as your answers show understanding.') + '</p><div class="btn-row">' + (next ? '<a class="btn secondary" href="#/practice/' + next.id + '">Practice at my level</a>' : '') + '<a class="btn quiet" href="#/review">Review skills</a></div></section></div>' +
     '<h2>Explore your modules</h2><p>Lessons, practice, and mastery checks are available from the start. Pick a topic because it interests you or because schoolwork needs it.</p><div class="unit-grid">' + cards + '</div>' +
-    (!units.length ? '<div class="card"><h3>Physics workspace</h3><p>Choose a physics course in the Canvas dropdown for its assignments, modules, and grades. The independent question library currently covers AP Calculus AB and BC; a physics curriculum has not been added yet.</p><a class="btn" href="#/canvas">Open physics in Canvas</a></div>' : '<details class="card"><summary>Optional placement check</summary><p>Get a starting estimate of familiar units. It does not restrict what you can open, and you can stop at any time.</p><a class="btn secondary" href="#/diagnostic">Start placement check</a></details>'),
+    (!units.length ? '<div class="card"><h3>Physics workspace</h3><p>Choose a physics course in the Canvas dropdown for its assignments, modules, and grades. Mixed practice generates questions for the Physics topics you select. The complete lesson and mastery-check curriculum covers AP Calculus AB and BC.</p><div class="btn-row"><a class="btn" href="#/mixed">Practise Physics questions</a><a class="btn secondary" href="#/canvas">Open physics in Canvas</a></div></div>' : '<details class="card"><summary>Optional placement check</summary><p>Get a starting estimate of familiar units. It does not restrict what you can open, and you can stop at any time.</p><a class="btn secondary" href="#/diagnostic">Start placement check</a></details>'),
     { breadcrumb: ['Home'], nav: 'home' });
   labCleanup = mountStudyLab($('#home-study-lab', v), { motion: document.documentElement.dataset.motion, course: S.settings.subject === 'calculus-ab' ? 'ab' : S.settings.subject === 'physics' ? 'physics' : 'bc', mastery: average });
   if (S.settings.subject !== 'calculus-ab') mountSpatialSection($('#home-study-lab', v));
@@ -587,7 +591,33 @@ function viewHome() {
   focusEntry.className = 'card focus-entry';
   focusEntry.innerHTML = '<div><span class="kicker">Make time for one next step</span><h2>Choose a short study session</h2><p>Set the time you have, choose one task, and use a small checklist. Pause whenever you need.</p></div><a class="btn" href="#/focus">Plan my study session</a>';
   v.insertBefore(focusEntry, $('.dashboard-stats', v));
+  const mixedEntry = document.createElement('section');
+  mixedEntry.className = 'card focus-entry';
+  mixedEntry.innerHTML = '<div><span class="kicker">Physics + Calculus BC</span><h2>Build your own question session</h2><p>Choose topics from either subject or mix both. Fresh questions adapt to the specific patterns in your answers.</p></div><a class="btn" href="#/mixed">Open mixed practice</a>';
+  v.insertBefore(mixedEntry, $('.dashboard-stats', v));
   S.lastLocation = '#/home'; save();
+}
+
+async function viewMixedStudy() {
+  const v = mountView('<div id="mixed-study-slot"><h1>Mixed practice</h1><p>Opening your topic choices.</p></div>', { breadcrumb: ['Home', 'Mixed practice'], nav: 'mixed' });
+  const host = $('#mixed-study-slot', v), profileId = activeProfile;
+  try {
+    const { mountMixedStudy } = await import('/mixed-study.js');
+    if (!host.isConnected || profileId !== activeProfile) return;
+    mixedCleanup = mountMixedStudy(host, {
+      profileId, renderMath,
+      onQuestionContext(context) {
+        if (!host.isConnected || profileId !== activeProfile) return;
+        activeMixedQuestion = context ? { ...context, container: host } : null;
+        pageCoachCleanup?.refresh();
+      },
+      onAskCoach(message) {
+        if (host.isConnected && profileId === activeProfile) pageCoachCleanup?.ask(message);
+      },
+    });
+  } catch {
+    if (host.isConnected && profileId === activeProfile) host.innerHTML = '<p>Mixed practice could not load. Reload this page to try again.</p>';
+  }
 }
 
 async function viewFocus() {
@@ -1932,6 +1962,7 @@ function router() {
   else if (route === 'diagnostic') viewDiagnostic();
   else if (route === 'review') viewReview();
   else if (route === 'focus') viewFocus();
+  else if (route === 'mixed') viewMixedStudy();
   else if (route === 'canvas' && a === 'plan') viewCanvasPlan();
   else if (route === 'canvas' && a === 'grades') viewCanvasGrades();
   else if (route === 'canvas' && a === 'assessment') viewCanvasAssessment();
@@ -1945,20 +1976,33 @@ function router() {
 function ensurePageCoach() {
   if (pageCoachCleanup) { pageCoachCleanup.refresh(); return; }
   pageCoachCleanup = mountPageCoach($('#page-coach-slot'), {
-    context: () => ({ route: location.hash || '#/home', subject: S.settings.subject,
+    context: () => ({ route: location.hash || '#/home', subject: activeMixedQuestion?.subject || S.settings.subject,
       selectedCourseId: CANVAS.selectedCourseId, termIds: CANVAS.termIds || [],
-      questionId: activeQuestionCoach?.q.id, unitId: activeQuestionCoach?.unit.id,
-      questionPhase: activeQuestionCoach?.ctx.phase,
+      questionId: activeMixedQuestion?.questionId || activeQuestionCoach?.q.id, unitId: activeQuestionCoach?.unit.id,
+      sessionId: activeMixedQuestion?.sessionId,
+      questionPhase: activeMixedQuestion?.phase || activeQuestionCoach?.ctx.phase,
       ...coachCanvasReference,
-      title: coachCanvasReference ? 'Canvas instructions' : $('h1', viewEl())?.textContent,
+      title: coachCanvasReference ? 'Canvas instructions' : activeMixedQuestion?.title || $('h1', viewEl())?.textContent,
     }),
     renderMath,
     request: async (payload, { signal }) => {
       const profile = activeProfile;
       const question = activeQuestionCoach?.container.isConnected ? activeQuestionCoach : null;
+      const mixedQuestion = activeMixedQuestion?.container.isConnected ? activeMixedQuestion : null;
       // Both coach boxes share the verified question handler and hint-credit
       // callback. The page box cannot bypass an assisted mastery/placement.
-      const asksForSchool = /canvas|due.date|schedule|school/i.test(payload.message);
+      const asksForSchool = /\b(?:canvas|due|deadline|schedule|school)\b/i.test(payload.message);
+      if (mixedQuestion && !asksForSchool) {
+        const response = await fetch(`/api/mixed/tutor?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId,
+          followUp: payload.message, transcript: payload.transcript,
+        }) });
+        const data = await response.json();
+        if (!response.ok || data.error) throw new Error(data.error || 'The question coach could not answer.');
+        if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
+        if (data.assisted && activeMixedQuestion?.questionId === mixedQuestion.questionId) mixedCleanup?.markAssisted(data);
+        return data;
+      }
       if (question && !coachCanvasReference && !asksForSchool) {
         const { unit, q, ctx } = question;
         const response = await fetch('/api/tutor', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
@@ -1969,12 +2013,20 @@ function ensurePageCoach() {
         const data = await response.json();
         if (!response.ok || data.error) throw new Error(data.error || 'The question coach could not answer.');
         if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
-        if (data.text) ctx.onHelp?.();
+        if (data.text && data.available !== false && !data.refusal) ctx.onHelp?.();
         return data;
       }
-      const { res, data } = await canvasApi('/api/canvas/coach', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const schoolPayload = mixedQuestion ? { ...payload, pageContext: { ...payload.pageContext, subject: mixedQuestion.subject, selectedCourseId: null } } : payload;
+      const { res, data } = await canvasApi('/api/canvas/coach', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(schoolPayload) });
       if (!res.ok || data.error) throw new Error(data.error || 'The study coach could not answer.');
-      if (question && data.text && profile === activeProfile && !signal.aborted) question.ctx.onHelp?.();
+      const receivedHelp = Boolean(data.text && data.available !== false && !data.refusal);
+      if (question && receivedHelp && profile === activeProfile && !signal.aborted) question.ctx.onHelp?.();
+      if (mixedQuestion && receivedHelp && mixedQuestion.phase === 'before-answer' && profile === activeProfile && !signal.aborted) {
+        const marked = await fetch(`/api/mixed/assisted?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId }) });
+        if (!marked.ok) throw new Error('The coach replied, but assisted practice could not be recorded. Try again before checking this answer.');
+        const assistance = await marked.json();
+        if (activeMixedQuestion?.questionId === mixedQuestion.questionId) mixedCleanup?.markAssisted({ ...assistance, questionId: mixedQuestion.questionId });
+      }
       return data;
     },
   });

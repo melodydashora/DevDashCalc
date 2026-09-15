@@ -141,3 +141,28 @@ test('free-response discussion never invents a grade or uses another unit questi
   assert.match(context.content, /no grade is established/);
   assert.doesNotMatch(context.content, /checked against the stored key|learner answered correctly|999|mastery 100/);
 });
+
+test('the actual server routes generated practice without serving its private bank or accepting another profile session', async () => {
+  const post = async (path, body, profile = 'mixed-route-test') => {
+    const response = await fetch(`${base}/api/mixed/${path}?profile=${profile}`, { method: 'POST',
+      headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    return { status: response.status, data: await response.json() };
+  };
+  assert.equal((await fetch(`${base}/mixed-question-bank.js`)).status, 404);
+  const topics = await (await fetch(`${base}/api/mixed/topics`)).json();
+  assert.ok(topics.topics.some(topic => topic.subject === 'physics'));
+  assert.ok(topics.topics.some(topic => topic.subject === 'calculus-bc'));
+  const created = await post('session', { topicIds: ['physics-energy'], requestId: 'route-test-request' });
+  assert.equal(created.status, 201);
+  const sessionId = created.data.sessionId, current = await post('next', { sessionId });
+  assert.equal(current.status, 200);
+  assert.doesNotMatch(JSON.stringify(current.data), /answerIndex|numericAnswer|choiceValues|privateSolution|parameters/);
+  const questionId = current.data.question.id;
+  assert.equal((await post('hint', { sessionId, questionId }, 'other-workspace')).status, 404);
+  const checked = await post('answer', { sessionId, questionId, answerIndex: 0, correct: true, answerKey: 0 });
+  assert.equal(checked.status, 200);
+  assert.equal(checked.data.correct, checked.data.answerIndex === 0);
+  assert.equal(checked.data.summary.attempted, 1);
+  const restore = await (await fetch(`${base}/api/mixed/session?profile=mixed-route-test&sessionId=${sessionId}`)).json();
+  assert.equal(restore.feedback.correct, checked.data.correct);
+});

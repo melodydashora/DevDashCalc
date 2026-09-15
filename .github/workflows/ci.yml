@@ -21,7 +21,11 @@ jobs:
           node --check canvas-retrieval.js
           node --check study-coach-context.js
           node --check linked-documents.js
+          node --check mixed-question-bank.js
+          node --check mixed-practice.js
+          node --check mixed-practice-api.js
           node --check public/page-coach.js
+          node --check public/mixed-study.js
           node --check store.js
           node --check public/app.js
           node --check public/engine.js

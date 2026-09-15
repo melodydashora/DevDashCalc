@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { safeCoachHref, coachContextLabel, coachConversationScope, coachSourceDetail, parseCoachMarkdown, appendReply } from '../public/page-coach.js';
 
 test('coach links allow known study destinations without accepting arbitrary hash commands', () => {
-  for (const href of ['#/home', '#/focus', '#/review', '#/settings', '#/diagnostic', '#/canvas', '#/canvas/plan', '#/canvas/grades', '#/canvas/assessment', '#/canvas/course/123', '#/unit/unit-09', '#/practice/unit-09', '#/mastery/unit-09', '#/lesson/unit-09/u9-l1']) {
+  for (const href of ['#/home', '#/focus', '#/mixed', '#/review', '#/settings', '#/diagnostic', '#/canvas', '#/canvas/plan', '#/canvas/grades', '#/canvas/assessment', '#/canvas/course/123', '#/unit/unit-09', '#/practice/unit-09', '#/mastery/unit-09', '#/lesson/unit-09/u9-l1']) {
     assert.equal(safeCoachHref(href), href);
   }
   for (const href of ['#/settings/erase', '#/unknown', '#/unit/a/../../settings', '#/lesson/unit-09', '#/canvas/course/not-a-course', '#/focus?execute=1', '#/practice/unit-09#anything']) {
@@ -35,6 +35,7 @@ test('coach conversation scope follows course/subject and isolates each active q
   assert.notEqual(coachConversationScope(context), coachConversationScope({ ...context, subject: 'physics' }));
   assert.notEqual(coachConversationScope(context), coachConversationScope({ ...context, selectedCourseId: 43 }));
   const question = { ...context, unitId: 'unit-09', questionId: 'q1' };
+  assert.notEqual(coachConversationScope({ ...question, sessionId: 'session-a' }), coachConversationScope({ ...question, sessionId: 'session-b' }));
   assert.notEqual(coachConversationScope(context), coachConversationScope(question), 'page advice is not sent as prior help on a fresh question');
   assert.notEqual(coachConversationScope(question), coachConversationScope({ ...question, questionId: 'q2' }));
   assert.notEqual(coachConversationScope(question), coachConversationScope({ ...question, unitId: 'unit-10' }));
