@@ -5,12 +5,12 @@ import { COACH_MODELS, COACH_CONFIG } from './ai-coach.js';
 import { RECORD_SYSTEM } from './coach-records.js';
 const ENDPOINT = 'https://api.openai.com/v1/responses';
 
-export async function completeRecordCoach({ apiKey, system, messages, lookup, fetchImpl = fetch, timeoutMs = COACH_CONFIG.timeoutMs }) {
+export async function completeRecordCoach({ apiKey, system, messages, lookup, models = COACH_MODELS, fetchImpl = fetch, timeoutMs = COACH_CONFIG.timeoutMs }) {
   const failures = [];
   const base = { text: '', model: null, fallback: false, refusal: false, truncated: false, failures, recordReads: lookup.reads };
   if (!apiKey?.trim()) return { ...base, failures: ['openai: API key is not configured'] };
   let toolCount = 0;
-  for (const [index, model] of COACH_MODELS.entries()) {
+  for (const [index, model] of models.entries()) {
     const result = { ...base, model, fallback: index > 0 };
     const controller = new AbortController();
     let timer;
@@ -21,13 +21,15 @@ export async function completeRecordCoach({ apiKey, system, messages, lookup, fe
         let tokens = COACH_CONFIG.maxCompletionTokens;
         for (let round = 0; round < 9; round++) {
           if (controller.signal.aborted) return { failure: 'timed out' };
+          if (tokens < 1) return { failure: 'output token budget exhausted' };
+          const allowTools = toolCount < 8 && tokens >= 1024;
           await lookup.assertCurrent();
           const response = await fetchImpl(ENDPOINT, { method: 'POST', signal: controller.signal,
             headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey.trim()}` },
             body: JSON.stringify({ model, instructions: `${system}\n${RECORD_SYSTEM}`, input,
-              reasoning: { effort: COACH_CONFIG.reasoningEffort }, max_output_tokens: Math.max(512, tokens),
+              reasoning: { effort: COACH_CONFIG.reasoningEffort }, max_output_tokens: tokens,
               store: false, include: ['reasoning.encrypted_content'], tools: lookup.tools, parallel_tool_calls: false,
-              tool_choice: toolCount >= 8 || tokens < 1024 ? 'none' : 'auto' }),
+              tool_choice: allowTools ? 'auto' : 'none' }),
           });
           if (response.status === 401) { controller.abort(); return { failure: 'HTTP 401', final: true }; }
           const data = await response.json().catch(() => null);
@@ -38,10 +40,13 @@ export async function completeRecordCoach({ apiKey, system, messages, lookup, fe
             || data?.incomplete_details?.reason === 'content_filter') return { refusal: true };
           if (!response.ok) return { failure: `HTTP ${response.status}` };
           if (data?.status === 'failed') return { failure: 'unusable response' };
-          tokens -= Number.isFinite(data?.usage?.output_tokens) ? Math.max(0, data.usage.output_tokens) : 0;
+          const usage = data?.usage?.output_tokens;
+          const accounted = Number.isSafeInteger(usage) && usage >= 0;
+          if (accounted) tokens -= usage;
           const calls = output.filter(item => item?.type === 'function_call');
           if (calls.length) {
-            if (toolCount >= 8 || calls.length > 8 - toolCount || calls.some(call => typeof call.call_id !== 'string' || typeof call.arguments !== 'string' || call.arguments.length > 2000)) return { failure: 'record lookup limit' };
+            if (!allowTools || calls.length > 8 - toolCount || calls.some(call => typeof call.call_id !== 'string' || typeof call.arguments !== 'string' || call.arguments.length > 2000)) return { failure: 'record lookup limit' };
+            if (!accounted || tokens < 1) return { failure: 'output token budget exhausted' };
             // Reasoning items, including encrypted state, return only to OpenAI.
             input.push(...output);
             for (const call of calls) {
@@ -49,7 +54,7 @@ export async function completeRecordCoach({ apiKey, system, messages, lookup, fe
               toolCount++;
               let args;
               try { args = JSON.parse(call.arguments); } catch { args = null; }
-              const value = await lookup.execute(call.name, args);
+              const value = await lookup.execute(call.name, args, { signal: controller.signal });
               if (controller.signal.aborted) return { failure: 'timed out' };
               input.push({ type: 'function_call_output', call_id: call.call_id, output: JSON.stringify(value) });
             }
@@ -64,10 +69,10 @@ export async function completeRecordCoach({ apiKey, system, messages, lookup, fe
       })()]);
       if (!out.failure) return { ...result, ...out };
       failures.push(`${model}: ${out.failure}`);
-      if (out.final) return result;
+      if (out.final) return { ...result, failureKind: 'authentication' };
     } catch {
       failures.push(`${model}: request unavailable`);
     } finally { clearTimeout(timer); }
   }
-  return { ...base, model: COACH_MODELS[1], fallback: true };
+  return { ...base, model: models.at(-1) || null, fallback: models.length > 1 };
 }

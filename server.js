@@ -4,8 +4,7 @@
 
 import { createServer } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
-import { completeGPTCoach, COACH_MODELS } from './ai-coach.js';
-import { completeRecordCoach } from './ai-record-coach.js';
+import { completeTutor, getTutorStatus } from './tutor-service.js';
 import { createStudentRecordLookup } from './coach-records.js';
 import { loadStudyCoachContext } from './study-coach-context.js';
 import { canvasDetailRequest, normalizeCanvasDetail, appendRetrievalHints } from './canvas-retrieval.js';
@@ -871,15 +870,20 @@ async function handleCanvasAssessment(req, res, profileId) {
     const out = await completeWithFallback({
       system: CANVAS_ASSESSMENT_SYSTEM,
       messages: [{ role: 'user', content: canvasAssessmentContext(snapshot, insights) }],
+      assertCurrent: async () => {
+        await assertOwnedCoachRequest(req, res, profileId);
+        if (!canvasSessionCurrent(found)) throw new Error('The Canvas connection changed.');
+      },
     });
     if (!canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
+    if (out.failureKind === 'authorization') return sendJson(res, 401, { code: 'authentication_required', error: 'Sign in again to request an assessment.' });
     renewCanvasSession(req, res, found);
     if (out.refusal) return sendJson(res, 200, { text: 'The AI service declined to analyze this data. The plan and Grades pages still show everything Canvas reported.' });
     if (out.text) {
       const text = out.truncated
         ? `${out.text}\n\nThis assessment reached its length limit and stops early. Ask for a new assessment to get a complete one.`
         : out.text;
-      return sendJson(res, 200, { profileId, text });
+      return sendJson(res, 200, { profileId, text, model: out.model, provider: out.provider, fallback: out.fallback });
     }
     console.error('[calc-coach] canvas assessment: every provider failed —', out.failures.join(' | '));
     return sendJson(res, 502, { error: 'The assessment service could not be reached.' });
@@ -1229,7 +1233,7 @@ async function handleStudyCoach(req, res, profileId) {
   if (found && !canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
   if (found) renewCanvasSession(req, res, found);
   if (out.refusal) return sendJson(res, 200, { profileId, available: true, refusal: true, text: 'The coach could not help with that request. Ask about a study step or your course instructions.', model: out.model, fallback: out.fallback, sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded, ...continuityMetadata });
-  if (!out.text) return sendJson(res, 502, { error: 'Astra and its backup could not answer this time. Your coursework and progress are unchanged.' });
+  if (!out.text) return sendJson(res, 502, { error: 'The configured coaches could not answer this time. Your coursework and progress are unchanged.' });
   return sendJson(res, 200, { profileId, text: out.text + (out.truncated ? '\n\nThis reply stopped at its length limit. Ask a narrower follow-up for the remaining detail.' : ''), model: out.model, fallback: out.fallback, sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded, ...continuityMetadata, recordReads: out.recordReads || [] });
 }
 
@@ -1243,14 +1247,22 @@ async function handleStudyCoach(req, res, profileId) {
 // contradicting it. Only the question content and the learner's answer to it
 // are sent in legacy mode. Authenticated coaching can also retrieve this
 // learner's saved learning records; credentials are never coach context.
-// Melody's requested coach chain: GPT-6 Astra, then GPT-5.6 Sol only.
-// Provider credentials remain in Replit Secrets; no other vendor is contacted.
+// Model/provider order comes from Replit Secrets. Each adapter uses the same
+// owner-bound learning context and private record dispatcher.
 function providerChain() {
-  return process.env.OPENAI_API_KEY ? ['openai'] : [];
+  return getTutorStatus().providers;
 }
-function completeWithFallback({ system, messages, lookup }) {
-  return lookup ? completeRecordCoach({ apiKey: process.env.OPENAI_API_KEY, system, messages, lookup })
-    : completeGPTCoach({ apiKey: process.env.OPENAI_API_KEY, system, messages });
+function completeWithFallback({ system, messages, lookup, assertCurrent }) {
+  return completeTutor({ system, messages, lookup, assertCurrent });
+}
+async function assertOwnedCoachRequest(req, res, profileId) {
+  if (res.destroyed || res.writableEnded) throw new Error('The study request is no longer active.');
+  if (!AUTH_REQUIRED) return;
+  if (res.authExpiresAt <= Date.now()) throw new Error('Sign-in expired.');
+  const service = await accountAuth(), token = authCookieToken(req);
+  const context = token ? await service.authenticate(token) : null;
+  if (!context) throw new Error('Sign-in expired.');
+  await service.authorizeWorkspace(context, profileId);
 }
 async function ownedRecordLookup(req, res, supplied = {}) {
   if (!AUTH_REQUIRED || !req.authWorkspace) return null;
@@ -1259,13 +1271,7 @@ async function ownedRecordLookup(req, res, supplied = {}) {
     ? await withProgressOperation(profileId, async () => (await readProgressCopies(profileId)).value) : supplied.progress;
   return createStudentRecordLookup({ ...supplied, profileId, workspaceId: req.authWorkspace.id, progress,
     readNotes: options => studentContinuity().then(store => store.list(options)),
-    assertCurrent: async () => {
-      if (res.destroyed || res.writableEnded || res.authExpiresAt <= Date.now()) throw new Error('The study request is no longer active.');
-      const service = await accountAuth(), token = authCookieToken(req);
-      const context = token ? await service.authenticate(token) : null;
-      if (!context) throw new Error('Sign-in expired.');
-      await service.authorizeWorkspace(context, profileId);
-    },
+    assertCurrent: () => assertOwnedCoachRequest(req, res, profileId),
   });
 }
 async function completeOwnedQuestion(request, req, res) {
@@ -1352,7 +1358,7 @@ function historyLines(q, history, chosenIndex, correct) {
 async function handleTutor(req, res, url) {
   const chain = providerChain();
   // Public model names identify the requested coach and transparent fallback.
-  if (req.method === 'GET') return sendJson(res, 200, { available: chain.length > 0, providers: chain, coach: 'Astra', models: COACH_MODELS });
+  if (req.method === 'GET') return sendJson(res, 200, getTutorStatus());
   if (req.method !== 'POST') return sendJson(res, 405, { error: 'use GET or POST' });
   if (!chain.length) return sendJson(res, 200, { available: false });
 

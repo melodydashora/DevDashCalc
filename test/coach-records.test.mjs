@@ -50,3 +50,47 @@ test('a defective adapter cannot return another student note', async () => {
   const result = await lookup.execute('read_student_records', { collection: 'saved_notes', offset: 0 });
   assert.equal(result.state, 'unavailable'); assert.doesNotMatch(JSON.stringify(result), /Other child/);
 });
+
+test('cancellation during the initial owner check prevents a late note read', async () => {
+  let enteredOwnerCheck, releaseOwnerCheck;
+  const entered = new Promise(resolve => { enteredOwnerCheck = resolve; });
+  const held = new Promise(resolve => { releaseOwnerCheck = resolve; });
+  const controller = new AbortController();
+  let noteReads = 0;
+  const lookup = createStudentRecordLookup({ profileId: 'student-a', assertCurrent: async () => {
+    enteredOwnerCheck();
+    await held;
+  }, readNotes: async () => { noteReads++; return { totalCount: 0, notes: [] }; } });
+  const pending = lookup.execute('read_student_records', { collection: 'saved_notes', offset: 0 }, { signal: controller.signal });
+  const rejected = assert.rejects(pending, /cancelled/);
+  await entered;
+  controller.abort();
+  releaseOwnerCheck();
+  await rejected;
+  assert.equal(noteReads, 0);
+  assert.deepEqual(lookup.reads, []);
+});
+
+test('cancellation during a note read prevents late records and read metadata from returning', async () => {
+  let enteredNoteRead, releaseNoteRead;
+  const entered = new Promise(resolve => { enteredNoteRead = resolve; });
+  const held = new Promise(resolve => { releaseNoteRead = resolve; });
+  const controller = new AbortController();
+  let returned, noteReads = 0;
+  const lookup = createStudentRecordLookup({ profileId: 'student-a', readNotes: async () => {
+    noteReads++;
+    enteredNoteRead();
+    await held;
+    return { totalCount: 1, notes: [{ profileId: 'student-a', text: 'Late note that must not reach the provider.' }] };
+  } });
+  const pending = lookup.execute('read_student_records', { collection: 'saved_notes', offset: 0 }, { signal: controller.signal })
+    .then(value => { returned = value; return value; });
+  const rejected = assert.rejects(pending, /cancelled/);
+  await entered;
+  controller.abort();
+  releaseNoteRead();
+  await rejected;
+  assert.equal(noteReads, 1);
+  assert.equal(returned, undefined);
+  assert.deepEqual(lookup.reads, []);
+});

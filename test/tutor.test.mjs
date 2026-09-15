@@ -22,7 +22,8 @@ before(async () => {
   };`;
   child = spawn(process.execPath, ['--import', `data:text/javascript;base64,${Buffer.from(preload).toString('base64')}`, 'server.js'], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
-    env: { ...process.env, AUTH_REQUIRED: '0', PORT: String(port), DATABASE_URL: '', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-placeholder' },
+    env: { ...process.env, AUTH_REQUIRED: '0', PORT: String(port), DATABASE_URL: '', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-placeholder',
+      TUTOR_MODEL_OPENAI: 'gpt-6-astra', TUTOR_MODEL_OPENAI_FALLBACK: 'gpt-5.6-sol', TUTOR_TIMEOUT_MS: '120000', TUTOR_TOTAL_TIMEOUT_MS: '240000' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((resolve, reject) => {

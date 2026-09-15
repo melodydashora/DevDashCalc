@@ -51,8 +51,9 @@ Breaking any of these is a regression even if the code works:
 | Password/session core and relational account ownership | `auth.js`, `account-store.js` |
 | Explicit, append-only student continuity notes | `continuity-store.js` |
 | Sign-in/enrollment UI and server-only enrollment command | `public/auth-ui.js`, `scripts/create-enrollment.mjs` |
-| Fixed Astra-to-Sol OpenAI coaching requests, fallback, and timeouts | `ai-coach.js` |
-| Owner-bound learning-record pages and Responses tool loop | `coach-records.js`, `ai-record-coach.js` |
+| Environment model/provider settings and shared fallback policy | `coach-config.js`, `tutor-service.js` |
+| Anthropic Messages and OpenAI text/Responses transports | `anthropic-coach.js`, `ai-coach.js`, `ai-record-coach.js` |
+| Owner-bound learning-record pages | `coach-records.js` |
 | Zero-dep Postgres wire client + key→JSON store (tested) | `store.js` |
 | Adaptive/mastery logic (pure, tested) | `public/engine.js` |
 | Canvas LMS normalization + plan/grades rules (pure, tested) | `public/canvas-insights.js` |
@@ -78,7 +79,7 @@ Breaking any of these is a regression even if the code works:
 | Canvas insights tests | `test/canvas-insights.test.mjs` |
 | Store tests (URL parsing, SCRAM vector) | `test/store.test.mjs` |
 | Tutor phase, stored-key grounding, and grading boundary tests | `test/tutor.test.mjs` |
-| Coach model order, refusal, timeout, and safe-failure tests | `test/ai-coach.test.mjs` |
+| Coach configuration, refusal, timeout, and safe-failure tests | `test/coach-config.test.mjs`, `test/ai-coach.test.mjs`, `test/ai-record-coach.test.mjs` |
 | Session timing, lifecycle, and saved-field tests | `test/focus-planner.test.mjs` |
 | Canvas per-learner connection and cache isolation tests | `test/canvas-profiles.test.mjs` |
 | Account cryptography, database contract, enrollment, and HTTP authorization | `test/auth.test.mjs`, `test/account-store.test.mjs`, `test/enrollment-cli.test.mjs`, `test/auth-api.test.mjs` |
@@ -178,26 +179,57 @@ checks ownership before reaching these existing connection handlers.
 
 ## AI coaching configuration
 
-Melody chose a fixed OpenAI model order: **GPT-6 Astra** (`gpt-6-astra`)
-first, then **GPT-5.6 Sol** (`gpt-5.6-sol`) only as fallback. Both the math
-coach and optional Canvas assessment use `ai-coach.js` through Node's
-built-in `fetch`; no SDK or dependency is needed.
+Melody's September 15 direction supersedes the former fixed OpenAI-only
+implementation. Provider/model values in Secrets are authoritative. The
+default order is **Claude Fable 5.1 → Claude Opus 5 → GPT-6 Astra → GPT-5.6 Sol**;
+Melody explicitly confirmed Sol as Astra's fallback. Gemini is disabled.
+The interface's study coach remains named Astra, with actual reply model
+labels identifying Fable, Opus, Astra, Sol, or another configured model.
 
-- `OPENAI_API_KEY` in Replit Secrets is the only AI credential read.
-  Existing Anthropic, Gemini/Google, `TUTOR_PROVIDERS`, and `TUTOR_MODEL_*`
-  secrets may remain, but the current coaching code ignores them. Do not
-  silently restore the former provider chain or environment model overrides.
-- Each model request uses `reasoning_effort: 'high'`,
-  `max_completion_tokens: 16000`, and its own 120-second timeout covering
-  response headers and body. This is a completion budget, not a promise of
-  16,000 visible answer tokens.
-- A service failure, timeout, or empty/unusable answer can try Sol once.
-  A refusal is final; HTTP 401 is final because both models use the same key.
-  Nonempty truncated replies retain a visible incomplete-answer notice.
-- The tutor status API reports the configured models, and reply metadata
-  lets the UI identify the model that actually answered. Without the key,
-  the coach panel remains visible with an unavailable notice and directs
-  the learner to built-in hints and worked solutions.
+- `coach-config.js` resolves `TUTOR_PROVIDERS` (default `anthropic,openai`),
+  `TUTOR_MODEL_ANTHROPIC` (`claude-fable-5-1`),
+  `TUTOR_MODEL_ANTHROPIC_FALLBACK` (`claude-opus-5`),
+  `TUTOR_MODEL_OPENAI` (`gpt-6-astra`), and
+  `TUTOR_MODEL_OPENAI_FALLBACK` (`gpt-5.6-sol`). Defaults apply only when
+  settings are absent. Blank fallback disables it; blank primary is an error.
+  Preserve exact supplied model spelling after trimming surrounding whitespace.
+  Never replace an explicit setting with a hardcoded model or silently repair
+  a typo. Unknown providers, including `gemini`, fail configuration clearly.
+- Only `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` enable providers. Missing keys
+  skip their provider with safe warnings, so an OpenAI-only deployment remains
+  usable. Gemini/Google credentials do not enable another lane. Normal startup
+  does not load `.env`; launch commands must not overwrite model settings.
+- `tutor-service.js` controls every production coaching path. A refusal ends
+  fallback across vendors. A 401 skips other models sharing that provider key
+  and may continue to the next vendor. Service failures, timeouts, and empty
+  responses can advance. Nonempty truncated replies retain a visible notice.
+  Loss of student authorization ends the request.
+- Anthropic Messages uses adaptive thinking, high `output_config.effort`, and
+  a 16,000-token output budget. OpenAI text uses Chat Completions with high
+  `reasoning_effort` and `max_completion_tokens: 16000`; record-aware OpenAI
+  uses Responses with equivalent reasoning/output settings and `store:false`.
+  Tool turns share their model-attempt output budget. These limits include
+  reasoning and do not promise 16,000 visible answer tokens. Use built-in
+  `fetch`; no SDK, package installation, or schema migration is required.
+- `TUTOR_TIMEOUT_MS` is the per-attempt ceiling (default 120000; range
+  1000–120000). `TUTOR_TOTAL_TIMEOUT_MS` bounds the full request (default
+  240000; range 1000–480000). Divide remaining time among remaining fallbacks;
+  with four stalled attempts the default allocation is about 60 seconds each.
+  Preserve the shared eight-actual-record-read limit across model/provider
+  fallback. All providers use the same owner-bound dispatcher and fresh session
+  checks. Opaque thinking/tool state stays within its originating attempt.
+- `getTutorStatus()` exposes safe provider/model names, availability, warnings,
+  and configuration errors. Never serialize the resolver's private `attempts`
+  array, API keys, raw error bodies, or an environment dump. The UI identifies
+  the actual model that answered. If no provider is available, preserve built-in
+  hints, solutions, lessons, and the visible unavailable coach.
+- Model specifications and configured key presence do not establish model
+  access, successful tool use, or comparative tutoring quality. Verify access
+  with a synthetic request and evaluate teaching quality on shared examples.
+  After a Secrets change, restart preview and update/republish production.
+  On configuration error, correct the named setting or remove it to restore its
+  default; a blank fallback disables it. Preserve student data and unrelated
+  credentials. The complete settings table and recovery steps are in README.
 - Pre-answer prompts request a concept or next step without revealing the
   final answer. Prompts guide model behavior; they are not a guarantee.
   The verified answer key and transparent written-response self-check
@@ -206,8 +238,13 @@ built-in `fetch`; no SDK or dependency is needed.
 ## Page coach and Canvas evidence
 
 - Every screen has a persistent bottom coach (`public/page-coach.js`). It
-  uses the same Astra-to-Sol transport. During an active question it uses the
+  uses the same configurable provider service. During an active question it uses the
   canonical question handler and assistance callback; there is no second grader.
+- Tutor replies and Canvas assessments use the shared DOM link renderer in
+  `public/tutor-text.js`. Named Markdown references and plain web addresses
+  become clickable links; preserve useful labels, line breaks, lists, and tables.
+  Allow only checked HTTP/HTTPS destinations and approved in-app routes. Model
+  HTML, code, and image markup remain inert; links open only when selected.
 - The page coach reconstructs learner/course/term context on the server in
   `study-coach-context.js`, adapting Vecto's typed-source and ownership pattern.
   Account mode authenticates and authorizes this workspace first; local legacy

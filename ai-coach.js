@@ -1,5 +1,5 @@
-// Fixed coaching models chosen for Students4AI. Legacy provider/model environment
-// variables cannot change this chain. Built-in fetch only; no SDK or dependency.
+// OpenAI transport defaults for standalone callers. The app supplies the model
+// selected by coach-config.js from server environment settings.
 // Model capabilities: https://developers.openai.com/api/docs/models/gpt-6-astra
 // and https://developers.openai.com/api/docs/models/gpt-5.6-sol
 export const COACH_MODELS = Object.freeze(['gpt-6-astra', 'gpt-5.6-sol']);
@@ -75,7 +75,7 @@ async function requestModel({ apiKey, model, system, messages, fetchImpl, timeou
  * are final. A nonempty truncated answer is returned with its flag intact.
  * failures contains only locally generated, safe-to-log diagnostic strings.
  */
-export async function completeGPTCoach({ apiKey, system, messages, fetchImpl = fetch, timeoutMs = COACH_CONFIG.timeoutMs } = {}) {
+export async function completeGPTCoach({ apiKey, system, messages, models = COACH_MODELS, fetchImpl = fetch, timeoutMs = COACH_CONFIG.timeoutMs } = {}) {
   const failures = [];
   let model = null, fallback = false;
   const result = (extra = {}) => ({ text: '', model, provider: 'openai', fallback, truncated: false, refusal: false, failures: [...failures], ...extra });
@@ -88,7 +88,7 @@ export async function completeGPTCoach({ apiKey, system, messages, fetchImpl = f
     return result();
   }
   const budget = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : COACH_CONFIG.timeoutMs;
-  for (const [index, nextModel] of COACH_MODELS.entries()) {
+  for (const [index, nextModel] of models.entries()) {
     model = nextModel;
     fallback = index > 0;
     const out = await requestModel({ apiKey: apiKey.trim(), model, system, messages, fetchImpl, timeoutMs: budget });
@@ -102,7 +102,7 @@ export async function completeGPTCoach({ apiKey, system, messages, fetchImpl = f
       failures.push(`${model}: HTTP ${status}`);
       // Both models use the same key. A rejected credential cannot be repaired
       // by another model. A model-specific access error (403/404) may recover.
-      if (status === 401) return result();
+      if (status === 401) return result({ failureKind: 'authentication' });
       continue;
     }
     const text = responseText(out.data);
