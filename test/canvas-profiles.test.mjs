@@ -13,8 +13,10 @@ let sandbox, child, base, output = '';
 const originalToken = 'test-original-secret';
 const eshaToken = 'test-esha-secret';
 const preload = `const gates = new Map();
+const canvasRequestCounts = new Map();
 globalThis.fixtureDb = { enabled: false, rows: new Map(), failWrites: false, nextGate: null };
 process.on('message', message => {
+  if (message.countToken) process.send({ countRequestId: message.requestId, count: canvasRequestCounts.get(message.countToken) || 0 });
   if (typeof message.coachConfigured === 'boolean') {
     process.env.OPENAI_API_KEY = message.coachConfigured ? 'test-model-secret' : '';
     process.send({ coachConfigured: message.coachConfigured });
@@ -45,6 +47,7 @@ globalThis.fetch = async (url, options = {}) => {
   }
   if (address.origin !== 'https://school.example') throw new Error('Unexpected external test request');
   const token = String(options.headers.authorization || '').replace('Bearer ', '');
+  canvasRequestCounts.set(token, (canvasRequestCounts.get(token) || 0) + 1);
   const identities = {
     'test-original-secret': { id: '100', name: 'Original learner' },
     'test-esha-secret': { id: '200', name: 'Esha' },
@@ -55,11 +58,16 @@ globalThis.fetch = async (url, options = {}) => {
     'test-slow-connect-secret': { id: '700', name: 'Pending connection' },
     'test-slow-stored-secret': { id: '800', name: 'Pending remembered connection' },
     'test-page-index-denied-secret': { id: '900', name: 'Front page learner' },
+    'test-dev-env-secret': { id: '101', name: 'Dev secret learner' },
+    'test-dev-alias-secret': { id: '102', name: 'Dev alias learner' },
+    'test-esha-env-secret': { id: '201', name: 'Esha secret learner' },
+    'test-unavailable-env-secret': { id: '901', name: 'Unavailable secret learner' },
   };
   const user = identities[token];
   const answer = (data, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } });
   if (!user) return answer({ message: 'Rejected token ' + token }, 401);
   const endpoint = address.pathname.replace('/api/v1/', '');
+  if (token === 'test-unavailable-env-secret') return answer({ message: 'Temporary outage' }, 503);
   if (endpoint === 'users/self' && ['test-slow-connect-secret', 'test-slow-stored-secret'].includes(token)) await waitForTest(token);
   if (endpoint === 'users/self') return answer(user);
   if (token === 'test-expiring-secret') return answer({ message: 'Expired token ' + token }, 401);
@@ -112,10 +120,14 @@ export const dbSeed = async (key, value) => {
   if (!state().enabled) return real.dbSeed(key, value);
   if (!state().rows.has(key)) state().rows.set(key, clone(value));
 };
-export const dbDelete = async key => state().enabled ? state().rows.delete(key) : real.dbDelete(key);
+export const dbDelete = async key => {
+  if (!state().enabled) return real.dbDelete(key);
+  if (state().failDeletes) throw new Error('Fabricated database delete outage');
+  return state().rows.delete(key);
+};
 `;
 
-async function startServer() {
+async function startServer(secretEnv = {}) {
   const socket = createServer();
   await new Promise((done) => socket.listen(0, '127.0.0.1', done));
   const port = socket.address().port;
@@ -123,7 +135,9 @@ async function startServer() {
   base = `http://127.0.0.1:${port}`;
   child = spawn(process.execPath, ['--import', `data:text/javascript;base64,${Buffer.from(preload).toString('base64')}`, 'server.js'], {
     cwd: sandbox,
-    env: { ...process.env, PORT: String(port), DATABASE_URL: '', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-model-secret' },
+    env: { ...process.env, PORT: String(port), DATABASE_URL: '', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-model-secret',
+      DEV_API_TOKEN: '', DEV_API_KEY: '', ESHA_API_TOKEN: '', DEV_CANVAS_PROFILE_ID: '', ESHA_CANVAS_PROFILE_ID: '',
+      DEV_CANVAS_URL: '', ESHA_CANVAS_URL: '', CANVAS_BASE_URL: '', ...secretEnv },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });
   child.stderr.on('data', (chunk) => { output += String(chunk); });
@@ -458,9 +472,10 @@ test('slow durable source saves cannot replace an earlier addition during an acc
   const prior = [{ ruleId: 'legacy-record', version: 7, note: 'Keep unchanged' }, null, null];
   const request = { pageContext: { route: '#/canvas/plan', subject: 'calculus-bc', selectedCourseId: '99', itemId: '7' }, message: 'Explain this task' };
   await writeFile(join(sandbox, `data/${key}.json`), JSON.stringify(prior));
-  await fixtureDatabase({ enabled: true, rows: [[key, prior]], nextGate: 'source-write-gate', failWrites: false });
+  await fixtureDatabase({ enabled: true, rows: [[key, prior]], nextGate: null, failWrites: false });
   try {
     const original = await connect(profile, originalToken, false);
+    await fixtureDatabase({ nextGate: 'source-write-gate' });
     const reached = waitingFor('source-write-gate');
     const first = api('coach', { profile, method: 'POST', cookie: original.cookie, body: request });
     await reached;
@@ -509,4 +524,259 @@ test('a failed database append survives restart and is repaired even without a n
   } finally {
     await fixtureDatabase({ enabled: false, failWrites: false, nextGate: null, rows: [] });
   }
+});
+
+const namedSecretEnv = {
+  DEV_API_TOKEN: 'test-dev-env-secret', ESHA_API_TOKEN: 'test-esha-env-secret',
+  DEV_CANVAS_PROFILE_ID: 'bound-dev', ESHA_CANVAS_PROFILE_ID: 'bound-esha',
+  CANVAS_BASE_URL: 'https://school.example',
+};
+function canvasRequestCount(token) {
+  const requestId = ++dbRequestId;
+  return new Promise((done, reject) => {
+    const timer = setTimeout(() => { child.off('message', receive); reject(new Error('Missing request-count acknowledgement')); }, 5000);
+    const receive = message => {
+      if (message.countRequestId !== requestId) return;
+      clearTimeout(timer); child.off('message', receive); done(message.count);
+    };
+    child.on('message', receive); child.send({ countToken: token, requestId });
+  });
+}
+async function withSecretServer(env, work) {
+  await stopServer(); await startServer(env);
+  try { await work(); } finally { await stopServer(); await startServer(); }
+}
+
+test('named secret bindings isolate exact profiles, snapshots and cookies without persisting or exposing environment tokens', async () => {
+  await withSecretServer(namedSecretEnv, async () => {
+    const dev = await api('session', { profile: 'bound-dev' });
+    const esha = await api('session', { profile: 'bound-esha', cookie: dev.cookie });
+    assert.equal(dev.data.user.name, 'Dev secret learner');
+    assert.equal(esha.data.user.name, 'Esha secret learner');
+    assert.equal(dev.data.connectionSource, 'secret');
+    assert.equal(esha.data.secretName, 'ESHA_API_TOKEN');
+    assert.equal(esha.data.secretConfigured, true);
+    assert.equal(esha.data.secretBaseUrl, 'https://school.example');
+    const devData = await api('snapshot', { profile: 'bound-dev', cookie: dev.cookie });
+    const eshaData = await api('snapshot', { profile: 'bound-esha', cookie: esha.cookie });
+    assert.match(JSON.stringify(devData.data), /Dev secret learner/);
+    assert.doesNotMatch(JSON.stringify(devData.data), /Esha secret learner/);
+    assert.match(JSON.stringify(eshaData.data), /Esha secret learner/);
+    assert.doesNotMatch(JSON.stringify(eshaData.data), /Dev secret learner/);
+    for (const profile of ['esha', 'dev', 'unbound-env', 'bound-esha-other']) {
+      const unbound = await api('session', { profile, cookie: `canvas_session_${profile}=${dev.cookie.split('=')[1]}` });
+      assert.deepEqual(unbound.data, { profileId: profile, connected: false });
+      assert.equal((await api('session', { profile, method: 'POST', body: { useServerSecret: true } })).status, 409);
+    }
+    assert.equal((await api('session')).data.user.name, 'Original learner', 'legacy saved account stays intact');
+    for (const file of await readdir(join(sandbox, 'data'))) {
+      assert.doesNotMatch(await readFile(join(sandbox, 'data', file), 'utf8'), /test-(dev|esha)-env-secret/, `environment token not persisted in ${file}`);
+    }
+    assert.doesNotMatch(output, /test-(dev|esha)-env-secret/);
+  });
+});
+
+test('the default Dev binding preserves existing saved credentials and never binds Esha by a display name', async () => {
+  await withSecretServer({ ...namedSecretEnv, DEV_CANVAS_PROFILE_ID: '', ESHA_CANVAS_PROFILE_ID: '' }, async () => {
+    const dev = await api('session');
+    assert.equal(dev.data.user.name, 'Original learner');
+    assert.equal(dev.data.connectionSource, 'saved');
+    assert.equal(dev.data.secretName, 'DEV_API_TOKEN');
+    assert.equal(dev.data.secretConfigured, true);
+    assert.deepEqual((await api('session', { profile: 'esha' })).data, { profileId: 'esha', connected: false });
+  });
+});
+
+test('secret disconnect survives restart and explicit reconnect uses only the pinned URL', async () => {
+  const env = { ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: 'bound-disconnect' };
+  await withSecretServer(env, async () => {
+    const original = await api('session', { profile: 'bound-disconnect' });
+    assert.equal(original.data.connectionSource, 'secret');
+    const disconnected = await api('session', { profile: 'bound-disconnect', method: 'DELETE', cookie: original.cookie });
+    assert.equal(disconnected.data.secretDisabled, true);
+    assert.equal(disconnected.data.durableDeleted, true);
+    await stopServer(); await startServer(env);
+    assert.equal((await api('session', { profile: 'bound-disconnect' })).data.connected, false);
+    assert.equal((await api('session', { profile: 'bound-dev' })).data.user.name, 'Dev secret learner');
+    for (const extra of [{ baseUrl: 'https://attacker.example' }, { token: originalToken }]) {
+      const refused = await api('session', { profile: 'bound-disconnect', method: 'POST', body: { useServerSecret: true, ...extra } });
+      assert.equal(refused.status, 400);
+      assert.equal((await api('session', { profile: 'bound-disconnect' })).data.connected, false);
+    }
+    const reconnected = await api('session', { profile: 'bound-disconnect', method: 'POST', body: { useServerSecret: true } });
+    assert.equal(reconnected.data.user.name, 'Esha secret learner');
+    assert.equal(reconnected.data.secretDisabled, false);
+    await stopServer(); await startServer(env);
+    assert.equal((await api('session', { profile: 'bound-disconnect' })).data.user.name, 'Esha secret learner');
+  });
+});
+
+test('self-service replacement overrides a named secret and ephemeral manual sessions do not fall back after restart', async () => {
+  const profile = 'bound-manual', env = { ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: profile };
+  await withSecretServer(env, async () => {
+    assert.equal((await api('session', { profile })).data.connectionSource, 'secret');
+    const manual = await connect(profile, 'test-other-secret');
+    assert.equal(manual.data.connectionSource, 'saved');
+    assert.equal(manual.data.secretDisabled, true);
+    await stopServer(); await startServer(env);
+    assert.equal((await api('session', { profile })).data.user.name, 'Other learner');
+    const switched = await api('session', { profile, method: 'POST', body: { useServerSecret: true } });
+    assert.equal(switched.data.user.name, 'Esha secret learner');
+    assert.ok(!(await readdir(join(sandbox, 'data'))).includes(`cv-auth-${profile}.json`));
+    const ephemeral = await connect(profile, originalToken, false);
+    assert.equal(ephemeral.data.connectionSource, 'session');
+    assert.equal((await api('session', { profile, cookie: ephemeral.cookie })).data.user.name, 'Original learner');
+    assert.equal((await api('session', { profile })).data.connected, false);
+    await stopServer(); await startServer(env);
+    assert.equal((await api('session', { profile })).data.connected, false);
+  });
+});
+
+test('colliding profile bindings and invalid server URLs fail closed without changing a working manual connection', async () => {
+  for (const env of [
+    { ...namedSecretEnv, DEV_CANVAS_PROFILE_ID: 'bound-conflict', ESHA_CANVAS_PROFILE_ID: 'bound-conflict' },
+    { ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: 'bound-conflict', ESHA_CANVAS_URL: 'http://school.example' },
+  ]) {
+    await withSecretServer(env, async () => {
+      const manual = await connect('bound-conflict', originalToken, false);
+      assert.equal(manual.data.secretConfigured, false);
+      assert.ok(manual.data.secretIssue);
+      assert.equal(manual.data.secretBaseUrl, undefined);
+      const failed = await api('session', { profile: 'bound-conflict', method: 'POST', body: { useServerSecret: true } });
+      assert.equal(failed.status, 409);
+      assert.equal((await api('session', { profile: 'bound-conflict', cookie: manual.cookie })).data.user.name, 'Original learner');
+    });
+  }
+});
+
+test('revoked named tokens require explicit retry and a failed secret replacement preserves the current account', async () => {
+  const profile = 'bound-rejected', env = { ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: profile, ESHA_API_TOKEN: 'test-rejected-env-secret' };
+  await withSecretServer(env, async () => {
+    const rejected = await api('session', { profile });
+    assert.equal(rejected.data.connected, false);
+    assert.equal(rejected.data.secretDisabled, true);
+    assert.match(rejected.data.secretIssue, /rejected/);
+    await api('session', { profile }); await api('session', { profile });
+    assert.equal(await canvasRequestCount('test-rejected-env-secret'), 1, 'repeated GETs do not blindly retry a rejected token');
+    await stopServer(); await startServer({ ...env, ESHA_API_TOKEN: 'test-esha-env-secret' });
+    assert.equal((await api('session', { profile })).data.connected, false, 'updating a token does not undo an explicit disabled state');
+    const retry = await api('session', { profile, method: 'POST', body: { useServerSecret: true } });
+    assert.equal(retry.data.user.name, 'Esha secret learner');
+    const manual = await connect(profile, originalToken);
+    await stopServer(); await startServer(env);
+    const failed = await api('session', { profile, method: 'POST', body: { useServerSecret: true } });
+    assert.equal(failed.status, 401);
+    assert.equal((await api('session', { profile, cookie: manual.cookie })).data.user.name, 'Original learner');
+    assert.doesNotMatch(output, /test-rejected-env-secret/);
+  });
+});
+
+test('missing secret tokens still expose a safe configured URL and temporary outages do not repeatedly retry or replace manual connections', async () => {
+  const profile = 'bound-transient';
+  await withSecretServer({ ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: profile, ESHA_API_TOKEN: '' }, async () => {
+    const missing = await api('session', { profile });
+    assert.equal(missing.data.secretConfigured, false);
+    assert.equal(missing.data.secretBaseUrl, 'https://school.example');
+    assert.match(missing.data.secretIssue, /ESHA_API_TOKEN/);
+  });
+  const env = { ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: profile, ESHA_API_TOKEN: 'test-unavailable-env-secret' };
+  await withSecretServer(env, async () => {
+    const unavailable = await api('session', { profile });
+    assert.equal(unavailable.data.connected, false);
+    assert.equal(unavailable.data.secretDisabled, false);
+    assert.match(unavailable.data.secretIssue, /could not be verified/);
+    await api('session', { profile }); await api('session', { profile });
+    assert.equal(await canvasRequestCount('test-unavailable-env-secret'), 1, 'temporary errors have a one-minute retry cooldown');
+    const manual = await connect(profile, originalToken);
+    const failed = await api('session', { profile, method: 'POST', body: { useServerSecret: true } });
+    assert.equal(failed.status, 502);
+    assert.equal(await canvasRequestCount('test-unavailable-env-secret'), 2, 'explicit retry remains available');
+    assert.equal((await api('session', { profile, cookie: manual.cookie })).data.user.name, 'Original learner');
+    assert.equal((await api('session', { profile })).data.user.name, 'Original learner');
+  });
+});
+
+test('Dev legacy secret alias is used only when the preferred secret is absent and never for Esha', async () => {
+  const profile = 'bound-alias';
+  await withSecretServer({ ...namedSecretEnv, DEV_CANVAS_PROFILE_ID: profile, DEV_API_TOKEN: undefined, DEV_API_KEY: 'test-dev-alias-secret' }, async () => {
+    const dev = await api('session', { profile });
+    assert.equal(dev.data.user.name, 'Dev alias learner');
+    assert.equal(dev.data.secretName, 'DEV_API_KEY');
+    assert.equal((await api('session', { profile: 'bound-esha' })).data.user.name, 'Esha secret learner');
+  });
+  for (const preferred of ['', '   ', 'test-rejected-env-secret']) {
+    await withSecretServer({ ...namedSecretEnv, DEV_CANVAS_PROFILE_ID: 'bound-preferred', DEV_API_TOKEN: preferred, DEV_API_KEY: 'test-dev-alias-secret' }, async () => {
+      const result = await api('session', { profile: 'bound-preferred' });
+      assert.equal(result.data.connected, false);
+      assert.equal(result.data.secretName, 'DEV_API_TOKEN');
+      assert.equal(await canvasRequestCount('test-dev-alias-secret'), 0);
+    });
+  }
+});
+
+test('unreadable opt-out records fail closed until an explicit connection replaces them', async () => {
+  const profile = 'bound-corrupt', env = { ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: profile };
+  await withSecretServer(env, async () => {
+    await writeFile(join(sandbox, `data/cv-env-${profile}.json`), '{broken');
+    const disconnected = await api('session', { profile });
+    assert.equal(disconnected.data.connected, false);
+    assert.equal(disconnected.data.secretDisabled, true);
+    assert.match(disconnected.data.secretIssue, /could not be read/);
+    assert.equal(await canvasRequestCount('test-esha-env-secret'), 0);
+    const retry = await api('session', { profile, method: 'POST', body: { useServerSecret: true } });
+    assert.equal(retry.data.user.name, 'Esha secret learner');
+    assert.equal(retry.data.secretDisabled, false);
+  });
+});
+
+test('a failed explicit secret retry cannot heal unreadable preferences by selecting an old saved account', async () => {
+  const profile = 'bound-corrupt-rejected';
+  await withSecretServer({ ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: profile, ESHA_API_TOKEN: 'test-rejected-env-secret' }, async () => {
+    await writeFile(join(sandbox, `data/cv-env-${profile}.json`), 'null');
+    await writeFile(join(sandbox, `data/cv-auth-${profile}.json`), JSON.stringify({ baseUrl: 'https://school.example', token: originalToken }));
+    assert.equal((await api('session', { profile })).data.connected, false);
+    assert.equal((await api('session', { profile, method: 'POST', body: { useServerSecret: true } })).status, 401);
+    const disconnected = await api('session', { profile });
+    assert.equal(disconnected.data.connected, false);
+    assert.equal(disconnected.data.secretDisabled, true);
+    assert.equal(await canvasRequestCount(originalToken), 0, 'failed verification cannot reactivate a stale account');
+    assert.equal(JSON.parse(await readFile(join(sandbox, `data/cv-auth-${profile}.json`), 'utf8')).token, originalToken, 'existing credential evidence remains intact');
+  });
+});
+
+test('failed durable deletions cannot resurrect an older account after a secret switch, manual session or disconnect', async () => {
+  const profile = 'bound-stale-db', env = { ...namedSecretEnv, ESHA_CANVAS_PROFILE_ID: profile };
+  await withSecretServer(env, async () => {
+    const authKey = `cv-auth-${profile}`, modeKey = `cv-env-${profile}`;
+    await fixtureDatabase({ enabled: true, rows: [[authKey, { baseUrl: 'https://school.example', token: originalToken }]], failDeletes: true, failWrites: false });
+    try {
+      const switched = await api('session', { profile, method: 'POST', body: { useServerSecret: true } });
+      assert.equal(switched.data.user.name, 'Esha secret learner');
+      assert.equal(switched.data.durableDeleted, false);
+      let rows = await fixtureDatabase({});
+      assert.equal(rows.get(authKey).token, originalToken, 'the fabricated old row was not deleted');
+      assert.equal(rows.get(modeKey).reason, 'secret');
+      assert.doesNotMatch(JSON.stringify([...rows]), /test-(dev|esha)-env-secret/, 'environment tokens never enter database writes');
+      await stopServer(); await startServer(env);
+      await fixtureDatabase({ enabled: true, rows: [...rows], failDeletes: true, failWrites: false });
+      assert.equal((await api('session', { profile })).data.user.name, 'Esha secret learner');
+      const ephemeral = await connect(profile, 'test-other-secret', false);
+      assert.equal(ephemeral.data.connectionSource, 'session');
+      assert.equal((await api('session', { profile })).data.connected, false, 'cookie-less access cannot select the old durable account');
+      rows = await fixtureDatabase({});
+      await stopServer(); await startServer(env);
+      await fixtureDatabase({ enabled: true, rows: [...rows], failDeletes: true, failWrites: false });
+      assert.equal((await api('session', { profile })).data.connected, false, 'restart cannot restore the old durable account');
+      await fixtureDatabase({ failWrites: true });
+      const disconnected = await api('session', { profile, method: 'DELETE' });
+      assert.equal(disconnected.data.durableDeleted, false);
+      assert.equal((await api('session', { profile })).data.connected, false, 'newest local disconnect wins over stale database setting');
+      rows = await fixtureDatabase({});
+      await stopServer(); await startServer(env);
+      await fixtureDatabase({ enabled: true, rows: [...rows], failDeletes: false, failWrites: false });
+      assert.equal((await api('session', { profile })).data.connected, false);
+    } finally {
+      await fixtureDatabase({ enabled: false, rows: [], failDeletes: false, failWrites: false });
+    }
+  });
 });
