@@ -60,9 +60,24 @@ account that authorized each save. There is no automatic conversation archive.
 Notes are limited to 2,000 characters; retrying the same save request cannot
 create a duplicate or rewrite an earlier note. The notes API returns up to 30
 records per page with a count of older records. The general study coach receives
-the ten newest notes and reports how many were omitted. Saved text is untrusted
+the ten newest notes and reports how many were omitted from initial context. Saved text is untrusted
 context, never a new grading rule, verified answer, Canvas deadline, or command.
-Earlier notes remain stored; this bounded context is not guaranteed full recall.
+Earlier notes remain stored and can be retrieved through the authenticated
+`read_student_records` tool. General, curriculum-question, and mixed-question
+coaching can read older notes and exact saved skill/question/mastery records.
+General study coaching also has the current Canvas class directory, course
+visibility preferences, and saved source-location hints. Each lookup is bound
+to the owner established by the server; it accepts no profile, SQL, URL, or
+arbitrary table name. Ownership and session validity are checked again before
+tool reads and model requests. The reply displays which record pages were read.
+
+The tool-enabled coach uses OpenAI Responses, as required for Astra function
+calling, with `store:false`, high reasoning, and Astra-to-Sol fallback only.
+Pages contain at most ten records and 24,000 characters; at most eight tool
+reads occur in a reply. Missing data and remaining pages are explicit. This
+provides record access, not guaranteed full recall. Authentication tables and
+Canvas credentials are excluded. Focus sessions remain browser-local and mixed
+session history remains temporary; those are not durable notebook records.
 
 ## Canvas connections for Dev, Esha, and other learners
 
@@ -331,8 +346,11 @@ Both models use high reasoning (`reasoning_effort: "high"`) and
 reasoning, rather than promising 16,000 visible answer tokens. Each attempt
 has its own 120-second timeout covering response headers and the full body;
 a fallback can therefore require a second attempt. Requests use the OpenAI
-Chat Completions API through Node's built-in `fetch` in `ai-coach.js`, without
-an SDK or installed dependency.
+Chat Completions API for text-only requests in `ai-coach.js`. Authenticated
+record-aware coaching uses Responses in `ai-record-coach.js`, with the equivalent
+`reasoning.effort` and `max_output_tokens` settings, a shared output budget
+across tool turns, and the same overall timeout per model. Both use Node's
+built-in `fetch`, without an SDK or installed dependency.
 
 A refusal is final and is not sent to another model. HTTP 401 is also final
 because the models share a credential. Other service failures may try Sol.
@@ -351,11 +369,13 @@ The coaching boundary is explicit:
   answer, solution, and relevant misconception notes as private context.
   The app grades against the key; the coach explains. Written responses use
   their transparent self-check rubrics instead of AI-awarded points.
-- **Limited question context.** The math coach receives the problem, the
+- **Grounded question context.** The math coach receives the problem, the
   learner's answer when applicable, their question or follow-up, and plain
-  counts of earlier attempts on that question and skill. It receives no
-  learner name, Canvas data, or unrelated progress. The follow-up conversation
-  stays in memory and is discarded when the learner moves on.
+  counts of earlier attempts on that question and skill. Authenticated
+  requests can retrieve the student's saved learning profile, exact history,
+  and notes through owner-bound record tools. Raw Canvas credentials and
+  authentication tables are never included. The follow-up conversation stays
+  in memory and is discarded when the learner moves on.
 - **Named recurring errors.** Post-answer discussion uses the stored note
   for the actual wrong choice and relevant attempt counts, so the coach can
   explain a repeated error without guessing its cause.

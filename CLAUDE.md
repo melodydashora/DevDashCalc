@@ -52,6 +52,7 @@ Breaking any of these is a regression even if the code works:
 | Explicit, append-only student continuity notes | `continuity-store.js` |
 | Sign-in/enrollment UI and server-only enrollment command | `public/auth-ui.js`, `scripts/create-enrollment.mjs` |
 | Fixed Astra-to-Sol OpenAI coaching requests, fallback, and timeouts | `ai-coach.js` |
+| Owner-bound learning-record pages and Responses tool loop | `coach-records.js`, `ai-record-coach.js` |
 | Zero-dep Postgres wire client + key→JSON store (tested) | `store.js` |
 | Adaptive/mastery logic (pure, tested) | `public/engine.js` |
 | Canvas LMS normalization + plan/grades rules (pure, tested) | `public/canvas-insights.js` |
@@ -131,7 +132,10 @@ Breaking any of these is a regression even if the code works:
   default. Notes append with a client request UUID for safe retries; conflicting
   reuse cannot edit a record. Source metadata is allowlisted, text is bounded to
   2,000 characters, and no edit/delete API exists. The notes API pages 30 records;
-  the general study coach reads the ten newest and discloses omitted counts.
+  the general study coach initially reads the ten newest and discloses omitted counts.
+  The authenticated coach can page through older notes and saved learning
+  records using a closed read-only tool. Record lookups use Responses and
+  recheck ownership; credentials and authentication tables are excluded.
   Notes are untrusted context and cannot override existing rules, verified keys,
   current Canvas evidence, or the current student's instruction.
 - Passwords use salted scrypt (N=131072,r=8,p=1); random session/enrollment

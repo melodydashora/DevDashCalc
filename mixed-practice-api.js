@@ -26,7 +26,7 @@ export function createMixedPracticeApi({ service, readBody, sendJson, complete, 
       const context = service.tutorContext(profileId, sessionId, questionId);
       if (!isConfigured()) return sendJson(res, 200, { available: false, assisted: context.assisted,
         text: 'The AI coach is unavailable on this server. The built-in hints and checked solution remain available.' });
-      const response = await complete(mixedTutorRequest(context, { followUp: body.followUp, transcript: body.transcript }));
+      const response = await complete(mixedTutorRequest(context, { followUp: body.followUp, transcript: body.transcript }), req, res);
       // A known closed connection means the learner canceled or left before
       // this explanation could be delivered. Do not count that as help.
       if (res.destroyed || res.writableEnded) return;
@@ -39,7 +39,7 @@ export function createMixedPracticeApi({ service, readBody, sendJson, complete, 
       const evidence = service.tutorReceived(profileId, sessionId, questionId, context.beforeAnswer);
       return sendJson(res, 200, { available: true, questionId, phase: context.beforeAnswer ? 'before-answer' : 'after-answer', ...evidence,
         text: response.text + (response.truncated ? '\n\nThis reply reached its length limit. Ask a narrower follow-up to continue.' : ''),
-        model: response.model, fallback: response.fallback });
+        model: response.model, fallback: response.fallback, recordReads: response.recordReads || [] });
     } catch (error) {
       if (error instanceof MixedPracticeError) return sendJson(res, error.status, { error: error.message, code: error.code });
       return sendJson(res, 500, { error: 'The mixed-practice request could not be completed.', code: 'MIXED_REQUEST_FAILED' });

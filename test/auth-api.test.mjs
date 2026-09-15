@@ -97,6 +97,12 @@ globalThis.fetch = async (input, options = {}) => {
   const answer = value => new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
   if (url.origin === 'https://api.openai.com') {
     const payload = JSON.parse(options.body);
+    if (url.pathname === '/v1/responses') {
+      const content = [payload.instructions, ...payload.input.map(item => item.content || item.output || '')].join('\\n');
+      const toolOutput = payload.input.find(item => item.type === 'function_call_output');
+      if (content.includes('fixture older saved note lookup') && !toolOutput) return answer({ status: 'completed', output: [{ type: 'function_call', call_id: 'fixture-older-note', name: 'read_student_records', arguments: JSON.stringify({ collection: 'saved_notes', offset: 30 }) }] });
+      return answer({ status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: toolOutput ? toolOutput.output : content }] }] });
+    }
     return answer({ choices: [{ finish_reason: 'stop', message: { content: payload.messages.map(item => item.content).join('\\n') } }] });
   }
   if (url.origin !== 'https://school.example') throw new Error('No real external request is permitted');
@@ -134,7 +140,7 @@ async function start(extra = {}) {
   child.stderr.on('data', chunk => { output += String(chunk); });
   child.on('message', message => { if (message.providerCall) calls.push(message); });
   await new Promise((done, reject) => {
-    const timer = setTimeout(() => reject(new Error('Auth fixture did not start')), 10000);
+    const timer = setTimeout(() => reject(new Error(`Auth fixture did not start: ${output.slice(-1500).replace(/fixture-[a-z-]+/g, '[fixture]')}`)), 10000);
     child.once('error', reject);
     child.once('exit', code => { clearTimeout(timer); reject(new Error(`Auth fixture exited ${code}`)); });
     child.stdout.on('data', chunk => { output += String(chunk); if (String(chunk).includes('listening on')) { clearTimeout(timer); done(); } });
@@ -162,7 +168,7 @@ before(async () => {
   sandbox = await mkdtemp(join(tmpdir(), 'students4ai-auth-http-'));
   for (const name of ['public', 'data', 'content']) await mkdir(join(sandbox, name));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
-  for (const file of ['server.js', 'ai-coach.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
+  for (const file of ['server.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
     'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
@@ -171,6 +177,7 @@ before(async () => {
   await writeFile(join(sandbox, 'continuity-store.js'), continuityStub);
   await writeFile(join(sandbox, 'account-store.js'), 'export const createAccountStore = () => ({});');
   await writeFile(join(sandbox, 'public/index.html'), '<h1>Public sign-in shell</h1>');
+  await copyFile(new URL('../content/unit-01.json', import.meta.url), join(sandbox, 'content/unit-01.json'));
   await writeFile(join(sandbox, 'data/progress-learner.json'), JSON.stringify({ savedAt: 100, attempts: ['Preserved original progress'] }));
   fixture = await start();
 });
@@ -390,4 +397,32 @@ test('the study coach receives only the current student recent notes with explic
   assert.ok(coached.data.limitations.some(value => value.includes('10 of 35')));
   assert.equal((await fixture.api('/api/continuity', { cookie: bob.cookie })).data.totalCount, 35, 'asking the coach does not automatically store the conversation');
   assert.equal((await fixture.api('/api/progress', { cookie: bob.cookie })).data, null, 'memo content cannot award progress or mastery');
+});
+
+test('general and question coaching can retrieve older owner notes through the real HTTP tool boundary', async () => {
+  const bob = await login('bob');
+  const unit = JSON.parse(await readFile(new URL('../content/unit-01.json', import.meta.url), 'utf8'));
+  for (const [path, body] of [
+    ['/api/canvas/coach', { message: 'fixture older saved note lookup', pageContext: { route: '#/home', subject: 'bc' } }],
+    ['/api/tutor', { unitId: 'unit-01', questionId: unit.questions[0].id, phase: 'before-answer', followUp: 'fixture older saved note lookup' }],
+  ]) {
+    const result = await fixture.api(path, { method: 'POST', cookie: bob.cookie, body });
+    assert.equal(result.status, 200);
+    assert.match(result.data.text, /Bob saved note 0/);
+    assert.doesNotMatch(result.data.text, /Alice prefers|account-a/);
+    assert.equal(result.data.recordReads[0].offset, 30);
+    assert.equal(result.data.recordReads[0].count, 5);
+    assert.equal(result.data.recordReads[0].totalCount, 35);
+  }
+  const topics = await fixture.api('/api/mixed/topics', { cookie: bob.cookie });
+  const session = await fixture.api('/api/mixed/session', { method: 'POST', cookie: bob.cookie, body: { topicIds: [topics.data.topics[0].id], difficulty: 1, requestId: randomUUID() } });
+  assert.equal(session.status, 201);
+  const next = await fixture.api('/api/mixed/next', { method: 'POST', cookie: bob.cookie, body: { sessionId: session.data.sessionId } });
+  assert.equal(next.status, 200);
+  const coached = await fixture.api('/api/mixed/tutor', { method: 'POST', cookie: bob.cookie, body: { sessionId: session.data.sessionId, questionId: next.data.question.id, followUp: 'fixture older saved note lookup' } });
+  assert.equal(coached.status, 200);
+  assert.match(coached.data.text, /Bob saved note 0/);
+  assert.equal(coached.data.assisted, true);
+  assert.equal(coached.data.recordReads[0].count, 5);
+  assert.equal((await fixture.api('/api/progress', { cookie: bob.cookie })).data, null);
 });

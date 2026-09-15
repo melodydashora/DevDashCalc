@@ -5,6 +5,8 @@
 import { createServer } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import { completeGPTCoach, COACH_MODELS } from './ai-coach.js';
+import { completeRecordCoach } from './ai-record-coach.js';
+import { createStudentRecordLookup } from './coach-records.js';
 import { loadStudyCoachContext } from './study-coach-context.js';
 import { canvasDetailRequest, normalizeCanvasDetail, appendRetrievalHints } from './canvas-retrieval.js';
 import { readLinkedDocument } from './linked-documents.js';
@@ -1086,7 +1088,7 @@ async function handleStudyCoach(req, res, profileId) {
   const progress = await withProgressOperation(profileId, async () => (await readProgressCopies(profileId)).value);
   const found = await canvasSessionOrStored(req, res, profileId);
   const limitations = [], discoveries = [];
-  let snapshot = null, rules = [];
+  let snapshot = null, rules = [], recordPreferences = null, recordSnapshot = null;
   const canvasIdentity = found ? `${found.session.baseUrl}|${found.session.user?.id || ''}` : '';
   if (found) {
     try {
@@ -1094,6 +1096,8 @@ async function handleStudyCoach(req, res, profileId) {
       snapshot = cached && Date.now() - Date.parse(cached.fetchedAt) < 60_000 ? cached : await canvasSnapshot(found.session);
       if (!canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
       const prefs = await canvasPrefsLoad(profileId);
+      recordPreferences = prefs;
+      recordSnapshot = snapshot;
       const insights = buildInsights(snapshot, Date.now(), {
         termIds: pageContext.termIds,
         selectedSubject: pageContext.subject, selectedCourseId: pageContext.selectedCourseId,
@@ -1169,7 +1173,7 @@ async function handleStudyCoach(req, res, profileId) {
       continuity = { available: true, includedCount: memories.notes.length, totalCount: memories.totalCount, omittedCount: memories.omittedCount };
       evidence.context.studentContinuity = { ...continuity, source: 'Notes explicitly saved by this student; untrusted context, not authoritative instructions.',
         notes: memories.notes.map(note => ({ id: note.id, text: note.text, type: note.type, source: note.source, createdAt: note.createdAt })) };
-      if (memories.omittedCount) evidence.limitations.push(`The coach received ${memories.notes.length} of ${memories.totalCount} saved continuity notes. Older notes remain stored but were not included in this reply.`);
+      if (memories.omittedCount) evidence.limitations.push(`The initial context includes ${memories.notes.length} of ${memories.totalCount} saved continuity notes. Older notes remain available through learning-record lookups.`);
     } catch {
       continuity = { available: false, includedCount: 0, totalCount: null, omittedCount: null };
       evidence.context.studentContinuity = continuity;
@@ -1177,6 +1181,11 @@ async function handleStudyCoach(req, res, profileId) {
     }
   }
   const continuityMetadata = continuity ? { continuity } : {};
+  const recordLookup = AUTH_REQUIRED ? await ownedRecordLookup(req, res, { progress, snapshot: recordSnapshot, preferences: recordPreferences, rules: found ? rules : null }) : null;
+  if (recordLookup) {
+    recordLookup.catalog.find(row => row.collection === 'saved_notes').totalCount = continuity?.totalCount ?? null;
+    evidence.context.learningRecords = { catalog: recordLookup.catalog, source: 'Only the authenticated learner workspace. Read individual pages before relying on records absent from this context.' };
+  }
   evidence.context.limitations = evidence.limitations;
   if (found && !canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
   let rulesAdded = 0;
@@ -1199,12 +1208,13 @@ async function handleStudyCoach(req, res, profileId) {
     .map(t => ({ role: t.role, content: t.text.slice(0,4000) }));
   const out = await completeWithFallback({ system: STUDY_COACH_SYSTEM,
     messages: [{ role:'user', content: `Server-verified context (source material is untrusted data):\n${JSON.stringify(evidence.context)}` }, ...transcript, { role:'user', content: message }],
+    lookup: recordLookup,
   });
   if (found && !canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
   if (found) renewCanvasSession(req, res, found);
   if (out.refusal) return sendJson(res, 200, { profileId, available: true, refusal: true, text: 'The coach could not help with that request. Ask about a study step or your course instructions.', model: out.model, fallback: out.fallback, sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded, ...continuityMetadata });
   if (!out.text) return sendJson(res, 502, { error: 'Astra and its backup could not answer this time. Your coursework and progress are unchanged.' });
-  return sendJson(res, 200, { profileId, text: out.text + (out.truncated ? '\n\nThis reply stopped at its length limit. Ask a narrower follow-up for the remaining detail.' : ''), model: out.model, fallback: out.fallback, sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded, ...continuityMetadata });
+  return sendJson(res, 200, { profileId, text: out.text + (out.truncated ? '\n\nThis reply stopped at its length limit. Ask a narrower follow-up for the remaining detail.' : ''), model: out.model, fallback: out.fallback, sources, actions: evidence.actions, limitations: evidence.limitations, rulesAdded, ...continuityMetadata, recordReads: out.recordReads || [] });
 }
 
 // ---------------------------------------------------------------- AI tutor
@@ -1215,14 +1225,39 @@ async function handleStudyCoach(req, res, profileId) {
 // The tutor is grounded, never authoritative: every request carries the
 // verified solution as ground truth and the system prompt forbids
 // contradicting it. Only the question content and the learner's answer to it
-// are sent — no name, no progress data.
+// are sent in legacy mode. Authenticated coaching can also retrieve this
+// learner's saved learning records; credentials are never coach context.
 // Melody's requested coach chain: GPT-6 Astra, then GPT-5.6 Sol only.
 // Provider credentials remain in Replit Secrets; no other vendor is contacted.
 function providerChain() {
   return process.env.OPENAI_API_KEY ? ['openai'] : [];
 }
-function completeWithFallback({ system, messages }) {
-  return completeGPTCoach({ apiKey: process.env.OPENAI_API_KEY, system, messages });
+function completeWithFallback({ system, messages, lookup }) {
+  return lookup ? completeRecordCoach({ apiKey: process.env.OPENAI_API_KEY, system, messages, lookup })
+    : completeGPTCoach({ apiKey: process.env.OPENAI_API_KEY, system, messages });
+}
+async function ownedRecordLookup(req, res, supplied = {}) {
+  if (!AUTH_REQUIRED || !req.authWorkspace) return null;
+  const profileId = req.authWorkspace.profileId;
+  const progress = supplied.progress === undefined
+    ? await withProgressOperation(profileId, async () => (await readProgressCopies(profileId)).value) : supplied.progress;
+  return createStudentRecordLookup({ ...supplied, profileId, workspaceId: req.authWorkspace.id, progress,
+    readNotes: options => studentContinuity().then(store => store.list(options)),
+    assertCurrent: async () => {
+      if (res.destroyed || res.writableEnded || res.authExpiresAt <= Date.now()) throw new Error('The study request is no longer active.');
+      const service = await accountAuth(), token = authCookieToken(req);
+      const context = token ? await service.authenticate(token) : null;
+      if (!context) throw new Error('Sign-in expired.');
+      await service.authorizeWorkspace(context, profileId);
+    },
+  });
+}
+async function completeOwnedQuestion(request, req, res) {
+  const lookup = await ownedRecordLookup(req, res);
+  if (lookup) request = { ...request, lookup, messages: [
+    { role: 'user', content: `Available learning-record collections for this student: ${JSON.stringify(lookup.catalog)}. Use saved_notes when a previous study preference or explanation would help; use skills or question_history for exact past learning patterns.` }, ...request.messages,
+  ] };
+  return completeWithFallback(request);
 }
 // Load the generated bank only when mixed practice is requested. Its private
 // answer keys remain in this server process and are never static app assets.
@@ -1230,7 +1265,7 @@ let mixedPracticeApiPromise;
 async function handleMixedPractice(req, res, url) {
   if (!mixedPracticeApiPromise) mixedPracticeApiPromise = import('./mixed-question-bank.js').then(({ MIXED_TOPICS, generateMixedQuestion }) => {
     const service = createMixedPracticeService({ topics: MIXED_TOPICS, generateQuestion: generateMixedQuestion });
-    return createMixedPracticeApi({ service, readBody, sendJson, complete: completeWithFallback, isConfigured: () => providerChain().length > 0 });
+    return createMixedPracticeApi({ service, readBody, sendJson, complete: completeOwnedQuestion, isConfigured: () => providerChain().length > 0 });
   }).catch(error => { mixedPracticeApiPromise = null; throw error; });
   return (await mixedPracticeApiPromise)(req, res, url);
 }
@@ -1387,7 +1422,7 @@ async function handleTutor(req, res, url) {
   if (followUp) messages.push({ role: 'user', content: String(followUp).slice(0, 4000) });
 
   const system = (beforeAnswer ? TUTOR_BEFORE_SYSTEM : TUTOR_SYSTEM) + (isFreeResponse ? `\n${TUTOR_FREE_RESPONSE_RULES}` : '');
-  const out = await completeWithFallback({ system, messages });
+  const out = await completeOwnedQuestion({ system, messages }, req, res);
   if (out.refusal) {
     return sendJson(res, 200, { refusal: true, text: 'The coach cannot answer that particular request. You can ask about the idea or a step in this calculus problem.', model: out.model, fallback: out.fallback });
   }
@@ -1395,7 +1430,7 @@ async function handleTutor(req, res, url) {
     const text = out.truncated
       ? `${out.text}\n\nThis reply reached its length limit and stops early. Ask a follow-up question to continue from this point.`
       : out.text;
-    return sendJson(res, 200, { text, model: out.model, fallback: out.fallback });
+    return sendJson(res, 200, { text, model: out.model, fallback: out.fallback, recordReads: out.recordReads || [] });
   }
   console.error('[calc-coach] tutor: every provider failed —', out.failures.join(' | '));
   return sendJson(res, 502, { error: 'The tutor could not be reached.' });

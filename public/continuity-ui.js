@@ -18,7 +18,7 @@ export function mountStudentMemos(root, { profileId }) {
   const inputId = `student-memo-${++nextNotebookId}`;
   let pendingText = '', requestId = '';
   root.innerHTML = `<h2>What Astra remembers</h2>
-    <p>Save learning preferences, explanations that helped, or a next step for later. These notes belong to your account and follow you to another computer. The study coach reads your recent notes when helping you.</p>
+    <p>Save learning preferences, explanations that helped, or a next step for later. These notes belong to your account and follow you to another computer. Astra can look up your saved notes when helping you, including older ones.</p>
     <form class="memo-form"><label for="${inputId}">A note for future study</label><textarea id="${inputId}" rows="3" maxlength="2000" required placeholder="For example: show a coding example before the formula, and help me choose one task."></textarea><button type="submit">Save learning note</button><p class="memo-status" role="status"></p></form>
     <p class="session-progress">Notes are saved only when you choose Save. New notes keep the earlier history. Add a correction if something changes. Canvas deadlines and verified answer keys remain the authority for those facts.</p>
     <div class="memo-list"></div><p class="memo-count session-progress"></p><button type="button" class="secondary memo-older" hidden>Show older notes</button>`;
@@ -46,7 +46,7 @@ export function mountStudentMemos(root, { profileId }) {
       const notes = Array.isArray(data.notes) ? data.notes : [];
       notes.forEach(note => list.appendChild(renderNote(note)));
       offset = wantedOffset + notes.length;
-      count.textContent = data.totalCount ? `Showing ${offset} of ${data.totalCount} saved notes. The study coach uses up to 10 recent notes as context.` : 'No saved learning notes yet.';
+      count.textContent = data.totalCount ? `Showing ${offset} of ${data.totalCount} saved notes. Astra starts with recent context and can look up older notes when needed.` : 'No saved learning notes yet.';
       older.hidden = offset >= data.totalCount;
     } catch {
       if (!disposed && generation === loadGeneration) count.textContent = 'Saved notes could not load. Existing notes have not been changed.';
