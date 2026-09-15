@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, stat, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parseEnrollmentArgs, writeEnrollmentArtifact } from '../scripts/create-enrollment.mjs';
 
 test('private enrollment link keeps its token in the fragment and will not overwrite an existing artifact', async () => {
@@ -30,4 +31,16 @@ test('enrollment CLI accepts only an explicit HTTPS origin and validated existin
     assert.throws(() => parseEnrollmentArgs([...args.slice(0, -1), origin]));
   }
   assert.throws(() => parseEnrollmentArgs(['--profile', '../other', ...args.slice(2)]));
+  for (const directory of ['public', 'content']) {
+    const output = fileURLToPath(new URL(`../${directory}/accidental-enrollment.json`, import.meta.url));
+    assert.throws(() => parseEnrollmentArgs([...args, '--out', output]), /outside the app public and content/);
+  }
+});
+
+test('artifact writer independently rejects a static public path before issuing a secret', async () => {
+  let issued = false;
+  const output = fileURLToPath(new URL('../public/accidental-enrollment.json', import.meta.url));
+  await assert.rejects(writeEnrollmentArtifact({ auth: { issueEnrollment() { issued = true; } },
+    profileId: 'test-child', name: 'Student', origin: 'https://example.test', output }), /outside the app public and content/);
+  assert.equal(issued, false);
 });

@@ -1,11 +1,20 @@
 // Server-side operator command only. No public enrollment issuance endpoint.
 // Run in the Replit shell with DATABASE_URL and SESSION_SECRET already present.
-import { mkdir } from 'node:fs/promises';
+import { mkdir, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createAccountStore } from '../account-store.js';
 import { createAuthService, AuthError } from '../auth.js';
+
+const repository = fileURLToPath(new URL('../', import.meta.url));
+const servedDirectories = ['public', 'content'].map(name => path.join(repository, name));
+function rejectPublishedOutput(output, directories = servedDirectories) {
+  if (directories.some(directory => {
+    const relative = path.relative(directory, output);
+    return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
+  })) throw new Error('Enrollment files must be outside the app public and content directories. Use a private data path.');
+}
 
 export function parseEnrollmentArgs(args) {
   const known = new Set(['profile', 'name', 'base-url', 'out']);
@@ -21,14 +30,20 @@ export function parseEnrollmentArgs(args) {
   let url;
   try { url = new URL(values['base-url']); } catch { throw new Error('An HTTPS app origin is required.'); }
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/') throw new Error('Use only the HTTPS app origin, without credentials, a path, query, or fragment.');
-  return { profileId: values.profile, name: values.name.trim(), origin: url.origin,
-    output: path.resolve(values.out || path.join('data', 'enrollment-links', `${randomUUID()}.json`)) };
+  const output = path.resolve(values.out || path.join('data', 'enrollment-links', `${randomUUID()}.json`));
+  rejectPublishedOutput(output);
+  return { profileId: values.profile, name: values.name.trim(), origin: url.origin, output };
 }
 
 export async function writeEnrollmentArtifact({ auth, profileId, name, origin, output }) {
   // Reserve the destination before issuing the invitation, so an existing file
   // is never overwritten. Creation uses owner-only permissions on Unix/Replit.
+  rejectPublishedOutput(path.resolve(output));
   await mkdir(path.dirname(output), { recursive: true, mode: 0o700 });
+  // Resolve parent symlinks as well as lexical paths before placing a secret.
+  const actualParent = await realpath(path.dirname(output));
+  const actualServed = await Promise.all(servedDirectories.map(directory => realpath(directory).catch(() => directory)));
+  rejectPublishedOutput(path.join(actualParent, path.basename(output)), actualServed);
   const { open } = await import('node:fs/promises');
   const file = await open(output, 'wx', 0o600);
   try {
@@ -51,7 +66,7 @@ async function main() {
   } catch (error) {
     const message = error instanceof AuthError ? error.message
       : error?.code === 'EEXIST' ? 'The output file already exists. Choose a new private output path.'
-        : /^Use |^A valid |^An HTTPS |^DATABASE_URL |^SESSION_SECRET /.test(error?.message || '') ? error.message
+        : /^Use |^A valid |^An HTTPS |^DATABASE_URL |^SESSION_SECRET |^Enrollment files /.test(error?.message || '') ? error.message
           : 'Enrollment could not be created. Check the private server configuration and output path.';
     process.stderr.write(`${message}\n`);
     process.exitCode = 1;
