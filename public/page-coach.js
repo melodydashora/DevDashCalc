@@ -292,7 +292,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
       for (const read of recordReads) {
         if (!labels[read?.collection]) continue;
         const status = read.state === 'available' && Number.isInteger(read.count) && Number.isInteger(read.totalCount)
-          ? `${read.count} read from ${read.totalCount} saved records${read.nextOffset !== null ? '; more records remain' : ''}` : 'Could not be read this time';
+          ? `${read.count} read from ${read.totalCount} saved record${read.totalCount === 1 ? '' : 's'}${read.nextOffset !== null ? '; more records remain' : ''}` : 'Could not be read this time';
         list.appendChild(element('li', '', `${labels[read.collection]}: ${status}.`));
       }
       details.appendChild(list); bubble.appendChild(details);
