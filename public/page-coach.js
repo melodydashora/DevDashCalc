@@ -7,7 +7,7 @@ let nextCoachId = 0;
 
 export function safeCoachHref(value) {
   if (typeof value !== 'string' || value.length > 2048 || value !== value.trim()) return null;
-  if (/^#\/(?:home|focus|review|settings|diagnostic|canvas(?:\/(?:plan|grades|assessment|course\/[0-9]+))?|(?:unit|practice|mastery)\/[a-z0-9-]{1,64}|lesson\/[a-z0-9-]{1,64}\/[a-z0-9-]{1,64})$/.test(value)) return value;
+  if (/^#\/(?:home|focus|mixed|review|settings|diagnostic|canvas(?:\/(?:plan|grades|assessment|course\/[0-9]+))?|(?:unit|practice|mastery)\/[a-z0-9-]{1,64}|lesson\/[a-z0-9-]{1,64}\/[a-z0-9-]{1,64})$/.test(value)) return value;
   try {
     const url = new URL(value);
     return url.protocol === 'https:' && !url.username && !url.password ? url.href : null;
@@ -27,6 +27,7 @@ export function coachConversationScope(context = {}) {
     subject: String(context.subject || ''),
     selectedCourseId: String(context.selectedCourseId || ''),
     questionId: String(context.questionId || ''),
+    sessionId: context.questionId ? String(context.sessionId || '') : '',
     unitId: context.questionId ? String(context.unitId || '') : '',
     phase: context.questionId ? String(context.phase || context.questionPhase || '') : '',
     itemId: String(context.itemId || ''),

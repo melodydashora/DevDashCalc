@@ -15,6 +15,10 @@ const eshaToken = 'test-esha-secret';
 const preload = `const gates = new Map();
 globalThis.fixtureDb = { enabled: false, rows: new Map(), failWrites: false, nextGate: null };
 process.on('message', message => {
+  if (typeof message.coachConfigured === 'boolean') {
+    process.env.OPENAI_API_KEY = message.coachConfigured ? 'test-model-secret' : '';
+    process.send({ coachConfigured: message.coachConfigured });
+  }
   if (message.release) gates.get(message.release)?.();
   if (message.dbControl) {
     const { rows, ...state } = message.dbControl;
@@ -29,6 +33,7 @@ globalThis.fetch = async (url, options = {}) => {
   const address = new URL(String(url));
   if (address.href === 'https://api.openai.com/v1/chat/completions') {
     const payload = JSON.parse(options.body);
+    if (payload.messages.some(message => message.content === 'fixture-study-refusal')) return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { refusal: 'This fixture refuses the request.', content: null } }] }), { status: 200 });
     if (payload.messages.some(message => message.content === 'coach-reply-gate')) await waitForTest('coach-reply-gate');
     return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: payload.messages.map(m => m.content).join('\\n') } }] }), { status: 200 });
   }
@@ -145,7 +150,7 @@ before(async () => {
   await mkdir(join(sandbox, 'public'));
   await mkdir(join(sandbox, 'data'));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
-  for (const file of ['server.js', 'store.js', 'ai-coach.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'public/engine.js', 'public/courses.js', 'public/canvas-insights.js']) {
+  for (const file of ['server.js', 'store.js', 'ai-coach.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/canvas-insights.js']) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
   await copyFile(new URL('../store.js', import.meta.url), join(sandbox, 'store-real.js'));
@@ -236,6 +241,24 @@ test('page coach reads typed source instructions, distinguishes missing dates an
   const disconnected = await api('coach',{profile:'coach-empty',method:'POST',cookie:original.cookie,body:request});
   assert.equal(disconnected.status,200);
   assert.doesNotMatch(disconnected.data.text,/Original learner instructions|Esha instructions/);
+});
+
+test('Canvas coach distinguishes a provider refusal and an unavailable coach from received explanation text', async () => {
+  const original = await api('session');
+  const pageContext = { route: '#/mixed', subject: 'calculus-bc', selectedCourseId: '99' };
+  const refusal = await api('coach', { method: 'POST', cookie: original.cookie, body: { pageContext, message: 'fixture-study-refusal' } });
+  assert.equal(refusal.status, 200); assert.equal(refusal.data.refusal, true); assert.equal(refusal.data.available, true);
+  const configured = value => new Promise(resolve => {
+    const onMessage = message => { if (message.coachConfigured === value) { child.off('message', onMessage); resolve(); } };
+    child.on('message', onMessage); child.send({ coachConfigured: value });
+  });
+  await configured(false);
+  try {
+    const unavailable = await api('coach', { method: 'POST', cookie: original.cookie, body: { pageContext, message: 'Find my Canvas instructions' } });
+    assert.equal(unavailable.status, 200); assert.equal(unavailable.data.available, false);
+    assert.match(unavailable.data.text, /not configured/);
+    assert.ok(unavailable.data.sources.length > 0, 'source lookup remains available without counting as an AI explanation');
+  } finally { await configured(true); }
 });
 
 test('profile cookies, courses, assignments and assessments remain isolated even with identical Canvas ids', async () => {

@@ -34,6 +34,48 @@ The session continues while moving between this app's pages. A quiet return
 link stays visible while it runs. Switching learners or closing/reloading the
 page pauses it, so another student's time never enters the session.
 
+## Mixed Physics and Calculus BC practice
+
+Open **Mixed practice** in the main navigation, or **Open mixed practice** on
+Home. Choose any combination of the 20 topic groups, a starting level, and
+5, 10, or 15 questions (or continue until you finish). These topic choices
+are separate from the main Studying menu. One session can include both subjects.
+
+The server generates numerical variations from 60 original, checked question
+families. They represent all eight AP Physics 1 units and all ten Calculus BC
+units, including BC-specific integration, differential equations, parametric
+and polar curves, series, and Taylor error bounds. This is representative
+multiple-choice practice, not every course subtopic, a complete AP exam,
+laboratory assessment, or an AP Physics 2/C course. The full lesson and
+independent mastery-check curriculum remains Calculus AB/BC.
+
+Select a choice, then **Check answer**. The computed server key grades it;
+the AI coach explains the current question without deciding correctness.
+A wrong answer produces a new variation of the same concept with the
+specific distractor explanation. After one focused follow-up, the session
+rotates to other selected topics and the other subject when available.
+Two independent correct answers raise a topic's level; wrong answers lower
+its general target level. A focused follow-up may retain its actual concept
+level, and the interface explains that choice. Hints and received pre-answer
+Astra/Sol help are recorded separately and do not increase independent credit.
+
+Pause, resume, change topics, and finish are explicit controls. Topic changes
+apply after the current question so selected work is preserved. Reloading
+restores the server's question, feedback, and already-revealed hints in a
+paused state. The browser stores only the session ID, preferences, and draft
+choice per workspace. Sessions and adaptation live in server memory for up
+to six hours and end when that server restarts; they do not change existing
+curriculum mastery, Canvas grades, or saved learner progress. There are at
+most 200 questions per session. Numerical families are finite: the generator
+tries to avoid seen prompts and explicitly discloses a repeat if fresh
+samples are exhausted.
+
+The bank is independently checked using conservation equations, numerical
+derivatives and integrals, 6,000 seeded variants, and KaTeX rendering. Each
+of the 60 families also has an independently solved blind sample. No new
+package, AI generation call, or Canvas connection is needed to practise.
+The optional explanation coach uses the existing Astra-to-Sol configuration.
+
 ## Running it
 
 Zero dependencies. Node 18+.
