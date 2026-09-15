@@ -11,14 +11,58 @@ pause, and reset. Full, reduced, and off motion settings support individual
 preferences; OS reduced-motion settings suppress autoplay. Prompt complexity
 changes with mastery, and the learner can explore every available demo.
 
-Learner workspaces keep separate progress and course preferences. The original
-`learner` progress and browser storage key are preserved. Workspace discovery
-is local to the browser; these are shared-device workspaces, without separate
-authenticated accounts. Each learner connects their own Canvas account. Canvas
-sessions, remembered credentials, preferences, and cached data are scoped to
-that learner, while the original learner's existing connection is preserved.
-New workspace identifiers use cryptographically random UUIDs. They are not a
-substitute for account authentication in a future public multi-user service.
+Learner workspaces keep separate progress and course preferences. In account
+mode, each student signs in with a username and password; the server supplies
+only the workspaces that account owns. An enrollment link can bind the original
+`learner` or another existing workspace without changing its progress keys,
+Canvas connection, preferences, or source history. A workspace UUID is a
+selection identifier; database-backed account ownership authorizes access.
+
+## Student accounts and deployment
+
+Replit preview and deployment must run with `AUTH_REQUIRED=1`. Set
+`DATABASE_URL` and a stable `SESSION_SECRET` of at least 32 bytes in the server
+environment. Missing or failed account storage never enables anonymous access.
+The bare local server retains its zero-configuration family mode; use that
+unauthenticated mode only for isolated private development, never as a fallback
+for a deployed account service.
+
+Registration is invite-only by default. The server-side
+`scripts/create-enrollment.mjs` command creates a private, single-use setup
+link for an existing database progress workspace. The student opens the link
+and chooses their own username and password. The command writes the link to
+an owner-only file under ignored `data/enrollment-links/` and prints only its
+path and expiry. It does not choose a student's password. Setup and actual
+relational tables are documented in
+[student accounts and remaining work](docs/student-accounts-plan.md).
+
+Usernames use 3–32 letters, numbers, underscores, or hyphens and are normalized
+to lowercase. Passwords contain 15–128 Unicode characters and are neither
+trimmed nor truncated. The server stores salted scrypt password hashes, and
+HMAC hashes of random session and enrollment tokens. Sessions expire after
+seven days; enrollment links expire after 24 hours by default. HTTPS sessions
+use a Secure, HttpOnly, SameSite=Lax host-only cookie. Mutating requests require
+the same origin; progress, Canvas, mixed practice, and coaching require a valid
+session and a fresh workspace permission check. Browser copies of workspace
+lists cannot grant access. Open Replit's app preview in its own tab when the
+embedded preview blocks sign-in cookies.
+
+`AUTH_ALLOW_SIGNUP=1` is an explicit later option for a new random workspace;
+it never lets a student claim an existing workspace by submitting its ID.
+Password reset, recovery email, administrative account screens, and Canvas
+OAuth are not implemented. Rotating `SESSION_SECRET` invalidates existing
+sessions and unconsumed enrollment links; retain the key across deployments.
+
+Students can save study notes in the persistent coach's **Coach Notes** panel,
+in Settings, or by explicitly remembering a coach reply. These append to
+`s4ai_student_memos`, with the owning workspace and the
+account that authorized each save. There is no automatic conversation archive.
+Notes are limited to 2,000 characters; retrying the same save request cannot
+create a duplicate or rewrite an earlier note. The notes API returns up to 30
+records per page with a count of older records. The general study coach receives
+the ten newest notes and reports how many were omitted. Saved text is untrusted
+context, never a new grading rule, verified answer, Canvas deadline, or command.
+Earlier notes remain stored; this bounded context is not guaranteed full recall.
 
 ## Canvas connections for Dev, Esha, and other learners
 
@@ -61,16 +105,16 @@ that workspace. Disconnect removes saved application credentials and disables
 automatic secret reconnection; it cannot delete Replit Secrets. The learner
 can explicitly reconnect with the displayed Replit connection button.
 
-These are still family workspaces on a shared application, not authenticated
-student accounts. Before public student enrollment, add sign-in and enforce
-account ownership of every workspace and Canvas connection. A future public
-service should also protect stored credentials with an appropriate managed
-credential store; arbitrary browser-supplied profile IDs are not authorization.
+With `AUTH_REQUIRED=1`, the account boundary runs before any Canvas credential
+lookup or automatic named-secret connection. The original family mode still
+exists for private local development. Remembered form credentials continue to
+use the existing server-only file/database store; application-level credential
+encryption or a managed credential store remains future work.
 Canvas's official guidance also requires OAuth for applications used by
 multiple users, so manual token entry is not the public-signup path. The
-[student-account implementation plan](docs/student-accounts-plan.md) records
-the proposed ownership tables, encrypted credential storage, institution
-OAuth setup, and a migration that preserves existing learner work.
+[student-account implementation record](docs/student-accounts-plan.md) separates
+the implemented ownership boundary from encrypted credential storage and
+institution OAuth setup that remain planned.
 
 ## Study-session planning
 
@@ -421,10 +465,21 @@ DevDashCalc (repo root)
 ```
 
 - **Progress persistence** is dual: every answer saves to `localStorage`
-  immediately and to the server (`PUT /api/progress`, atomic tmp+rename write
-  under `data/`) on a short debounce. On load the newer of the two wins, so
-  progress survives both browser changes and server resets. Settings offers
-  JSON export/import as a manual backup path.
+  immediately and to the server on a short debounce. `PUT /api/progress`
+  serializes each learner's complete file/database save, using a unique
+  temporary file and atomic rename. Other learners have independent queues.
+  A request with an older `savedAt` cannot replace newer stored progress;
+  equal timestamps use the last complete request's record. Missing or invalid
+  timestamps compare as zero. Accepted responses report `databaseSaved`
+  (`true`, `false`, or `null` when no database is configured).
+  Server reads choose the newest `savedAt` across file and database, preferring
+  the file on a tie because it commits before the database. This preserves an
+  accepted equal-time save if its database write fails, including after restart.
+  The browser then compares that result with its local copy. Settings offers
+  JSON export/import as a manual backup path. These are whole-state saves using
+  client timestamps: they do not merge concurrent edits, correct clock skew,
+  or coordinate multiple server processes. The queues protect this server
+  process; distributed account storage needs a database-level revision check.
 - **The engine is pure and tested.** `public/engine.js` has no DOM or network
   access and is exercised by `test/engine.test.mjs` — the mastery math above
   is pinned by assertions, not prose.
@@ -450,8 +505,11 @@ due dates. Replies identify GPT-6 Astra or the GPT-5.6 Sol fallback, link to
 retrieved sources, show lookup limitations, and provide explicit navigation
 buttons. The student chooses each action. Conversations stay in tab memory
 and clear when the learner, course, terms, resource, or active question changes.
-During a live question, both coach boxes share the canonical tutor and hint
-accounting; help cannot silently earn an independent mastery pass.
+During a live question, the question shortcut points to this same bottom coach,
+which uses the canonical tutor and hint accounting; help cannot silently earn
+an independent mastery pass. Coach Notes opens beside the conversation on a
+wide screen and below it on a narrow screen. The signed-out screen retains a
+static coach introduction without loading private records or calling AI.
 
 Canvas assignments and module items have **Find instructions** buttons. The
 server reconstructs the selected workspace and course, then reads up to four
@@ -474,8 +532,9 @@ Successful source locations become additional retrieval hints in the existing
 file/Postgres store (`cv-rule-<profile>`), scoped to the Canvas account and
 course. Old entries and versions remain intact. New hints never alter grades,
 submit work, change instructor rules, remove old rules, or authorize arbitrary
-SQL or URL access. The current learner selector provides family workspaces;
-it is not a replacement for authenticated accounts before public multi-user use.
+SQL or URL access. In account mode, the learner selector contains server-owned
+workspaces and every request independently verifies that ownership. The local
+legacy selector alone is not authentication.
 
 The implementation is in `public/page-coach.js`, `study-coach-context.js`,
 `canvas-retrieval.js`, and the server's `/api/canvas/coach` handler. It uses

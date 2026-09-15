@@ -135,7 +135,7 @@ async function startServer(secretEnv = {}) {
   base = `http://127.0.0.1:${port}`;
   child = spawn(process.execPath, ['--import', `data:text/javascript;base64,${Buffer.from(preload).toString('base64')}`, 'server.js'], {
     cwd: sandbox,
-    env: { ...process.env, PORT: String(port), DATABASE_URL: '', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-model-secret',
+    env: { ...process.env, PORT: String(port), DATABASE_URL: '', AUTH_REQUIRED: '0', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-model-secret',
       DEV_API_TOKEN: '', DEV_API_KEY: '', ESHA_API_TOKEN: '', DEV_CANVAS_PROFILE_ID: '', ESHA_CANVAS_PROFILE_ID: '',
       DEV_CANVAS_URL: '', ESHA_CANVAS_URL: '', CANVAS_BASE_URL: '', ...secretEnv },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -779,4 +779,108 @@ test('failed durable deletions cannot resurrect an older account after a secret 
       await fixtureDatabase({ enabled: false, rows: [], failDeletes: false, failWrites: false });
     }
   });
+});
+
+async function progressApi(profile, value) {
+  const response = await fetch(`${base}/api/progress?profile=${encodeURIComponent(profile)}`, value === undefined ? {} : {
+    method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(value),
+  });
+  return { status: response.status, data: await response.json() };
+}
+const progressFile = profile => join(sandbox, `data/progress-${profile}.json`);
+
+test('overlapping autosave and switch flush wait for the whole save while another learner saves independently', async () => {
+  const profile = 'save-overlap', otherProfile = 'save-independent';
+  const firstValue = { savedAt: 100, settings: { name: 'First learner' }, attempts: ['first'] };
+  const secondValue = { ...firstValue, savedAt: 200, attempts: ['first', 'second'] };
+  const otherValue = { savedAt: 150, settings: { name: 'Other learner' }, attempts: ['separate'] };
+  await fixtureDatabase({ enabled: true, rows: [], nextGate: 'progress-save-gate', failWrites: false });
+  let first, second;
+  try {
+    const reached = waitingFor('progress-save-gate');
+    let firstDone = false, secondDone = false;
+    first = progressApi(profile, firstValue).then(result => { firstDone = true; return result; });
+    await reached;
+    second = progressApi(profile, secondValue).then(result => { secondDone = true; return result; });
+    const other = await progressApi(otherProfile, otherValue);
+    assert.equal(other.status, 200);
+    assert.equal(other.data.databaseSaved, true);
+    assert.equal(firstDone, false, 'the first response waits for its database write');
+    assert.equal(secondDone, false, 'a later same-profile write cannot overtake it');
+    assert.deepEqual(JSON.parse(await readFile(progressFile(profile), 'utf8')), firstValue);
+    assert.deepEqual((await fixtureDatabase({})).get(`progress-${otherProfile}`), otherValue);
+    child.send({ release: 'progress-save-gate' });
+    for (const result of await Promise.all([first, second])) {
+      assert.equal(result.status, 200);
+      assert.equal(result.data.saved, true);
+      assert.equal(result.data.databaseSaved, true);
+    }
+    const rows = await fixtureDatabase({});
+    assert.deepEqual(rows.get(`progress-${profile}`), secondValue);
+    assert.deepEqual(JSON.parse(await readFile(progressFile(profile), 'utf8')), secondValue);
+    assert.deepEqual((await progressApi(profile)).data, secondValue);
+    assert.ok(!(await readdir(join(sandbox, 'data'))).some(file => file.startsWith(`progress-${profile}.`) && file.endsWith('.tmp')));
+  } finally {
+    child.send({ release: 'progress-save-gate' });
+    await Promise.allSettled([first, second].filter(Boolean));
+    await fixtureDatabase({ enabled: false, rows: [], nextGate: null, failWrites: false });
+  }
+});
+
+test('older progress cannot overwrite a newer save and equal timestamps retain last-request semantics', async () => {
+  const profile = 'save-timestamps', key = `progress-${profile}`;
+  await fixtureDatabase({ enabled: true, rows: [], failWrites: false });
+  try {
+    const newer = { savedAt: 200, attempts: ['newer'] };
+    assert.equal((await progressApi(profile, newer)).data.saved, true);
+    for (const value of [{ savedAt: 100, attempts: ['old'] }, { attempts: ['no timestamp'] }, { savedAt: '900', attempts: ['invalid timestamp'] }]) {
+      const stale = await progressApi(profile, value);
+      assert.equal(stale.status, 200);
+      assert.deepEqual(stale.data, { saved: false, reason: 'stale-progress', savedAt: 200 });
+      assert.deepEqual(JSON.parse(await readFile(progressFile(profile), 'utf8')), newer);
+      assert.deepEqual((await fixtureDatabase({})).get(key), newer);
+    }
+    const equal = { savedAt: 200, attempts: ['newer', 'same-time flush'] };
+    assert.equal((await progressApi(profile, equal)).data.saved, true);
+    assert.deepEqual(JSON.parse(await readFile(progressFile(profile), 'utf8')), equal);
+    assert.deepEqual((await fixtureDatabase({})).get(key), equal);
+    const burst = Array.from({ length: 12 }, (_, index) => ({ savedAt: 300 + index, attempts: [`burst-${index}`] }));
+    const results = await Promise.all(burst.map(value => progressApi(profile, value)));
+    assert.ok(results.every(result => result.status === 200), 'overlapping PUTs never fail with temporary-file rename collisions');
+    assert.deepEqual((await progressApi(profile)).data, burst.at(-1));
+    assert.deepEqual(JSON.parse(await readFile(progressFile(profile), 'utf8')), burst.at(-1));
+    assert.deepEqual((await fixtureDatabase({})).get(key), burst.at(-1));
+  } finally { await fixtureDatabase({ enabled: false, rows: [], failWrites: false }); }
+});
+
+test('progress reads preserve the newer replica after a database failure and reject stale writes against either replica', async () => {
+  const profile = 'save-replicas', key = `progress-${profile}`;
+  const old = { savedAt: 100, attempts: ['old database'] }, local = { savedAt: 300, attempts: ['new file'] };
+  await fixtureDatabase({ enabled: true, rows: [[key, old]], failWrites: true });
+  try {
+    const accepted = await progressApi(profile, local);
+    assert.equal(accepted.data.saved, true);
+    assert.equal(accepted.data.databaseSaved, false, 'the completed local save does not claim a failed durable write');
+    assert.deepEqual((await fixtureDatabase({})).get(key), old);
+    assert.deepEqual((await progressApi(profile)).data, local, 'an older database row cannot hide the newer local copy');
+    assert.equal((await progressApi(profile, { savedAt: 200 })).data.saved, false);
+    await fixtureDatabase({ failWrites: false });
+    const recovered = { savedAt: 400, attempts: ['after recovery'] };
+    assert.equal((await progressApi(profile, recovered)).data.databaseSaved, true);
+    assert.deepEqual((await fixtureDatabase({})).get(key), recovered);
+    assert.deepEqual(JSON.parse(await readFile(progressFile(profile), 'utf8')), recovered);
+    await fixtureDatabase({ failWrites: true });
+    const sameTimeLater = { savedAt: 400, attempts: ['later equal-time flush'] };
+    assert.equal((await progressApi(profile, sameTimeLater)).data.databaseSaved, false);
+    assert.deepEqual((await progressApi(profile)).data, sameTimeLater, 'a failed equal-time DB write cannot hide the later accepted local save');
+    const beforeRestart = await fixtureDatabase({});
+    await stopServer(); await startServer();
+    await fixtureDatabase({ enabled: true, rows: [...beforeRestart], failWrites: false });
+    assert.deepEqual((await progressApi(profile)).data, sameTimeLater, 'local equal-time precedence survives restart');
+    const databaseNewer = { savedAt: 500, attempts: ['newer durable copy'] };
+    await fixtureDatabase({ rows: [[key, databaseNewer]] });
+    assert.deepEqual((await progressApi(profile)).data, databaseNewer);
+    assert.equal((await progressApi(profile, { savedAt: 450 })).data.saved, false);
+    assert.deepEqual(JSON.parse(await readFile(progressFile(profile), 'utf8')), sameTimeLater, 'rejecting stale data does not overwrite either replica');
+  } finally { await fixtureDatabase({ enabled: false, rows: [], failWrites: false }); }
 });

@@ -7,8 +7,10 @@ import * as CI from '/canvas-insights.js';
 import { explorersFor, mountExplorer, explorerTitle } from '/viz.js';
 import { mountStudyLab } from '/study-lab.js';
 import { mountPageCoach } from '/page-coach.js';
-import { activateFocusProfile, subscribeFocusSession } from '/focus-planner.js';
+import { activateFocusProfile, pauseFocusSessions, subscribeFocusSession } from '/focus-planner.js';
 import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
+import { apiFetch, captureEnrollment, hasEnrollment, getAccountSession, mountAccountGate } from '/auth-ui.js';
+import { mountStudentMemos, saveStudentMemo } from '/continuity-ui.js';
 
 // ---------------------------------------------------------------- data & state
 const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [], freeResponse: [] };
@@ -24,6 +26,14 @@ let activeQuestionCoach = null;
 let mixedCleanup = null;
 let activeMixedQuestion = null;
 let coachCanvasReference = null;
+let canvasBackgroundRefresh = null;
+let ACCOUNT = null;
+let accountGateCleanup = null;
+let accountGateActive = false;
+let accountGateRoute = '';
+let accountGateNotice = '';
+let signingOut = false;
+let memosCleanup = null;
 let activeProfile = 'learner';
 let switchingProfile = false;
 let profiles = [{ id: 'learner', name: 'My workspace' }];
@@ -34,9 +44,104 @@ try {
     const original = stored.find((p) => p?.id === 'learner');
     if (typeof original?.name === 'string') profiles[0].name = original.name.slice(0, 40);
   }
-  const selected = localStorage.getItem('students4ai-active-profile');
+  const selected = sessionStorage.getItem('students4ai-active-profile') || localStorage.getItem('students4ai-active-profile');
   if (profiles.some((p) => p.id === selected)) activeProfile = selected;
 } catch { /* Browser storage is optional. */ }
+try { sessionStorage.setItem('students4ai-active-profile', activeProfile); } catch { /* optional */ }
+
+function rememberProfiles() {
+  if (ACCOUNT?.authRequired) return;
+  try {
+    const stored = JSON.parse(localStorage.getItem('students4ai-profiles') || '[]');
+    if (Array.isArray(stored)) {
+      for (const entry of stored) {
+        if (profiles.length >= 21) break;
+        if (entry && /^[a-z0-9-]{1,50}$/.test(entry.id) && typeof entry.name === 'string' && !profiles.some(p => p.id === entry.id)) {
+          profiles.push({ id: entry.id, name: entry.name.slice(0, 40) });
+        }
+      }
+    }
+    localStorage.setItem('students4ai-profiles', JSON.stringify(profiles));
+  } catch { /* optional */ }
+}
+
+function applyAccountWorkspaces() {
+  profiles = (ACCOUNT.workspaces || []).filter(w => /^[a-z0-9-]{1,55}$/.test(w.profileId)).map(w => ({ id: w.profileId, name: w.name || ACCOUNT.user?.username || 'My workspace' }));
+  if (!profiles.length) throw new Error('This account does not have a learning workspace yet. Contact the app owner.');
+  if (!profiles.some(p => p.id === activeProfile)) activeProfile = profiles[0].id;
+  try { sessionStorage.setItem('students4ai-active-profile', activeProfile); } catch { /* optional */ }
+}
+
+function showAccountGate(notice = '') {
+  if (notice) accountGateNotice = notice;
+  const route = hasEnrollment() || (location.hash === '#/signup' && ACCOUNT?.allowSelfSignup) ? 'signup' : 'login';
+  if (accountGateActive && route === accountGateRoute && $('#account-form')) {
+    if (notice) $('#account-message').textContent = notice;
+    return;
+  }
+  accountGateRoute = route;
+  accountGateActive = true;
+  clearTimeout(saveTimer);
+  pauseFocusSessions();
+  pageCoachCleanup?.(); pageCoachCleanup = null;
+  resetCanvas();
+  switchingProfile = false;
+  mountView('', { breadcrumb: ['Student sign-in'] });
+  S = null;
+  $('#study-controls').hidden = true;
+  $('#focus-status').hidden = true;
+  $('#page-coach-slot').replaceChildren();
+  $('#save-notice').hidden = true;
+  $('.app-header nav').hidden = true;
+  document.documentElement.dataset.theme = 'light';
+  document.documentElement.dataset.motion = 'off';
+  accountGateCleanup?.();
+  accountGateCleanup = mountAccountGate(viewEl(), {
+    session: ACCOUNT || {}, notice: accountGateNotice,
+    onAuthenticated: async () => {
+      history.replaceState(null, '', `${location.pathname}${location.search}#/home`);
+      location.reload();
+    },
+  });
+  pageCoachCleanup = mountPageCoach($('#page-coach-slot'), { signedOut: true, context: () => ({ title: 'Student sign-in' }) });
+}
+
+async function signOut(withoutSync = false) {
+  if (!ACCOUNT?.authenticated || signingOut) return;
+  signingOut = true;
+  const button = $('#account-signout');
+  if (button) button.disabled = true;
+  clearTimeout(saveTimer);
+  const status = $('#account-save-status');
+  if (status) status.textContent = 'Saving this workspace before signing out.';
+  try {
+    if (S && !withoutSync) {
+      const response = await apiFetch(`/api/progress?profile=${encodeURIComponent(activeProfile)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(S) });
+      if (!response.ok) throw new Error('Your server save could not finish. Try again before signing out.');
+      const result = await response.json();
+      if (result.saved === false) throw new Error('The server has newer progress. Download your browser progress before signing out.');
+      if (result.databaseSaved === false) throw new Error('Database sync could not finish. Your work is still here. Try again before signing out.');
+    }
+    const response = await fetch('/api/auth/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    if (!response.ok) throw new Error('Sign-out could not finish. Try again.');
+    ACCOUNT.authenticated = false;
+    history.replaceState(null, '', `${location.pathname}${location.search}#/login`);
+    showAccountGate('You have signed out.');
+  } catch (error) {
+    if (status) {
+      status.textContent = `${error.message} You can also download your progress below, then sign out without syncing.`;
+      if (!$('#account-signout-unsynced')) {
+        const leave = document.createElement('button'); leave.id = 'account-signout-unsynced';
+        leave.type = 'button'; leave.className = 'quiet'; leave.textContent = 'Sign out without syncing';
+        leave.addEventListener('click', () => signOut(true));
+        status.after(leave);
+      }
+    }
+  } finally {
+    signingOut = false;
+    if (button?.isConnected) button.disabled = false;
+  }
+}
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const viewEl = () => $('#view');
@@ -68,99 +173,28 @@ function announce(text) { $('#live-region').textContent = text; }
 // Conversation lives in memory per question; only this question's content and
 // the learner's answer to it are sent to the server.
 function mountTutor(container, unit, q, ctx) {
-  if (/^#\/(?:practice|mastery|diagnostic|lesson)(?:\/|$)/.test(location.hash)
-      && (ctx.phase === 'before-answer' || activeQuestionCoach?.q.id === q.id)) activeQuestionCoach = { container, unit, q, ctx };
-  pageCoachCleanup?.refresh();
+  ctx.phase ||= ctx.learnerAnswer === undefined ? 'before-answer' : 'after-answer';
   const before = ctx.phase === 'before-answer';
-  if (!TUTOR.available) {
-    container.innerHTML = '<section class="coach-card"><h3>Astra AI coach</h3><p>AI coaching is not connected on this server yet. Built-in hints and worked solutions are available.</p></section>';
-    return;
-  }
-  container.innerHTML = `<section class="coach-card"><h3>Astra AI coach</h3><p>Work through this question one step at a time.</p><p class="session-progress">GPT-6 Astra · GPT-5.6 Sol backup</p><div class="btn-row"><button type="button" class="secondary tutor-open">${before ? 'Help me understand this problem' : 'Talk through this question with Astra'}</button></div>${before ? `<p class="session-progress">Ask for the idea, a first step, or a coding example. ${ctx.selfCheck ? 'Use the scoring guide to review your own written work.' : ctx.check ? (ctx.check === 'placement' ? 'Answers solved with coach help do not place a unit. Your assisted practice still helps you learn.' : 'Getting coach help marks this attempt as assisted. It will not count as an independent mastery pass.') : 'Coach help received before checking counts as a hint.'}</p>` : ''}</section>`;
+  const activate = () => {
+    activeQuestionCoach = { container, unit, q, ctx };
+    coachCanvasReference = null;
+    pageCoachCleanup?.refresh();
+  };
+  if (/^#\/(?:practice|mastery|diagnostic|lesson)(?:\/|$)/.test(location.hash)
+      && (before || activeQuestionCoach?.q.id === q.id)) activate();
+  const guidance = !before ? 'Use the coach below to discuss the worked solution.' : ctx.selfCheck
+    ? 'Use the coach below for an explanation. The scoring guide remains your written-work check.'
+    : ctx.check === 'placement' ? 'Receiving coach help makes this answer assisted; it will not place the unit.'
+      : ctx.check === 'mastery' ? 'Receiving coach help makes this check assisted; it will not count as an independent mastery pass.'
+        : 'Receiving coach help before checking counts as a hint.';
+  container.innerHTML = `<p class="session-progress">${guidance}</p><button type="button" class="secondary tutor-open">Ask Astra about this question</button>`;
   $('.tutor-open', container).addEventListener('click', () => {
-    container.innerHTML = `<div class="tutor-panel">
-      <h3>Astra AI coach</h3>
-      <p class="session-progress coach-model">GPT-6 Astra · GPT-5.6 Sol backup</p>
-      <p class="viz-note">${before ? 'Work through one idea at a time. The tutor is instructed to guide your thinking without giving away the answer.' : 'Ask about a confusing step or compare approaches.'} It uses this question and the stored solution. Your name and Canvas data are not shared.</p>
-      <div class="tutor-log" aria-live="polite"></div>
-      <p class="tutor-status"></p>
-      <div class="btn-row tutor-actions" hidden>${['Explain the idea', 'Help with the first step', 'Use a coding example'].map((label) => `<button type="button" class="secondary tutor-hint-action">${label}</button>`).join('')}</div>
-      <div class="numeric-row tutor-ask-row" hidden>
-        <input class="tutor-input" aria-label="Ask the AI tutor" type="text" autocomplete="off" placeholder="Tell me which part is confusing">
-        <button type="button" class="tutor-send">Send</button>
-      </div>
-    </div>`;
-    const log = $('.tutor-log', container);
-    const status = $('.tutor-status', container);
-    const askRow = $('.tutor-ask-row', container);
-    const input = $('.tutor-input', container);
-    const actions = $('.tutor-actions', container);
-    const sendBtn = $('.tutor-send', container);
-    const transcript = [];
-
-    const addMsg = (role, text) => {
-      const div = document.createElement('div');
-      div.className = `tutor-msg ${role}`;
-      const formatted = esc(text).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
-      const paragraphs = formatted.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
-      div.innerHTML = `<span class="tutor-who">${role === 'user' ? 'You' : 'Coach'}</span>${paragraphs}`;
-      log.appendChild(div);
-      renderMath(div);
-    };
-
-    const ask = async (followUp) => {
-      status.textContent = 'Astra is working through this question. A careful reply can take a minute or more.';
-      askRow.hidden = true;
-      actions.hidden = true;
-      sendBtn.disabled = true;
-      try {
-        const res = await fetch('/api/tutor', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            unitId: unit.id, questionId: q.id,
-            phase: before ? 'before-answer' : 'after-answer',
-            learnerAnswer: ctx.learnerAnswer, correct: ctx.correct,
-            chosenIndex: ctx.chosenIndex,
-            history: ctx.history,
-            followUp: followUp || undefined,
-            transcript,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-        if (typeof data.text !== 'string' || !data.text.trim()) throw new Error('No coach reply was returned.');
-        if (data.available !== false && !data.refusal) ctx.onHelp?.();
-        $('.coach-model', container).textContent = data.model === 'gpt-5.6-sol' ? 'Reply from GPT-5.6 Sol · backup coach' : data.model === 'gpt-6-astra' ? 'Reply from GPT-6 Astra' : 'AI coach reply';
-        if (followUp) transcript.push({ role: 'user', text: followUp });
-        transcript.push({ role: 'assistant', text: data.text });
-        addMsg('assistant', data.text);
-        status.textContent = '';
-      } catch (e) {
-        status.textContent = 'The tutor could not answer this time. Your progress here is unaffected; you can try again.';
-        console.warn('tutor:', e.message);
-      }
-      askRow.hidden = false;
-      actions.hidden = false;
-      sendBtn.disabled = false;
-    };
-
-    sendBtn.addEventListener('click', () => {
-      const text = input.value.trim();
-      if (!text) return;
-      addMsg('user', text);
-      input.value = '';
-      ask(text);
-    });
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendBtn.click(); });
-    actions.querySelectorAll('button').forEach((button) => button.addEventListener('click', () => {
-      addMsg('user', button.textContent);
-      ask(button.textContent);
-    }));
-    ask(null);
+    activate();
+    ensurePageCoach();
+    pageCoachCleanup.focus(before ? 'Help me understand the idea in this question without giving away the answer.' : 'Explain the worked solution for this question one step at a time.');
+    $('#page-coach-slot').scrollIntoView({ behavior: 'auto', block: 'start' });
   });
 }
-
 // ---------------------------------------------------------------- persistence
 function ensureAppFields(state) {
   state.settings = { ...E.newState().settings, ...state.settings };
@@ -174,36 +208,54 @@ function ensureAppFields(state) {
 }
 
 const progressKey = (profile) => profile === 'learner' ? 'calc-coach-progress' : `students4ai-progress-${profile}`;
+let saveSerial = 0;
 function save() {
-  S.savedAt = Date.now();
+  if (!S || accountGateActive) return;
+  S.savedAt = Math.max(Date.now(), (Number.isFinite(S.savedAt) ? S.savedAt : 0) + 1);
   const body = JSON.stringify(S), profile = activeProfile;
-  try { localStorage.setItem(progressKey(profile), body); } catch { /* private mode */ }
+  const serial = ++saveSerial;
+  let browserSaved = false;
+  try { localStorage.setItem(progressKey(profile), body); browserSaved = true; } catch { /* private mode */ }
+  const notice = text => {
+    if (serial !== saveSerial || profile !== activeProfile || accountGateActive) return;
+    const region = $('#save-notice');
+    region.textContent = text;
+    region.hidden = !text;
+  };
+  const retryMessage = browserSaved ? 'Your work is saved in this browser. The server save could not finish. Download your progress in Settings before closing this page.' : 'Your latest work has not been saved. Keep this page open and download your progress in Settings.';
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     try {
-      await fetch(`/api/progress?profile=${encodeURIComponent(profile)}`, {
+      const response = await apiFetch(`/api/progress?profile=${encodeURIComponent(profile)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body,
       });
-    } catch (e) { console.warn('Server save failed; progress is still in this browser.', e); }
+      const result = await response.json();
+      if (!response.ok || result.saved === false) {
+        notice(result.reason === 'stale-progress' ? 'The server has newer progress from another save. Keep this page open and download your progress in Settings before reloading.' : retryMessage);
+      } else if (result.databaseSaved === false) notice('This server has your progress, but database sync could not finish. Keep this page open and try saving again before changing computers.');
+      else notice('');
+    } catch { notice(retryMessage); }
   }, 600);
 }
 
 async function loadProgress(profile = activeProfile) {
+  const accountId = ACCOUNT?.user?.id;
   let server = null;
   let local = null;
   try {
-    const res = await fetch(`/api/progress?profile=${encodeURIComponent(profile)}`);
+    const res = await apiFetch(`/api/progress?profile=${encodeURIComponent(profile)}`);
     if (res.ok) server = await res.json();
   } catch { /* offline is fine */ }
+  if (ACCOUNT?.authRequired && (!ACCOUNT.authenticated || ACCOUNT.user?.id !== accountId)) return null;
   try { local = JSON.parse(localStorage.getItem(progressKey(profile)) || 'null'); } catch { /* ignore */ }
   const pick = (server?.savedAt || 0) >= (local?.savedAt || 0) ? server : local;
   const state = ensureAppFields(pick || E.newState());
   const entry = profiles.find((item) => item.id === profile);
   if (entry && state.settings.name && entry.name !== state.settings.name) {
     entry.name = String(state.settings.name).slice(0, 40);
-    try { localStorage.setItem('students4ai-profiles', JSON.stringify(profiles)); } catch { /* optional */ }
+    rememberProfiles();
   }
   return state;
 }
@@ -213,21 +265,22 @@ async function switchProfile(profile) {
   switchingProfile = true;
   pageCoachCleanup?.(); pageCoachCleanup = null;
   mountView('<h1>Opening learner workspace</h1><p>Your current progress is being saved.</p>');
-  document.querySelectorAll('#study-controls select').forEach((select) => { select.disabled = true; });
   clearTimeout(saveTimer);
   const previous = activeProfile, body = JSON.stringify(S);
   try { localStorage.setItem(progressKey(previous), body); } catch { /* optional */ }
-  try { await fetch(`/api/progress?profile=${encodeURIComponent(previous)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body }); } catch { /* browser copy remains */ }
+  try { await apiFetch(`/api/progress?profile=${encodeURIComponent(previous)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body }); } catch { /* browser copy remains */ }
+  if (ACCOUNT?.authRequired && !ACCOUNT.authenticated) return;
   activeProfile = profile;
   activateFocusProfile(profile);
   $('#focus-status').hidden = true;
   resetCanvas();
   try { localStorage.setItem('students4ai-active-profile', profile); } catch { /* optional */ }
+  try { sessionStorage.setItem('students4ai-active-profile', profile); } catch { /* optional */ }
   S = await loadProgress(profile);
+  if (!S) return;
   applySettings();
   switchingProfile = false;
-  location.hash = '#/home';
-  router();
+  navigateHome();
   loadSchoolContext();
 }
 
@@ -240,11 +293,12 @@ const activeUnit = (id) => {
 function studyControls() {
   const root = $('#study-controls');
   if (!root || !S) return;
-  root.innerHTML = `<label class="study-profile">Learner <select id="study-profile">${profiles.map((p) => `<option value="${esc(p.id)}" ${p.id === activeProfile ? 'selected' : ''}>${esc(p.id === activeProfile && S.settings.name ? S.settings.name : p.name)}</option>`).join('')}</select></label>
-    <label class="course-switcher">Studying <select id="study-subject" class="course-select">${STUDY_SUBJECTS.map((c) => `<option value="${c.id}" ${S.settings.subject === c.id ? 'selected' : ''}>${c.label}</option>`).join('')}</select></label>
+  if (!$('#study-profile', root)) {
+    root.innerHTML = `<label class="study-profile">Learner <select id="study-profile"></select></label>
+    <label class="course-switcher">Studying <select id="study-subject" class="course-select"></select></label>
     <span class="open-status">All learning modules open</span>`;
-  $('#study-profile', root).addEventListener('change', (e) => switchProfile(e.target.value));
-  $('#study-subject', root).addEventListener('change', (e) => {
+    $('#study-profile', root).addEventListener('change', (e) => switchProfile(e.target.value));
+    $('#study-subject', root).addEventListener('change', (e) => {
     S.settings.subject = normalizeSubjectId(e.target.value);
     CANVAS.selectedCourseId = null;
     CANVAS.assessment = null;
@@ -254,8 +308,32 @@ function studyControls() {
     save();
     if (location.hash.startsWith('#/canvas/course/')) location.hash = '#/canvas';
     else if (location.hash.startsWith('#/canvas') || location.hash === '#/focus' || location.hash === '#/mixed') router();
-    else { location.hash = '#/home'; router(); }
-  });
+      else navigateHome();
+    });
+  }
+  // Keep the native controls alive while optional Canvas data arrives.
+  // Replacing a select element closes its menu and drops keyboard focus.
+  const updateSelect = (select, entries, selected) => {
+    const signature = JSON.stringify(entries);
+    if (select.dataset.options !== signature) {
+      select.replaceChildren(...entries.map(([value, label]) => {
+        const option = document.createElement('option');
+        option.value = value; option.textContent = label;
+        return option;
+      }));
+      select.dataset.options = signature;
+      select.value = selected;
+    } else if (select.dataset.selected !== selected) select.value = selected;
+    select.dataset.selected = selected;
+    select.disabled = switchingProfile;
+  };
+  updateSelect($('#study-profile', root), profiles.map(p => [p.id, p.id === activeProfile && S.settings.name ? S.settings.name : p.name]), activeProfile);
+  updateSelect($('#study-subject', root), STUDY_SUBJECTS.map(c => [c.id, c.label]), S.settings.subject);
+}
+
+function navigateHome() {
+  if (location.hash === '#/home') router();
+  else location.hash = '#/home';
 }
 
 // ---------------------------------------------------------------- content load
@@ -304,6 +382,9 @@ function setNav(active) {
 }
 
 function mountView(html, { breadcrumb = [], nav = '' } = {}) {
+  const controlsFocused = $('#study-controls')?.contains(document.activeElement);
+  canvasBackgroundRefresh = null;
+  memosCleanup?.(); memosCleanup = null;
   activeQuestionCoach = null;
   if (mixedCleanup) { mixedCleanup(); mixedCleanup = null; }
   activeMixedQuestion = null;
@@ -318,9 +399,12 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   setBreadcrumb(breadcrumb);
   setNav(nav);
   renderMath(v);
-  window.scrollTo(0, 0);
+  if (!controlsFocused) window.scrollTo(0, 0);
   const h1 = $('h1', v);
-  if (h1) { h1.setAttribute('tabindex', '-1'); h1.focus({ preventScroll: true }); }
+  if (h1) {
+    h1.setAttribute('tabindex', '-1');
+    if (!controlsFocused) h1.focus({ preventScroll: true });
+  }
   return v;
 }
 
@@ -507,7 +591,7 @@ function mountQuestion(container, unit, q, opts, done) {
         : String(response);
       mountTutor(coachSlot, unit, q, { learnerAnswer, correct: grade.correct, chosenIndex: q.type === 'mc' ? selected : null, history });
     } else {
-      coachSlot.innerHTML = '<section class="coach-card"><h3>Astra AI coach</h3><p>Your answer is recorded. Astra can review it with you when this check is complete.</p></section>';
+      coachSlot.innerHTML = '<p>Your answer is recorded. Astra can review it with you when this check is complete.</p>';
     }
     $('.next-btn', fbArea).addEventListener('click', () => done({ correct: grade.correct, hintsUsed: countedHints, response }));
     $('.next-btn', fbArea).focus();
@@ -1135,11 +1219,12 @@ function viewSettings() {
     <h1>Settings</h1>
     <div class="card">
       <h2>Learner workspaces</h2>
-      <p>Each workspace keeps its own practice history, course choice, and display settings. Switch learners using the dropdown above.</p>
+      ${ACCOUNT?.authRequired ? `<p>Signed in as <strong>${esc(ACCOUNT.user.username)}</strong>. Your account opens the same workspace on each computer.</p><p>The Learner menu contains only workspaces this account can access. Each student signs in with their own account.</p><div class="account-identity"><button type="button" class="secondary" id="account-signout">Save and sign out</button><span id="account-save-status" role="status"></span></div>` : `<p>Each workspace keeps its own practice history, course choice, and display settings. Switch learners using the dropdown above.</p>
       <form id="add-learner" class="numeric-row"><label>New learner name <input name="learnerName" type="text" maxlength="40" required></label><label>Starting course <select name="subject">${STUDY_SUBJECTS.map((course) => `<option value="${course.id}">${esc(course.label)}</option>`).join('')}</select></label><button type="submit">Add learner</button></form>
-      <p class="session-progress">Each learner connects their own Canvas account from the Canvas tab. Switching learners also switches the Canvas connection. These are shared-device workspaces, without a separate sign-in for each learner.</p>
+      <p class="session-progress">Each learner connects their own Canvas account from the Canvas tab. Switching learners also switches the Canvas connection. These are shared-device workspaces, without a separate sign-in for each learner.</p>`}
       <p><a class="btn secondary" href="#/canvas">Manage this learner’s Canvas connection</a></p>
     </div>
+    ${ACCOUNT?.authRequired ? '<section class="card" id="student-memos"></section>' : ''}
     <div class="card">
       <h2>Display</h2>
       <p><label>Your name (used only for the greeting): <input id="set-name" type="text" value="${esc(s.name)}" style="font:inherit;padding:0.4rem;border:2px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text)"></label></p>
@@ -1178,14 +1263,16 @@ function viewSettings() {
     </div>
   `, { breadcrumb: ['Home', 'Settings'], nav: 'settings' });
 
-  $('#add-learner', v).addEventListener('submit', async (e) => {
+  $('#account-signout', v)?.addEventListener('click', () => signOut());
+  if ($('#student-memos', v)) memosCleanup = mountStudentMemos($('#student-memos', v), { profileId: activeProfile });
+  $('#add-learner', v)?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const name = String(form.get('learnerName') || '').trim().slice(0, 40);
     if (!name || profiles.length >= 21) return;
     const id = `student-${crypto.randomUUID()}`;
     profiles.push({ id, name });
-    try { localStorage.setItem('students4ai-profiles', JSON.stringify(profiles)); } catch { /* optional */ }
+    rememberProfiles();
     await switchProfile(id);
     S.settings.name = name;
     S.settings.subject = normalizeSubjectId(form.get('subject'));
@@ -1196,7 +1283,7 @@ function viewSettings() {
     S.settings.name = e.target.value.slice(0, 40);
     const profile = profiles.find((p) => p.id === activeProfile);
     if (profile) profile.name = S.settings.name || 'My workspace';
-    try { localStorage.setItem('students4ai-profiles', JSON.stringify(profiles)); } catch { /* optional */ }
+    rememberProfiles();
     save(); studyControls();
   });
   v.querySelectorAll('input[name="textsize"]').forEach((r) => r.addEventListener('change', (e) => { S.settings.textSize = e.target.value; applySettings(); save(); }));
@@ -1278,7 +1365,9 @@ async function loadSchoolContext() {
     if (generation !== canvasGeneration) return;
     const pace = $('#school-pace');
     if (pace) pace.innerHTML = canvasPaceHtml();
-    if (location.hash.startsWith('#/canvas')) router();
+    // Canvas pages already watch this shared load. Refresh their data region
+    // without replacing the page shell, learner menu, or focused heading.
+    canvasBackgroundRefresh?.();
   } catch { /* The optional Canvas view has its own retry controls. */ }
 }
 
@@ -1334,7 +1423,7 @@ async function canvasApi(path, options) {
     throw error;
   };
   let res;
-  try { res = await fetch(scopedPath, options); }
+  try { res = await apiFetch(scopedPath, options); }
   catch (error) { ensureCurrent(); throw error; }
   let data = null;
   try { data = await res.json(); } catch { /* non-JSON body; status carries the meaning */ }
@@ -1680,9 +1769,21 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
   `, { breadcrumb: ['Home', ...breadcrumbTail], nav: 'canvas' });
   const body = $('#canvas-body', v);
   const rerender = () => { if ((location.hash || '').startsWith('#/canvas')) router(); };
-  (async () => {
+  let renderedSnapshot, renderedConnected;
+  let hasRendered = false;
+  let pendingRefresh = false;
+  const renderBody = async () => {
     await canvasEnsureSession();
     if (generation !== canvasGeneration || !body.isConnected) return;
+    if (hasRendered && renderedSnapshot === CANVAS.snapshot && renderedConnected === CANVAS.connected) return;
+    if (hasRendered && body.contains(document.activeElement)) {
+      pendingRefresh = true;
+      return;
+    }
+    pendingRefresh = false;
+    hasRendered = true;
+    renderedSnapshot = CANVAS.snapshot;
+    renderedConnected = CANVAS.connected;
     if (!CANVAS.connected) {
       body.innerHTML = canvasConnectHtml();
       wireCanvasConnect(body, rerender);
@@ -1711,7 +1812,12 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
     }));
     CANVAS.note = '';
     renderMath(body);
-  })();
+  };
+  body.addEventListener('focusout', () => {
+    if (pendingRefresh) setTimeout(() => { if (!body.contains(document.activeElement)) renderBody(); }, 0);
+  });
+  canvasBackgroundRefresh = renderBody;
+  renderBody();
 }
 
 function viewCanvas() {
@@ -1993,6 +2099,7 @@ function viewCanvasCourse(courseId) {
 
 // ---------------------------------------------------------------- app plumbing
 function applySettings() {
+  if (!S) return;
   const s = S.settings;
   const dark = s.theme === 'dark' || (s.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
@@ -2008,6 +2115,9 @@ function applySettings() {
 const SAFE_ID = /^[a-z0-9-]{1,64}$/;
 
 function router() {
+  captureEnrollment();
+  if (ACCOUNT?.authRequired && hasEnrollment()) { showAccountGate(ACCOUNT.authenticated ? `This browser is signed in as ${ACCOUNT.user.username}. Creating another student account will switch this browser to that student.` : ''); return; }
+  if (ACCOUNT?.authRequired && (!ACCOUNT.authenticated || accountGateActive)) { showAccountGate(); return; }
   if (switchingProfile) return;
   const hash = location.hash || '#/home';
   const parts = hash.slice(2).split('/');
@@ -2045,15 +2155,22 @@ function ensurePageCoach() {
       title: coachCanvasReference ? 'Canvas instructions' : activeMixedQuestion?.title || $('h1', viewEl())?.textContent,
     }),
     renderMath,
+    mountNotes: ACCOUNT?.authRequired ? (root) => mountStudentMemos(root, { profileId: activeProfile }) : undefined,
+    saveMemo: ACCOUNT?.authRequired ? async (memo) => {
+      const profile = activeProfile;
+      const result = await saveStudentMemo(profile, memo);
+      if (profile !== activeProfile || !ACCOUNT.authenticated) throw new Error('The learner workspace changed.');
+      return result;
+    } : undefined,
     request: async (payload, { signal }) => {
       const profile = activeProfile;
       const question = activeQuestionCoach?.container.isConnected ? activeQuestionCoach : null;
       const mixedQuestion = activeMixedQuestion?.container.isConnected ? activeMixedQuestion : null;
-      // Both coach boxes share the verified question handler and hint-credit
-      // callback. The page box cannot bypass an assisted mastery/placement.
+      // The persistent coach uses the verified question handler and hint-credit
+      // callback, including assisted mastery and placement checks.
       const asksForSchool = /\b(?:canvas|due|deadline|schedule|school)\b/i.test(payload.message);
       if (mixedQuestion && !asksForSchool) {
-        const response = await fetch(`/api/mixed/tutor?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        const response = await apiFetch(`/api/mixed/tutor?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId,
           followUp: payload.message, transcript: payload.transcript,
         }) });
@@ -2065,7 +2182,7 @@ function ensurePageCoach() {
       }
       if (question && !coachCanvasReference && !asksForSchool) {
         const { unit, q, ctx } = question;
-        const response = await fetch('/api/tutor', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        const response = await apiFetch(`/api/tutor?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           unitId: unit.id, questionId: q.id, phase: ctx.phase || 'before-answer',
           learnerAnswer: ctx.learnerAnswer, chosenIndex: ctx.chosenIndex, history: ctx.history,
           followUp: payload.message, transcript: payload.transcript,
@@ -2082,7 +2199,7 @@ function ensurePageCoach() {
       const receivedHelp = Boolean(data.text && data.available !== false && !data.refusal);
       if (question && receivedHelp && profile === activeProfile && !signal.aborted) question.ctx.onHelp?.();
       if (mixedQuestion && receivedHelp && mixedQuestion.phase === 'before-answer' && profile === activeProfile && !signal.aborted) {
-        const marked = await fetch(`/api/mixed/assisted?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId }) });
+        const marked = await apiFetch(`/api/mixed/assisted?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId }) });
         if (!marked.ok) throw new Error('The coach replied, but assisted practice could not be recorded. Try again before checking this answer.');
         const assistance = await marked.json();
         if (activeMixedQuestion?.questionId === mixedQuestion.questionId) mixedCleanup?.markAssisted({ ...assistance, questionId: mixedQuestion.questionId });
@@ -2094,6 +2211,19 @@ function ensurePageCoach() {
 
 async function boot() {
   try {
+    captureEnrollment();
+    ACCOUNT = await getAccountSession();
+    window.addEventListener('hashchange', router);
+    window.addEventListener('students4ai-auth-required', () => {
+      if (!ACCOUNT?.authenticated) return;
+      ACCOUNT.authenticated = false;
+      showAccountGate('Your sign-in expired. Sign in again to continue.');
+    });
+    if (ACCOUNT.authRequired && (!ACCOUNT.authenticated || hasEnrollment())) {
+      showAccountGate(ACCOUNT.authenticated ? `This browser is signed in as ${ACCOUNT.user.username}. Creating another student account will switch this browser to that student.` : '');
+      return;
+    }
+    if (ACCOUNT.authRequired) applyAccountWorkspaces();
     subscribeFocusSession(({ profileId, status }) => {
       if (profileId !== activeProfile) return;
       const indicator = $('#focus-status');
@@ -2101,19 +2231,20 @@ async function boot() {
     });
     activateFocusProfile(activeProfile);
     S = await loadProgress();
+    if (!S) return;
     applySettings();
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applySettings);
     window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', applySettings);
-    const tutorReady = fetch('/api/tutor').then((r) => r.json()).then((d) => { TUTOR.available = Boolean(d.available); }).catch(() => {});
+    const tutorReady = apiFetch('/api/tutor').then((r) => r.json()).then((d) => { TUTOR.available = Boolean(d.available); }).catch(() => {});
     await Promise.all([loadContent(), tutorReady]);
-    window.addEventListener('hashchange', router);
+    if (ACCOUNT.authRequired && !ACCOUNT.authenticated) return;
     router();
     // Keep the interactive home usable while the optional school snapshot loads.
     loadSchoolContext();
   } catch (e) {
     viewEl().innerHTML = `<h1>Students4AI could not start</h1>
       <p>${esc(e.message)}</p>
-      <p>Check that the server is running (<code>node server.js</code> in the calculus-coach folder) and reload this page.</p>`;
+      <p>Reload to try again. If this continues, contact the app owner. Your saved work has not been changed.</p>`;
   }
 }
 

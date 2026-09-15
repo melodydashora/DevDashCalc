@@ -22,7 +22,7 @@ before(async () => {
   };`;
   child = spawn(process.execPath, ['--import', `data:text/javascript;base64,${Buffer.from(preload).toString('base64')}`, 'server.js'], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
-    env: { ...process.env, PORT: String(port), DATABASE_URL: '', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-placeholder' },
+    env: { ...process.env, AUTH_REQUIRED: '0', PORT: String(port), DATABASE_URL: '', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-placeholder' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   await new Promise((resolve, reject) => {

@@ -1,5 +1,6 @@
 // One question at a time across selected courses. The server owns generation,
 // answer keys, grading and adaptation; this view never guesses correctness.
+import { apiFetch } from './auth-ui.js';
 const workspaces = new Map();
 let nextViewId = 0;
 
@@ -86,7 +87,7 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
   let disposed = false; let busy = false; let generation = 0; let pending = null; let retry = null;
   let shell; let region; let status; let toolbar; let topicEditor = null;
   const send = request || (async (path, body, { signal, method }) => {
-    const response = await fetch(`${path}${path.includes('?') ? '&' : '?'}profile=${encodeURIComponent(profile)}`, {
+    const response = await apiFetch(`${path}${path.includes('?') ? '&' : '?'}profile=${encodeURIComponent(profile)}`, {
       method: method || (body ? 'POST' : 'GET'), signal,
       ...(body ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}),
     });

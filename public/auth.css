@@ -1,0 +1,30 @@
+/* A steady entry screen; learner-specific display settings apply after sign-in. */
+.account-screen { max-width: 660px; margin: 2.5rem auto; }
+.account-kicker { color: var(--accent); font: 700 .8rem var(--mono); letter-spacing: .12em; }
+.account-screen h1 { max-width: 600px; font-size: clamp(1.8rem, 4vw, 2.65rem); line-height: 1.18; }
+.account-screen > p { color: var(--muted); }
+.account-card { padding: 1.5rem; margin: 1.6rem 0; }
+.account-card h2 { margin-top: 0; }
+.account-card form { display: grid; gap: .45rem; }
+.account-card input { width: 100%; min-width: 0; padding: .7rem .8rem; border: 1px solid var(--border); border-radius: 7px; font: inherit; background: var(--surface); color: var(--text); }
+.account-card label { margin-top: .6rem; font-weight: 600; }
+.account-card .session-progress { margin-top: 0; }
+.account-message { min-height: 1.6em; color: var(--notyet); }
+.account-card form button { width: 100%; margin: .2rem 0 .7rem; }
+.account-note { font-size: .9rem; }
+.account-identity { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; }
+.account-identity button { padding: .35rem .65rem; font-size: .85rem; }
+.save-notice { color: var(--notyet); background: var(--notyet-soft); }
+.memo-form { display: grid; gap: .6rem; }
+.memo-form textarea, .coach-memo-editor textarea { width: 100%; min-width: 0; font: inherit; padding: .7rem; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); }
+.memo-form button { justify-self: start; }
+.memo-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+.memo-status { min-height: 1.5em; }
+.coach-memo-editor { padding-top: .8rem; border-top: 1px solid var(--border); }
+.page-coach-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.1rem; }
+.page-coach-workspace.notes-open { grid-template-columns: minmax(0, 1.25fr) minmax(270px, 1fr); }
+.page-coach-conversation, .page-coach-notebook { min-width: 0; }
+.page-coach-notebook { max-height: 650px; overflow-y: auto; padding: 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.page-coach-notebook h2 { margin-top: 0; }
+@media (max-width: 760px) { .page-coach-workspace.notes-open { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 520px) { .account-screen { margin: 1.25rem auto; } .account-card { padding: 1rem; } }

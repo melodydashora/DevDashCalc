@@ -152,6 +152,10 @@ export function activateFocusProfile(profileId) {
   return focusSessions().activate(profileId);
 }
 
+export function pauseFocusSessions() {
+  pageSessions?.pauseAll();
+}
+
 export function subscribeFocusSession(listener) {
   return focusSessions().subscribe(listener);
 }

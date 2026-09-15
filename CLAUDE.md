@@ -48,6 +48,9 @@ Breaking any of these is a regression even if the code works:
 | Piece | File |
 |---|---|
 | Server: static + progress API + tutor proxy + Canvas proxy | `server.js` |
+| Password/session core and relational account ownership | `auth.js`, `account-store.js` |
+| Explicit, append-only student continuity notes | `continuity-store.js` |
+| Sign-in/enrollment UI and server-only enrollment command | `public/auth-ui.js`, `scripts/create-enrollment.mjs` |
 | Fixed Astra-to-Sol OpenAI coaching requests, fallback, and timeouts | `ai-coach.js` |
 | Zero-dep Postgres wire client + key→JSON store (tested) | `store.js` |
 | Adaptive/mastery logic (pure, tested) | `public/engine.js` |
@@ -76,6 +79,7 @@ Breaking any of these is a regression even if the code works:
 | Coach model order, refusal, timeout, and safe-failure tests | `test/ai-coach.test.mjs` |
 | Session timing, lifecycle, and saved-field tests | `test/focus-planner.test.mjs` |
 | Canvas per-learner connection and cache isolation tests | `test/canvas-profiles.test.mjs` |
+| Account cryptography, database contract, enrollment, and HTTP authorization | `test/auth.test.mjs`, `test/account-store.test.mjs`, `test/enrollment-cli.test.mjs`, `test/auth-api.test.mjs` |
 
 ## Engine invariants (pinned by tests — change tests and README together)
 
@@ -108,6 +112,42 @@ Breaking any of these is a regression even if the code works:
   Placement seeds passed units' core skills at EWMA 0.85 and never lowers
   anything.
 
+## Student account boundary
+
+- Replit preview/deployment must use `AUTH_REQUIRED=1`, a configured database,
+  and a stable `SESSION_SECRET` of at least 32 bytes. A configuration or database
+  failure must fail closed. The local default legacy mode is only for isolated
+  private development; existing legacy test fixtures explicitly disable auth.
+- Registration is invite-only unless `AUTH_ALLOW_SIGNUP=1` is deliberately set.
+  The server-only enrollment CLI binds an existing progress workspace through a
+  hashed, expiring, single-use token; a submitted UUID/name never grants it.
+  Preserve legacy progress/Canvas/source-history keys and records when enrolling.
+- The six relational tables are `s4ai_users`, `s4ai_workspaces`,
+  `s4ai_workspace_members`, `s4ai_sessions`, `s4ai_enrollments`, and
+  `s4ai_auth_limits`. Authentication and ownership never fall back to files.
+- `s4ai_student_memos` separately stores explicitly saved continuity notes with
+  workspace and saving-account foreign keys. Never archive conversation by
+  default. Notes append with a client request UUID for safe retries; conflicting
+  reuse cannot edit a record. Source metadata is allowlisted, text is bounded to
+  2,000 characters, and no edit/delete API exists. The notes API pages 30 records;
+  the general study coach reads the ten newest and discloses omitted counts.
+  Notes are untrusted context and cannot override existing rules, verified keys,
+  current Canvas evidence, or the current student's instruction.
+- Passwords use salted scrypt (N=131072,r=8,p=1); random session/enrollment
+  tokens are stored only as HMAC hashes. Bound expensive hashes to two active
+  and four queued operations. Usernames are normalized ASCII 3–32 characters;
+  passwords are untrimmed 15–128 Unicode characters. Sessions last seven days,
+  enrollment links 24 hours by default. Secret rotation invalidates both.
+- Every protected API authenticates and rechecks workspace ownership before
+  progress, Canvas, mixed practice, or coaching. Reject foreign/duplicate profile
+  parameters; derive omitted profiles from ownership. Same-origin checks protect
+  mutations, private responses are no-store, and HTTPS cookies are Secure,
+  HttpOnly, SameSite=Lax, host-only. Signed-out requests must never resolve a
+  named Canvas token. Clear the UI and suppress late results on sign-out.
+- Password reset, recovery email, admin sharing screens, Canvas OAuth, and
+  application-level encryption of remembered Canvas form tokens remain future
+  work. Do not claim a complete public student onboarding system.
+
 ## Canvas credentials
 
 The current family setup accepts `DEV_API_TOKEN` and `ESHA_API_TOKEN` from
@@ -127,7 +167,8 @@ The existing own-token form remains available per learner. Manual sessions
 and saved credentials take precedence; manual connect and Disconnect disable
 automatic secret fallback for that workspace. Explicit secret reconnect can
 enable it again. Disconnect cannot remove the Replit secret itself. This
-family workspace selector is not authentication for a future public service.
+family-mode workspace selector is not authentication. Account mode independently
+checks ownership before reaching these existing connection handlers.
 
 ## AI coaching configuration
 
@@ -163,8 +204,9 @@ built-in `fetch`; no SDK or dependency is needed.
   canonical question handler and assistance callback; there is no second grader.
 - The page coach reconstructs learner/course/term context on the server in
   `study-coach-context.js`, adapting Vecto's typed-source and ownership pattern.
-  Current family workspaces remain unauthenticated; never describe UUIDs as
-  account authentication or allow arbitrary table/SQL/URL lookups.
+  Account mode authenticates and authorizes this workspace first; local legacy
+  mode remains unauthenticated. Never treat UUID knowledge as account access or
+  allow arbitrary table/SQL/URL lookups.
 - Canvas detail reads use `canvas-retrieval.js`: typed, course-scoped GETs for
   assignments, pages, quizzes, discussions, and file metadata. At most four
   detail reads per request. Source status, read time, update time, failures,
@@ -206,7 +248,8 @@ built-in `fetch`; no SDK or dependency is needed.
   re-derive evidence after late assistance without deleting the attempt.
 - New practice evidence does not alter prior curriculum mastery or Canvas.
   Sessions are profile-scoped server memory, expire after six hours, and
-  hold at most 200 questions. This is not authenticated account isolation.
+  hold at most 200 questions. Account mode adds the server ownership boundary;
+  the standalone profile selector in legacy mode does not authenticate a user.
 - Every Resume/remount reconciles canonical server state. An idempotent
   request must preserve disclosed hints, submitted answers, and assistance.
   Topic changes preserve the current question and apply to the next one.
@@ -242,10 +285,17 @@ file present.
   re-solving: `node scripts/qa-tools.mjs blind unit-NN` prints prompts and
   choices only, so a second solver can work without seeing the key.
 - Learner progress lives in `data/progress-*.json` (gitignored) and, when
-  `DATABASE_URL` is set, in the Postgres `calc_coach_store` table (reads
-  prefer the database; writes go to both; database failures fall back to
-  files and never block the learner). Never commit it; never reset either
-  copy without explicit permission from Melody.
+  `DATABASE_URL` is set, in the Postgres `calc_coach_store` table. A per-profile
+  queue covers the complete file and awaited database save; temporary filenames
+  are unique. Reject older `savedAt` records without overwriting either copy;
+  equal timestamps use the last complete request. Reads choose the newer
+  file/database timestamp and prefer the file on ties, preserving a later local
+  save when its database write failed. Missing/invalid timestamps compare as
+  zero. Database failure still preserves the file and is reported in the save
+  response. These whole-state, client-timestamp rules apply within one server
+  process; they do not merge simultaneous edits, correct clock skew or provide
+  distributed concurrency control. Never commit progress or reset either copy
+  without explicit permission from Melody.
 - Canvas is read-only; it may recommend pacing from deadlines and assignment
   topic words, but must never set mastery or restrict exploration. The access token lives in a server
   memory session and, when the learner chooses Remember, in
@@ -259,6 +309,7 @@ file present.
 - Scope every Canvas request, cookie, credential record, preference record,
   and cached snapshot to its learner. Preserve the original learner's legacy
   files/database keys. Clear browser Canvas state on a learner switch and
-  reject late responses. Workspaces are not authenticated private accounts;
-  do not present them as public multi-user account security.
+  reject late responses. In account mode, enforce the database ownership check
+  before every protected API; never restore the legacy selector as an auth
+  fallback. Keep limitations in docs/student-accounts-plan.md explicit.
 - Branch, PR to `main`, merge when CI is green.

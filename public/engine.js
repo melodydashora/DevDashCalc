@@ -22,7 +22,7 @@ export function newState() {
   return {
     version: 1,
     createdAt: null,
-    settings: { name: '', textSize: 'medium', theme: 'system', showTimer: false },
+    settings: { name: '', textSize: 'medium', theme: 'light', showTimer: false },
     diagnostic: { completed: false, placedThroughUnit: 0 },
     unitsPassed: {},   // unitId -> { passedAt, correct, total }
     masteryChecks: {}, // unitId -> latest valid { attemptedAt, correct, total, passed, assisted? }

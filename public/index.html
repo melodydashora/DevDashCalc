@@ -7,6 +7,7 @@
   <meta name="description" content="Interactive AP Calculus BC and AB learning, adaptive practice, and a Canvas study planner. Every module stays open.">
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/mixed-study.css">
+  <link rel="stylesheet" href="/auth.css">
   <!-- KaTeX is vendored locally so math always renders, with or without internet. -->
   <link rel="stylesheet" href="/vendor/katex/katex.min.css">
   <script defer src="/vendor/katex/katex.min.js"></script>
@@ -33,6 +34,7 @@
 
   <main id="main" class="app-main">
     <div id="study-controls" class="course-switcher" aria-label="Learning workspace"></div>
+    <p id="save-notice" class="card save-notice" role="status" hidden></p>
     <p id="focus-status" class="session-progress" hidden><a href="#/focus">Study session running · return to your plan</a></p>
     <div id="breadcrumb" class="breadcrumb" aria-label="You are here"></div>
     <div id="view" class="view"></div>
