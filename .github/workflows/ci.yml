@@ -25,6 +25,8 @@ jobs:
           node --check continuity-store.js
           node --check scripts/create-enrollment.mjs
           node --check ai-coach.js
+          node --check ai-record-coach.js
+          node --check coach-records.js
           node --check canvas-retrieval.js
           node --check study-coach-context.js
           node --check linked-documents.js

@@ -283,6 +283,20 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   }
 
   function addReferences(bubble, result) {
+    const recordReads = Array.isArray(result.recordReads) ? result.recordReads.slice(0, 8) : [];
+    if (recordReads.length) {
+      const labels = { learning_profile: 'Learning preferences', skills: 'Skill attempts', question_history: 'Question history', mastery_checks: 'Mastery checks', saved_notes: 'Saved learning notes', canvas_courses: 'Canvas classes', canvas_preferences: 'Course choices', retrieval_sources: 'Saved source locations' };
+      const details = element('details', 'page-coach-limitations');
+      details.appendChild(element('summary', '', 'Learning records checked'));
+      const list = element('ul');
+      for (const read of recordReads) {
+        if (!labels[read?.collection]) continue;
+        const status = read.state === 'available' && Number.isInteger(read.count) && Number.isInteger(read.totalCount)
+          ? `${read.count} read from ${read.totalCount} saved record${read.totalCount === 1 ? '' : 's'}${read.nextOffset !== null ? '; more records remain' : ''}` : 'Could not be read this time';
+        list.appendChild(element('li', '', `${labels[read.collection]}: ${status}.`));
+      }
+      details.appendChild(list); bubble.appendChild(details);
+    }
     const limitations = Array.isArray(result.limitations) ? result.limitations.filter((item) => typeof item === 'string' && item.trim()).slice(0, 12) : [];
     if (limitations.length) {
       const details = element('details', 'page-coach-limitations');
