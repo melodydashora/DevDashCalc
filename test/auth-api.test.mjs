@@ -120,14 +120,16 @@ globalThis.fetch = async (input, options = {}) => {
 };`;
 let sandbox, fixture;
 const children = new Set();
-async function start(extra = {}) {
+const serverFixtureFiles = ['server.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
+  'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
+async function start(extra = {}, directory = sandbox) {
   const socket = createServer();
   await new Promise(done => socket.listen(0, '127.0.0.1', done));
   const port = socket.address().port;
   await new Promise(done => socket.close(done));
   const base = `http://127.0.0.1:${port}`;
   const child = spawn(process.execPath, ['--import', `data:text/javascript;base64,${Buffer.from(preload).toString('base64')}`, 'server.js'], {
-    cwd: sandbox,
+    cwd: directory,
     env: { ...process.env, PORT: String(port), AUTH_REQUIRED: '1', AUTH_ALLOW_SIGNUP: '0',
       DATABASE_URL: 'postgres://fixture:fixture@127.0.0.1:1/fake', SESSION_SECRET: 'fixture-session-secret-for-isolated-http-tests',
       OPENAI_API_KEY: 'fixture-provider-key', DEV_API_TOKEN: 'fixture-canvas-secret', DEV_API_KEY: '', ESHA_API_TOKEN: '',
@@ -168,8 +170,7 @@ before(async () => {
   sandbox = await mkdtemp(join(tmpdir(), 'students4ai-auth-http-'));
   for (const name of ['public', 'data', 'content']) await mkdir(join(sandbox, name));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
-  for (const file of ['server.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
-    'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
+  for (const file of serverFixtureFiles) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
   await writeFile(join(sandbox, 'store.js'), storeStub);
@@ -259,6 +260,95 @@ test('private enrollment preserves the original workspace and arbitrary profile 
   assert.equal((await fixture.api('/api/auth/register', { method: 'POST', body: {
     username: 'second-claim', password: 'fixture-new-password', enrollmentToken: 'fixture-original-enrollment',
   } })).status, 403);
+});
+
+test('direct signup keeps owned progress, preferences, and coach notes across a fresh password login without Canvas', async () => {
+  // Use the actual password/session service for this lifecycle, with only its
+  // persistence adapter replaced. The ordinary fixture keeps its existing
+  // middleware stubs, and no real account or external service is contacted.
+  const directory = join(sandbox, 'direct-signup-core');
+  for (const name of ['public', 'data', 'content', 'test/helpers']) await mkdir(join(directory, name), { recursive: true });
+  await writeFile(join(directory, 'package.json'), '{"type":"module"}');
+  for (const file of serverFixtureFiles) await copyFile(join(sandbox, file), join(directory, file));
+  await copyFile(new URL('../auth.js', import.meta.url), join(directory, 'auth.js'));
+  await copyFile(new URL('./helpers/account-memory-store.mjs', import.meta.url), join(directory, 'test/helpers/account-memory-store.mjs'));
+  await writeFile(join(directory, 'account-store.js'), `import { createMemoryAccountStore } from './test/helpers/account-memory-store.mjs';
+export class AccountStoreError extends Error { constructor(code) { super(code); this.code = code; } }
+const fixture = createMemoryAccountStore();
+export const createAccountStore = () => fixture.store;
+`);
+  await writeFile(join(directory, 'store.js'), storeStub);
+  await writeFile(join(directory, 'continuity-store.js'), continuityStub);
+  const isolated = await start({ AUTH_ALLOW_SIGNUP: '1', DEV_API_TOKEN: '', DEV_CANVAS_PROFILE_ID: '', ESHA_CANVAS_PROFILE_ID: '' }, directory);
+  const password = 'Direct signup fixture password only';
+  try {
+    const session = await isolated.api('/api/auth/session');
+    assert.deepEqual(session.data, { authRequired: true, allowSelfSignup: true, authenticated: false });
+    const registered = await isolated.api('/api/auth/register', { method: 'POST', body: {
+      username: 'fresh-student', password, displayName: 'Fresh Student', profileId: 'learner', userId: 'account-a',
+    } });
+    assert.equal(registered.status, 201);
+    assert.equal(registered.data.authenticated, true);
+    const userId = registered.data.user.id, profile = registered.data.workspaces[0].profileId;
+    assert.match(userId, /^[a-f0-9-]{36}$/);
+    assert.match(profile, /^student-[a-f0-9-]{36}$/);
+    assert.equal(registered.data.workspaces[0].role, 'owner');
+    assert.notEqual(profile, 'learner');
+    assert.equal((await isolated.api('/api/progress', { cookie: registered.cookie })).data, null);
+    assert.equal((await isolated.api('/api/canvas/session', { cookie: registered.cookie })).data.connected, false);
+
+    const progress = { savedAt: Date.now(), settings: { name: 'Fresh Student', subject: 'calculus-ab', theme: 'dark', motion: 'reduced', textSize: 'large' },
+      skills: { 'chain-rule': { ewma: 0.3, difficulty: 1, events: [] } }, seenQuestions: {} };
+    const saved = await isolated.api('/api/progress', { method: 'PUT', cookie: registered.cookie, body: progress });
+    assert.equal(saved.status, 200);
+    assert.equal(saved.data.databaseSaved, true);
+    const preferences = { courseOverrides: { '99': 'hidden' } };
+    assert.equal((await isolated.api('/api/canvas/prefs', { method: 'PUT', cookie: registered.cookie, body: preferences })).status, 200);
+    const noteText = 'Fresh Student prefers one worked chain-rule example before independent practice.';
+    const memo = await isolated.api('/api/continuity', { method: 'POST', cookie: registered.cookie, body: {
+      clientRequestId: randomUUID(), text: noteText, type: 'student_note', source: { kind: 'settings' },
+      profileId: 'learner', createdByUserId: 'account-a',
+    } });
+    assert.equal(memo.status, 201);
+    assert.equal(memo.data.note.profileId, profile);
+    assert.equal(memo.data.note.createdByUserId, userId);
+
+    const other = await isolated.api('/api/auth/register', { method: 'POST', body: { username: 'other-student', password } });
+    assert.equal(other.status, 201);
+    assert.notEqual(other.data.user.id, userId);
+    assert.notEqual(other.data.workspaces[0].profileId, profile);
+    for (const path of ['/api/progress', '/api/canvas/prefs', '/api/continuity', '/api/canvas/session']) {
+      assert.equal((await isolated.api(`${path}?profile=${profile}`, { cookie: other.cookie })).status, 403, path);
+    }
+    assert.equal((await isolated.api('/api/progress', { cookie: other.cookie })).data, null);
+    assert.equal((await isolated.api('/api/continuity', { cookie: other.cookie })).data.totalCount, 0);
+    assert.equal((await isolated.api(`/api/continuity?profile=${profile}`, { method: 'POST', cookie: other.cookie,
+      body: { clientRequestId: randomUUID(), text: 'This belongs to another student.' } })).status, 403);
+
+    assert.equal((await isolated.api('/api/auth/logout', { method: 'POST', cookie: registered.cookie, body: {} })).status, 200);
+    assert.equal((await isolated.api('/api/progress', { cookie: registered.cookie })).status, 401);
+    const signedIn = await isolated.api('/api/auth/login', { method: 'POST', body: { username: 'FRESH-STUDENT', password } });
+    assert.equal(signedIn.status, 200);
+    assert.notEqual(signedIn.cookie, registered.cookie);
+    assert.equal(signedIn.data.user.id, userId);
+    assert.equal(signedIn.data.workspaces[0].profileId, profile);
+    assert.deepEqual((await isolated.api('/api/progress', { cookie: signedIn.cookie })).data, progress);
+    assert.deepEqual((await isolated.api('/api/canvas/prefs', { cookie: signedIn.cookie })).data, { profileId: profile, ...preferences });
+    const remembered = await isolated.api('/api/continuity', { cookie: signedIn.cookie });
+    assert.equal(remembered.data.totalCount, 1);
+    assert.equal(remembered.data.notes[0].id, memo.data.note.id);
+    assert.equal(remembered.data.notes[0].text, noteText);
+    assert.equal(remembered.data.notes[0].createdByUserId, userId);
+    const coached = await isolated.api('/api/canvas/coach', { method: 'POST', cookie: signedIn.cookie,
+      body: { message: 'Help me study the chain rule using my saved preference.', pageContext: { route: '#/home', subject: 'calculus-ab' } } });
+    assert.equal(coached.status, 200);
+    assert.equal(coached.data.continuity.includedCount, 1);
+    assert.match(coached.data.text, /Fresh Student prefers one worked chain-rule example/);
+    assert.equal(isolated.calls.some(call => call.providerCall === 'https://school.example'), false, 'account learning and notes do not require Canvas');
+    assert.equal((await isolated.api(`/api/progress?profile=${other.data.workspaces[0].profileId}`, { cookie: signedIn.cookie })).status, 403);
+    assert.doesNotMatch(JSON.stringify([registered.data, signedIn.data, remembered.data, coached.data]), /Direct signup fixture password only|passwordHash|password_hash|token_hash/);
+    assert.equal(isolated.output().includes(password), false);
+  } finally { await stop(isolated); }
 });
 
 test('session rotation, logout, and fabricated cookies cannot authorize old or foreign sessions', async () => {

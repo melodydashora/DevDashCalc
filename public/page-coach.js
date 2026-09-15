@@ -223,7 +223,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   const note = element('p', 'page-coach-note', `You choose the next action. Suggested links open only when you click them. This conversation stays in this tab.${saveMemo ? ' Save a learning note when you want Astra to remember something for a future session.' : ''}`); note.id = `${id}-note`;
   if (signedOut) {
     quickRow.hidden = true; form.hidden = true; log.hidden = true;
-    note.textContent = 'Personalized coaching starts after sign-in. Ask the app owner for help with account setup.';
+    note.textContent = 'Create an account or sign in to begin personalized coaching.';
   }
   const workspace = element('div', 'page-coach-workspace');
   const conversation = element('div', 'page-coach-conversation');

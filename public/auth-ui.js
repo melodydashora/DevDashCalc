@@ -2,6 +2,7 @@
 // Keep an invitation in this tab across reloads; never store account passwords.
 import { createEnrollmentSetup, parseEnrollmentInput } from './enrollment-setup.js';
 let setupState;
+let invitationEntry = false;
 function enrollment() {
   if (!setupState) {
     let storage;
@@ -14,12 +15,16 @@ function enrollment() {
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export function captureEnrollment() {
-  return enrollment().capture();
+  const explicitInvitation = location.hash.startsWith('#/signup?');
+  if (!isSignupRoute() || explicitInvitation) invitationEntry = false;
+  const captured = enrollment().capture();
+  if (explicitInvitation && !captured) invitationEntry = true;
+  return captured;
 }
 
 export const isSignupRoute = () => location.hash.split('?')[0] === '#/signup';
-// Used only to invalidate a rendered gate when a different invitation arrives.
-export const accountGateKey = () => `${isSignupRoute() ? 'signup' : 'login'}:${enrollment().token()}`;
+// Changing setup mode or invitation must replace the rendered form.
+export const accountGateKey = () => `${isSignupRoute() ? 'signup' : 'login'}:${enrollment().token() || (invitationEntry ? 'invitation' : '')}`;
 
 export async function apiFetch(path, options) {
   const response = await fetch(path, options);
@@ -41,7 +46,7 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
   let pending = false;
   const setup = isSignupRoute();
   const enrollmentToken = enrollment().token();
-  const needsInvitation = setup && !enrollmentToken && !session.allowSelfSignup;
+  const needsInvitation = setup && !enrollmentToken && (!session.allowSelfSignup || invitationEntry);
   root.innerHTML = `<section class="account-screen" aria-labelledby="account-title">
     <p class="account-kicker">STUDENTS4AI</p>
     <h1 id="account-title">${setup ? 'Make this learning space yours' : 'Your learning space, wherever you study'}</h1>
@@ -64,6 +69,7 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
         <button type="submit">${needsInvitation ? 'Continue to account setup' : setup ? 'Create my account' : 'Sign in'}</button>
       </form>
       ${setup && enrollmentToken ? '<p class="session-progress">Your invitation is ready. You can refresh this tab and continue setup.</p><button type="button" class="quiet" id="account-change-invitation">Use a different invitation</button>' : ''}
+      ${setup && session.allowSelfSignup && !enrollmentToken ? needsInvitation ? '<button type="button" class="quiet" id="account-new-workspace">Create a new learning workspace</button>' : '<p class="session-progress">If a learning workspace was already prepared for you, use its setup invitation to keep your existing work.</p><button type="button" class="quiet" id="account-use-invitation">Use a setup invitation</button>' : ''}
       <p class="session-progress">${setup ? 'After setup, use your account on any of your devices.' : 'Create your student account to get started.'}</p>
       ${setup ? '<button type="button" class="quiet account-switch" id="account-back">I already have an account — sign in</button>' : '<a class="account-switch" href="#/signup">Create account</a>'}
     </div>
@@ -111,6 +117,7 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
       if (!response.ok || !data.authenticated) {
         if (setup && ['INVALID_ENROLLMENT', 'ENROLLMENT_REQUIRED', 'WORKSPACE_ALREADY_OWNED'].includes(data.code)) {
           enrollment().clear();
+          invitationEntry = true;
           onSetupChanged(data.error || 'This invitation is unavailable. Use a new invitation, or sign in if you already created your account.');
           return;
         }
@@ -120,6 +127,7 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
       if (disposed) return;
       form.reset();
       enrollment().clear();
+      invitationEntry = false;
       await onAuthenticated(data);
     } catch {
       if (!disposed) status.textContent = 'Sign-in could not reach the server. Check your connection and try again.';
@@ -132,12 +140,22 @@ export function mountAccountGate(root, { session = {}, notice = '', onAuthentica
   root.querySelector('#account-back')?.addEventListener('click', () => {
     if (pending || disposed) return;
     enrollment().clear();
+    invitationEntry = false;
     location.hash = '#/login';
     onSetupChanged('');
   });
-  root.querySelector('#account-change-invitation')?.addEventListener('click', () => {
+  const useInvitation = () => {
     if (pending || disposed) return;
     enrollment().clear();
+    invitationEntry = true;
+    onSetupChanged('');
+  };
+  root.querySelector('#account-change-invitation')?.addEventListener('click', useInvitation);
+  root.querySelector('#account-use-invitation')?.addEventListener('click', useInvitation);
+  root.querySelector('#account-new-workspace')?.addEventListener('click', () => {
+    if (pending || disposed) return;
+    enrollment().clear();
+    invitationEntry = false;
     onSetupChanged('');
   });
   return () => { disposed = true; form.reset(); };

@@ -27,8 +27,12 @@ The bare local server retains its zero-configuration family mode; use that
 unauthenticated mode only for isolated private development, never as a fallback
 for a deployed account service.
 
-Registration is invite-only by default. The server-side
-`scripts/create-enrollment.mjs` command creates a private, single-use setup
+Students can sign up directly with **Create account**, choose a username and
+password, and start a new learning workspace. Replit preview and deployment
+explicitly enable this with `AUTH_ALLOW_SIGNUP=1`.
+
+For an existing workspace, the server-side `scripts/create-enrollment.mjs`
+command creates a private, single-use setup
 link for an existing database progress workspace. The student opens the link
 and chooses their own username and password. The command writes the link to
 an owner-only file under ignored `data/enrollment-links/` and prints only its
@@ -47,17 +51,21 @@ session and a fresh workspace permission check. Browser copies of workspace
 lists cannot grant access. Open Replit's app preview in its own tab when the
 embedded preview blocks sign-in cookies.
 
-The sign-in screen has a **Create account** entry. In invitation-only mode,
-paste the private setup link or invitation code; unfinished setup survives a
-page refresh in that tab. Passwords are never saved in browser storage.
+The sign-in screen has a **Create account** entry. Students with prepared work
+can open their private setup link or select **Use a setup invitation** and paste
+the link or invitation code. An invalid invitation stays in invitation setup
+until the student explicitly chooses another path; it cannot silently create a
+blank workspace. Unfinished invited setup survives a page refresh in that tab.
+Passwords are never saved in browser storage.
 
 After signing in, **Settings → Canvas connection** lets a student add or update
 their own Canvas token, see the verified connection, or disconnect. Canvas is
 optional: lessons, practice, and mastery checks work without it. Remembered
 token updates wait for the database write before reporting success.
 
-`AUTH_ALLOW_SIGNUP=1` is an explicit option for a new random workspace;
-it never lets a student claim an existing workspace by submitting its ID.
+Public signup creates a new random workspace; it never lets a student claim an
+existing workspace by submitting its ID. Deployments that deliberately disable
+`AUTH_ALLOW_SIGNUP` retain invitation-only registration.
 Password reset, recovery email, administrative account screens, and Canvas
 OAuth are not implemented. Rotating `SESSION_SECRET` invalidates existing
 sessions and unconsumed enrollment links; retain the key across deployments.

@@ -292,3 +292,117 @@ test('a disposed registration response cannot clear a replacement invitation or 
   assert.ok(f.form().elements.password);
   assert.equal(f.status(), '');
 });
+
+test('public signup opens credentials without an invitation and authenticates a tokenless registration', async t => {
+  const f = await fixture(t, { hash: '#/signup', session: { allowSelfSignup: true } });
+  const form = f.form();
+  assert.equal(form.elements.invitation, undefined);
+  assert.ok(form.elements.username);
+  assert.ok(form.elements.password);
+  assert.ok(form.elements.confirmPassword);
+  assert.equal(form.querySelector('button').textContent, 'Create my account');
+  assert.equal(f.root.querySelector('#account-change-invitation'), null);
+  assert.match(f.root.textContent, /start a new learning workspace/);
+  f.fill({ username: ' public-fixture-student ', password: PASSWORD, confirmPassword: PASSWORD });
+  await f.submit();
+  assert.equal(f.requests.length, 1);
+  assert.equal(f.requests[0].path, '/api/auth/register');
+  assert.equal(f.requests[0].method, 'POST');
+  assert.deepEqual(f.requests[0].data, { username: 'public-fixture-student', password: PASSWORD });
+  assert.equal(Object.hasOwn(f.requests[0].data, 'enrollmentToken'), false);
+  assert.equal(f.authenticated.length, 1);
+  assert.equal(f.authenticated[0].authenticated, true);
+  assert.equal(f.values.size, 0);
+  assert.equal(form.elements.password.value, '');
+  assert.equal(form.elements.confirmPassword.value, '');
+});
+
+test('public signup still sends a valid invitation to connect its prepared workspace', async t => {
+  const f = await fixture(t, { hash: `#/signup?enrollment=${INVITATION}`, session: { allowSelfSignup: true } });
+  assert.equal(f.form().elements.invitation, undefined);
+  assert.ok(f.form().elements.confirmPassword);
+  assert.match(f.root.textContent, /invitation connects the workspace prepared for you/);
+  f.fill({ username: 'invited-public-fixture', password: PASSWORD, confirmPassword: PASSWORD });
+  await f.submit();
+  assert.equal(f.requests.length, 1);
+  assert.deepEqual(f.requests[0].data, { username: 'invited-public-fixture', password: PASSWORD, enrollmentToken: INVITATION });
+  assert.equal(f.authenticated.length, 1);
+  assert.equal(f.values.size, 0);
+  assert.equal(f.ui.accountGateKey(), 'signup:');
+});
+
+test('public signup can explicitly use an invitation, replace it, or choose a new workspace', async t => {
+  const f = await fixture(t, { hash: '#/signup', session: { allowSelfSignup: true } });
+  assert.equal(f.root.querySelector('#account-use-invitation').textContent, 'Use a setup invitation');
+  await f.click('#account-use-invitation');
+  assert.equal(f.ui.accountGateKey(), 'signup:invitation');
+  assert.ok(f.form().elements.invitation);
+  assert.equal(f.form().elements.password, undefined);
+  assert.equal(f.requests.length, 0);
+  f.fill({ invitation: INVITATION });
+  await f.submit();
+  assert.ok(f.form().elements.password);
+  assert.notEqual(f.ui.accountGateKey(), 'signup:invitation');
+  assert.equal(JSON.parse([...f.values.values()][0]).token, INVITATION);
+
+  await f.click('#account-change-invitation');
+  assert.equal(f.ui.accountGateKey(), 'signup:invitation');
+  assert.ok(f.form().elements.invitation);
+  assert.equal(f.form().elements.password, undefined);
+  assert.equal(f.values.size, 0);
+  assert.equal(f.requests.length, 0);
+  assert.equal(f.root.querySelector('#account-new-workspace').textContent, 'Create a new learning workspace');
+  await f.click('#account-new-workspace');
+  assert.equal(f.ui.accountGateKey(), 'signup:');
+  assert.equal(f.form().elements.invitation, undefined);
+  assert.ok(f.form().elements.confirmPassword);
+  assert.equal(f.requests.length, 0, 'changing setup mode never registers an account');
+});
+
+test('rejected invitations in public mode require replacement or an explicit new-workspace choice', async t => {
+  for (const code of ['INVALID_ENROLLMENT', 'WORKSPACE_ALREADY_OWNED']) {
+    await t.test(code, async subtest => {
+      const f = await fixture(subtest, {
+        hash: `#/signup?enrollment=${INVITATION}`, session: { allowSelfSignup: true },
+        respond: () => ({ ok: false, data: { code, error: 'This invitation cannot connect its prepared workspace.' } }),
+      });
+      f.fill({ username: 'public-invite-fixture', password: PASSWORD, confirmPassword: PASSWORD });
+      await f.submit();
+      assert.equal(f.requests.length, 1);
+      assert.equal(f.authenticated.length, 0);
+      assert.equal(f.values.size, 0);
+      assert.equal(f.ui.accountGateKey(), 'signup:invitation');
+      assert.ok(f.form().elements.invitation);
+      assert.equal(f.form().elements.password, undefined);
+      assert.equal(f.status(), 'This invitation cannot connect its prepared workspace.');
+      await f.submit();
+      assert.equal(f.requests.length, 1, 'retry cannot silently create a workspace without an invitation');
+      await f.click('#account-new-workspace');
+      assert.ok(f.form().elements.password);
+      assert.equal(f.form().elements.invitation, undefined);
+      assert.equal(f.ui.accountGateKey(), 'signup:');
+      assert.equal(f.requests.length, 1, 'new workspace still requires an explicit credential submission');
+    });
+  }
+});
+
+test('a malformed full invitation link in public mode cannot silently become tokenless signup', async t => {
+  const f = await fixture(t, { hash: '#/signup?enrollment=malformed-token', session: { allowSelfSignup: true } });
+  assert.equal(f.ui.accountGateKey(), 'signup:invitation');
+  assert.ok(f.form().elements.invitation);
+  assert.equal(f.form().elements.password, undefined);
+  await f.submit();
+  assert.equal(f.requests.length, 0);
+  assert.equal(f.values.size, 0);
+  f.fill({ invitation: `${ORIGIN}/#/signup?enrollment=${INVITATION}` });
+  await f.submit();
+  assert.ok(f.form().elements.password);
+  assert.equal(JSON.parse([...f.values.values()][0]).token, INVITATION);
+  assert.equal(f.requests.length, 0);
+  await f.click('#account-change-invitation');
+  await f.click('#account-new-workspace');
+  assert.equal(f.ui.accountGateKey(), 'signup:');
+  assert.ok(f.form().elements.password);
+  assert.equal(f.values.size, 0);
+  assert.equal(f.requests.length, 0, 'choosing a new workspace still requires submitting credentials');
+});

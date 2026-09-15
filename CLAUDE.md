@@ -120,7 +120,8 @@ Breaking any of these is a regression even if the code works:
   and a stable `SESSION_SECRET` of at least 32 bytes. A configuration or database
   failure must fail closed. The local default legacy mode is only for isolated
   private development; existing legacy test fixtures explicitly disable auth.
-- Registration is invite-only unless `AUTH_ALLOW_SIGNUP=1` is deliberately set.
+- Melody authorized direct student signup on September 15, 2026. Replit preview
+  and deployment explicitly set `AUTH_ALLOW_SIGNUP=1` for new owned workspaces.
   The server-only enrollment CLI binds an existing progress workspace through a
   hashed, expiring, single-use token; a submitted UUID/name never grants it.
   Preserve legacy progress/Canvas/source-history keys and records when enrolling.
