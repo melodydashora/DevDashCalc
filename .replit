@@ -7,9 +7,10 @@ run = "node server.js"
 [env]
 PORT = "8080"
 AUTH_REQUIRED = "1"
+AUTH_ALLOW_SIGNUP = "1"
 
 [deployment]
-run = ["sh", "-c", "AUTH_REQUIRED=1 node server.js"]
+run = ["sh", "-c", "AUTH_REQUIRED=1 AUTH_ALLOW_SIGNUP=1 node server.js"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
