@@ -66,6 +66,11 @@ student accounts. Before public student enrollment, add sign-in and enforce
 account ownership of every workspace and Canvas connection. A future public
 service should also protect stored credentials with an appropriate managed
 credential store; arbitrary browser-supplied profile IDs are not authorization.
+Canvas's official guidance also requires OAuth for applications used by
+multiple users, so manual token entry is not the public-signup path. The
+[student-account implementation plan](docs/student-accounts-plan.md) records
+the proposed ownership tables, encrypted credential storage, institution
+OAuth setup, and a migration that preserves existing learner work.
 
 ## Study-session planning
 
