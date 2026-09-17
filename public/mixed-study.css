@@ -10,7 +10,10 @@
 .mixed-topic-group { min-width: 0; margin: 0; padding: 0.8rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
 .mixed-topic-group legend { padding: 0 0.4rem; color: var(--mixed-color); font-weight: 650; }
 .mixed-physics { --mixed-color: var(--good); --mixed-soft: var(--good-soft); }
-.mixed-calculus { --mixed-color: var(--accent); --mixed-soft: var(--accent-soft); }
+.mixed-calculus, .mixed-calculus-bc, .mixed-sat, .mixed-algebra { --mixed-color: var(--accent); --mixed-soft: var(--accent-soft); }
+.mixed-review-note { padding: 0.8rem; border-left: 3px solid var(--accent); background: var(--accent-soft); line-height: 1.6; }
+.mixed-question-model { margin: 1rem 0; }
+.mixed-question-model:empty { display: none; }
 .mixed-topic-shortcuts { display: flex; gap: 0.5rem; margin-bottom: 0.45rem; }
 .mixed-topic-shortcuts button { min-height: 36px; padding: 0.25rem 0.65rem; font-size: 0.75em; }
 .mixed-topic-option { display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.6rem 0.35rem; border-radius: 7px; cursor: pointer; }

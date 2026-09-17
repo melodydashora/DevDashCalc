@@ -1,10 +1,12 @@
 // Original procedural practice. Pure input -> output; no network, model,
 // learner data, clock, or writes. Keep keys/parameters on the server.
 import { createHash } from 'node:crypto';
+import { SAT_TOPICS, ALGEBRA_TOPICS, createSatBuilders } from './mixed-sat-bank.js';
+import { alternateApQuestion } from './mixed-ap-variants.js';
 
-export const MIXED_BANK_VERSION = 1;
+export const MIXED_BANK_VERSION = 2;
 export const MIXED_BANK_SCOPE = Object.freeze({
-  description: 'Representative generated multiple-choice practice across all eight AP Physics 1 units and all ten AP Calculus BC units. This is not a complete AP exam or a source of official College Board questions.',
+  description: 'Original practice across Algebra, AP Physics 1, Calculus BC, and a SAT Math and Reading/Writing starter library. Not released exam items, full exam coverage or a score estimate.',
   sources: ['https://apstudents.collegeboard.org/courses/ap-physics-1-algebra-based', 'https://apstudents.collegeboard.org/courses/ap-calculus-bc'],
   limits: 'Finite parameter families can repeat. No AP Physics 2/C curriculum, laboratory assessment, or generated free-response grading.',
 });
@@ -30,9 +32,11 @@ const topicRows = [
   ['bc-series','calculus-bc',10,'Series and convergence','Geometric sums, endpoint convergence and alternating error.'],
   ['bc-taylor','calculus-bc',10,'Taylor polynomials and error','Series coefficients, tabular Taylor approximation and remainder bounds.'],
 ];
-export const MIXED_TOPICS = Object.freeze(topicRows.map(([id,subject,unit,title,description]) => Object.freeze({
-  id, subject, unit, title, label:title, unitLabel:'Unit ' + unit, description,
-})));
+export const MIXED_TOPICS = Object.freeze([...topicRows.map(([id,subject,unit,title,description]) => Object.freeze({
+  id, subject, unit, unitNumber:unit, title, label:title, unitLabel:'Unit ' + unit, description,
+  domainGroup:subject === 'physics' ? 'AP Physics 1' : 'AP Calculus BC',
+  courseScopes:subject === 'physics' ? ['physics'] : unit <= 5 ? ['calculus-bc','calculus-ab'] : ['calculus-bc'],
+})), ...SAT_TOPICS, ...ALGEBRA_TOPICS]);
 const TOPICS = new Map(MIXED_TOPICS.map(topic => [topic.id, topic]));
 const factorial = n => { let product = 1; for (let k = 2; k <= n; k++) product *= k; return product; };
 const numberText = value => {
@@ -504,40 +508,47 @@ const ANSWER_UNITS = {
   'c4-sphere-rate':'cm/s','c4-cone-rate':'cm/s','c9-vector-speed':'m/s',
 };
 
-export function generateMixedQuestion({ topicId, difficulty=1, seed, templateId=null, focusTag=null } = {}) {
+Object.assign(BUILDERS,createSatBuilders({numeric,math,wrong,step,fraction,numberText}));
+const helpers={numeric,math,wrong,step,numberText};
+export function generateMixedQuestion({ topicId, difficulty=1, seed, templateId=null, focusTag=null, variantIndex=null, avoidVariantId=null } = {}) {
   const topic=TOPICS.get(topicId), builder=BUILDERS[topicId];
   if (!topic || !builder) throw new TypeError('Unknown generated-practice topic.');
   if (!Number.isInteger(difficulty) || difficulty<1 || difficulty>3) throw new TypeError('Difficulty must be 1, 2 or 3.');
   if ((typeof seed!=='string' && typeof seed!=='number') || !/^[a-zA-Z0-9_-]{1,128}$/.test(String(seed))) throw new TypeError('A bounded seed is required.');
   if (templateId!==null && (typeof templateId!=='string' || templateId.length>80)) throw new TypeError('Invalid template reference.');
+  if (variantIndex!==null && ![0,1,2,3].includes(variantIndex)) throw new TypeError('Invalid variant index.');
+  if (avoidVariantId!==null && (typeof avoidVariantId!=='string' || avoidVariantId.length>100)) throw new TypeError('Invalid variant reference.');
   if (focusTag!==null && (typeof focusTag!=='string' || focusTag.length>80)) throw new TypeError('Invalid misconception reference.');
-  let level=difficulty;
+  let level=topic.adaptiveDifficulty === false ? 1 : difficulty, chosenVariant=variantIndex;
   if (templateId || focusTag) {
     let matched=false;
-    for(let candidate=1;candidate<=3;candidate++) {
-      const sample=builder(randomFor(String(seed)+'-focus'),candidate);
-      if(templateId ? sample.templateId===templateId : sample.distractors.some(item=>item.tag===focusTag)) {level=candidate;matched=true;break;}
+    for(let candidate=1;candidate<=3 && !matched;candidate++) for(let v=0;v<4;v++) {
+      const sample=(v%2 ? alternateApQuestion(topicId,randomFor(String(seed)+'-focus'),candidate,helpers):null)||builder(randomFor(String(seed)+'-focus'),candidate,v);
+      if(templateId ? sample.templateId===templateId : sample.distractors.some(item=>item.tag===focusTag)) {level=candidate;chosenVariant=v;matched=true;break;}
     }
     if(!matched) throw new TypeError('The follow-up reference does not belong to this topic.');
   }
   const rng=randomFor(topicId+'-'+level+'-'+seed);
   for(let attempt=0;attempt<150;attempt++) {
-    const value=builder(rng,level);
+    const variant=chosenVariant===null?rng.int(0,3):chosenVariant;
+    const value=(variant%2?alternateApQuestion(topicId,rng,level,helpers):null)||builder(rng,level,variant);
+    const variantId=value.variantId||value.templateId;
+    if(avoidVariantId && variantId===avoidVariantId && attempt<100) continue;
     const options=[{value:value.answer,label:value.answerLabel,correct:true,reason:null,tag:null},...value.distractors.map(item=>({...item,correct:false}))];
     if(options.length!==4 || options.some(item=>typeof item.value==='number'&&!Number.isFinite(item.value))) continue;
-    const unit=ANSWER_UNITS[value.templateId];
+    const unit=({'p1-infer-acceleration':'m/s^2','p3-spring-compression':'m'})[variantId]||ANSWER_UNITS[value.templateId];
     const labels=options.map(item=>item.label||math((typeof item.value==='number'?numberText(item.value):item.value)+(unit?'\\ \\mathrm{'+unit+'}':'')));
     if(new Set(labels).size!==4 || options.some((item,i)=>options.some((other,j)=>j<i && typeof item.value==='number' && typeof other.value==='number' && Math.abs(item.value-other.value)<=1e-8*Math.max(1,Math.abs(item.value),Math.abs(other.value))))) continue;
     options.forEach((item,index)=>{item.label=labels[index];});
     for(let index=3;index>0;index--) {const swap=rng.int(0,index);[options[index],options[swap]]=[options[swap],options[index]];}
-    const digest=createHash('sha256').update(topicId+'|'+value.templateId+'|'+seed+'|'+attempt).digest('hex').slice(0,18);
+    const digest=createHash('sha256').update(topicId+'|'+value.templateId+'|'+variantId+'|'+seed+'|'+attempt).digest('hex').slice(0,18);
     return {id:'mix-v'+MIXED_BANK_VERSION+'-'+topicId+'-'+digest,skillId:'mixed-'+topicId,topicId,topicTitle:topic.title,
       subject:topic.subject,unit:topic.unit,unitLabel:topic.unitLabel,difficulty:level,requestedDifficulty:difficulty,
-      templateId:value.templateId,focusedTemplate:Boolean(templateId||focusTag),generatorVersion:MIXED_BANK_VERSION,source:'procedural',
+      templateId:value.templateId,variantId,focusedTemplate:Boolean(templateId||focusTag),generatorVersion:MIXED_BANK_VERSION,source:'procedural',
       type:'mc',prompt:'<p>'+value.prompt+'</p>'+(typeof value.answer==='number'?'<p>Select the closest value. Decimal choices are rounded to eight significant digits.</p>':''),choices:options.map(item=>item.label),answerIndex:options.findIndex(item=>item.correct),
       misconceptions:options.map(item=>item.reason),misconceptionTags:options.map(item=>item.tag),
       hints:value.hints,solution:value.solution,representation:value.representation||'symbolic-context',calculatorPolicy:'allowed',
-      parameters:value.parameters,numericAnswer:typeof value.answer==='number'?value.answer:null,
+      parameters:value.parameters,numericAnswer:typeof value.answer==='number'?value.answer:null,visual:value.visual||null,difficultyBasis:value.difficultyBasis||'Locally authored practice levels; not official exam difficulty calibration.',
       choiceValues:options.map(item=>item.value),rounding:'Decimal choices use eight significant digits.',
     };
   }

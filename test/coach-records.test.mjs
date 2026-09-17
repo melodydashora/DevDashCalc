@@ -2,6 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStudentRecordLookup } from '../coach-records.js';
 
+test('saved course plans are owner-bound, paged and exclude arbitrary fields', async () => {
+  const calls = [];
+  const lookup = createStudentRecordLookup({ profileId: 'dev', readPlans: async options => {
+    calls.push(options);
+    return { plans: Array.from({ length: 12 }, (_, i) => ({ id: `plan-${i}`, title: 'Study the selected class', course: { id: 'custom', name: 'Biology', subject: 'all', token: 'never-show' }, goal: 'Explain diffusion', topics: ['Diffusion'], steps: [{ id: 'step-1', title: 'Draw', detail: 'Explain your diagram', minutes: 10 }], completedStepIds: [], privateKey: 'never-show' })) };
+  } });
+  const page = await lookup.execute('read_student_records', { collection: 'study_plans', offset: 0 });
+  assert.deepEqual(calls, [{ profileId: 'dev' }]);
+  assert.equal(page.records.length, 10); assert.equal(page.totalCount, 12); assert.equal(page.nextOffset, 10);
+  assert.equal(page.records[0].steps[0].detail, 'Explain your diagram');
+  assert.doesNotMatch(JSON.stringify(page), /never-show|privateKey/);
+  const other = createStudentRecordLookup({ profileId: 'dev', readPlans: async () => ({ plans: [{ profileId: 'esha', title: 'Foreign private plan' }] }) });
+  assert.equal((await other.execute('read_student_records', { collection: 'study_plans', offset: 0 })).state, 'unavailable');
+});
+
 test('learning records are paged, copied, and project only learning fields', async () => {
   const progress = { savedAt: 100, token: 'secret-fixture', settings: { name: 'Fixture', subject: 'calculus-bc', password: 'secret-fixture' },
     skills: Object.fromEntries(Array.from({ length: 13 }, (_, i) => ['skill-' + i, { ewma: .4, difficulty: 2, privateKey: 'secret-fixture', events: [{ qid: 'q1', correct: false, choice: 1, token: 'secret-fixture' }] }])) };

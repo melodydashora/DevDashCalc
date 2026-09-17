@@ -12,7 +12,7 @@ function fixture(options = {}) {
   const service = createMixedPracticeService({ topics, now: () => clock, randomId: () => `session-question-${++serial}`,
     randomSeed: () => `seed-${++serial}`, generateQuestion: request => {
       generated.push(request);
-      return { ...request, subject: topics.find(topic => topic.id === request.topicId).subject, id: request.seed, type: 'mc', prompt: `A fabricated ${request.topicId} fixture.`, choices: ['Checked choice', 'Wrong path'],
+      return { ...request, subject: topics.find(topic => topic.id === request.topicId).subject, id: request.seed, type: 'mc', prompt: `A fabricated ${request.topicId} fixture ${request.seed}.`, choices: ['Checked choice', 'Wrong path'],
         answerIndex: 0, misconceptions: [null, 'This choice uses the opposite operation.'], misconceptionTags: [null, 'opposite-operation'],
         hints: [{ text: 'Check the operation first.' }], solution: [{ text: 'The fixture key is choice zero.' }], generatorVersion: 1 };
     }, ...options });
@@ -66,12 +66,13 @@ test('every catalog topic and difficulty satisfies the server contract and suppo
   const service = createMixedPracticeService({ topics: MIXED_TOPICS, generateQuestion: generateMixedQuestion, randomSeed: () => `contract-${++seed}` });
   for (const topic of MIXED_TOPICS) for (const difficulty of [1, 2, 3]) {
     const first = start(service, [topic.id], difficulty);
-    assert.equal(first.question.subject, topic.subject); assert.equal(first.question.difficulty, difficulty);
+    assert.equal(first.question.subject, topic.subject); assert.equal(first.question.difficulty, topic.adaptiveDifficulty === false ? 1 : difficulty);
     const canonical = service.tutorContext('learner', first.sessionId, first.question.id).question;
     service.answer('learner', first.sessionId, first.question.id, (canonical.answerIndex + 1) % canonical.choices.length);
     const follow = service.next('learner', first.sessionId);
     const nextCanonical = service.tutorContext('learner', first.sessionId, follow.question.id).question;
-    assert.equal(nextCanonical.templateId, canonical.templateId, `${topic.id} difficulty ${difficulty}`);
+    if(topic.domainGroup !== 'Reading and Writing')assert.equal(nextCanonical.templateId, canonical.templateId, `${topic.id} difficulty ${difficulty}`);
+    else assert.notEqual(nextCanonical.parameters.passageIndex,canonical.parameters.passageIndex);
     assert.equal(follow.question.difficulty, nextCanonical.difficulty);
     assert.equal(follow.summary.attempted, 1); assert.equal(follow.summary.independentCorrect, 0);
     service.close('learner', first.sessionId);

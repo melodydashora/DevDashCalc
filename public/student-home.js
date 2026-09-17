@@ -28,3 +28,19 @@ export function canvasRefreshDue(fetchedAt, now, intervalMs = 300000) {
   const read = Date.parse(fetchedAt || '');
   return !Number.isFinite(read) || now - read >= intervalMs;
 }
+
+// Home topics come only from explicit saved plan rows, never from an
+// independent curriculum manifest or guessed words in a course title.
+export function homePlanTopics(plans) {
+  const result = [];
+  for (const plan of Array.isArray(plans) ? plans : []) {
+    if (!plan || !/^[a-z0-9-]{1,64}$/.test(plan.id || '') || !plan.course || typeof plan.course.name !== 'string') continue;
+    const topics = [...new Set((Array.isArray(plan.topics) ? plan.topics : [])
+      .filter(topic => typeof topic === 'string').map(topic => topic.trim().slice(0, 200)).filter(Boolean))];
+    if (!topics.length) continue;
+    result.push({ planId: plan.id, title: typeof plan.title === 'string' ? plan.title.slice(0, 160) : '',
+      courseId: String(plan.course.id || ''), courseName: plan.course.name.slice(0, 200),
+      source: plan.source === 'astra' ? 'astra' : 'student', topics });
+  }
+  return result;
+}

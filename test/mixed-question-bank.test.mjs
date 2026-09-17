@@ -3,16 +3,17 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { generateMixedQuestion, MIXED_TOPICS, MIXED_BANK_VERSION } from '../mixed-question-bank.js';
 
-const samples=(seedCount=1)=>MIXED_TOPICS.flatMap(topic=>[1,2,3].flatMap(difficulty=>Array.from({length:seedCount},(_,seed)=>
-  generateMixedQuestion({topicId:topic.id,difficulty,seed:'quality-'+seed}))));
+const AP_TOPICS=MIXED_TOPICS.filter(topic=>['physics','calculus-bc'].includes(topic.subject));
+const samples=(seedCount=1)=>AP_TOPICS.flatMap(topic=>[1,2,3].flatMap(difficulty=>Array.from({length:seedCount},(_,seed)=>
+  generateMixedQuestion({topicId:topic.id,difficulty,seed:'quality-'+seed,variantIndex:0}))));
 const close=(actual,expected,label,tolerance=1e-7)=>assert.ok(Math.abs(actual-expected)<=tolerance*Math.max(1,Math.abs(expected)),label+': '+actual+' versus '+expected);
 const fact=n=>n<2?1:n*fact(n-1);
 const derivative=(f,x)=>{const h=1e-4;return (f(x+h)-f(x-h))/(2*h);};
 const simpson=(f,a,b,segments=800)=>{let sum=f(a)+f(b);for(let j=1;j<segments;j++)sum+=(j%2?4:2)*f(a+(b-a)*j/segments);return sum*(b-a)/(3*segments);};
 
 test('topic catalog covers each Physics 1 and Calculus BC unit with separate BC extensions',()=>{
-  assert.equal(MIXED_TOPICS.length,20);
-  assert.equal(new Set(MIXED_TOPICS.map(t=>t.id)).size,20);
+  assert.equal(AP_TOPICS.length,20);
+  assert.equal(new Set(MIXED_TOPICS.map(t=>t.id)).size,MIXED_TOPICS.length);
   assert.deepEqual([...new Set(MIXED_TOPICS.filter(t=>t.subject==='physics').map(t=>t.unit))],[1,2,3,4,5,6,7,8]);
   assert.deepEqual([...new Set(MIXED_TOPICS.filter(t=>t.subject==='calculus-bc').map(t=>t.unit))],[1,2,3,4,5,6,7,8,9,10]);
   for(const id of ['bc-parametric','bc-polar','bc-series','bc-taylor'])assert.ok(MIXED_TOPICS.some(t=>t.id===id));
@@ -22,7 +23,7 @@ test('all 60 families generate finite distinct choices and complete feedback acr
   const families=new Map();
   for(const q of samples(100)) {
     assert.equal(q.generatorVersion,MIXED_BANK_VERSION);
-    assert.match(q.id,/^mix-v1-[a-z0-9-]+$/); assert.ok(q.id.length<=100);
+    assert.match(q.id,new RegExp('^mix-v'+MIXED_BANK_VERSION+'-[a-z0-9-]+$')); assert.ok(q.id.length<=100);
     assert.equal(q.type,'mc'); assert.equal(q.choices.length,4);
     assert.equal(new Set(q.choices).size,4,q.templateId+' visible choices');
     assert.equal(q.misconceptions.length,4); assert.equal(q.misconceptionTags.length,4);

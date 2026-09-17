@@ -127,7 +127,7 @@ globalThis.fetch = async (input, options = {}) => {
 let sandbox, fixture;
 const children = new Set();
 const serverFixtureFiles = ['server.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
-  'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
+  'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'mixed-sat-bank.js', 'mixed-ap-variants.js', 'study-plans.js', 'practice-history.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
 async function start(extra = {}, directory = sandbox) {
   const socket = createServer();
   await new Promise(done => socket.listen(0, '127.0.0.1', done));
@@ -173,6 +173,7 @@ async function stop(item) {
 const login = (name = 'alice', target = fixture, options = {}) => target.api('/api/auth/login', {
   method: 'POST', body: { username: name, password: `fixture-${name}-password` }, ...options,
 });
+
 before(async () => {
   sandbox = await mkdtemp(join(tmpdir(), 'students4ai-auth-http-'));
   for (const name of ['public', 'data', 'content']) await mkdir(join(sandbox, name));
@@ -206,6 +207,7 @@ test('signed-out requests never touch private routes, saved Canvas secrets, or p
     ['/api/canvas/coach', 'POST'], ['/api/canvas/assessment', 'POST'], ['/api/canvas/prefs', 'PUT'],
     ['/api/mixed/topics', 'GET'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'GET'], ['/api/tutor', 'POST'],
     ['/api/continuity', 'GET'], ['/api/continuity', 'POST'],
+    ['/api/study-plans', 'GET'], ['/api/study-plans', 'POST'], ['/api/study-plans/draft', 'POST'], ['/api/study-plans/example', 'PATCH'],
   ]) {
     const result = await fixture.api(path, { method, ...(method === 'GET' ? {} : { body: {} }) });
     assert.equal(result.status, 401, `${method} ${path}`);
@@ -235,7 +237,7 @@ test('login projects safe account data, sets an expiring HttpOnly cookie, and de
     assert.equal((await fixture.api(`/api/progress?profile=${query}`, { cookie: result.cookie })).status, 403);
   }
   assert.equal((await fixture.api('/api/progress?profile=profile-a&profile=profile-b', { cookie: result.cookie })).status, 403);
-  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor']) {
+  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans']) {
     assert.equal((await fixture.api(`${path}?profile=profile-b`, { cookie: result.cookie })).status, 403);
   }
 });
@@ -570,4 +572,128 @@ test('general and question coaching can retrieve older owner notes through the r
   assert.equal(coached.data.assisted, true);
   assert.equal(coached.data.recordReads[0].count, 5);
   assert.equal((await fixture.api('/api/progress', { cookie: bob.cookie })).data, null);
+});
+
+test('saved course plans require ownership, explicit save, same origin, and current completion state', async () => {
+  const alice = await login(), bob = await login('bob');
+  const course = { id: 'custom', name: 'Biology', subject: 'all' };
+  const plan = { title: 'Membrane transport', course, goal: 'Explain diffusion', topics: ['Diffusion'], source: 'astra', model: 'client-forged-model',
+    steps: [{ id: 'client-id', title: 'Draw the idea', detail: 'Draw particles and explain net movement.', minutes: 10, href: 'javascript:alert(1)' }] };
+  const count = (await fixture.api('/api/study-plans', { cookie: alice.cookie })).data.plans.length;
+  const draft = await fixture.api('/api/study-plans/draft', { method: 'POST', cookie: alice.cookie, body: { course, goal: plan.goal, minutes: 20 } });
+  assert.equal(draft.status, 200); assert.ok(draft.data.plan.draftId);
+  assert.equal((await fixture.api('/api/study-plans', { cookie: alice.cookie })).data.plans.length, count, 'draft never autosaves');
+  const requestId = randomUUID();
+  const saved = await fixture.api('/api/study-plans', { method: 'POST', cookie: alice.cookie, body: { plan, requestId } });
+  assert.equal(saved.status, 201); assert.equal(saved.data.plan.source, 'student'); assert.equal(saved.data.plan.model, undefined);
+  assert.equal(saved.data.plan.steps[0].href, undefined); assert.equal(saved.response.headers.get('cache-control'), 'no-store');
+  const repeated = await fixture.api('/api/study-plans', { method: 'POST', cookie: alice.cookie, body: { plan, requestId } });
+  assert.deepEqual(repeated.data.plan, saved.data.plan);
+  const foreign = await fixture.api(`/api/study-plans/${requestId}`, { method: 'PATCH', cookie: bob.cookie, body: { completedStepIds: ['step-1'] } });
+  assert.equal(foreign.status, 404);
+  assert.equal((await fixture.api('/api/study-plans?profile=profile-a', { cookie: bob.cookie })).status, 403);
+  assert.equal((await fixture.api('/api/study-plans', { method: 'POST', origin: 'https://foreign.example', cookie: alice.cookie, body: { plan, requestId: randomUUID() } })).status, 403);
+  const completion = { completedStepIds: ['step-1'], expectedUpdatedAt: saved.data.plan.updatedAt };
+  const updated = await fixture.api(`/api/study-plans/${requestId}`, { method: 'PATCH', cookie: alice.cookie, body: completion });
+  assert.equal(updated.status, 200); assert.deepEqual(updated.data.plan.completedStepIds, ['step-1']);
+  assert.equal((await fixture.api(`/api/study-plans/${requestId}`, { method: 'PATCH', cookie: alice.cookie, body: completion })).status, 409);
+  assert.ok(!(await fixture.api('/api/study-plans', { cookie: bob.cookie })).data.plans.some(p => p.id === requestId));
+});
+
+test('practice history persists only canonical owner attempts, handles replay and late help, and excludes wording reviews from independent evidence', async () => {
+  const signedOut = await fixture.api('/api/practice-history');
+  assert.equal(signedOut.status, 401);
+  assert.equal(signedOut.data.code, 'authentication_required');
+  const alice = await login(), bob = await login('bob');
+  assert.equal((await fixture.api('/api/practice-history?profile=profile-a', { cookie: bob.cookie })).status, 403);
+  assert.equal((await fixture.api('/api/practice-history?profile=profile-b', { cookie: alice.cookie })).status, 403);
+  for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+    const write = await fixture.api('/api/practice-history', { method, cookie: alice.cookie,
+      body: { attemptId: randomUUID(), topicId: 'sat-geometry', subject: 'sat', correct: true, assisted: false } });
+    assert.equal(write.status, 405, `history rejects direct ${method} evidence`);
+  }
+  const aliceBefore = (await fixture.api('/api/practice-history', { cookie: alice.cookie })).data;
+  const bobBefore = (await fixture.api('/api/practice-history', { cookie: bob.cookie })).data;
+  const providerCallsBefore = fixture.calls.length;
+  const session = await fixture.api('/api/mixed/session', { method: 'POST', cookie: alice.cookie,
+    body: { topicIds: ['sat-geometry'], difficulty: 1, requestId: randomUUID() } });
+  assert.equal(session.status, 201);
+  const sessionId = session.data.sessionId;
+  const next = await fixture.api('/api/mixed/next', { method: 'POST', cookie: alice.cookie, body: { sessionId } });
+  assert.equal(next.status, 200);
+  const question = next.data.question;
+  assert.equal(question.subject, 'sat'); assert.equal(question.topicId, 'sat-geometry');
+  assert.doesNotMatch(JSON.stringify(question), /answerIndex|numericAnswer|choiceValues|parameters|solution/);
+  assert.equal((await fixture.api('/api/practice-history', { cookie: alice.cookie })).data.retainedCount, aliceBefore.retainedCount,
+    'merely requesting a question creates no completed evidence');
+
+  // Solve from the public givens rather than reading a private generator key.
+  const legs = /legs (\d+) and (\d+)/.exec(question.prompt);
+  const missingLeg = /hypotenuse (\d+) and one leg (\d+)/.exec(question.prompt);
+  assert.ok(legs || missingLeg, 'the starting question supplies a right-triangle relationship');
+  const correctValue = legs ? Math.hypot(Number(legs[1]), Number(legs[2]))
+    : Math.sqrt(Number(missingLeg[1]) ** 2 - Number(missingLeg[2]) ** 2);
+  const answerIndex = question.choices.findIndex(choice => Math.abs(Number(choice.replace(/\$/g, '')) - correctValue) < 1e-7);
+  assert.ok(answerIndex >= 0, 'one public choice matches the independently solved result');
+  const body = { sessionId, questionId: question.id, answerIndex,
+    correct: false, assisted: true, isReview: true, profileId: 'profile-b', createdByUserId: 'account-b' };
+  const checked = await fixture.api('/api/mixed/answer', { method: 'POST', cookie: alice.cookie, body });
+  assert.equal(checked.status, 200); assert.equal(checked.data.correct, true);
+  assert.equal(checked.data.assisted, false); assert.equal(checked.data.reviewOnly, false); assert.equal(checked.data.historySaved, true);
+  const afterAnswer = await fixture.api('/api/practice-history', { cookie: alice.cookie });
+  assert.equal(afterAnswer.status, 200); assert.equal(afterAnswer.response.headers.get('cache-control'), 'no-store');
+  assert.equal(afterAnswer.data.retainedCount, aliceBefore.retainedCount + 1);
+  const original = afterAnswer.data.recentAttempts.find(row => row.attemptId === question.id);
+  assert.ok(original); assert.equal(original.correct, checked.data.correct); assert.equal(original.assisted, false);
+  assert.equal(original.isReview, false); assert.equal(original.subject, 'sat'); assert.equal(original.topicId, question.topicId);
+  assert.ok(Number.isFinite(Date.parse(original.at))); assert.equal(original.misconceptionTag, null);
+  assert.doesNotMatch(JSON.stringify(afterAnswer.data), /answerIndex|numericAnswer|choiceValues|parameters|privateSolution|prompt|solution/);
+  const topicAfterAnswer = afterAnswer.data.topics.find(row => row.topicId === question.topicId);
+  assert.ok(topicAfterAnswer.independentCorrect >= 1);
+
+  const replay = await fixture.api('/api/mixed/answer', { method: 'POST', cookie: alice.cookie, body });
+  assert.equal(replay.status, 200); assert.equal(replay.data.historySaved, true);
+  const afterReplay = (await fixture.api('/api/practice-history', { cookie: alice.cookie })).data;
+  assert.equal(afterReplay.retainedCount, afterAnswer.data.retainedCount);
+  assert.deepEqual(afterReplay.recentAttempts.find(row => row.attemptId === question.id), original);
+  assert.equal((await fixture.api('/api/mixed/assisted', { method: 'POST', cookie: bob.cookie, body })).status, 404,
+    'a foreign account cannot revise another student’s in-memory session or durable evidence');
+  const helped = await fixture.api('/api/mixed/assisted', { method: 'POST', cookie: alice.cookie, body: { sessionId, questionId: question.id } });
+  assert.equal(helped.status, 200); assert.equal(helped.data.assisted, true); assert.equal(helped.data.historySaved, true);
+  const afterHelp = (await fixture.api('/api/practice-history', { cookie: alice.cookie })).data;
+  const revised = afterHelp.recentAttempts.find(row => row.attemptId === question.id);
+  assert.equal(afterHelp.retainedCount, afterAnswer.data.retainedCount);
+  assert.equal(revised.at, original.at); assert.equal(revised.correct, true); assert.equal(revised.assisted, true);
+  assert.equal(afterHelp.topics.find(row => row.topicId === question.topicId).independentCorrect, topicAfterAnswer.independentCorrect - 1);
+  await fixture.api('/api/mixed/answer', { method: 'POST', cookie: alice.cookie, body });
+  assert.equal((await fixture.api('/api/practice-history', { cookie: alice.cookie })).data.recentAttempts.find(row => row.attemptId === question.id).assisted, true,
+    'replaying an answer cannot remove received help');
+
+  const review = await fixture.api('/api/mixed/next', { method: 'POST', cookie: alice.cookie, body: { sessionId, mode: 'wording' } });
+  assert.equal(review.status, 200); assert.equal(review.data.question.reviewOnly, true);
+  assert.deepEqual(review.data.question.choices, question.choices);
+  const reviewed = await fixture.api('/api/mixed/answer', { method: 'POST', cookie: alice.cookie,
+    body: { sessionId, questionId: review.data.question.id, answerIndex: checked.data.answerIndex, isReview: false, correct: false } });
+  assert.equal(reviewed.status, 200); assert.equal(reviewed.data.correct, true); assert.equal(reviewed.data.historySaved, true);
+  const afterReview = (await fixture.api('/api/practice-history', { cookie: alice.cookie })).data;
+  assert.equal(afterReview.retainedCount, afterHelp.retainedCount + 1);
+  const reviewEvidence = afterReview.recentAttempts.find(row => row.attemptId === review.data.question.id);
+  assert.equal(reviewEvidence.isReview, true); assert.equal(reviewEvidence.correct, true);
+  const topicAfterReview = afterReview.topics.find(row => row.topicId === question.topicId);
+  assert.equal(topicAfterReview.independentCorrect, afterHelp.topics.find(row => row.topicId === question.topicId).independentCorrect);
+  assert.equal(topicAfterReview.reviews, afterHelp.topics.find(row => row.topicId === question.topicId).reviews + 1);
+  assert.deepEqual((await fixture.api('/api/practice-history', { cookie: bob.cookie })).data, bobBefore);
+  assert.equal(fixture.calls.length, providerCallsBefore, 'verified generation and grading require no paid provider call');
+});
+
+test('new private question banks and practice-history modules cannot be fetched as static browser assets', async () => {
+  const alice = await login();
+  for (const path of ['/mixed-sat-bank.js', '/mixed-ap-variants.js', '/mixed-practice.js', '/mixed-practice-api.js',
+    '/practice-history.js', '/study-plans.js', '/data/practice-profile-a.json']) {
+    for (const cookie of [undefined, alice.cookie]) {
+      const result = await fixture.api(path, { cookie });
+      assert.ok([403, 404].includes(result.status), path);
+      assert.doesNotMatch(JSON.stringify(result.data), /numericAnswer|answerIndex|createSatBuilders|normalizePracticeEvidence|recentAttempts/);
+    }
+  }
 });

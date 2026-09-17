@@ -1,9 +1,11 @@
 # Students4AI — interactive learning, at your pace
 
-Students4AI covers all ten AP Calculus BC units, with a separate AP Calculus
-AB view that excludes BC-only content. All modules stay open. Practice adapts
-to ongoing performance, while Canvas deadlines suggest useful topics without
-limiting independent learning. The future planned domain is students4ai.com.
+Students4AI brings a learner's classes, saved study plans, and practice into one
+workspace. The authored lesson and mastery-check library covers all ten AP
+Calculus BC units, with an AB view that excludes BC-only content. Separate
+original practice covers AP Physics 1, SAT Math and Reading and Writing, and
+Algebra. All modules stay open. Canvas deadlines and saved practice observations
+suggest useful topics without limiting independent learning.
 
 The coding-inspired lab includes animated derivatives, vector motion, and
 Taylor approximations with visible code traces, sliders, playback speed,
@@ -96,8 +98,34 @@ occur across the whole reply, including provider/model fallbacks. Opaque
 thinking and tool-conversation state remain within their originating provider
 attempt. Missing data and remaining pages are explicit. This
 provides record access, not guaranteed full recall. Authentication tables and
-Canvas credentials are excluded. Focus sessions remain browser-local and mixed
-session history remains temporary; those are not durable notebook records.
+Canvas credentials are excluded. Focus sessions remain browser-local, and an
+active mixed session is temporary. Explicitly saved study plans and checked
+practice observations are durable, owner-bound records available through
+`study_plans` and `practice_history`; they are separate from coach notes and
+from an automatic conversation archive.
+
+## Home, course library, and saved plans
+
+**Home** shows current Canvas classes, topics from plans the learner has actually
+saved, and entry points for fresh practice and study tools. **Course library**
+holds the independent lessons, mastery checks, and learning models. Changing
+the **Studying** selection changes this view; it does not reset progress or
+make independent curriculum topics appear to be school assignments.
+
+Open **Study plans**, choose a Canvas class, independent subject, or custom
+class, and enter a goal. **Draft a plan with Astra** prepares an editable draft;
+**Write my own plan** works without the coach. Review the topics and steps,
+then explicitly save. Saved plans reopen from Home or Study plans with their
+completed steps. Optional SAT baseline, target, and test-date fields guide
+planning; they are self-reported goals, not verified scores or predictions.
+
+Plans support 1–10 topics and 1–12 steps, up to 360 suggested minutes per plan.
+Each workspace currently supports 200 saved plans and 5,000 plan events.
+Drafting does not save, and a step checkbox does not award mastery. Account
+mode stores plans and checked-practice history in the database. Private local
+mode can use files when no database is configured. A failed read is shown as
+unavailable, not as an empty history. See the
+[practice and persistence guide](docs/learning-workspace.md) for the boundaries.
 
 ## Canvas connections for Dev, Esha, and other learners
 
@@ -110,11 +138,11 @@ to a tab when the last snapshot is at least five minutes old. Concurrent
 snapshot requests share one load; the learner selector and coach draft stay
 mounted while course cards update.
 
-Each class has Open class, Ask Astra, and Quick study actions. Quick study
+Each class has Open class, Study plan, Ask Astra, and Quick study actions. Quick study
 asks for one short recall question and waits for the learner's answer; it
 uses the chosen Canvas class and does not award mastery credit. AB homes do
-not promote the BC/Physics mixed bank. Every learner can still open the study
-planner and mixed lab from navigation. The full authored curriculum currently
+not promote BC-only practice. Every learner can still open the study planner
+and practice tools from navigation. The full authored curriculum currently
 covers AB and BC; coaching across other Canvas subjects is a separate feature.
 
 Each learner can open **Canvas → Use my own Canvas token**, enter their
@@ -184,20 +212,25 @@ The session continues while moving between this app's pages. A quiet return
 link stays visible while it runs. Switching learners or closing/reloading the
 page pauses it, so another student's time never enters the session.
 
-## Mixed Physics and Calculus BC practice
+## Original SAT, Algebra, Physics, and Calculus practice
 
-Open **Mixed practice** in the main navigation, or **Open mixed practice** on
-Home. Choose any combination of the 20 topic groups, a starting level, and
-5, 10, or 15 questions (or continue until you finish). These topic choices
-are separate from the main Studying menu. One session can include both subjects.
+Open **Start fresh practice** on Home or a practice entry in Course library.
+SAT and Algebra open with their own topics selected. Mixed practice can combine
+selected topics; choose a starting level and 5, 10, or 15 questions, or continue
+until you finish. There are 32 topic groups: 8 Physics, 12 Calculus BC, 8 SAT,
+and 4 Algebra. The starting course scope preserves AB/BC distinctions.
 
-The server generates numerical variations from 60 original, checked question
-families. They represent all eight AP Physics 1 units and all ten Calculus BC
-units, including BC-specific integration, differential equations, parametric
-and polar curves, series, and Taylor error bounds. This is representative
-multiple-choice practice, not every course subtopic, a complete AP exam,
-laboratory assessment, or an AP Physics 2/C course. The full lesson and
-independent mastery-check curriculum remains Calculus AB/BC.
+This is a finite starter bank. Physics/Calculus have 60 original base families
+and 6 alternate mathematical forms. SAT Math and Algebra each offer 24
+level/form combinations. SAT Reading and Writing has 32 distinct original
+passages: 16 starter, 8 intermediate, and 8 advanced. Reading levels use
+different passages; all difficulty labels are locally authored, not official
+exam calibration. Numerical variation does not mean every question requires
+a different reasoning method. These are representative multiple-choice
+activities, not complete SAT/AP exams, all course subtopics, a score predictor,
+or Physics laboratory/FRQ coverage. See the
+[current exam scope](docs/exam-practice-scope.md) and
+[bank implementation record](docs/generated-practice-implementation.md).
 
 Select a choice, then **Check answer**. The computed server key grades it;
 the AI coach explains the current question without deciding correctness.
@@ -208,23 +241,57 @@ Two independent correct answers raise a topic's level; wrong answers lower
 its general target level. A focused follow-up may retain its actual concept
 level, and the interface explains that choice. Hints and received pre-answer
 coach help are recorded separately and do not increase independent credit.
+After checking, **Same problem, new wording** reviews the same problem and cannot
+increase independent credit or level. **New challenge on this topic** stays on the
+selected topic and seeks another supported form or fresh parameters. The finite
+bank discloses repeats; repeated questions count as review.
 
 Pause, resume, change topics, and finish are explicit controls. Topic changes
 apply after the current question so selected work is preserved. Reloading
 restores the server's question, feedback, and already-revealed hints in a
 paused state. The browser stores only the session ID, preferences, and draft
 choice per workspace. Sessions and adaptation live in server memory for up
-to six hours and end when that server restarts; they do not change existing
-curriculum mastery, Canvas grades, or saved learner progress. There are at
-most 200 questions per session. Numerical families are finite: the generator
-tries to avoid seen prompts and explicitly discloses a repeat if fresh
-samples are exhausted.
+to six hours and end when that server restarts, with at most 200 questions per
+session. Checked answers are saved separately as durable practice observations,
+including later assistance corrections. Study plans and SAT/Algebra
+library views summarize independent correct answers, incorrect answers,
+helped correct answers, reviews, and patterns to revisit. If persistence fails,
+the answer remains checked and the UI offers **Retry saving this answer**.
+Saved observations do not change curriculum mastery or Canvas grades. Suggested
+one-day/three-day review intervals are adjustable heuristics, not promises of
+retention or score gains.
 
-The bank is independently checked using conservation equations, numerical
-derivatives and integrals, 6,000 seeded variants, and KaTeX rendering. Each
-of the 60 families also has an independently solved blind sample. No new
-package, AI generation call, or Canvas connection is needed to practise.
-The optional explanation coach uses the shared configurable provider order.
+The bank has mathematical property tests, seeded numerical checks, rendered
+solutions, and independent blind reviews of authored sample questions. No new
+package, AI generation call, or Canvas connection is needed to practise. The
+optional explanation coach uses the shared configurable provider order.
+
+## Build with Astra, models, and evidence mysteries
+
+**Build with Astra** helps write a request for a new question, practice set, or
+interactive-model explanation. Choose a topic and a meaningful variation such
+as a new representation, unknown, or multistep task. Edit the request, then
+open it in Astra; this fills the coach draft and does not send automatically.
+Requests say to wait for the learner's answer. Coach-generated practice is
+ungraded and does not silently enter the verified bank. A model-change request
+asks Astra to explain or propose a change; it cannot execute invented code.
+
+Question models use the question's supplied givens when available, or clearly
+label their own values as an **Independent example**. Calculus and physics
+examples include tangent/accumulation graphs, motion and force relationships,
+and a rotatable 3D solid of revolution. Reading and Writing uses a reasoning
+guide. Models have keyboard controls, text/table alternatives, learner-started
+playback, pause/reset/speed controls where animated, reduced-motion support,
+and cleanup when leaving the view. Opening an example or strategy before
+checking counts as help; a diagram of givens is part of the question.
+
+The SAT library and Build page link to **Evidence mysteries**: three original
+short cases with three stages each, combining an evidence clue, an inference,
+and grammar. Check a choice, then explicitly select Next after a correct answer.
+Hints and worked explanations remain available; other cases and the rest of
+the app stay open. This optional activity has no SAT score or mastery credit,
+and its progress lasts only while the page is open. Its keys are public because
+it is an ungraded learning puzzle.
 
 ## Running it
 
@@ -239,10 +306,14 @@ node server.js          # serves on $PORT or 3000
 There is no `npm install` step, so a corrupted `node_modules` can never take
 this app down.
 
+The tracked deployment target is Replit `cloudrun`; GitHub CI checks the code
+but does not deploy. See [deployment and release checks](docs/deployment.md)
+for the known Replit host, configuration, and verification steps.
+
 Tests and content validation:
 
 ```bash
-npm test                # engine, course, Canvas, coach, tutor, planner, and store tests
+npm test                # application, bank, plans/history, models, and account tests
 npm run validate        # schema-validates every unit, then renders every math
                         # segment with the vendored KaTeX to catch broken LaTeX
 npm run lint            # language lint of the app's own text and of every unit:
@@ -552,6 +623,13 @@ DevDashCalc (repo root)
 |-- ai-coach.js            # OpenAI text requests, safe failures, and timeouts
 |-- ai-record-coach.js     # OpenAI Responses + owner-bound record tool adapter
 |-- store.js               # zero-dep Postgres wire client; files remain the fallback
+|-- study-plans.js         # validated drafts and append-only saved plan projection
+|-- practice-history.js    # canonical checked-attempt summaries and review suggestions
+|-- mixed-question-bank.js # private verified families and topic catalog
+|-- mixed-sat-bank.js      # original SAT/Algebra forms and reading passages
+|-- mixed-ap-variants.js   # alternate AP mathematical forms
+|-- mixed-practice.js      # temporary canonical questions and adaptive session state
+|-- mixed-practice-api.js  # authenticated grading/help and history persistence hook
 |-- package.json           # no dependencies; scripts only
 |-- public/
 |   |-- index.html         # shell; vendored KaTeX for math rendering
@@ -563,6 +641,12 @@ DevDashCalc (repo root)
 |   |-- study-lab.js       # animated graph explorations with visible code traces
 |   |-- spatial-lab.js     # optional native WebGL vector lab and 2D fallback
 |   |-- focus-planner.js   # optional one-task planning and elapsed clock
+|   |-- study-plans.js     # editable drafts, explicit save, and completed steps
+|   |-- practice-insights.js # saved observations, help/review distinctions
+|   |-- mixed-study.js     # fresh practice, wording review, and challenge controls
+|   |-- question-models.js # safe given diagrams and labeled interactive examples
+|   |-- practice-builder.js # editable requests and curated model previews
+|   |-- evidence-mystery.js # optional evidence/inference/grammar cases
 |   |-- app.js             # SPA: routing, views, rendering, persistence
 |-- content/
 |   |-- manifest.json      # the 10 units, ordering, app-wide constants
@@ -586,7 +670,7 @@ DevDashCalc (repo root)
 |-- data/                  # runtime progress and Canvas credentials (gitignored)
 ```
 
-- **Progress persistence** is dual: every answer saves to `localStorage`
+- **Curriculum progress persistence** is dual: every curriculum answer saves to `localStorage`
   immediately and to the server on a short debounce. `PUT /api/progress`
   serializes each learner's complete file/database save, using a unique
   temporary file and atomic rename. Other learners have independent queues.
@@ -602,6 +686,11 @@ DevDashCalc (repo root)
   client timestamps: they do not merge concurrent edits, correct clock skew,
   or coordinate multiple server processes. The queues protect this server
   process; distributed account storage needs a database-level revision check.
+- **Plans and checked mixed-practice observations** use separate append-only
+  records, so whole-progress saves cannot erase them. Account mode awaits
+  database persistence; unavailable storage is surfaced. The
+  [persistence guide](docs/learning-workspace.md) covers event limits, help
+  revisions, and the distinction from temporary active sessions.
 - **The engine is pure and tested.** `public/engine.js` has no DOM or network
   access and is exercised by `test/engine.test.mjs` — the mastery math above
   is pinned by assertions, not prose.

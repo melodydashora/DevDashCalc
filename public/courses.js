@@ -5,6 +5,8 @@ export const STUDY_SUBJECTS = [
   { id: 'calculus-bc', label: 'AP Calculus BC', curriculum: true },
   { id: 'calculus-ab', label: 'AP Calculus AB', curriculum: true },
   { id: 'physics', label: 'Physics', curriculum: false },
+  { id: 'sat', label: 'SAT practice', curriculum: false },
+  { id: 'algebra', label: 'Algebra', curriculum: false },
   { id: 'all', label: 'All courses', curriculum: false },
 ];
 
@@ -26,7 +28,7 @@ const abDescriptions = {
 };
 
 function unitInSubject(unit, subjectId) {
-  if (subjectId === 'physics') return false;
+  if (subjectId === 'physics' || subjectId === 'sat' || subjectId === 'algebra') return false;
   return subjectId !== 'calculus-ab' || (!unit.bcOnly && unit.number <= 8);
 }
 
@@ -88,6 +90,8 @@ export function courseMatchesSubject(course, subjectId) {
   if (subject === 'all') return true;
   const text = `${course?.name || ''} ${course?.courseCode || ''}`;
   if (subject === 'physics') return /physics|\bphys\b/i.test(text);
+  if (subject === 'sat') return /\bsat\b|\bpsat\b/i.test(text);
+  if (subject === 'algebra') return /\balgebra\b/i.test(text);
   if (!/calculus|\bcalc\b/i.test(text)) return false;
   const hasAB = /\bab\b/i.test(text);
   const hasBC = /\bbc\b/i.test(text);

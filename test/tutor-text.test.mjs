@@ -47,7 +47,7 @@ test('named URLs accept balanced or escaped parentheses and angle-wrapped destin
 test('only explicit web URLs and approved app routes become navigation targets', () => {
   assert.equal(safeTutorHref('https://example.com/a%20file.pdf'), 'https://example.com/a%20file.pdf');
   assert.equal(safeTutorHref('http://example.com'), 'http://example.com/');
-  for (const value of ['#/home', '#/mixed', '#/settings', '#/canvas/course/42', '#/lesson/unit-01/lesson-1']) assert.equal(safeTutorHref(value), value);
+  for (const value of ['#/home', '#/library', '#/build', '#/mystery', '#/plans', '#/plans/plan-one', '#/plans/course/42', '#/mixed', '#/mixed/sat', '#/mixed/algebra', '#/settings', '#/canvas/course/42', '#/lesson/unit-01/lesson-1']) assert.equal(safeTutorHref(value), value);
   for (const value of ['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'data:text/html,<svg>', 'vbscript:msgbox(1)', 'file:///C:/private.txt', 'C:\\Users\\student\\file.txt', '//evil.example', '/api/erase', '#/settings/erase', '#/home?run=1',
     'https://user:password@example.com', 'https://user@example.com', 'https:example.com', 'http:/example.com', 'https:\\example.com', 'https://example.com/\\evil', 'https://example.com/%5cevil',
     'https://exa\tmple.com', 'https://example.com/\npath', 'https://example.com/\u0000path', 'https://example.com/%0apath', 'https://example.com/%00path', 'https://example.com/\u202epath', 'https://example.com/%E2%80%AEpath', 'https://example.com/%C2%85path',

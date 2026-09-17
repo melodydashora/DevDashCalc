@@ -1,0 +1,12 @@
+.practice-builder-intro { max-width: 75ch; color: var(--muted); line-height: 1.7; }
+.practice-builder-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr); gap: 1.2rem; align-items: start; }
+.practice-builder-form, .practice-builder-preview { min-width: 0; }
+.practice-builder-field { display: grid; gap: 0.4rem; margin-bottom: 1rem; font-size: 0.9rem; }
+.practice-builder-field[hidden] { display: none; }
+.practice-builder-field :is(input, select, textarea) { width: 100%; box-sizing: border-box; min-width: 0; min-height: 44px; padding: 0.65rem; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--text); font: inherit; }
+.practice-builder-field textarea { resize: vertical; line-height: 1.55; }
+.practice-builder button { min-height: 44px; margin: 0 0 1rem; }
+.practice-builder :is(button, input, select, textarea):focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.practice-builder-scope, .practice-builder-note, .practice-builder-status { color: var(--muted); font-size: 0.84rem; line-height: 1.65; }
+.practice-builder-status { min-height: 1.65em; }
+@media (max-width: 900px) { .practice-builder-layout { grid-template-columns: minmax(0, 1fr); } }
