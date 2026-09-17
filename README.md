@@ -88,10 +88,13 @@ to the owner established by the server; it accepts no profile, SQL, URL, or
 arbitrary table name. Ownership and session validity are checked again before
 tool reads and model requests. The reply displays which record pages were read.
 
-The tool-enabled coach uses OpenAI Responses, as required for Astra function
-calling, with `store:false`, high reasoning, and Astra-to-Sol fallback only.
-Pages contain at most ten records and 24,000 characters; at most eight tool
-reads occur in a reply. Missing data and remaining pages are explicit. This
+The tool-enabled coach uses Anthropic Messages or OpenAI Responses through
+the shared provider configuration described below. Both receive the same
+owner-bound record tools; OpenAI Responses uses `store:false`. Pages contain
+at most ten records and 24,000 characters. At most eight actual tool reads
+occur across the whole reply, including provider/model fallbacks. Opaque
+thinking and tool-conversation state remain within their originating provider
+attempt. Missing data and remaining pages are explicit. This
 provides record access, not guaranteed full recall. Authentication tables and
 Canvas credentials are excluded. Focus sessions remain browser-local and mixed
 session history remains temporary; those are not durable notebook records.
@@ -135,7 +138,8 @@ For the current family setup, Replit Secrets can supply these two tokens:
 Tokens belong in Replit Secrets. Workspace IDs and school addresses are
 nonsecret server configuration and can go under `[env]` in `.replit`. Restart
 the workflow after changing its environment. Neither token is an OpenAI key;
-`OPENAI_API_KEY` remains the separate Astra/Sol coaching credential.
+`OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are separate coaching credentials;
+neither is a Canvas token.
 Dev's existing `DEV_API_KEY` name is accepted only when `DEV_API_TOKEN` is
 absent. A rejected preferred token does not silently try the older name.
 The connection-source label identifies the name actually used.
@@ -203,7 +207,7 @@ rotates to other selected topics and the other subject when available.
 Two independent correct answers raise a topic's level; wrong answers lower
 its general target level. A focused follow-up may retain its actual concept
 level, and the interface explains that choice. Hints and received pre-answer
-Astra/Sol help are recorded separately and do not increase independent credit.
+coach help are recorded separately and do not increase independent credit.
 
 Pause, resume, change topics, and finish are explicit controls. Topic changes
 apply after the current question so selected work is preserved. Reloading
@@ -220,7 +224,7 @@ The bank is independently checked using conservation equations, numerical
 derivatives and integrals, 6,000 seeded variants, and KaTeX rendering. Each
 of the 60 families also has an independently solved blind sample. No new
 package, AI generation call, or Canvas connection is needed to practise.
-The optional explanation coach uses the existing Astra-to-Sol configuration.
+The optional explanation coach uses the shared configurable provider order.
 
 ## Running it
 
@@ -325,7 +329,9 @@ Everything below is deterministic and visible to the learner in-app (Settings �
 
 ## Optional: the Astra AI coach
 
-Set `OPENAI_API_KEY` in Replit Secrets to connect the coach. The Astra panel
+Set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or both in Replit Secrets to connect
+the coach. Astra remains the study-coach name in the interface; each reply
+identifies the provider model that actually answered. The Astra panel
 stays visible at the bottom of every question: practice, lesson checkpoints,
 mastery checks, placement, and all written-response challenges. It offers
 concept, first-step, and coding-example help before an answer, plus worked
@@ -342,43 +348,102 @@ unit, so assisted answers do not place a unit.
 The pre-answer prompt asks for a concept or next step without disclosing the
 final answer. These instructions guide the model; they do not guarantee its
 behavior. The server computes correctness from the stored answer key, and
-the model never sets mastery scores. Without the key, the panel explains
+the model never sets mastery scores. Without an enabled provider key, the panel explains
 that AI is unavailable and points to built-in hints and worked solutions.
 
-**Fixed models and fallback.** The math coach and Canvas assessment use the
-same two OpenAI models, in this order:
+### Model settings in Replit Secrets
 
-| Order | Model | When used |
+`coach-config.js` reads the server environment for each request, and
+`tutor-service.js` applies the same configuration to general study coaching,
+question coaching, mixed practice, and Canvas assessment. Set the following
+values in the appropriate Replit environment. API keys stay in Secrets and
+are never included in status responses.
+
+| Setting | Default when absent / value to enter | Purpose |
 |---|---|---|
-| Primary | GPT-6 Astra (`gpt-6-astra`) | First attempt for every coaching request |
-| Fallback | GPT-5.6 Sol (`gpt-5.6-sol`) | Once after an Astra service failure, timeout, or empty/unusable response |
+| `ANTHROPIC_API_KEY` | Add your own Anthropic API key | Enables the Anthropic provider |
+| `OPENAI_API_KEY` | Add your own OpenAI API key | Enables the OpenAI provider |
+| `TUTOR_PROVIDERS` | `anthropic,openai` | Provider order; use `openai` or `anthropic` to select only one |
+| `TUTOR_MODEL_ANTHROPIC` | `claude-fable-5-1` | Anthropic primary model: Claude Fable 5.1 |
+| `TUTOR_MODEL_ANTHROPIC_FALLBACK` | `claude-opus-5` | Anthropic fallback: Claude Opus 5 |
+| `TUTOR_MODEL_OPENAI` | `gpt-6-astra` | OpenAI primary: GPT-6 Astra |
+| `TUTOR_MODEL_OPENAI_FALLBACK` | `gpt-5.6-sol` | OpenAI fallback: GPT-5.6 Sol, as confirmed by Melody |
+| `TUTOR_TIMEOUT_MS` | `120000` | Per-attempt ceiling; integer from 1,000 to 120,000 milliseconds |
+| `TUTOR_TOTAL_TIMEOUT_MS` | `240000` | Whole-request budget; integer from 1,000 to 480,000 milliseconds |
 
-`OPENAI_API_KEY` is the only AI credential the current app reads. Older
-`ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `TUTOR_PROVIDERS`, and
-`TUTOR_MODEL_*` secrets may remain in Replit, but are ignored. They neither
-add providers nor override the fixed model order.
+With both keys and no overrides, attempts run in this order: **Fable 5.1 →
+Opus 5 → Astra → Sol**. A provider with no key is skipped with a configuration
+warning. Supplying a primary or fallback model setting takes precedence over
+its default. An explicitly blank fallback disables that attempt; an explicitly
+blank primary is a configuration error. Repeated provider names and identical
+primary/fallback IDs do not cause duplicate attempts.
 
-Both models use high reasoning (`reasoning_effort: "high"`) and
-`max_completion_tokens: 16000`. This caps completion tokens, including
-reasoning, rather than promising 16,000 visible answer tokens. Each attempt
-has its own 120-second timeout covering response headers and the full body;
-a fallback can therefore require a second attempt. Requests use the OpenAI
-Chat Completions API for text-only requests in `ai-coach.js`. Authenticated
-record-aware coaching uses Responses in `ai-record-coach.js`, with the equivalent
-`reasoning.effort` and `max_output_tokens` settings, a shared output budget
-across tool turns, and the same overall timeout per model. Both use Node's
-built-in `fetch`, without an SDK or installed dependency.
+Model IDs keep the supplied spelling and case after surrounding whitespace is
+trimmed. Use exact provider catalog IDs; a typo such as `Opus-5` is not silently
+rewritten. The validator rejects malformed IDs and obvious non-tutoring or
+wrong-provider names. These checks cannot establish that an account has access
+to a model. The default order reflects Melody's current preference. Model
+specifications and successful API requests do not establish comparative
+tutoring quality; compare representative student questions separately.
 
-A refusal is final and is not sent to another model. HTTP 401 is also final
-because the models share a credential. Other service failures may try Sol.
+Gemini is disabled. `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and
+`TUTOR_MODEL_GEMINI` do not enable it. Listing `gemini` or an unknown provider
+in `TUTOR_PROVIDERS` produces a configuration error. Existing unused Secrets
+can remain stored. Normal startup does not load `.env`, and tracked launch
+commands do not set model values or overwrite these settings. Defaults apply
+only when the corresponding setting is absent.
+
+### Reasoning, tools, and fallback behavior
+
+Anthropic uses its Messages API with adaptive thinking, high
+`output_config.effort`, and a 16,000-token output budget. OpenAI text requests
+use Chat Completions with high `reasoning_effort` and
+`max_completion_tokens: 16000`. OpenAI record-aware requests use Responses
+with high `reasoning.effort` and `max_output_tokens`, sharing the 16,000-token
+budget across tool turns. These budgets include reasoning; they do not promise
+16,000 visible answer tokens. All transports use Node's built-in `fetch`.
+
+The total request budget defaults to 240 seconds, with a 120-second ceiling
+for an individual attempt. Before each attempt, the service divides the
+remaining time across remaining fallbacks so a stalled primary cannot consume
+the whole budget. With four configured attempts that all stall, each receives
+approximately 60 seconds. Fast failures leave more time for later attempts.
+Timeouts cover response headers, bodies, and tool turns.
+
+A refusal is final across providers. HTTP 401 skips the remaining models at
+that provider because they share the rejected key; another configured provider
+can still answer. Other service failures and empty/unusable responses can
+advance to the next attempt. Loss of student authorization ends the request.
 A nonempty reply cut off by the completion limit is displayed with an
 explicit notice that it stops early; an empty truncated reply can fall back.
 Failures contain only locally generated diagnostic text, never raw remote
-error bodies or API keys.
+error bodies or API keys. The same owner-bound tools and shared eight-read
+limit apply to every provider; fallback does not grant additional data access.
 
-`GET /api/tutor` reports availability and the configured models. Successful
-reply metadata identifies the model that actually answered, and the coach
-panel shows whether the reply came from Astra or the Sol fallback.
+### Operator verification and recovery
+
+Run `node scripts/check-tutor-models.mjs` on the server to print the safe
+configuration summary. Adding `--smoke` makes a small paid tool-capability
+request to each configured model using synthetic notes only. It verifies that
+each model can read a fixture note and return its marker; it does not access
+student accounts, Canvas, or the student database, and never prints API keys.
+
+After changing Secrets, restart the development workflow. Update the production
+environment and republish for deployed requests to receive the change. While
+signed in, check `GET /api/tutor`: `getTutorStatus()` projects only availability,
+provider/model names, missing-key warnings, and any `configurationError`.
+Configured availability means a usable configuration and key are present;
+provider access and working model capabilities require a real request to verify.
+
+If configuration fails, correct the named setting. Remove an override to use
+its default, or set a fallback to an empty string to disable it. Remove
+unsupported providers from `TUTOR_PROVIDERS`. For a 401, update that provider's
+key; for an unavailable model, verify the exact catalog ID and account access.
+Use a synthetic, non-student prompt for verification. Never print keys, dump
+the environment, or publish the private `attempts` array from the resolver.
+Changing model configuration requires no database migration or new dependency.
+Keep student data, account credentials, Canvas tokens, and unrelated Secrets
+intact while correcting the coaching configuration.
 
 The coaching boundary is explicit:
 
@@ -425,7 +490,7 @@ New Access Token), then reformats the pulled data into three pages:
   answer key is the only grader for practice), assignment-group weights,
   and every graded assignment with its score. Graded work below 70 percent
   of its points is marked in calm amber.
-- **Assessment** — on request only, the same Astra-to-Sol model order as the tutor
+- **Assessment** — on request only, the same configurable model order as the tutor
   reads a fresh pull of the Canvas data (never the token) and writes a
   literal, non-shaming assessment: overall picture, what is going well,
   problem areas by course, and a suggested order of work grounded in the
@@ -481,7 +546,11 @@ Safety and privacy, by design:
 ```
 DevDashCalc (repo root)
 |-- server.js              # static files + progress, tutor, and Canvas APIs
-|-- ai-coach.js            # fixed Astra/Sol requests, safe failures, and timeouts
+|-- coach-config.js        # environment model/provider settings and safe validation
+|-- tutor-service.js       # provider fallback, total time budget, shared record limit
+|-- anthropic-coach.js     # Anthropic Messages + owner-bound record tool adapter
+|-- ai-coach.js            # OpenAI text requests, safe failures, and timeouts
+|-- ai-record-coach.js     # OpenAI Responses + owner-bound record tool adapter
 |-- store.js               # zero-dep Postgres wire client; files remain the fallback
 |-- package.json           # no dependencies; scripts only
 |-- public/
@@ -554,7 +623,7 @@ DevDashCalc (repo root)
 
 An Astra study-coach box sits below every screen, with quick requests to pick
 a next step, find instructions, explain the current page, and check missing
-due dates. Replies identify GPT-6 Astra or the GPT-5.6 Sol fallback, link to
+due dates. Replies identify the actual configured model that answered, link to
 retrieved sources, show lookup limitations, and provide explicit navigation
 buttons. The student chooses each action. Conversations stay in tab memory
 and clear when the learner, course, terms, resource, or active question changes.
@@ -589,9 +658,16 @@ SQL or URL access. In account mode, the learner selector contains server-owned
 workspaces and every request independently verifies that ownership. The local
 legacy selector alone is not authentication.
 
-The implementation is in `public/page-coach.js`, `study-coach-context.js`,
-`canvas-retrieval.js`, and the server's `/api/canvas/coach` handler. It uses
-Node built-ins and the existing Replit `OPENAI_API_KEY`; no installation is needed.
+Tutor replies, source descriptions, and Canvas assessments show named Markdown
+references and plain web addresses as clickable links. The shared renderer
+preserves paragraphs, headings, lists, and tables, checks link destinations,
+and opens external references in a new tab only when selected. HTML, images,
+and code in a reply are never executed or automatically loaded.
+
+The implementation is in `public/page-coach.js`, `public/tutor-text.js`,
+`study-coach-context.js`, `canvas-retrieval.js`, and the server's
+`/api/canvas/coach` handler. It uses Node built-ins and the configurable tutor
+service described above; no installation is needed.
 
 ## Adding or editing content
 

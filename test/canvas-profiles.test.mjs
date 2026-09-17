@@ -136,6 +136,7 @@ async function startServer(secretEnv = {}) {
   child = spawn(process.execPath, ['--import', `data:text/javascript;base64,${Buffer.from(preload).toString('base64')}`, 'server.js'], {
     cwd: sandbox,
     env: { ...process.env, PORT: String(port), DATABASE_URL: '', AUTH_REQUIRED: '0', TUTOR_PROVIDERS: 'openai', OPENAI_API_KEY: 'test-model-secret',
+      TUTOR_MODEL_OPENAI: 'gpt-6-astra', TUTOR_MODEL_OPENAI_FALLBACK: 'gpt-5.6-sol', TUTOR_TIMEOUT_MS: '120000', TUTOR_TOTAL_TIMEOUT_MS: '240000',
       DEV_API_TOKEN: '', DEV_API_KEY: '', ESHA_API_TOKEN: '', DEV_CANVAS_PROFILE_ID: '', ESHA_CANVAS_PROFILE_ID: '',
       DEV_CANVAS_URL: '', ESHA_CANVAS_URL: '', CANVAS_BASE_URL: '', ...secretEnv },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -164,7 +165,7 @@ before(async () => {
   await mkdir(join(sandbox, 'public'));
   await mkdir(join(sandbox, 'data'));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
-  for (const file of ['server.js', 'store.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
+  for (const file of ['server.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
   await copyFile(new URL('../store.js', import.meta.url), join(sandbox, 'store-real.js'));

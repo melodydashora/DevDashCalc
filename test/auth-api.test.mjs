@@ -90,6 +90,7 @@ export function createContinuityStore() {
   };
 }`;
 const preload = `const gates = new Map();
+let assessmentGateUsed = false;
 process.on('message', message => { if (message.release) gates.get(message.release)?.(); });
 globalThis.fetch = async (input, options = {}) => {
   const url = new URL(String(input));
@@ -97,10 +98,15 @@ globalThis.fetch = async (input, options = {}) => {
   const answer = value => new Response(JSON.stringify(value), { headers: { 'content-type': 'application/json' } });
   if (url.origin === 'https://api.openai.com') {
     const payload = JSON.parse(options.body);
+    if (process.env.FIXTURE_ASSESSMENT_FAILURE_GATE === '1' && !assessmentGateUsed) {
+      assessmentGateUsed = true;
+      await new Promise(done => { gates.set('assessment-model', done); process.send({ waiting: 'assessment-model' }); });
+      return new Response(JSON.stringify({ error: { message: 'Fabricated model outage' } }), { status: 503 });
+    }
     if (url.pathname === '/v1/responses') {
       const content = [payload.instructions, ...payload.input.map(item => item.content || item.output || '')].join('\\n');
       const toolOutput = payload.input.find(item => item.type === 'function_call_output');
-      if (content.includes('fixture older saved note lookup') && !toolOutput) return answer({ status: 'completed', output: [{ type: 'function_call', call_id: 'fixture-older-note', name: 'read_student_records', arguments: JSON.stringify({ collection: 'saved_notes', offset: 30 }) }] });
+      if (content.includes('fixture older saved note lookup') && !toolOutput) return answer({ status: 'completed', usage: { output_tokens: 100 }, output: [{ type: 'function_call', call_id: 'fixture-older-note', name: 'read_student_records', arguments: JSON.stringify({ collection: 'saved_notes', offset: 30 }) }] });
       return answer({ status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: toolOutput ? toolOutput.output : content }] }] });
     }
     return answer({ choices: [{ finish_reason: 'stop', message: { content: payload.messages.map(item => item.content).join('\\n') } }] });
@@ -120,7 +126,7 @@ globalThis.fetch = async (input, options = {}) => {
 };`;
 let sandbox, fixture;
 const children = new Set();
-const serverFixtureFiles = ['server.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
+const serverFixtureFiles = ['server.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
   'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
 async function start(extra = {}, directory = sandbox) {
   const socket = createServer();
@@ -131,6 +137,7 @@ async function start(extra = {}, directory = sandbox) {
   const child = spawn(process.execPath, ['--import', `data:text/javascript;base64,${Buffer.from(preload).toString('base64')}`, 'server.js'], {
     cwd: directory,
     env: { ...process.env, PORT: String(port), AUTH_REQUIRED: '1', AUTH_ALLOW_SIGNUP: '0',
+      TUTOR_PROVIDERS: 'openai', TUTOR_MODEL_OPENAI: 'gpt-6-astra', TUTOR_MODEL_OPENAI_FALLBACK: 'gpt-5.6-sol', TUTOR_TIMEOUT_MS: '120000', TUTOR_TOTAL_TIMEOUT_MS: '240000',
       DATABASE_URL: 'postgres://fixture:fixture@127.0.0.1:1/fake', SESSION_SECRET: 'fixture-session-secret-for-isolated-http-tests',
       OPENAI_API_KEY: 'fixture-provider-key', DEV_API_TOKEN: 'fixture-canvas-secret', DEV_API_KEY: '', ESHA_API_TOKEN: '',
       DEV_CANVAS_PROFILE_ID: 'profile-a', ESHA_CANVAS_PROFILE_ID: 'bound-esha',
@@ -391,6 +398,54 @@ test('logout suppresses an already-running Canvas response and its stale cookies
   assert.equal(result.data.code, 'authentication_required');
   assert.equal(result.response.headers.get('set-cookie'), null);
   assert.doesNotMatch(JSON.stringify(result.data), /Private fixture course/);
+});
+
+test('Canvas assessment cannot start a fallback after account logout or Canvas disconnect', async () => {
+  for (const change of ['logout', 'disconnect']) {
+    const directory = join(sandbox, `assessment-guard-${change}`);
+    for (const name of ['public', 'data', 'content']) await mkdir(join(directory, name), { recursive: true });
+    await writeFile(join(directory, 'package.json'), '{"type":"module"}');
+    for (const file of serverFixtureFiles) await copyFile(join(sandbox, file), join(directory, file));
+    await writeFile(join(directory, 'store.js'), storeStub);
+    await writeFile(join(directory, 'auth.js'), authStub);
+    await writeFile(join(directory, 'continuity-store.js'), continuityStub);
+    await writeFile(join(directory, 'account-store.js'), 'export const createAccountStore = () => ({});');
+    const isolated = await start({ FIXTURE_ASSESSMENT_FAILURE_GATE: '1' }, directory);
+    const waitingFor = key => new Promise((done, reject) => {
+      const timeout = setTimeout(() => { isolated.child.off('message', receive); reject(new Error(`Missing isolated gate ${key}`)); }, 5000);
+      const receive = message => {
+        if (message.waiting !== key) return;
+        clearTimeout(timeout); isolated.child.off('message', receive); done();
+      };
+      isolated.child.on('message', receive);
+    });
+    let pending;
+    try {
+      const alice = await login('alice', isolated);
+      assert.equal((await isolated.api('/api/canvas/session', { cookie: alice.cookie })).data.connected, true);
+      const canvasReady = waitingFor('canvas-courses'), modelReady = waitingFor('assessment-model');
+      pending = isolated.api('/api/canvas/assessment', { method: 'POST', cookie: alice.cookie, body: {} });
+      await canvasReady;
+      isolated.child.send({ release: 'canvas-courses' });
+      await modelReady;
+      const changed = change === 'logout'
+        ? await isolated.api('/api/auth/logout', { method: 'POST', cookie: alice.cookie, body: {} })
+        : await isolated.api('/api/canvas/session', { method: 'DELETE', cookie: alice.cookie });
+      assert.equal(changed.status, 200);
+      isolated.child.send({ release: 'assessment-model' });
+      const result = await pending;
+      assert.equal(result.status, change === 'logout' ? 401 : 409);
+      assert.equal(isolated.calls.filter(call => call.providerCall === 'https://api.openai.com').length, 1,
+        'a stale assessment must never send its Canvas snapshot to the fallback model');
+      assert.doesNotMatch(JSON.stringify(result.data), /Private fixture course|Fabricated model outage/);
+      assert.equal(result.response.headers.get('set-cookie'), null);
+    } finally {
+      isolated.child.send({ release: 'canvas-courses' });
+      isolated.child.send({ release: 'assessment-model' });
+      if (pending) await pending;
+      await stop(isolated);
+    }
+  }
 });
 
 test('server and data files are never static assets, even for a signed-in account', async () => {
