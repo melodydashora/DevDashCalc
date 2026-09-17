@@ -1,6 +1,6 @@
 // Supported inline Markdown rendered as DOM nodes; model text is never HTML.
 const MAX_TEXT = 24000;
-const APP_ROUTE = /^#\/(?:home|focus|mixed|review|settings|diagnostic|canvas(?:\/(?:plan|grades|assessment|course\/[0-9]+))?|(?:unit|practice|mastery)\/[a-z0-9-]{1,64}|lesson\/[a-z0-9-]{1,64}\/[a-z0-9-]{1,64})$/;
+const APP_ROUTE = /^#\/(?:home|library|build|mystery|focus|mixed(?:\/(?:sat|algebra))?|plans(?:\/(?:course\/[0-9]{1,20}|[a-z0-9-]{1,64}))?|review|settings|diagnostic|canvas(?:\/(?:plan|grades|assessment|course\/[0-9]+))?|(?:unit|practice|mastery)\/[a-z0-9-]{1,64}|lesson\/[a-z0-9-]{1,64}\/[a-z0-9-]{1,64})$/;
 const UNSAFE_URL = /[\u0000-\u0020\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069<>"'\\]|%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/i;
 const URL_CONTROL = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069]/;
 

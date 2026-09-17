@@ -1,0 +1,26 @@
+.study-plan-form,.study-plan-draft,.saved-plan-open{display:grid;gap:1rem}
+.study-plan-form h2,.study-plan-draft h2,.saved-plan-open h2{margin-bottom:0}
+.plan-fields{display:grid;grid-template-columns:minmax(180px,2fr) minmax(120px,1fr);gap:1rem;align-items:start}
+.plan-field{display:grid;gap:.4rem;font-weight:600;min-width:0}
+.plan-field input,.plan-field select,.plan-field textarea{box-sizing:border-box;width:100%;min-width:0;font:inherit}
+.plan-field textarea{resize:vertical;min-height:5rem}
+.plan-field[hidden]{display:none}
+.plan-sat-fields{border:1px solid var(--border,#96a0aa);border-radius:.6rem;padding:1rem;min-width:0}
+.plan-sat-fields[hidden]{display:none}
+.plan-sat-fields legend{font-weight:700;padding:0 .35rem}
+.plan-status{min-height:1.5em;margin:.3rem 0;overflow-wrap:anywhere}
+.plan-step-editors{display:grid;gap:1rem}
+.plan-step-editor{display:grid;grid-template-columns:minmax(0,1fr);gap:.8rem;padding:1rem;border:1px solid var(--border,#96a0aa);border-radius:.6rem;min-width:0}
+.plan-step-editor legend{font-weight:700;padding:0 .35rem}
+.saved-plan-grid,.saved-topic-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:1rem}
+.saved-plan-summary,.saved-topic-card{min-width:0;overflow-wrap:anywhere}
+.saved-plan-summary .kicker,.saved-topic-card .kicker{display:block;overflow-wrap:anywhere}
+.saved-plan-steps{display:grid;gap:1rem;padding-left:1.5rem}
+.saved-plan-step{padding:.6rem .2rem;overflow-wrap:anywhere}
+.plan-step-check{display:flex;gap:.75rem;align-items:flex-start;cursor:pointer}
+.plan-step-check input{flex:0 0 auto;margin-top:.3rem;min-width:1.2rem;min-height:1.2rem}
+.plan-topic-list{padding-left:1.3rem}
+.plan-topic-list li{margin:.4rem 0}
+.home-study-tools{display:flex;gap:1rem;flex-wrap:wrap}
+.saved-plans,.saved-plan-detail,.plan-draft-slot{margin-top:1.5rem}
+@media(max-width:640px){.plan-fields{grid-template-columns:minmax(0,1fr)}.study-plan-form .btn-row,.study-plan-draft .btn-row{align-items:stretch;flex-direction:column}}

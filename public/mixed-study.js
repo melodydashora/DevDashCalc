@@ -2,6 +2,7 @@
 // answer keys, grading and adaptation; this view never guesses correctness.
 import { apiFetch } from './auth-ui.js';
 import { appendTutorInline } from './tutor-text.js';
+import { getQuestionModel, mountQuestionModel } from './question-models.js';
 const workspaces = new Map();
 let nextViewId = 0;
 
@@ -48,7 +49,19 @@ export function appendMixedPrompt(container, value) {
 
 export function mixedSubjectLabel(subject) {
   if (/^physics/.test(String(subject))) return 'AP Physics 1';
+  if (subject === 'sat') return 'SAT practice';
+  if (subject === 'algebra') return 'Algebra';
   return subject === 'calculus-bc' ? 'AP Calculus BC' : 'Study topic';
+}
+
+export function mixedPresetTopicIds(topics, { initialSubject, initialTopicIds } = {}) {
+  const known = new Set(topics.map(topic => topic.id));
+  if (Array.isArray(initialTopicIds)) {
+    const selected = [...new Set(initialTopicIds.filter(id => known.has(id)))];
+    if (selected.length) return selected;
+  }
+  const selected = topics.filter(topic => topic.subject === initialSubject || topic.courseScopes?.includes(initialSubject)).map(topic => topic.id);
+  return selected.length ? selected : topics.map(topic => topic.id);
 }
 
 export function mixedSummaryAfter(current, incoming) {
@@ -82,10 +95,11 @@ function newWorkspace() {
  * cleanup.markAssisted() records received pre-answer help in the current view;
  * the server remains authoritative. Cleanup pauses this in-memory workspace.
  */
-export function mountMixedStudy(container, { profileId = 'learner', renderMath, onQuestionContext, onAskCoach, request } = {}) {
+export function mountMixedStudy(container, { profileId = 'learner', renderMath, onQuestionContext, onAskCoach, request, initialSubject, initialTopicIds, motion } = {}) {
   const profile = String(profileId); const viewId = `mixed-${++nextViewId}`;
   if (!workspaces.has(profile)) workspaces.set(profile, newWorkspace());
   const state = workspaces.get(profile);
+  if (!state.sessionId && state.topics.length && (initialSubject || initialTopicIds)) state.topicIds = mixedPresetTopicIds(state.topics, {initialSubject,initialTopicIds});
   const storageKey = `students4ai-mixed-${profile}`;
   let storedDraft = null;
   if (!state.sessionId && !state.topics.length) {
@@ -102,6 +116,8 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
   const disabledBeforeRequest = new WeakMap();
   let disposed = false; let busy = false; let generation = 0; let pending = null; let retry = null;
   let shell; let region; let status; let toolbar; let topicEditor = null;
+  let modelCleanup = null;
+  const openedModels = new Set();
   const send = request || (async (path, body, { signal, method }) => {
     const response = await apiFetch(`${path}${path.includes('?') ? '&' : '?'}profile=${encodeURIComponent(profile)}`, {
       method: method || (body ? 'POST' : 'GET'), signal,
@@ -192,8 +208,8 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
       return saved.question ? saved : api('next', { sessionId: state.sessionId }, signal);
     }, 'Restoring your current question and checked progress.', (result) => { reconcile(result, false); queueMicrotask(focusTitle); });
   }
-  function nextQuestion() {
-    operation((signal) => api('next', { sessionId: state.sessionId }, signal), 'Preparing your next verified question.', (result) => {
+  function nextQuestion(mode = 'adaptive') {
+    operation((signal) => api('next', { sessionId: state.sessionId, mode }, signal), mode === 'wording' ? 'Preparing a wording review of the same problem.' : 'Preparing your next verified question.', (result) => {
       acceptQuestion(result); queueMicrotask(focusTitle);
     });
   }
@@ -234,15 +250,15 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
 
   function makeTopicPicker(selectedIds, { editing = false } = {}) {
     const form = node('form', 'mixed-topic-form');
-    const intro = node('p', 'mixed-muted', editing ? 'Changes apply to the next question. Finish the question already on screen first.' : 'Choose any combination. The session can move between Physics and Calculus BC.');
+    const intro = node('p', 'mixed-muted', editing ? 'Changes apply to the next question. Finish the question already on screen first.' : 'Choose any combination of Algebra, Physics, Calculus and SAT topics.');
     form.appendChild(intro);
     form.appendChild(node('p', 'mixed-muted', 'Topic choices here are separate from the Studying menu above.'));
     const groups = node('div', 'mixed-topic-groups');
-    for (const isPhysics of [true, false]) {
-      const topics = state.topics.filter((topic) => /physics/.test(topic.subject) === isPhysics);
+    for (const subject of ['algebra','physics','calculus-bc','sat']) {
+      const topics = state.topics.filter((topic) => topic.subject === subject);
       if (!topics.length) continue;
-      const group = node('fieldset', `mixed-topic-group ${isPhysics ? 'mixed-physics' : 'mixed-calculus'}`);
-      group.appendChild(node('legend', '', isPhysics ? 'AP Physics 1' : 'AP Calculus BC'));
+      const group = node('fieldset', `mixed-topic-group mixed-${subject}`);
+      group.appendChild(node('legend', '', mixedSubjectLabel(subject)));
       const groupActions = node('div', 'mixed-topic-shortcuts');
       const chooseGroup = (value) => { for (const box of group.querySelectorAll('input')) box.checked = value; };
       groupActions.append(button('Select all', () => chooseGroup(true), 'quiet'), button('Clear', () => chooseGroup(false), 'quiet'));
@@ -250,7 +266,7 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
       for (const topic of topics) {
         const label = node('label', 'mixed-topic-option'); const input = node('input'); input.type = 'checkbox'; input.value = topic.id; input.name = 'topic'; input.checked = selectedIds.includes(topic.id);
         const copy = node('span'); copy.appendChild(node('span', 'mixed-topic-title', String(topic.title)));
-        if (topic.description) copy.appendChild(node('small', '', String(topic.description)));
+        if (topic.description) copy.appendChild(node('small', '', (subject === 'sat' ? `${topic.domainGroup}: ` : '') + String(topic.description)));
         label.append(input, copy); group.appendChild(label);
       }
       groups.appendChild(group);
@@ -285,9 +301,9 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
     const panel = node('section', 'card mixed-setup');
     panel.appendChild(node('h2', '', 'Choose your topics'));
     const rules = node('ul', 'mixed-rules');
-    for (const text of ['Choose topics from either or both courses.', 'Select an answer, then Check answer. Questions never advance on their own.', 'A wrong answer leads to a focused follow-up. Two correct answers without help on a topic can increase its difficulty.', 'Hints and received Astra help are counted separately. Pause or finish whenever you need.']) rules.appendChild(node('li', '', text));
+    for (const text of ['Choose one subject or mix topics from several subjects.', 'Select an answer, then Check answer. Questions never advance on their own.', 'After checking, choose adaptive practice, a wording review of the same problem, or a fresh challenge on that topic.', 'A wrong answer leads to a focused follow-up. Two correct answers without help can increase the local practice level. SAT reading levels use distinct authored passages; the levels are not official exam calibrations.', 'Hints and received Astra help are counted separately. Pause or finish whenever you need.']) rules.appendChild(node('li', '', text));
     panel.appendChild(rules);
-    panel.appendChild(node('p', 'mixed-muted', 'Generated practice uses verified answer keys. It is not a released AP exam or a mastery check. No timer is required.'));
+    panel.appendChild(node('p', 'mixed-muted', 'Original practice uses verified answer keys. SAT includes starter questions in all four Math and all four Reading and Writing domains; it is not a full SAT course, official exam, calibrated score estimate, or mastery check. Levels are locally authored. No timer is required.'));
     panel.appendChild(node('p', 'mixed-muted', 'Decimal choices use eight significant digits. A follow-up may keep the same concept and level so you can practise the missed step.'));
     panel.appendChild(node('p', 'mixed-muted', 'This tab remembers your session when you reload. The server keeps session records for up to six hours, or until it restarts.'));
     panel.appendChild(makeTopicPicker(state.topicIds)); region.appendChild(panel);
@@ -302,17 +318,31 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
     const assisted = Number(state.summary.assisted ?? state.summary.assistedCount);
     if (Number.isFinite(independent)) tags.appendChild(node('span', '', `${independent} independent correct`));
     if (Number.isFinite(assisted)) tags.appendChild(node('span', '', `${assisted} with help`));
+    if (state.summary.reviewed) tags.appendChild(node('span', '', `${state.summary.reviewed} review answers`));
     strip.appendChild(tags); region.appendChild(strip);
   }
   function renderQuestion() {
     renderProgress();
-    const question = state.question; const topic = currentTopic(); const physics = /physics/.test(question.subject);
-    const card = node('section', `card mixed-question ${physics ? 'mixed-physics' : 'mixed-calculus'}`);
+    const question = state.question; const topic = currentTopic();
+    const card = node('section', `card mixed-question mixed-${question.subject}`);
     const top = node('div', 'mixed-question-top');
-    top.append(node('span', 'mixed-subject-tag', mixedSubjectLabel(question.subject)), node('span', 'mixed-level-tag', `Level ${question.difficulty || 1} of 3`)); card.appendChild(top);
+    top.append(node('span', 'mixed-subject-tag', mixedSubjectLabel(question.subject)), node('span', 'mixed-level-tag', topic?.adaptiveDifficulty === false ? 'Starter passage set' : `Practice level ${question.difficulty || 1} of 3`)); card.appendChild(top);
     const heading = node('h2', '', topic?.title || 'Mixed study question'); heading.tabIndex = -1; card.appendChild(heading);
     const why = node('div', 'mixed-why'); why.append(node('strong', '', 'Why this question'), linkedNode('p', '', state.reason)); card.appendChild(why);
     const prompt = node('div', 'mixed-prompt'); appendMixedPrompt(prompt, question.prompt); card.appendChild(prompt);
+    if (question.reviewOnly) card.appendChild(node('p', 'mixed-review-note', 'Review only: this answer does not add independent evidence or change the practice level.'));
+    const model = node('div', 'mixed-question-model'); card.appendChild(model);
+    const descriptor = getQuestionModel(question);
+    if (descriptor?.mode === 'givens' || state.feedback || openedModels.has(question.id)) modelCleanup = mountQuestionModel(model, {question,motion});
+    else if (descriptor) {
+      model.appendChild(button('Explore a learning model', () => operation(
+        signal => api('assisted', {sessionId:state.sessionId,questionId:question.id}, signal),
+        'Recording learning-model help before opening the example.', result => {
+          if (result.assisted !== true) throw new Error('Help could not be recorded. Try again to open the learning model.');
+          state.assisted = true; summary(result); openedModels.add(question.id);
+        })));
+      model.appendChild(node('p', 'mixed-muted', 'Opening this example or strategy counts as help for the current answer.'));
+    }
     card.appendChild(node('p', 'mixed-source', question.model || question.provider ? `Question wording: ${mixedProviderLabel(question.model || question.provider, question.fallback)}. Answer checked independently.` : 'Generated from a verified question template. Astra is available for explanations.'));
     const options = node('fieldset', 'mixed-answer-options');
     options.appendChild(node('legend', 'visually-hidden', 'Choose one answer'));
@@ -337,6 +367,10 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
     } else {
       const feedback = node('section', `mixed-feedback ${state.feedback.correct ? 'is-correct' : 'is-not-yet'}`);
       const title = node('h3', '', state.feedback.correct ? 'Correct.' : 'Not yet.'); title.tabIndex = -1; feedback.appendChild(title);
+      if(state.feedback.historyNotice){
+        const notice=node('p','mixed-history-notice',state.feedback.historyNotice);notice.setAttribute('role','status');feedback.appendChild(notice);
+        feedback.appendChild(button('Retry saving this answer',()=>operation(signal=>api('answer',{sessionId:state.sessionId,questionId:question.id,answerIndex:state.feedback.chosenIndex},signal),'Saving the checked answer to practice history.',result=>{state.feedback=result;summary(result);})));
+      }
       if (state.assisted) feedback.appendChild(node('p', 'mixed-help-note', 'Recorded with help. This practice still guides your next question.'));
       if (state.feedback.misconception) feedback.appendChild(linkedNode('p', '', state.feedback.misconception));
       if (Number.isInteger(state.feedback.answerIndex) && question.choices[state.feedback.answerIndex] !== undefined) feedback.appendChild(node('p', 'mixed-verified-answer', `Verified answer: ${String.fromCharCode(65 + state.feedback.answerIndex)}. ${question.choices[state.feedback.answerIndex]}`));
@@ -355,8 +389,11 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
       card.appendChild(feedback);
       const actions = node('div', 'btn-row');
       if (state.target && state.completed >= state.target) actions.appendChild(button('See session summary', finish, ''));
-      else actions.appendChild(button('Next question', nextQuestion, ''));
+      else actions.appendChild(button('Next question', () => nextQuestion('adaptive'), ''));
+      actions.appendChild(button('Same problem, new wording', () => nextQuestion('wording')));
+      actions.appendChild(button('New challenge on this topic', () => nextQuestion('challenge')));
       card.appendChild(actions);
+      card.appendChild(node('p', 'mixed-muted', 'Wording review keeps the same givens and answer. A new challenge changes the problem and prefers a different form when the topic supports one. Finite sets may repeat, and repeats are labeled.'));
     }
     const coach = node('aside', 'mixed-coach-callout'); coach.append(node('h3', '', 'Astra can help with this question'), node('p', '', 'Use the Astra study coach at the bottom of this page to ask about the idea, your first step, or a coding example.'));
     if (onAskCoach) coach.appendChild(button('Ask Astra about this question', () => onAskCoach(state.feedback ? 'Explain the worked solution for this question one step at a time.' : 'Help me understand the idea in this question without giving away the answer.')));
@@ -370,7 +407,7 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
   }
   function renderComplete() {
     renderProgress(); const card = node('section', 'card mixed-complete'); const title = node('h2', '', 'Session complete'); title.tabIndex = -1;
-    card.append(title, node('p', '', `${state.completed} ${state.completed === 1 ? 'question answered' : 'questions answered'}. This is practice progress, not an AP score or an independent mastery pass.`));
+    card.append(title, node('p', '', `${state.completed} ${state.completed === 1 ? 'question answered' : 'questions answered'}. This is practice progress, not an AP or SAT score or an independent mastery pass.`));
     if (state.summary.nextStep) card.appendChild(node('p', 'mixed-next-step', String(state.summary.nextStep)));
     if (Array.isArray(state.summary.byTopic)) {
       const list = node('ul', 'mixed-summary-topics');
@@ -388,8 +425,9 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
   }
   function render() {
     if (disposed) return;
+    modelCleanup?.(); modelCleanup = null;
     container.replaceChildren(); shell = node('section', 'mixed-study'); shell.setAttribute('aria-label', 'Mixed adaptive study');
-    const header = node('div', 'mixed-heading'); header.append(node('p', 'mixed-eyebrow', 'SELECT TOPICS / SOLVE / ADAPT'), node('h1', '', 'Mixed study lab'), node('p', '', 'Physics and Calculus BC in one adaptive session.'));
+    const header = node('div', 'mixed-heading'); header.append(node('p', 'mixed-eyebrow', 'SELECT TOPICS / SOLVE / ADAPT'), node('h1', '', 'Mixed study lab'), node('p', '', 'Algebra, AP Physics 1, Calculus and SAT practice in one adaptive session.'));
     shell.appendChild(header); toolbar = node('div', 'mixed-toolbar');
     if (state.sessionId && ['question', 'feedback', 'paused'].includes(state.phase)) {
       if (state.phase !== 'paused') toolbar.appendChild(button('Pause session', pause));
@@ -420,7 +458,7 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
     return result;
   }, 'Loading available topics and any saved session.', (result) => {
     if (!Array.isArray(result.topics) || !result.topics.length) throw new Error('No study topics are available yet. Try again.');
-    state.topics = result.topics; state.topicIds = result.topics.map((topic) => topic.id);
+    state.topics = result.topics; state.topicIds = mixedPresetTopicIds(result.topics, {initialSubject,initialTopicIds});
     if (result.restoredSession) {
       reconcile(result.restoredSession);
     }
@@ -435,6 +473,7 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
   const cleanup = () => {
     if (disposed) return;
     disposed = true; generation += 1; pending?.abort();
+    modelCleanup?.(); modelCleanup = null;
     if (['question', 'feedback'].includes(state.phase)) { state.resumePhase = state.phase; state.phase = 'paused'; }
     onQuestionContext?.(null); container.replaceChildren();
   };

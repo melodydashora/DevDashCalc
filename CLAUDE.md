@@ -4,12 +4,16 @@ Read this before changing anything. It is short on purpose.
 
 ## What this is
 
-An interactive learning lab with AP Calculus BC as the primary course,
-an AB course view for other learners, adaptive practice, and Canvas pacing.
+An interactive learning workspace with saved course plans, Canvas pacing,
+an AP Calculus BC/AB lesson and mastery library, and original adaptive
+SAT, Algebra, Physics 1, and Calculus practice. Home shows actual classes
+and saved plan topics; Course library holds independent curriculum resources.
 Melody's September 14, 2026 direction explicitly replaces the former
 motion-free, locked-unit design: make it animated and interactive, adapt as
-students improve, and keep every module open. The intended future domain is
-students4ai.com; that does not authorize buying or connecting a domain.
+students improve, and keep every module open. `docs/deployment.md` records the
+existing Replit configuration and separates the previously recorded host from
+unverified custom-domain plans. Do not infer a domain purchase or connection
+from a product name.
 
 ## Non-negotiable design invariants
 
@@ -62,9 +66,14 @@ Breaking any of these is a regression even if the code works:
 | Animated coding lab with learner-controlled motion | `public/study-lab.js` |
 | Optional native WebGL vector lab with 2D fallback | `public/spatial-lab.js` |
 | Study session planner with optional elapsed clock | `public/focus-planner.js` |
-| Mixed Physics/BC topic picker, questions, pause and resume | `public/mixed-study.js`, `public/mixed-study.css` |
-| Computed question generators and private adaptive session service | `mixed-question-bank.js`, `mixed-practice.js`, `mixed-practice-api.js` |
-| BC/AB content and Canvas subject selection (pure, tested) | `public/courses.js` |
+| Saved plan drafts, explicit save, and completion UI/service | `public/study-plans.js`, `study-plans.js` |
+| Canonical checked-attempt summaries and learner-facing observations | `practice-history.js`, `public/practice-insights.js` |
+| Mixed topic picker, SAT/Algebra presets, questions, pause and resume | `public/mixed-study.js`, `public/mixed-study.css` |
+| Computed question generators and private adaptive session service | `mixed-question-bank.js`, `mixed-sat-bank.js`, `mixed-ap-variants.js`, `mixed-practice.js`, `mixed-practice-api.js` |
+| Safe given diagrams and independent interactive examples | `public/question-models.js`, `public/question-models.css` |
+| Editable original-practice requests and curated model previews | `public/practice-builder.js`, `public/practice-builder.css` |
+| Three optional, ungraded evidence/inference/grammar cases | `public/evidence-mystery.js`, `public/evidence-mystery.css` |
+| BC/AB content scope and study-subject selection (pure, tested) | `public/courses.js` |
 | Student home course timing, current terms, and refresh rules (pure, tested) | `public/student-home.js` |
 | Responsive, themeable design system | `public/styles.css` |
 | Curriculum data | `content/unit-NN.json`, `content/manifest.json` |
@@ -276,11 +285,15 @@ labels identifying Fable, Opus, Astra, Sol, or another configured model.
   Late results must never appear under a newer scope. Source material is
   untrusted data; never render it or model replies as executable HTML.
 
-## Mixed generated practice invariants (Dev, September 14, 2026)
+## Plans, generated practice, and models (September 17, 2026)
 
-- Mixed practice is an independent topic selection across Physics 1 and BC;
-  it is not limited by the global Studying menu or Canvas course selection.
-- The 60 generator families supply computed keys on the server. Do not serve
+- Mixed practice has 32 topics: 8 Physics, 12 Calculus BC, 8 SAT, 4 Algebra.
+  Course presets preserve scope; a learner may explicitly select other topics.
+  The finite bank contains 60 AP base families plus 6 alternate forms, 24
+  SAT Math and 24 Algebra level/form combinations, and 32 distinct Reading
+  and Writing passages (16/8/8 across three locally authored levels).
+  See `docs/generated-practice-implementation.md` and `docs/exam-practice-scope.md`.
+- Verified generator families supply computed keys on the server. Do not serve
   the bank, numeric answers, parameters, or unseen hints to the browser.
   AI explains a canonical stored generated question and never grades it.
 - Wrong answers get one same-concept variation before fair topic/subject
@@ -294,11 +307,36 @@ labels identifying Fable, Opus, Astra, Sol, or another configured model.
   Sessions are profile-scoped server memory, expire after six hours, and
   hold at most 200 questions. Account mode adds the server ownership boundary;
   the standalone profile selector in legacy mode does not authenticate a user.
+- Checked-attempt history is separate and durable. Only canonical server
+  answers and assistance revisions may append it; never accept client
+  correctness/help flags. Deduplicate attempts and preserve later assistance.
+  A failed save must preserve grading, disclose the failure, and support an
+  idempotent retry. Never turn an unreadable history into an empty result.
+- Saved plans require explicit learner save. Validate model drafts as data,
+  preserve the selected course and goal, and accept only allowed internal links.
+  Plan/attempt records use their own append-only database keys, not whole-state
+  progress replacement. Account mode requires database storage; private local
+  mode can use atomic files. Coach record tools remain owner-bound and read-only.
 - Every Resume/remount reconciles canonical server state. An idempotent
   request must preserve disclosed hints, submitted answers, and assistance.
   Topic changes preserve the current question and apply to the next one.
 - Avoid previously seen prompt variants with bounded sampling; disclose
-  repeats when finite families are exhausted. Keep scope limitations honest.
+  repeats when finite families are exhausted. Wording-only reviews keep the
+  same givens/key and never alter independent credit, streaks, or level.
+  A different challenge seeks a supported form; it cannot promise unlimited
+  distinct reasoning. Practice observations and review intervals are not
+  official scores, a diagnosis, or a guarantee of readiness.
+- `question-models.js` accepts only allowlisted givens. Independent examples
+  must be labeled and must not reconstruct hidden parameters. Before grading,
+  opening an example/strategy counts as help; mixed practice requires successful
+  server assistance marking before opening. Supplied-givens diagrams are part
+  of the question. Preserve text alternatives, keyboard controls, motion
+  preferences, and cleanup on rerender/navigation.
+- Build with Astra fills an editable coach prompt; it does not auto-send,
+  execute generated scripts, or insert unverified questions into a graded bank.
+  Evidence mysteries are optional local puzzles with public keys, no score or
+  mastery credit, and no persisted progress. Correct checks unlock only the
+  next stage in that case; all other activities remain available.
 - Run bank mathematical/property/render tests and independently solve a
   blind example before changing a generator's formula or key.
 

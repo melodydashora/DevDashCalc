@@ -37,6 +37,11 @@ globalThis.fetch = async (url, options = {}) => {
     const payload = JSON.parse(options.body);
     if (payload.messages.some(message => message.content === 'fixture-study-refusal')) return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { refusal: 'This fixture refuses the request.', content: null } }] }), { status: 200 });
     if (payload.messages.some(message => message.content === 'coach-reply-gate')) await waitForTest('coach-reply-gate');
+    if (payload.messages.some(message => typeof message.content === 'string' && message.content.includes('study-plan-draft-gate'))) {
+      await waitForTest('study-plan-draft-gate');
+      const plan = { title: 'Original connection study plan', topics: ['Limits'], steps: [{ title: 'Recall a rule', detail: 'Explain continuity.', minutes: 5 }, { title: 'Try an example', detail: 'Compare two limits.', minutes: 15 }] };
+      return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(plan) } }] }), { status: 200 });
+    }
     return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: payload.messages.map(m => m.content).join('\\n') } }] }), { status: 200 });
   }
   if (address.origin === 'https://docs.google.com') {
@@ -165,7 +170,7 @@ before(async () => {
   await mkdir(join(sandbox, 'public'));
   await mkdir(join(sandbox, 'data'));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
-  for (const file of ['server.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
+  for (const file of ['server.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-plans.js', 'practice-history.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
   await copyFile(new URL('../store.js', import.meta.url), join(sandbox, 'store-real.js'));
@@ -372,6 +377,33 @@ test('a pending coach reply cannot return old-account data or a stale cookie aft
   assert.doesNotMatch(current.data.text, /Original learner/);
   const history = JSON.parse(await readFile(join(sandbox, `data/cv-rule-${profile}.json`), 'utf8'));
   assert.deepEqual([...new Set(history.map(entry => entry.canvasIdentity))].sort(), ['https://school.example|100', 'https://school.example|200'], 'source history retains both accounts without mixing them into a response');
+});
+
+test('a pending Canvas study-plan draft is rejected after disconnect or same-course-id reconnect', async () => {
+  for (const action of ['disconnect', 'reconnect']) {
+    const profile = 'plan-race-' + action;
+    const connected = await connect(profile, originalToken, false);
+    assert.equal(connected.status, 200);
+    const reached = waitingFor('study-plan-draft-gate');
+    const pending = fetch(`${base}/api/study-plans/draft?profile=${profile}`, {
+      method: 'POST', headers: { 'content-type': 'application/json', cookie: connected.cookie },
+      body: JSON.stringify({ course: { id: '99', name: 'Untrusted course label', subject: 'all' }, goal: 'study-plan-draft-gate', minutes: 20 }),
+    });
+    await reached;
+    try {
+      const change = action === 'disconnect'
+        ? await api('session', { profile, method: 'DELETE', cookie: connected.cookie })
+        : await connect(profile, eshaToken, false);
+      assert.equal(change.status, 200);
+    } finally { child.send({ release: 'study-plan-draft-gate' }); }
+    const response = await pending, result = await response.json();
+    assert.equal(response.status, 409, action);
+    assert.equal(result.reason, 'connection-changed', action);
+    assert.equal(response.headers.get('set-cookie'), null, 'a stale response cannot replace the new connection cookie');
+    assert.doesNotMatch(JSON.stringify(result), /Original learner|Original connection|Limits/);
+    const saved = await (await fetch(`${base}/api/study-plans?profile=${profile}`)).json();
+    assert.deepEqual(saved.plans, [], 'the canceled draft must never be saved');
+  }
 });
 
 test('copying another workspace cookie cannot expose or invalidate that workspace session', async () => {

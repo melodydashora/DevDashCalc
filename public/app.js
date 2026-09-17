@@ -13,6 +13,9 @@ import { apiFetch, captureEnrollment, isSignupRoute, accountGateKey, getAccountS
 import { mountStudentMemos, saveStudentMemo } from '/continuity-ui.js';
 import { homeCourseGroups, currentHomeTermIds, canvasRefreshDue } from '/student-home.js';
 import { mountCanvasAccount } from '/canvas-account.js';
+import { mountStudyPlans, mountHomeStudyPlans } from '/study-plans.js';
+import { getQuestionModel, mountQuestionModel } from '/question-models.js';
+import { mountPracticeInsights } from '/practice-insights.js';
 
 // ---------------------------------------------------------------- data & state
 const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [], freeResponse: [] };
@@ -23,6 +26,11 @@ let tickTimer = null;        // optional elapsed-time display
 let labCleanup = null;
 let spatialCleanup = null;
 let focusCleanup = null;
+let studyPlansCleanup = null;
+let practiceBuilderCleanup = null;
+let evidenceMysteryCleanup = null;
+let practiceInsightsCleanup = null;
+const questionModelCleanups = new Set();
 let pageCoachCleanup = null;
 let activeQuestionCoach = null;
 let mixedCleanup = null;
@@ -312,7 +320,7 @@ function studyControls() {
     if (CANVAS.snapshot) canvasRebuildInsights();
     save();
     if (location.hash.startsWith('#/canvas/course/')) location.hash = '#/canvas';
-    else if (location.hash.startsWith('#/canvas') || location.hash === '#/focus' || location.hash === '#/mixed') router();
+    else if (location.hash.startsWith('#/canvas') || location.hash === '#/focus' || location.hash.startsWith('#/mixed') || location.hash.startsWith('#/plans') || location.hash === '#/library' || location.hash === '#/build') router();
       else navigateHome();
     });
   }
@@ -391,6 +399,12 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   canvasBackgroundRefresh = null;
   memosCleanup?.(); memosCleanup = null;
   canvasAccountCleanup?.(); canvasAccountCleanup = null;
+  studyPlansCleanup?.(); studyPlansCleanup = null;
+  practiceBuilderCleanup?.(); practiceBuilderCleanup = null;
+  evidenceMysteryCleanup?.(); evidenceMysteryCleanup = null;
+  practiceInsightsCleanup?.(); practiceInsightsCleanup = null;
+  for (const cleanup of questionModelCleanups) cleanup();
+  questionModelCleanups.clear();
   activeQuestionCoach = null;
   if (mixedCleanup) { mixedCleanup(); mixedCleanup = null; }
   activeMixedQuestion = null;
@@ -457,6 +471,8 @@ function mountQuestion(container, unit, q, opts, done) {
   let selected = null;
   let hintsUsed = 0;
   let aiHelpUsed = false;
+  let answerChecked = false;
+  let modelSummary = null;
 
   const mcHtml = q.type === 'mc'
     ? `<div class="choices" role="group" aria-label="Answer choices">
@@ -488,6 +504,23 @@ function mountQuestion(container, unit, q, opts, done) {
     </div>`;
 
   renderMath(container);
+  if (getQuestionModel(q)) {
+    const questionCard = container.firstElementChild;
+    const layout = document.createElement('div'); layout.className = 'question-model-layout';
+    const slot = document.createElement('aside'); slot.className = 'question-model-slot';
+    container.appendChild(layout); layout.append(questionCard, slot);
+    const disclosure = document.createElement('details'); disclosure.className = 'card';
+    modelSummary = document.createElement('summary'); modelSummary.textContent = 'Explore a learning model (counts as help before checking)';
+    const modelHost = document.createElement('div');
+    disclosure.append(modelSummary, modelHost); slot.appendChild(disclosure);
+    let modelMounted = false;
+    disclosure.addEventListener('toggle', () => {
+      if (!disclosure.open || modelMounted || !modelHost.isConnected) return;
+      if (!answerChecked) aiHelpUsed = true;
+      modelMounted = true;
+      questionModelCleanups.add(mountQuestionModel(modelHost, { question: q, motion: document.documentElement.dataset.motion }));
+    });
+  }
   const submitBtn = $('.submit-btn', container);
   const hintArea = $('.hint-area', container);
   const fbArea = $('.feedback-area', container);
@@ -532,6 +565,8 @@ function mountQuestion(container, unit, q, opts, done) {
       return;
     }
     submitBtn.disabled = true;
+    answerChecked = true;
+    if (modelSummary) modelSummary.textContent = 'Explore a learning model';
     if (hintsAllowed) { const hb = $('.hint-btn', container); if (hb) hb.disabled = true; }
     container.querySelectorAll('.choice').forEach((b) => { b.disabled = true; });
     const numIn = $('#num-in', container); if (numIn) numIn.disabled = true;
@@ -565,7 +600,7 @@ function mountQuestion(container, unit, q, opts, done) {
       if (grade.correct) {
         fbArea.innerHTML = `<div class="feedback good">
           <h3>Correct.</h3>
-          ${countedHints > 0 ? '<p>You used built-in hints or AI guidance, so this counts as partial credit toward mastery. Solving without help counts fully.</p>' : ''}
+          ${countedHints > 0 ? '<p>You used a hint, learning model, or coach guidance, so this counts as partial credit toward mastery. Solving without help counts fully.</p>' : ''}
           <details><summary>Show the full solution</summary>${solutionHtml}</details>
           <div class="btn-row"><button type="button" class="next-btn">Continue</button></div>
         </div>`;
@@ -661,7 +696,7 @@ function homeClassesHtml() {
   const cards = courses => courses.map(course => {
     const assignments = Array.isArray(course.assignments) ? course.assignments : [];
     const undated = assignments.filter(item => !item.dueAt).length;
-    return `<article class="card home-class-card"><h3>${esc(course.name)}</h3><p class="canvas-meta">${esc(course.term?.name || 'Term dates not supplied')}${course.assignmentsError ? ' · Assignment read incomplete' : ` · ${assignments.length} assignments loaded`}</p>${undated ? `<p class="canvas-meta">${undated} without a reported due date. Astra can check the instructions.</p>` : ''}<div class="btn-row"><a class="btn secondary" href="#/canvas/course/${esc(course.id)}" data-home-course="${esc(course.id)}">Open class</a><button type="button" class="quiet" data-home-ask="${esc(course.id)}">Ask Astra about this class</button><button type="button" class="quiet" data-home-quick="${esc(course.id)}">Quick study with Astra</button></div></article>`;
+    return `<article class="card home-class-card"><h3>${esc(course.name)}</h3><p class="canvas-meta">${esc(course.term?.name || 'Term dates not supplied')}${course.assignmentsError ? ' · Assignment read incomplete' : ` · ${assignments.length} assignments loaded`}</p>${undated ? `<p class="canvas-meta">${undated} without a reported due date. Astra can check the instructions.</p>` : ''}<div class="btn-row"><a class="btn secondary" href="#/canvas/course/${esc(course.id)}" data-home-course="${esc(course.id)}">Open class</a><a class="btn secondary" href="#/plans/course/${esc(course.id)}">Study plan</a><button type="button" class="quiet" data-home-ask="${esc(course.id)}">Ask Astra about this class</button><button type="button" class="quiet" data-home-quick="${esc(course.id)}">Quick study with Astra</button></div></article>`;
   }).join('');
   return heading + '<p>Choose any class for its resources, assignments, and coaching. Astra can help across your Canvas subjects.</p>' +
     `<p class="canvas-meta">Refreshed ${esc(canvasDateTime(CANVAS.snapshot.fetchedAt))}. Canvas refreshes every five minutes while this app is visible.</p>` + canvasNoteHtml() +
@@ -717,10 +752,83 @@ function wireHomeClasses(root) {
 }
 
 function viewHome() {
+  const profileId = activeProfile;
+  const practiceHref = independentPracticeHref();
+  const v = mountView(
+    '<section class="dashboard-hero"><div><span class="kicker">Students4AI</span><h1>Your classes and study plans</h1><p>Choose a class, save a plan, and return to the step you want to work on. Your saved course topics appear below.</p><div class="btn-row"><a class="btn" href="#/plans">Open study plans</a><a class="btn secondary" href="' + practiceHref + '">Start fresh practice</a><a class="btn secondary" href="#/library">Course library</a></div></div></section>' +
+    '<section class="home-classes" id="home-classes">' + homeClassesHtml() + '</section>' +
+    '<section id="home-saved-plans"></section>' +
+    '<section class="card"><h2>Your study tools</h2><p>Use your saved plan, work on a Canvas assignment, or start an optional session timer.</p><div class="home-study-tools"><a href="#/canvas/plan">Canvas assignment plan</a><a href="#/focus">Session timer</a><a href="#/library">Lessons and learning models</a><a href="#/build">Build new practice with Astra</a></div></section>',
+    { breadcrumb: ['Home'], nav: 'home' });
+  wireHomeClasses($('#home-classes', v));
+  const host = $('#home-saved-plans', v);
+  studyPlansCleanup = mountHomeStudyPlans(host, { profileId, isCurrent: () => profileId === activeProfile });
+  loadSchoolContext();
+  S.lastLocation = '#/home'; save();
+}
+
+function independentPracticeHref() {
+  return ['sat', 'algebra'].includes(S.settings.subject) ? '#/mixed/' + S.settings.subject : '#/mixed';
+}
+
+async function viewPracticeBuilder() {
+  const profileId = activeProfile;
+  const v = mountView('<div id="practice-builder-slot"><h1>Build with Astra</h1><p>Opening practice request tools.</p></div>', { breadcrumb: ['Home', 'Build with Astra'], nav: 'build' });
+  const host = $('#practice-builder-slot', v);
+  try {
+    const { mountPracticeBuilder } = await import('/practice-builder.js');
+    if (!host.isConnected || profileId !== activeProfile) return;
+    $('p', host)?.remove();
+    practiceBuilderCleanup = mountPracticeBuilder(host, {
+      subject: S.settings.subject, courses: CANVAS.snapshot?.courses || [], renderMath,
+      motion: document.documentElement.dataset.motion,
+      onAskAstra(prompt) {
+        if (!host.isConnected || profileId !== activeProfile) return;
+        ensurePageCoach(); pageCoachCleanup?.focus(prompt);
+      },
+    });
+  } catch {
+    if (host.isConnected && profileId === activeProfile) host.textContent = 'Practice request tools could not load. Reload this page to try again.';
+  }
+}
+
+async function viewEvidenceMystery() {
+  const profileId = activeProfile;
+  const v = mountView('<div id="evidence-mystery-slot"><h1>Evidence mysteries</h1><p>Opening an optional reading and reasoning activity.</p></div>', { breadcrumb: ['Home', 'Evidence mysteries'], nav: 'build' });
+  const host = $('#evidence-mystery-slot', v);
+  try {
+    const { mountEvidenceMystery } = await import('/evidence-mystery.js');
+    if (!host.isConnected || profileId !== activeProfile) return;
+    $('p', host)?.remove();
+    evidenceMysteryCleanup = mountEvidenceMystery(host, { profileId, onExit: () => {
+      if (host.isConnected && profileId === activeProfile) location.hash = '#/library';
+    } });
+  } catch {
+    if (host.isConnected && profileId === activeProfile) host.textContent = 'Evidence mysteries could not load. Reload this page to try again.';
+  }
+}
+
+function viewStudyPlans(selectedPlanId = null, courseId = null) {
+  const profileId = activeProfile;
+  const v = mountView('<h1>Study plans</h1><p>Save a useful plan for any class. Open it later, follow its steps, and keep track of what you complete.</p><div id="study-plans-slot"></div>', { breadcrumb: ['Home', 'Study plans'], nav: 'plans' });
+  const host = $('#study-plans-slot', v);
+  const instance = mountStudyPlans(host, {
+    profileId, courses: CANVAS.snapshot?.courses || [], subjects: STUDY_SUBJECTS,
+    selectedCourseId: courseId || CANVAS.selectedCourseId, subject: S.settings.subject, selectedPlanId,
+    isCurrent: () => profileId === activeProfile,
+  });
+  studyPlansCleanup = () => instance.dispose();
+  const insights = document.createElement('section'); insights.className = 'saved-plans'; v.appendChild(insights);
+  practiceInsightsCleanup = mountPracticeInsights(insights, { profileId, isCurrent: () => profileId === activeProfile });
+  loadSchoolContext().then(() => {
+    if (host.isConnected && profileId === activeProfile) instance.updateCourses(CANVAS.snapshot?.courses || []);
+  });
+}
+
+function viewLibrary() {
   const m = CONTENT.manifest;
   const units = allUnits();
   const metas = unitsForSubject(m, S.settings.subject);
-  const name = S.settings.name ? ', ' + esc(S.settings.name) : '';
   const due = E.reviewQueue(S, units, Date.now(), m.reviewAfterDays);
   const average = units.length ? Math.round(units.reduce((sum, u) => sum + E.unitMastery(S, u), 0) / units.length) : 0;
   const passed = units.filter((u) => S.unitsPassed[u.id]).length;
@@ -732,19 +840,26 @@ function viewHome() {
     return '<article class="card unit-card ' + (complete ? 'passed' : '') + '"><div class="unit-num" aria-hidden="true">' + String(meta.number).padStart(2, '0') + '</div><div class="unit-body"><div class="unit-title-row"><h3>' + esc(meta.title) + '</h3>' + (meta.bcOnly ? '<span class="tag bc">BC extension</span>' : '') + '</div><p>' + esc(meta.blurb) + '</p>' + bar('Skill progress', mastery, 100, { done: complete }) + '<div class="btn-row"><a class="btn secondary" href="#/unit/' + meta.id + '">Open module</a><span class="tag ' + (complete ? 'passed' : '') + '">' + (complete ? 'Mastery check passed' : 'Open to explore') + '</span></div></div></article>';
   }).join('');
   const v = mountView(
-    '<section class="dashboard-hero"><div><span class="kicker">Students4AI / ' + esc(subjectLabel()) + '</span><h1>Your next idea starts here' + name + '.</h1><p>Move a graph. Test a prediction. Build understanding.</p><p>Practice adapts to your answers. Canvas helps set your pace. Every module stays open.</p><div class="btn-row">' + (next ? '<a class="btn" href="#/practice/' + next.id + '">Continue learning</a>' : '') + '<a class="btn secondary" href="#/canvas/plan">My school plan</a></div></div></section>' +
-    '<section class="home-classes" id="home-classes">' + homeClassesHtml() + '</section>' +
-    '<div class="dashboard-stats"><div><strong>' + units.length + '</strong><span>open modules</span></div><div><strong>' + average + '<small> / 100</small></strong><span>average skill progress</span></div><div><strong>' + passed + '</strong><span>mastery checks passed</span></div><div><strong>' + due.length + '</strong><span>skills ready for review</span></div></div>' +
+    '<section class="dashboard-hero"><div><span class="kicker">Students4AI / ' + esc(subjectLabel()) + '</span><h1>Course library</h1><p>Open a lesson, explore a learning model, or choose practice. These independent resources stay available alongside your course study plans.</p><div class="btn-row">' + (next ? '<a class="btn" href="#/practice/' + next.id + '">Continue learning</a>' : '') + '<a class="btn secondary" href="#/plans">My study plans</a></div></div></section>' +
+    (units.length ? '<div class="dashboard-stats"><div><strong>' + units.length + '</strong><span>open modules</span></div><div><strong>' + average + '<small> / 100</small></strong><span>average skill progress</span></div><div><strong>' + passed + '</strong><span>mastery checks passed</span></div><div><strong>' + due.length + '</strong><span>skills ready for review</span></div></div>' : '') +
     (CONTENT.failed.length ? '<div class="card"><p>' + esc(CONTENT.failed.join('; ')) + '</p></div>' : '') +
     '<div id="home-study-lab"></div><div class="unit-grid"><section class="card" id="school-pace">' + canvasPaceHtml() + '</section><section class="card"><span class="kicker">Your learning pace</span><h2>' + (average >= 80 ? 'Explain. Connect. Extend.' : average >= 35 ? 'Make the next connection' : 'Try an idea, then test it') + '</h2><p>' + (average >= 80 ? 'Practice now emphasizes harder applications. Try independent AP-style questions and explain your reasoning.' : 'Adaptive practice returns to skills that need attention and increases difficulty as your answers show understanding.') + '</p><div class="btn-row">' + (next ? '<a class="btn secondary" href="#/practice/' + next.id + '">Practice at my level</a>' : '') + '<a class="btn quiet" href="#/review">Review skills</a></div></section></div>' +
-    '<h2>Explore your modules</h2><p>Lessons, practice, and mastery checks are available from the start. Pick a topic because it interests you or because schoolwork needs it.</p><div class="unit-grid">' + cards + '</div>' +
-    (!units.length ? '<div class="card"><h3>Physics workspace</h3><p>Choose a physics course in the Canvas dropdown for its assignments, modules, and grades. Mixed practice generates questions for the Physics topics you select. The complete lesson and mastery-check curriculum covers AP Calculus AB and BC.</p><div class="btn-row"><a class="btn" href="#/mixed">Practise Physics questions</a><a class="btn secondary" href="#/canvas">Open physics in Canvas</a></div></div>' : '<details class="card"><summary>Optional placement check</summary><p>Get a starting estimate of familiar units. It does not restrict what you can open, and you can stop at any time.</p><a class="btn secondary" href="#/diagnostic">Start placement check</a></details>'),
-    { breadcrumb: ['Home'], nav: 'home' });
-  labCleanup = mountStudyLab($('#home-study-lab', v), { motion: document.documentElement.dataset.motion, course: S.settings.subject === 'calculus-ab' ? 'ab' : S.settings.subject === 'physics' ? 'physics' : 'bc', mastery: average });
-  if (S.settings.subject !== 'calculus-ab') mountSpatialSection($('#home-study-lab', v));
-  wireHomeClasses($('#home-classes', v));
-  // Study tools remain in navigation for every learner. Home highlights the
-  // mixed BC/physics bank only when that is the chosen independent subject.
+    (units.length ? '<h2>Explore your modules</h2><p>Lessons, practice, and mastery checks are available from the start. Pick a topic because it interests you or because schoolwork needs it.</p><div class="unit-grid">' + cards + '</div>' : '') +
+    (!units.length ? '<div class="card"><h3>' + esc(subjectLabel()) + ' study workspace</h3><p>Choose fresh practice or make a saved study plan. The authored lesson and mastery-check library covers AP Calculus AB and BC.</p><div class="btn-row"><a class="btn" href="' + independentPracticeHref() + '">Open fresh practice</a><a class="btn secondary" href="#/plans">Make a study plan</a></div></div>' : '<details class="card"><summary>Optional placement check</summary><p>Get a starting estimate of familiar units. It does not restrict what you can open, and you can stop at any time.</p><a class="btn secondary" href="#/diagnostic">Start placement check</a></details>'),
+    { breadcrumb: ['Home', 'Course library'], nav: 'library' });
+  if (!['sat', 'algebra'].includes(S.settings.subject)) labCleanup = mountStudyLab($('#home-study-lab', v), { motion: document.documentElement.dataset.motion, course: S.settings.subject === 'calculus-ab' ? 'ab' : S.settings.subject === 'physics' ? 'physics' : 'bc', mastery: average });
+  if (!['calculus-ab', 'sat', 'algebra'].includes(S.settings.subject)) mountSpatialSection($('#home-study-lab', v));
+  if (S.settings.subject === 'sat') {
+    const entry = document.createElement('section'); entry.className = 'card';
+    entry.innerHTML = '<h2>Reading, evidence, and grammar</h2><p>Try an optional mystery with a short original passage, evidence clues, and a grammar decision. You choose when to reveal a clue or explanation.</p><div class="btn-row"><a class="btn" href="#/mystery">Open evidence mysteries</a><a class="btn secondary" href="#/build">Build a different practice request</a></div>';
+    v.appendChild(entry);
+  }
+  if (['sat', 'algebra'].includes(S.settings.subject)) {
+    const profileId = activeProfile;
+    const insights = document.createElement('section'); insights.className = 'saved-plans'; v.appendChild(insights);
+    practiceInsightsCleanup = mountPracticeInsights(insights, { profileId, subject: S.settings.subject, isCurrent: () => profileId === activeProfile });
+  }
+  // Study tools remain available in navigation for every learner.
   if (['calculus-bc', 'physics'].includes(S.settings.subject)) {
   const focusEntry = document.createElement('section');
   focusEntry.className = 'card focus-entry';
@@ -756,17 +871,17 @@ function viewHome() {
   v.insertBefore(mixedEntry, $('.dashboard-stats', v));
   }
   loadSchoolContext();
-  S.lastLocation = '#/home'; save();
+  S.lastLocation = '#/library'; save();
 }
 
-async function viewMixedStudy() {
+async function viewMixedStudy(initialSubject = null) {
   const v = mountView('<div id="mixed-study-slot"><h1>Mixed practice</h1><p>Opening your topic choices.</p></div>', { breadcrumb: ['Home', 'Mixed practice'], nav: 'mixed' });
   const host = $('#mixed-study-slot', v), profileId = activeProfile;
   try {
     const { mountMixedStudy } = await import('/mixed-study.js');
     if (!host.isConnected || profileId !== activeProfile) return;
     mixedCleanup = mountMixedStudy(host, {
-      profileId, renderMath,
+      profileId, renderMath, initialSubject,
       onQuestionContext(context) {
         if (!host.isConnected || profileId !== activeProfile) return;
         activeMixedQuestion = context ? { ...context, container: host } : null;
@@ -1134,7 +1249,7 @@ function viewMastery(requestedId) {
         </details>`).join('');
       slot.innerHTML = `<div class="card">
         <h2>${assisted ? `Assisted check complete: ${correct} of ${questions.length}.` : passed ? `Passed: ${correct} of ${questions.length}.` : `Not passed yet: ${correct} of ${questions.length}. You need ${passCount}.`}</h2>
-        ${assisted ? '<p>Astra helped with this attempt, so the score is saved as assisted learning. Try another check without coach help when you want to measure independent mastery. Any earlier pass stays saved.</p>' : ''}
+        ${assisted ? '<p>You used coach or learning-model help, so the score is saved as assisted learning. Try another check without help when you want to measure independent mastery. Any earlier pass stays saved.</p>' : ''}
         ${passed
           ? `<p>Your mastery check for Unit ${unit.number} is complete. Continue to any module or try a free-response challenge.</p>`
           : `<p>Your completed lessons and passed checks stay saved. These answers also help adapt future practice. Skills to practice: ${weakSkills.map((sid) => esc(skillName(unit, sid))).join(', ') || '—'}.</p>`}
@@ -2255,6 +2370,11 @@ function router() {
   if (a !== undefined && !SAFE_ID.test(a)) { a = undefined; route = 'home'; }
   if (b !== undefined && !SAFE_ID.test(b)) { b = undefined; route = 'home'; }
   if (route === 'home' || route === '') viewHome();
+  else if (route === 'library') viewLibrary();
+  else if (route === 'build') viewPracticeBuilder();
+  else if (route === 'mystery') viewEvidenceMystery();
+  else if (route === 'plans' && a === 'course' && b) viewStudyPlans(null, b);
+  else if (route === 'plans') viewStudyPlans(a || null);
   else if (route === 'unit' && a) viewUnit(a);
   else if (route === 'lesson' && a && b) viewLesson(a, b);
   else if (route === 'practice' && a) viewPractice(a);
@@ -2262,7 +2382,7 @@ function router() {
   else if (route === 'diagnostic') viewDiagnostic();
   else if (route === 'review') viewReview();
   else if (route === 'focus') viewFocus();
-  else if (route === 'mixed') viewMixedStudy();
+  else if (route === 'mixed') viewMixedStudy(['sat', 'algebra'].includes(a) ? a : null);
   else if (route === 'canvas' && a === 'plan') viewCanvasPlan();
   else if (route === 'canvas' && a === 'grades') viewCanvasGrades();
   else if (route === 'canvas' && a === 'assessment') viewCanvasAssessment();

@@ -37,11 +37,20 @@ jobs:
           node --check study-coach-context.js
           node --check linked-documents.js
           node --check mixed-question-bank.js
+          node --check mixed-sat-bank.js
+          node --check mixed-ap-variants.js
           node --check mixed-practice.js
           node --check mixed-practice-api.js
+          node --check study-plans.js
+          node --check practice-history.js
           node --check public/page-coach.js
           node --check public/tutor-text.js
           node --check public/mixed-study.js
+          node --check public/study-plans.js
+          node --check public/practice-insights.js
+          node --check public/question-models.js
+          node --check public/practice-builder.js
+          node --check public/evidence-mystery.js
           node --check store.js
           node --check public/app.js
           node --check public/engine.js
@@ -56,7 +65,7 @@ jobs:
           node --check scripts/qa-tools.mjs
           node --check scripts/lint-ui.mjs
 
-      - name: Engine, Canvas-insights, and store unit tests
+      - name: Application unit and integration tests
         run: npm test
 
       - name: Language lint of app text (CLAUDE.md invariant 3)
