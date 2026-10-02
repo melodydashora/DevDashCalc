@@ -42,6 +42,7 @@ export function coachConversationScope(context = {}) {
     selectedCourseId: String(context.selectedCourseId || ''),
     planId: String(context.planId || ''),
     stepId: String(context.stepId || ''),
+    learningTopic: String(context.learningTopic || '').slice(0, 500),
     questionId: String(context.questionId || ''),
     sessionId: context.questionId ? String(context.sessionId || '') : '',
     unitId: context.questionId ? String(context.unitId || '') : '',
@@ -783,12 +784,12 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
     input.focus();
   };
   cleanup.ask = (message) => {
-    if (disposed) return;
+    if (disposed || signedOut) return false;
     refresh();
     const text = String(message || '').trim().slice(0, MAX_MESSAGE);
     const waiting = busy || attachments.loading;
     cleanup.focus(waiting ? text : undefined);
-    if (!waiting) begin(text);
+    return waiting ? false : Boolean(begin(text));
   };
   return cleanup;
 }

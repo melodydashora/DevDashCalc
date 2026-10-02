@@ -8,7 +8,7 @@ import { completeTutor, getTutorStatus } from './tutor-service.js';
 import { createCoachAudioService, CoachAudioError, MAX_RECORDING_BYTES } from './coach-audio.js';
 import { normalizeCoachAttachments, CoachAttachmentError, COACH_ATTACHMENT_BODY_LIMIT, COACH_ATTACHMENT_MESSAGE } from './coach-attachments.js';
 import { createStudentRecordLookup } from './coach-records.js';
-import { loadStudyCoachContext, visibleCoachCourses } from './study-coach-context.js';
+import { loadStudyCoachContext, visibleCoachCourses, STUDY_LEARNING_ACTIVITIES } from './study-coach-context.js';
 import { canvasDetailRequest, normalizeCanvasDetail, appendRetrievalHints } from './canvas-retrieval.js';
 import { readLinkedDocument } from './linked-documents.js';
 import { createMixedPracticeService } from './mixed-practice.js';
@@ -1107,6 +1107,8 @@ async function rememberCanvasSources(profileId, discoveries, canvasIdentity) {
 }
 
 const STUDY_COACH_SYSTEM = `You are Astra, the study coach in Students4AI. Help the learner use their existing coursework and resources, understand an instruction, or choose one manageable next step. The app reports the model separately. Use calm, literal language. Do not assume age, diagnosis, or profession.
+Teach across the student's courses, including sciences, history, literature, languages, and mathematics. A prior SAT or calculus setting does not limit the selected course. Use the supplied course name, assignment, module topics, retrieved instructions, and remembered preferences so the student does not have to describe their class again. When learningRequest is present, its activity is the student's chosen learning format: explain gives a clear concept explanation and example; guide works through manageable steps; practice asks one course-relevant question and waits for an attempt before feedback; flashcards shows one prompt and waits before revealing its answer. After an attempt, explain the reasoning and address the student's specific mistake without claiming an official grade or app mastery credit. Questions created in conversation are unverified learning exercises, not checked-bank assessments. For active teacher assessments, respect the supplied independent-work conditions.
+If a course source could not be read, identify the missing teacher-specific material briefly and still explain the requested concept from general knowledge when possible. Label general examples as examples; never invent the teacher's instructions or claim an unread source was used. Ask only for the small missing detail needed for an assignment-specific answer, not a description of the whole class. A saved plan is optional for course learning.
 Treat the student's current message as the request. The current page explains references such as "this example" or "this step"; it does not limit the conversation to that page or override a clearly stated different topic. Use the supplied learner name and saved preferences when helpful. Do not ask them to repeat information that is already available. If several examples or checkpoints could fit an ambiguous reference, identify the relevant choices and ask one short clarification instead of guessing. The page's authored lesson sections are visible instructional material, not private checkpoint answers. When Canvas is unavailable, you can still explain the current lesson and use available learning records; do not turn every question into a request to connect Canvas.
 When a learner asks for a new challenge, change the situation, representation, unknown quantity, or reasoning task. A renamed character or paraphrased sentence alone is not a new challenge. Offer same-skill rewording only when requested. For conversational practice, present one original question and wait for the learner's attempt before explaining. These conversational questions are unverified practice, not additions to the app's checked grading bank. Do not claim an official AP/SAT score or guaranteed improvement. For a learning model, explain the relevant concept and use an available model in Build with Astra; you cannot execute or deploy new interactive code from a chat reply.
 Saved course plans and practice observations can be read using study_plans and practice_history. Use those records when adapting a plan, but do not assume they represent all of a learner's work. Reworded or repeated reviews and answers with help are not new independent mastery evidence. Suggest retrieval, explanation, a different application, and a later review rather than endless near-identical questions. Students may open Study plans at #/plans to explicitly save a structured plan, Build with Astra at #/build, or original evidence mysteries at #/mystery. Never claim your chat reply itself saved or completed a plan.
@@ -1131,6 +1133,13 @@ async function handleStudyCoach(req, res, profileId) {
   const message = originalMessage || (attachments.length ? COACH_ATTACHMENT_MESSAGE : '');
   if (!message || message.length > 2000) return sendJson(res, 400, { error: 'Ask a question using 1 to 2000 characters.' });
   const raw = body.pageContext || {};
+  const directCourseStudy = raw.planId == null && raw.stepId == null && raw.learningActivity != null;
+  if (directCourseStudy && (!STUDY_LEARNING_ACTIVITIES.includes(raw.learningActivity)
+    || !CANVAS_NUMERIC_ID.test(String(raw.selectedCourseId || ''))
+    || (raw.itemId != null && !CANVAS_NUMERIC_ID.test(String(raw.itemId)))
+    || (raw.learningTopic != null && (typeof raw.learningTopic !== 'string' || raw.learningTopic.trim().length > 500)))) {
+    return sendJson(res, 400, { error: 'Choose a course, a learning activity, and an available assignment when needed.' });
+  }
   const route = /^#\/[a-z0-9/-]{1,150}$/.test(raw.route || '') ? raw.route : '#/home';
   const routeUnitId = route.match(/^#\/(?:unit|lesson|practice|mastery)\/(unit-(?:0[1-9]|10))(?:\/|$)/)?.[1];
   const pageContext = {
@@ -1144,7 +1153,14 @@ async function handleStudyCoach(req, res, profileId) {
     moduleItemId: CANVAS_NUMERIC_ID.test(String(raw.moduleItemId || '')) ? String(raw.moduleItemId) : null,
     itemType: 'assignment',
     termIds: Array.isArray(raw.termIds) ? raw.termIds.filter(id => CANVAS_NUMERIC_ID.test(String(id))).slice(0,50).map(String) : [],
+    ...(directCourseStudy ? { learningActivity: raw.learningActivity, learningTopic: (raw.learningTopic || '').trim() } : {}),
   };
+  if (directCourseStudy) {
+    pageContext.route = '#/study';
+    pageContext.unitId = pageContext.questionId = pageContext.moduleItemId = null;
+    pageContext.subject = pageContext.selectedSubject = 'all';
+    pageContext.termIds = [];
+  }
   let savedStudyPlan = null;
   if (raw.planId != null || raw.stepId != null) {
     if (typeof raw.planId !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(raw.planId)
@@ -1173,13 +1189,14 @@ async function handleStudyCoach(req, res, profileId) {
   }
   // Read only this workspace's saved progress. Never accept client records.
   const progress = await withProgressOperation(profileId, async () => (await readProgressCopies(profileId)).value);
-  if (!savedStudyPlan && raw.subject == null) pageContext.subject = pageContext.selectedSubject = normalizeSubjectId(progress?.settings?.subject);
+  if (!savedStudyPlan && !directCourseStudy && raw.subject == null) pageContext.subject = pageContext.selectedSubject = normalizeSubjectId(progress?.settings?.subject);
   let curriculum = null;
   if (pageContext.unitId) {
     try { curriculum = JSON.parse(await readFile(join(CONTENT, `${pageContext.unitId}.json`), 'utf8')); }
     catch { /* Missing authored content is reported without substituting a different unit. */ }
   }
   const found = await canvasSessionOrStored(req, res, profileId);
+  if (directCourseStudy && !found) return sendJson(res, 404, { error: 'This course is not available in your current Canvas connection. Reconnect Canvas or choose an available course.' });
   const limitations = [], discoveries = [];
   let snapshot = null, rules = [], recordPreferences = null, recordSnapshot = null;
   const canvasIdentity = found ? `${found.session.baseUrl}|${found.session.user?.id || ''}` : '';
@@ -1188,6 +1205,15 @@ async function handleStudyCoach(req, res, profileId) {
       const cached = found.session.coachSnapshot;
       snapshot = cached && Date.now() - Date.parse(cached.fetchedAt) < 60_000 ? cached : await canvasSnapshot(found.session);
       if (!canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
+      if (directCourseStudy) {
+        const course = snapshot.courses.find(course => String(course.id) === pageContext.selectedCourseId);
+        if (!course) return sendJson(res, 404, { error: 'This course is not available in your current Canvas connection. Choose an available course.' });
+        if (pageContext.itemId && !(course.assignments || []).some(item => String(item.id) === pageContext.itemId)) {
+          return sendJson(res, course.assignmentsError ? 503 : 404, { error: course.assignmentsError
+            ? 'The assignments for this course could not be read. Try again or study the course without selecting an assignment.'
+            : 'This assignment is not available in the selected course. Choose a current assignment or study the course without one.' });
+        }
+      }
       const prefs = await canvasPrefsLoad(profileId);
       recordPreferences = prefs;
       snapshot = visibleCoachCourses(snapshot, prefs.courseOverrides, pageContext.selectedCourseId);
@@ -1211,7 +1237,7 @@ async function handleStudyCoach(req, res, profileId) {
       // Page indexes find schedules outside assignment groups. Only the
       // selected course is expanded, with the existing pagination cap.
       const undatedTarget = snapshot.courses.length === 1 && snapshot.courses[0].assignments.some(a => a.id === pageContext.itemId && !a.dueAt);
-      if (snapshot.courses.length === 1 && ((!pageContext.itemId && !pageContext.moduleItemId) || undatedTarget) && /instruct|due|date|schedule|syllabus|find|missing|next[\s-]+step|prioriti[sz]|plan|time[\s-]+management|stud(?:y|ying)|work[\s-]+on|where[\s-]+to[\s-]+start/i.test(message)) {
+      if (snapshot.courses.length === 1 && (directCourseStudy || (((!pageContext.itemId && !pageContext.moduleItemId) || undatedTarget) && /instruct|due|date|schedule|syllabus|find|missing|next[\s-]+step|prioriti[sz]|plan|time[\s-]+management|stud(?:y|ying)|work[\s-]+on|where[\s-]+to[\s-]+start/i.test(message)))) {
         const course = snapshot.courses[0];
         const reads = await Promise.allSettled([
           canvasGetAll(found.session, `courses/${course.id}/pages`),
@@ -1241,7 +1267,10 @@ async function handleStudyCoach(req, res, profileId) {
           });
         } else if (reads[2].reason?.status !== 404) limitations.push('The course front page could not be read.');
       }
-    } catch { limitations.push('Canvas could not be refreshed for this request. Do not assume missing data means no work is assigned.'); snapshot = null; }
+    } catch {
+      if (directCourseStudy) return sendJson(res, 503, { error: 'This course could not be loaded right now. Try again after Canvas reconnects.' });
+      limitations.push('Canvas could not be refreshed for this request. Do not assume missing data means no work is assigned.'); snapshot = null;
+    }
   }
   if (found && !canvasSessionCurrent(found)) return sendCanvasChanged(res, profileId);
   const evidence = await loadStudyCoachContext({

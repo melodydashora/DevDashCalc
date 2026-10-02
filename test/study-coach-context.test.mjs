@@ -35,6 +35,27 @@ test('general Coach course selection respects hidden choices while explicit cour
   assert.deepEqual(visibleCoachCourses(snapshot, { '22': 'hidden' }, '22').courses.map(course => course.id), ['11', '22']);
   assert.equal(JSON.stringify(snapshot), original);
 });
+
+test('course learning retains the student topic on follow-ups and prioritizes its instructional material', async () => {
+  const course = { id: '42', name: 'Biology', courseCode: 'BIO', assignments: Array.from({ length: 8 }, (_, i) => ({ id: String(100 + i), name: 'Missing practice assignment', submission: { missing: true } })),
+    modules: [{ id: '8', name: 'Cell energy', items: [{ id: '9', type: 'Page', contentId: '70', pageUrl: 'photosynthesis', title: 'Photosynthesis: light reactions' }] }],
+    pages: [{ id: '71', pageUrl: 'class-calendar', title: 'Weekly study schedule' }] };
+  const calls = [];
+  const result = await loadStudyCoachContext({ snapshot: { fetchedAt: NOW, courses: [course] },
+    pageContext: { route: '#/study', selectedCourseId: '42', selectedSubject: 'all', learningActivity: 'practice', learningTopic: 'Photosynthesis' },
+    message: 'Can I study another example?', readCanvasDetail: async ref => {
+      calls.push(ref);
+      return { ...ref, body: ref.id === '70' ? 'Light energy drives the reactions in this chapter.' : 'Unrelated class work.', contentStatus: 'available', readAt: NOW };
+    } });
+  assert.equal(calls[0].pageUrl, 'photosynthesis', 'the topic remains relevant after a short follow-up');
+  assert.equal(result.context.learningRequest.activity, 'practice');
+  assert.equal(result.context.learningRequest.course.name, 'Biology');
+  assert.deepEqual(result.context.learningRequest.topic, { text: 'Photosynthesis', source: 'Student-selected topic; not a verified teacher requirement.' });
+  assert.equal(result.context.canvas.courses[0].modules[0].title, 'Cell energy');
+  assert.match(result.context.canvas.details[0].body, /Light energy/);
+  assert.equal(calls.length, 4, 'course learning retains the bounded detail-read budget');
+  assert.doesNotMatch(result.limitations.join(' '), /Dates mentioned in instructions/);
+});
 function assignment(id, name, extra = {}) {
   return { id, name, dueAt: null, dueDateStatus: 'no-date', descriptionHtml: null, submission: null, ...extra };
 }

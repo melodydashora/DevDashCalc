@@ -71,6 +71,12 @@ test('specific source targets and school terms cannot reuse another lookup conve
   assert.notEqual(coachConversationScope(base), coachConversationScope({ ...base, termIds: [] }));
 });
 
+test('a selected topic isolates Coach context while changing activity within that topic preserves it', () => {
+  const base = { selectedCourseId: '42', learningTopic: 'Cell structure', learningActivity: 'explain' };
+  assert.equal(coachConversationScope(base), coachConversationScope({ ...base, learningActivity: 'practice' }));
+  assert.notEqual(coachConversationScope(base), coachConversationScope({ ...base, learningTopic: 'Cell division' }));
+});
+
 test('source details use readable status wording and local timestamp formatting', () => {
   assert.equal(coachSourceDetail('read_failed'), 'Could not read');
   assert.equal(coachSourceDetail('metadata_only'), 'File details only');
@@ -676,5 +682,24 @@ test('pausing Study aborts the pending reply and audio preference while preservi
     assert.equal(find('.page-coach-form').querySelector('textarea').value, 'An unsent follow-up.');
     assert.equal(find('.page-coach-attachments').children.length, 0);
     cleanup(); cleanup.pause();
+  });
+});
+
+test('ask reports whether it started, retains busy requests as drafts, and keeps topic history across activity changes', async () => {
+  const calls = [], pending = deferredReply();
+  let context = { selectedCourseId: '42', learningTopic: 'Cell structure', learningActivity: 'explain' };
+  await withCoach({ context: () => context, request: payload => { calls.push(payload); return calls.length === 1 ? pending.promise : Promise.resolve({ text: 'Try this practice question.', model: 'gpt-6-astra' }); } }, async ({ find, cleanup }) => {
+    assert.equal(cleanup.ask('Explain cell structure.'), true);
+    assert.equal(cleanup.ask('Prepare a practice question.'), false);
+    assert.equal(calls.length, 1);
+    assert.equal(find('.page-coach-form').querySelector('textarea').value, 'Prepare a practice question.');
+    pending.resolve({ text: 'Cells contain specialized structures.', model: 'gpt-6-astra' }); await settleCoach();
+    context = { ...context, learningActivity: 'practice' }; cleanup.refresh();
+    assert.equal(find('.page-coach-log').querySelectorAll('article').length, 2);
+    assert.equal(cleanup.ask('Use the explanation for practice.'), true); await settleCoach();
+    assert.deepEqual(calls[1].transcript, [{ role: 'user', text: 'Explain cell structure.' }, { role: 'assistant', text: 'Cells contain specialized structures.' }]);
+    context = { ...context, learningTopic: 'Cell division' }; cleanup.refresh();
+    assert.equal(find('.page-coach-log').children.length, 0);
+    cleanup(); assert.equal(cleanup.ask('A stale request.'), false);
   });
 });

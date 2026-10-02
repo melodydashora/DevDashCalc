@@ -2,6 +2,7 @@
 // this browser stores only the selected IDs and the learner's pause choice.
 import { createStudyPlanClient, studyPlanActivity, studyPlanStudyRequest } from './study-plans.js';
 import { safeTutorHref } from './tutor-text.js';
+import { mountCourseMaterials, visiblePortalCourses } from './course-materials.js';
 
 const ID = /^[a-z0-9-]{1,64}$/;
 const PROFILE_ID = /^[a-z0-9-]{1,55}$/;
@@ -78,14 +79,21 @@ function browserStorage() {
 }
 
 export function mountStudentStudy(root, {
-  profileId, selectedPlanId = null, selectedStepId = null, courses = [], canvasItems = [],
+  profileId, selectedPlanId = null, selectedStepId = null, courses = [], canvasItems = [], courseItems = canvasItems,
   isCurrent = () => true, request, onAskAstra, onPractice, onPlan, onModel, onSelection,
+  selectedCourseId = null, selectedItemId = null, onCourseSelection, onCourseGenerate,
   renderMath, storage = browserStorage(),
 } = {}) {
+  let separateCourseItems = courseItems !== canvasItems;
   courses = Array.isArray(courses) ? courses : [];
   canvasItems = Array.isArray(canvasItems) ? canvasItems : [];
-  let disposed = false, plans = [], loading = true, loadFailed = false, saving = false, revision = 0;
+  courseItems = Array.isArray(courseItems) ? courseItems : [];
+  let disposed = false, plans = [], loading = true, loadFailed = false, saving = false, revision = 0, loadRevision = 0;
   let currentCourseLabel = null, instructorVersion = '', pendingInstructorRefresh = false;
+  const explicitCourse = /^[0-9]{1,20}$/.test(String(selectedCourseId ?? ''));
+  let courseId = explicitCourse ? String(selectedCourseId) : null;
+  let mode = explicitCourse ? 'course' : 'plan', modeChosen = explicitCourse;
+  let courseMaterials = null, mountedCourseId = null, courseContext = null, announcedCourse = '', courseOptionsVersion = '';
   let selectedId = validId(selectedPlanId) ? selectedPlanId : null;
   let stepId = validId(selectedStepId) ? selectedStepId : null;
   const explicitPlan = Boolean(selectedId);
@@ -95,6 +103,20 @@ export function mountStudentStudy(root, {
   if (!selectedId && remembered) { selectedId = remembered.planId; stepId = remembered.stepId; paused = remembered.paused; }
 
   const section = node('section', 'student-study');
+  const modes = node('div', 'student-study-mode-switch');
+  modes.setAttribute('role', 'group'); modes.setAttribute('aria-label', 'Study mode');
+  const courseMode = button('Course', () => setMode('course'));
+  const planMode = button('Saved plan', () => setMode('plan'));
+  modes.append(courseMode, planMode);
+  const coursePanel = node('section', 'card student-study-course');
+  const courseLabel = node('label', 'student-study-field');
+  courseLabel.append(node('span', '', 'Course'));
+  const courseSelect = node('select'); courseSelect.name = 'study-course';
+  courseLabel.append(courseSelect);
+  const courseMessage = node('p', 'canvas-meta');
+  const courseForm = node('div', 'student-study-course-materials');
+  coursePanel.append(courseLabel, courseMessage, courseForm);
+  const planPanel = node('div', 'student-study-plan');
   const picker = node('div', 'card student-study-picker');
   const selectLabel = node('label', 'student-study-field');
   selectLabel.append(node('span', '', 'Saved plan'));
@@ -112,28 +134,116 @@ export function mountStudentStudy(root, {
   status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   const workspace = node('div', 'student-study-workspace');
   const instructor = node('section', 'card student-study-instructor');
-  section.append(picker, status, workspace, instructor); root.append(section);
+  planPanel.append(picker, status, workspace);
+  section.append(modes, coursePanel, planPanel, instructor); root.append(section);
   const current = () => !disposed && section.isConnected && isCurrent();
   const client = createStudyPlanClient({ profileId, request, isCurrent: current });
   const selectedPlan = () => plans.find(plan => plan.id === selectedId) || null;
   const selectedStep = plan => plan?.steps.find(step => step.id === stepId) || null;
+  const courseChoices = () => {
+    const seen = new Set();
+    return visiblePortalCourses(courses).filter(course => {
+      const id = String(course.id);
+      if (seen.has(id) || !text(course.name, 200).trim()) return false;
+      seen.add(id); return true;
+    });
+  };
+  const selectedCourse = () => courseChoices().find(course => String(course.id) === courseId) || null;
+  const instructorContext = () => mode === 'plan' ? selectedPlan()
+    : selectedCourse() ? { id: 'course-' + courseId, course: selectedCourse() } : null;
   instructor.addEventListener('focusout', () => queueMicrotask(() => {
-    if (current() && pendingInstructorRefresh && !instructor.contains?.(document.activeElement)) renderInstructor(selectedPlan());
+    if (current() && pendingInstructorRefresh && !instructor.contains?.(document.activeElement)) renderInstructor(instructorContext());
   }));
 
   function selection() {
+    if (mode !== 'plan') return null;
     const plan = selectedPlan(), step = selectedStep(plan);
     if (!plan || !step) return null;
     const payload = studyPlanStudyRequest(plan, step);
     return payload ? { ...payload, paused } : null;
   }
-  function announceSelection() {
-    const payload = selection();
-    const signature = JSON.stringify(payload);
-    if (signature === announcedSelection) return;
-    announcedSelection = signature;
-    try { onSelection?.(payload); } catch { /* The Study controls retain their own state. */ }
+  function courseSelection() {
+    if (mode !== 'course') return null;
+    const course = selectedCourse();
+    if (!course) return null;
+    const context = courseMaterials?.selection?.() || courseContext || {};
+    const item = studyCourseItems(courseItems, courseId).find(item => item.id === context.itemId);
+    return { courseId, courseName: text(course.name, 200), itemId: item?.id || null,
+      kind: context.kind || 'explain', learningActivity: context.learningActivity || 'explain', topic: text(context.topic, 500) };
   }
+  function announceSelection() {
+    const announcePlan = () => {
+      const payload = selection(), signature = JSON.stringify(payload);
+      if (signature === announcedSelection) return;
+      announcedSelection = signature;
+      try { onSelection?.(payload); } catch { /* The Study controls retain their own state. */ }
+    };
+    const announceCourse = () => {
+      const payload = courseSelection(), signature = JSON.stringify(payload);
+      if (signature === announcedCourse) return;
+      announcedCourse = signature;
+      try { onCourseSelection?.(payload); } catch { /* The course controls retain their own state. */ }
+    };
+    // Clear the previous mode before setting the active Coach context.
+    if (mode === 'course') { announcePlan(); announceCourse(); }
+    else { announceCourse(); announcePlan(); }
+  }
+  function setMode(nextMode) {
+    if (!current() || saving || nextMode === mode) return;
+    if (mode === 'course') courseMaterials?.cancelPending?.();
+    mode = nextMode; modeChosen = true; revision++;
+    render();
+    if (mode === 'plan' && selectedPlan()) remember();
+    announceSelection();
+  }
+  function renderCourse() {
+    const choices = courseChoices();
+    if (!courseId && !explicitCourse) courseId = choices[0] ? String(choices[0].id) : null;
+    const optionsVersion = JSON.stringify(choices.map(course => [String(course.id), text(course.name, 200)]));
+    if (courseOptionsVersion !== optionsVersion && document.activeElement !== courseSelect) {
+      courseOptionsVersion = optionsVersion;
+      const placeholder = node('option', '', choices.length ? 'Choose a course' : 'No Canvas courses available');
+      placeholder.value = '';
+      courseSelect.replaceChildren(placeholder);
+      for (const course of choices) {
+        const option = node('option', '', text(course.name, 200)); option.value = String(course.id); courseSelect.append(option);
+      }
+    }
+    const course = selectedCourse();
+    courseSelect.value = course?.id ? String(course.id) : '';
+    courseSelect.disabled = !choices.length;
+    courseMessage.hidden = Boolean(course);
+    courseMessage.textContent = choices.length
+      ? 'Choose one of your current courses to study.' : 'Connect Canvas to see your courses here. You can also study from a saved plan.';
+    if (!course || mountedCourseId !== courseId) {
+      courseMaterials?.(); courseMaterials = null; mountedCourseId = null; courseContext = null;
+      if (course) {
+        mountedCourseId = courseId;
+        courseMaterials = mountCourseMaterials(courseForm, {
+          course, canvasItems: studyCourseItems(courseItems, courseId), selectedItemId,
+          isCurrent: () => current() && mode === 'course' && mountedCourseId === courseId,
+          onContextChange(meta) { courseContext = meta; if (current() && mode === 'course') announceSelection(); },
+          onGenerate: typeof onCourseGenerate !== 'function' ? undefined : prompt => {
+            if (!current() || mode !== 'course' || typeof onCourseGenerate !== 'function') return false;
+            const meta = courseSelection();
+            if (!meta) return false;
+            announceSelection();
+            return onCourseGenerate(prompt, meta);
+          },
+        });
+      }
+    } else courseMaterials?.updateSources?.({ course, canvasItems: studyCourseItems(courseItems, courseId) });
+  }
+  courseSelect.addEventListener('change', () => {
+    if (!current() || mode !== 'course') return;
+    const course = courseChoices().find(course => String(course.id) === courseSelect.value);
+    if (!course || String(course.id) === courseId) return;
+    courseId = String(course.id); selectedItemId = null; revision++;
+    renderCourse(); renderInstructor(instructorContext()); announceSelection();
+  });
+  courseSelect.addEventListener('focusout', () => queueMicrotask(() => {
+    if (current()) renderCourse();
+  }));
   function remember() {
     if (!current() || !selectedId || !stepId) return;
     if (!place.write(profileId, { planId: selectedId, stepId, paused }) && !storageWarningShown) {
@@ -148,7 +258,7 @@ export function mountStudentStudy(root, {
   }
   function setSelection(planId, requestedStep = null, keepPause = false) {
     const plan = plans.find(item => item.id === planId);
-    if (!plan || !current() || saving || loading) return;
+    if (!plan || !current() || mode !== 'plan' || saving || loading) return;
     revision++;
     selectedId = plan.id; stepId = chooseStep(plan, requestedStep);
     if (!keepPause) paused = false;
@@ -158,7 +268,7 @@ export function mountStudentStudy(root, {
   select.addEventListener('change', () => setSelection(select.value));
 
   async function action(callback, payload, pendingMessage, buttonNode) {
-    if (!current() || paused || saving || loading || typeof callback !== 'function' || !payload) return;
+    if (!current() || mode !== 'plan' || paused || saving || loading || typeof callback !== 'function' || !payload) return;
     const version = revision;
     if (buttonNode) buttonNode.disabled = true;
     status.textContent = pendingMessage;
@@ -173,7 +283,7 @@ export function mountStudentStudy(root, {
     }
   }
   async function saveCompletion(plan, step) {
-    if (!current() || paused || saving || loading || !text(plan.updatedAt, 100)) return;
+    if (!current() || mode !== 'plan' || paused || saving || loading || !text(plan.updatedAt, 100)) return;
     saving = true;
     const wasComplete = plan.completedStepIds.includes(step.id);
     const completed = new Set(plan.completedStepIds.filter(id => plan.steps.some(item => item.id === id)));
@@ -222,6 +332,11 @@ export function mountStudentStudy(root, {
   }
   function render() {
     if (!current()) return;
+    courseMode.setAttribute('aria-pressed', String(mode === 'course'));
+    planMode.setAttribute('aria-pressed', String(mode === 'plan'));
+    courseMode.disabled = planMode.disabled = saving;
+    coursePanel.hidden = mode !== 'course'; planPanel.hidden = mode !== 'plan';
+    renderCourse();
     select.replaceChildren();
     const placeholder = node('option', '', plans.length ? 'Choose a saved plan' : loading ? 'Loading saved plans' : loadFailed ? 'Plans unavailable' : 'No saved plans yet'); placeholder.value = ''; select.append(placeholder);
     for (const plan of plans) {
@@ -239,7 +354,7 @@ export function mountStudentStudy(root, {
         : plans.length ? 'Choose a saved plan to open its study steps.'
           : loadFailed ? 'Your saved plans are unavailable. Reload saved plans to try again.'
             : 'Make and save a course plan in Plan, then study its steps here.'));
-      renderInstructor(null); return;
+      renderInstructor(instructorContext()); return;
     }
     const completed = new Set(plan.completedStepIds);
     const aside = node('nav', 'card student-study-steps'); aside.setAttribute('aria-label', 'Steps in the selected study plan');
@@ -292,7 +407,7 @@ export function mountStudentStudy(root, {
     const complete = button(completed.has(step.id) ? 'Mark not complete' : 'Mark step complete', () => void saveCompletion(plan, step), 'secondary');
     complete.disabled = paused || saving || loading || !text(plan.updatedAt, 100);
     const pause = button(paused ? 'Resume study' : 'Pause study', () => {
-      if (!current() || loading) return;
+      if (!current() || mode !== 'plan' || loading) return;
       paused = !paused; revision++;
       status.textContent = paused ? 'Paused. Your selected step is kept on this device.' : 'Study resumed at this step.';
       render(); remember(); announceSelection();
@@ -301,44 +416,51 @@ export function mountStudentStudy(root, {
     actions.append(complete, pause); detail.append(actions);
     if (paused) detail.append(node('p', 'student-study-paused', 'Study paused. Resume when you are ready.'));
     workspace.append(aside, detail);
-    renderInstructor(plan);
+    renderInstructor(instructorContext());
     try { renderMath?.(detail); } catch { /* The plain-text instructions remain available. */ }
   }
   async function loadPlans() {
     if (!current() || saving) return;
     loading = true;
     loadFailed = false;
-    const version = ++revision;
+    revision++;
+    const version = ++loadRevision;
     status.textContent = 'Loading saved plans.';
     render();
     try {
       const result = await client.list();
-      if (!current() || version !== revision) return;
+      if (!current() || version !== loadRevision) return;
       if (!Array.isArray(result.plans)) throw new Error('Invalid saved plan response');
       plans = usablePlans(result.plans);
       let plan = selectedPlan();
       if (!plan && !explicitPlan) { plan = plans[0] || null; selectedId = plan?.id || null; }
       if (plan) stepId = chooseStep(plan, stepId);
+      if (!modeChosen && !explicitPlan && !plan) mode = 'course';
       status.textContent = explicitPlan && !plan ? 'That plan is not in this workspace. Choose one of your saved plans.' : '';
       // Only remember IDs after the owned list has resolved this actual plan
       // and step. An unavailable or foreign route must not replace the place.
-      if (plan && stepId) remember();
+      if (mode === 'plan' && plan && stepId) remember();
     } catch (error) {
-      if (current() && version === revision && error.name !== 'AbortError') {
+      if (current() && version === loadRevision && error.name !== 'AbortError') {
         loadFailed = true;
         status.textContent = 'Saved plans could not load. Try Reload saved plans; your existing work is preserved.';
       }
     } finally {
-      if (current() && version === revision) { loading = false; render(); announceSelection(); }
+      if (current() && version === loadRevision) { loading = false; render(); announceSelection(); }
     }
   }
   void loadPlans();
+  if (mode === 'course') announceSelection();
   return {
     selection,
+    courseSelection,
+    mode: () => mode,
     updateSources(value = {}) {
       if (!current()) return;
       if (Array.isArray(value.courses)) courses = value.courses;
       if (Array.isArray(value.canvasItems)) canvasItems = value.canvasItems;
+      if (Array.isArray(value.courseItems)) { courseItems = value.courseItems; separateCourseItems = true; }
+      else if (!separateCourseItems && Array.isArray(value.canvasItems)) courseItems = value.canvasItems;
       // Background Canvas refreshes must not replace selected plan controls,
       // study actions, math rendering, or keyboard focus in the workspace.
       const plan = selectedPlan();
@@ -352,11 +474,14 @@ export function mountStudentStudy(root, {
         const course = courses.find(item => String(item.id) === plan.course.id);
         currentCourseLabel.textContent = text(course?.name || plan.course.name, 200);
       }
-      renderInstructor(plan);
+      renderCourse();
+      renderInstructor(instructorContext());
+      announceSelection();
     },
     dispose() {
       if (disposed) return;
-      disposed = true; revision++;
+      disposed = true; revision++; loadRevision++;
+      courseMaterials?.(); courseMaterials = null;
       client.dispose();
       section.remove();
     },

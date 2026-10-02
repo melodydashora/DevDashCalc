@@ -295,3 +295,137 @@ test('an unknown explicit plan does not silently open another saved plan', async
   assert.equal(f.find('Mark step complete'), undefined);
   assert.deepEqual(store.read('student-a'), { version: 1, planId: 'plan-one', stepId: 'step-2', paused: true });
 });
+
+test('Course study works without a saved plan and keeps requests scoped to the selected current course', async t => {
+  const contexts = [], generated = [], requests = [];
+  const courses = [{ id: '42', name: 'World history' }, { id: '43', name: 'English literature' }];
+  const f = fixture(t, { courses,
+    canvasItems: [{ id: '6', courseId: '42', title: 'Ancient trade' }, { id: '7', courseId: '43', title: 'Poem analysis' }],
+    request: async (_path, options) => { requests.push(options.method); return response({ plans: [] }); },
+    onCourseSelection: meta => contexts.push(meta), onCourseGenerate: (prompt, meta) => generated.push({ prompt, meta }) });
+  await tick();
+  assert.equal(f.instance.mode(), 'course');
+  assert.equal(f.instance.selection(), null);
+  assert.equal(contexts.at(-1).courseId, '42');
+  assert.equal(generated.length, 0);
+  assert.equal(descendants(f.root).filter(node => node.tagName === 'form').length, 1);
+  const course = descendants(f.root).find(node => node.name === 'study-course');
+  course.value = '43'; course.fire('change');
+  assert.equal(contexts.at(-1).courseId, '43');
+  const kind = descendants(f.root).find(node => node.name === 'kind');
+  kind.value = 'question'; kind.fire('change');
+  f.byClass('course-materials-form').fire('submit'); await tick();
+  assert.equal(generated[0].meta.courseId, '43');
+  assert.equal(generated[0].meta.kind, 'question');
+  assert.match(generated[0].prompt, /English literature/);
+  assert.doesNotMatch(generated[0].prompt, /World history|Ancient trade/);
+  assert.deepEqual(requests, ['GET']);
+});
+
+test('an explicit course route takes priority over remembered plans without replacing the saved place', async t => {
+  const local = storage(), store = createStudySelectionStore({ storage: local });
+  store.write('student-a', { planId: 'plan-one', stepId: 'step-2', paused: true });
+  const f = fixture(t, { storage: local, selectedCourseId: '43', courses: [{ id: '42', name: 'Physics' }, { id: '43', name: 'Art history' }] });
+  assert.equal(f.instance.mode(), 'course');
+  assert.equal(f.instance.courseSelection().courseId, '43');
+  await tick();
+  assert.equal(f.instance.mode(), 'course');
+  assert.equal(f.instance.selection(), null);
+  assert.deepEqual(store.read('student-a'), { version: 1, planId: 'plan-one', stepId: 'step-2', paused: true });
+});
+
+test('mode switches clear the old Coach context first and repeated sources do not reannounce unchanged selections', async t => {
+  const calls = [], courses = [{ id: '42', name: 'Physics' }];
+  const f = fixture(t, { selectedPlanId: 'plan-one', courses,
+    onSelection: meta => calls.push(['plan', meta]), onCourseSelection: meta => calls.push(['course', meta]) });
+  await tick();
+  assert.equal(f.instance.mode(), 'plan');
+  calls.length = 0;
+  f.find('Course').fire('click');
+  assert.deepEqual(calls.map(([type, meta]) => [type, meta?.courseId || null]), [['plan', null], ['course', '42']]);
+  assert.equal(f.instance.selection(), null);
+  calls.length = 0;
+  f.instance.updateSources({ courses });
+  assert.deepEqual(calls, []);
+  f.find('Saved plan').fire('click');
+  assert.deepEqual(calls.map(([type, meta]) => [type, meta?.planId || null]), [['course', null], ['plan', 'plan-one']]);
+});
+
+test('switching to a course while saved plans load does not cancel or strand the plan list', async t => {
+  const gate = deferred();
+  const f = fixture(t, { request: () => gate.promise, courses: [{ id: '42', name: 'Physics' }] });
+  f.find('Course').fire('click');
+  gate.resolve(response({ plans: [makePlan()] })); await tick();
+  assert.equal(f.instance.mode(), 'course');
+  f.find('Saved plan').fire('click');
+  assert.equal(f.instance.selection().planId, 'plan-one');
+  assert.equal(f.find('Mark step complete').disabled, false);
+  assert.equal(f.find('Reload saved plans').disabled, false);
+});
+
+test('an unavailable explicit course never silently uses a different course', async t => {
+  const contexts = [];
+  const f = fixture(t, { selectedCourseId: '999', courses: [{ id: '42', name: 'Physics' }], onCourseSelection: meta => contexts.push(meta) });
+  await tick();
+  assert.equal(f.instance.courseSelection(), null);
+  assert.equal(f.byClass('course-materials-form'), undefined);
+  assert.deepEqual(contexts, [null]);
+  const select = descendants(f.root).find(node => node.name === 'study-course');
+  select.value = '42'; select.fire('change');
+  assert.equal(f.instance.courseSelection().courseId, '42');
+});
+
+test('course refresh preserves the material draft and focus while removing unavailable assignment context', async t => {
+  const contexts = [], courses = [{ id: '42', name: 'English' }];
+  const f = fixture(t, { selectedCourseId: '42', selectedItemId: '7', courses,
+    canvasItems: [{ id: '7', courseId: '42', title: 'Poem analysis' }], onCourseSelection: meta => contexts.push(meta) });
+  await tick();
+  assert.equal(f.instance.courseSelection().itemId, '7');
+  const form = f.byClass('course-materials-form');
+  const topic = descendants(f.root).find(node => node.name === 'topic');
+  topic.value = 'Compare imagery'; topic.fire('input'); topic.focus();
+  const count = contexts.length;
+  f.instance.updateSources({ courses, canvasItems: [{ id: '7', courseId: '42', title: 'Poem analysis' }] });
+  assert.equal(f.byClass('course-materials-form'), form);
+  assert.equal(document.activeElement, topic);
+  assert.equal(topic.value, 'Compare imagery');
+  assert.equal(contexts.length, count);
+  f.instance.updateSources({ courses, canvasItems: [] });
+  assert.equal(f.instance.courseSelection().itemId, null);
+  assert.equal(topic.value, 'Compare imagery');
+  assert.equal(contexts.at(-1).itemId, null);
+});
+
+test('course materials can review completed assignments while instructor work stays pending only', async t => {
+  const f = fixture(t, { selectedCourseId: '42', selectedItemId: '7', courses: [{ id: '42', name: 'English' }],
+    canvasItems: [{ id: '8', courseId: '42', title: 'Pending essay' }],
+    courseItems: [{ id: '7', courseId: '42', title: 'Completed poem analysis' }, { id: '8', courseId: '42', title: 'Pending essay' }] });
+  await tick();
+  assert.equal(f.instance.courseSelection().itemId, '7');
+  const instructor = f.byClass('card student-study-instructor');
+  assert.match(instructor.textContent, /Pending essay/);
+  assert.doesNotMatch(instructor.textContent, /Completed poem analysis/);
+  f.instance.updateSources({ canvasItems: [] });
+  assert.equal(f.instance.courseSelection().itemId, '7');
+  assert.doesNotMatch(instructor.textContent, /Pending essay/);
+  f.instance.updateSources({ courseItems: [{ id: '8', courseId: '42', title: 'Pending essay' }] });
+  assert.equal(f.instance.courseSelection().itemId, null);
+});
+
+test('leaving Course releases a pending form and ignores its late result without losing the draft', async t => {
+  const gate = deferred();
+  const f = fixture(t, { selectedCourseId: '42', courses: [{ id: '42', name: 'Physics' }], onCourseGenerate: () => gate.promise });
+  await tick();
+  const topic = descendants(f.root).find(node => node.name === 'topic');
+  topic.value = 'Forces'; topic.fire('input');
+  const form = f.byClass('course-materials-form');
+  form.fire('submit'); await tick();
+  assert.equal(f.find('Ask Astra').disabled, true);
+  f.find('Saved plan').fire('click');
+  f.find('Course').fire('click');
+  assert.equal(f.find('Ask Astra').disabled, false);
+  assert.equal(topic.value, 'Forces');
+  assert.equal(f.byClass('course-materials-form'), form);
+  gate.resolve(false); await tick();
+  assert.equal(f.byClass('course-materials-status').textContent, '');
+});

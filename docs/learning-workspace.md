@@ -7,7 +7,7 @@ this repository; deployment verification is a separate step.
 | --- | --- | --- |
 | Home (`#/home`) | Personalized greeting and three touch-friendly destinations: Study, Plan, Canvas | Desktop navigation is horizontal; phones use the right-side menu. Account settings are in the header. |
 | Canvas (`#/canvas`) | Refresh/check school courses and add/remove them from Plan | Existing learner-owned course visibility preferences persist membership. Removing a course does not alter Canvas or erase saved work; it can be added again. Preference-read/write failures remain visible. |
-| Study (`#/study`, `#/study/<planId>/<stepId>`) | Work through saved plan steps, view instructor items for that course, use practice, models, and the bottom Coach | Completion uses the owned plan API; only selected IDs and pause choice are stored locally. The server resolves selected plan/step context from owned records. |
+| Study (`#/study`, `#/study/course/<courseId>`, `#/study/<planId>/<stepId>`) | Choose a course for explanations/practice/guides/flashcards/examples, or work through saved plan steps; view instructor work and use the bottom Coach | Completion uses the owned plan API; only selected IDs and pause choice are stored locally. The server resolves selected plan/step context from owned records. |
 | Course library (`#/library`) | Independent AB/BC lessons/mastery, subject practice, and models | Changing subject preserves progress. SAT, Algebra, and Physics practice are not full authored lesson courses. |
 | Plan (`#/plans`, `#/plans/<id>`) | Choose a Canvas course and items, add a topic/question, select Guide/Practice/Test/Model, then review and save steps for Study | Owner-bound, append-only events. 200 plans / 5,000 plan events per workspace; 1–10 topics, 1–12 steps, 1–120 minutes per step and at most 360 minutes total. No delete/archive interface yet. |
 | Mixed practice (`#/mixed`, `#/mixed/sat`, `#/mixed/algebra`) | Verified-key questions, explicit checking, help and adaptive follow-ups | Active sessions last at most six hours / 200 questions and end on server restart. Canonical checked attempts persist separately. |
@@ -95,3 +95,24 @@ an editable draft; it does not silently save the response or carry attachments.
 Test requests remain learning activities: only the existing checked bank awards
 practice credit. Interactive models come from the available reviewed library;
 arbitrary generated scripts are not executed.
+
+## Direct course learning
+
+Course mode does not require a saved plan and is not limited to the independent
+SAT/Calculus bank. It uses the learner’s selected Canvas course, optional
+assignment, and topic. Previously submitted assignments remain available for
+review; the instructor panel still shows pending items. Explicit course URLs
+open Course mode even when the device remembers a saved plan.
+
+The server validates course/assignment ownership, removes stale global math
+filters for this mode, and retrieves relevant instructional material. The
+selected topic remains learner-provided context, not a teacher requirement.
+Unreadable material is disclosed; Astra can explain from general subject
+knowledge without claiming to have read that material. Generated questions
+are formative learning activities, not official grades or verified-bank credit.
+
+Explain-to-Practice changes preserve the same conversation. Course, assignment,
+or topic changes isolate the old conversation and pending work. Background
+refresh preserves typed requests and focus. Provider tests inspect actual
+request payloads with fixtures; successful transport tests do not establish the
+quality of a live model’s explanation in every subject.

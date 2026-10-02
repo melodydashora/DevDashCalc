@@ -934,3 +934,15 @@ test('the Coach uses only the selected owned saved plan and real step, including
   assert.deepEqual((await fixture.api('/api/study-plans', { cookie: bob.cookie })).data.plans.find(plan => plan.id === planId), completed.data.plan,
     'coaching does not mark the selected step complete');
 });
+
+test('direct course learning cannot borrow another account Canvas connection or trust a supplied course name', async () => {
+  const bob = await login('bob'), before = fixture.calls.length;
+  const body = { message: 'Explain photosynthesis.', pageContext: { route: '#/study', selectedCourseId: '99', learningActivity: 'explain',
+    learningTopic: 'Photosynthesis', courseName: 'Private fixture course', canvasProfile: 'profile-a' } };
+  assert.equal((await fixture.api('/api/canvas/coach', { method: 'POST', body })).status, 401);
+  assert.equal((await fixture.api('/api/canvas/coach?profile=profile-a', { method: 'POST', cookie: bob.cookie, body })).status, 403);
+  const own = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie, body });
+  assert.equal(own.status, 404);
+  assert.doesNotMatch(JSON.stringify(own.data), /Private fixture course|Photosynthesis/);
+  assert.equal(fixture.calls.length, before, 'unavailable owner course context never touches a foreign Canvas connection or the model');
+});

@@ -748,8 +748,13 @@ Home greets the active student by name and offers three large action cards:
 Study, Plan, and Canvas. Canvas refreshes the school course list and controls
 which courses appear in Plan. Plan combines selected course items, a specific
 topic or question, and a Guide/Practice/Test/Model activity into an editable
-draft. Saving is explicit. Study opens the saved steps with instructor work for
-that course and the same bottom Coach. Completion is student-reported and
+draft. Saving is explicit. Study opens either a course directly or saved plan
+steps, with instructor work for that course and the same bottom Coach. Course
+mode offers explanations, practice, study guides, flashcards, and worked
+examples without requiring a saved plan. The selected class, assignment, and
+topic stay with follow-up questions. Changing only the activity (such as
+Explain to Practice) preserves the conversation; changing course, assignment,
+or topic clears its old context. Completion is student-reported and
 versioned; practice sessions and pause/resume stay scoped to their plan step.
 Course removal preserves Canvas and saved work. Account settings remain in the
 header; lessons, review, and other tools are available from Study.

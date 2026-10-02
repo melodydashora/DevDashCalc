@@ -803,7 +803,7 @@ function viewHome() {
   // lint-ui: allow
   const choicePrompt = 'What do you want to do first?';
   const actions = [
-    { label: 'Study', tone: 'practice', href: '#/study', description: 'Open your plans, practice, and ask Astra.',
+    { label: 'Study', tone: 'practice', href: '#/study', description: 'Choose a class, practise, or ask Astra.',
       icon: '<path d="M12 7v14M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3Z"></path>' },
     { label: 'Plan', tone: 'plans', href: '#/plans', description: 'Choose what you want to work on tonight.',
       icon: '<rect x="4" y="5" width="16" height="16" rx="2"></rect><path d="M8 3v4m8-4v4M4 10h16M8 14h3m-3 3h7"></path>' },
@@ -864,11 +864,16 @@ async function viewEvidenceMystery() {
   }
 }
 
+function portalCourseItems() {
+  return portalCourses().flatMap(course => (course.assignments || []).map(item => ({
+    id: String(item.id), courseId: String(course.id), title: item.name,
+    dueAt: item.dueAt || null, htmlUrl: item.htmlUrl, type: item.isQuiz ? 'quiz' : 'assignment',
+    submitted: Boolean(item.submission?.submittedAt || ['submitted', 'graded'].includes(item.submission?.workflowState)),
+    excused: Boolean(item.submission?.excused),
+  })));
+}
 function portalStudyItems() {
-  return portalCourses().flatMap(course => (course.assignments || [])
-    .filter(item => !item.submission?.excused && !item.submission?.submittedAt && !['submitted', 'graded'].includes(item.submission?.workflowState))
-    .map(item => ({ id: String(item.id), courseId: String(course.id), title: item.name,
-      dueAt: item.dueAt || null, htmlUrl: item.htmlUrl, type: item.isQuiz ? 'quiz' : 'assignment' })));
+  return portalCourseItems().filter(item => !item.submitted && !item.excused);
 }
 
 function viewStudyPlans(selectedPlanId = null, courseId = null) {
@@ -896,24 +901,25 @@ function viewStudyPlans(selectedPlanId = null, courseId = null) {
   loadSchoolContext().then(() => canvasBackgroundRefresh?.());
 }
 
-async function viewStudentStudy(planId = null, stepId = null) {
+async function viewStudentStudy(planId = null, stepId = null, courseId = null) {
   const profileId = activeProfile;
-  const v = mountView('<h1>Study</h1><p>Your plans, schoolwork, and Astra in one place.</p><div id="student-study-slot"></div><details class="portal-tools-details"><summary>More ways to study</summary><div class="portal-tools"><a href="' + independentPracticeHref() + '">Choose practice topics</a><a href="#/library">Lessons</a><a href="#/review">Review</a><a href="#/build">Explore models and questions</a></div></details><div id="student-study-models"></div><div id="student-study-practice"></div>', { breadcrumb: ['Home', 'Study'], nav: 'study' });
+  const v = mountView('<h1>Study</h1><p>Choose a course or pick up a saved plan.</p><div id="student-study-slot"></div><details class="portal-tools-details"><summary>More ways to study</summary><div class="portal-tools"><a href="' + independentPracticeHref() + '">Choose practice topics</a><a href="#/library">Lessons</a><a href="#/review">Review</a><a href="#/build">Explore models and questions</a></div></details><div id="student-study-models"></div><div id="student-study-practice"></div>', { breadcrumb: ['Home', 'Study'], nav: 'study' });
   const host = $('#student-study-slot', v);
   let practiceGeneration = 0, practiceLoading = false, studyPaused = false;
   try {
     const { mountStudentStudy } = await import('/student-study.js');
     if (!host.isConnected || profileId !== activeProfile) return;
+    const clearStudyActivities = () => {
+      practiceGeneration += 1; practiceLoading = false;
+      mixedCleanup?.(); mixedCleanup = null; activeMixedQuestion = null;
+      spatialCleanup?.(); spatialCleanup = null;
+      for (const cleanup of questionModelCleanups) cleanup();
+      questionModelCleanups.clear();
+      $('#student-study-models', v)?.replaceChildren();
+    };
     const selectContext = meta => {
       if (!host.isConnected || profileId !== activeProfile) return;
-      if (selectedStudyContext?.planId !== meta?.planId || selectedStudyContext?.stepId !== (meta?.stepId || null) || Boolean(meta?.paused) !== studyPaused) {
-        practiceGeneration += 1; practiceLoading = false;
-        mixedCleanup?.(); mixedCleanup = null; activeMixedQuestion = null;
-        spatialCleanup?.(); spatialCleanup = null;
-        for (const cleanup of questionModelCleanups) cleanup();
-        questionModelCleanups.clear();
-        $('#student-study-models', v)?.replaceChildren();
-      }
+      if (selectedStudyContext?.planId !== meta?.planId || selectedStudyContext?.stepId !== (meta?.stepId || null) || Boolean(meta?.paused) !== studyPaused || coachCanvasReference) clearStudyActivities();
       studyPaused = Boolean(meta?.paused);
       if (studyPaused) pageCoachCleanup?.pause?.();
       selectedStudyContext = meta?.planId ? { planId: meta.planId, stepId: meta.stepId || null,
@@ -921,11 +927,38 @@ async function viewStudentStudy(planId = null, stepId = null) {
       coachCanvasReference = null;
       pageCoachCleanup?.refresh();
     };
+    const selectCourseContext = meta => {
+      if (!host.isConnected || profileId !== activeProfile) return false;
+      if (!meta) {
+        if (coachCanvasReference) { clearStudyActivities(); coachCanvasReference = null; pageCoachCleanup?.refresh(); }
+        return false;
+      }
+      const course = portalCourses().find(item => String(item.id) === String(meta.courseId));
+      if (!course) { selectContext(null); return false; }
+      const activity = ['explain', 'practice', 'guide', 'flashcards'].includes(meta.learningActivity) ? meta.learningActivity
+        : ({ question: 'practice', example: 'explain', guide: 'guide', flashcards: 'flashcards' })[meta.kind] || 'explain';
+      const item = portalCourseItems().find(item => item.courseId === String(course.id) && item.id === String(meta.itemId));
+      const next = { subject: 'all', canvasCourse: true, selectedCourseId: String(course.id), termIds: [],
+        itemId: item?.id || null, learningActivity: activity,
+        learningTopic: typeof meta.topic === 'string' ? meta.topic.trim().slice(0, 500) : '', title: course.name };
+      if (selectedStudyContext || JSON.stringify(next) !== JSON.stringify(coachCanvasReference)) clearStudyActivities();
+      studyPaused = false; selectedStudyContext = null; coachCanvasReference = next;
+      pageCoachCleanup?.refresh();
+      return true;
+    };
     const instance = mountStudentStudy(host, {
-      profileId, selectedPlanId: planId, selectedStepId: stepId, renderMath,
-      courses: portalCourses(), canvasItems: portalStudyItems(),
+      profileId, selectedPlanId: planId, selectedStepId: stepId, selectedCourseId: courseId, renderMath,
+      courses: portalCourses(), canvasItems: portalStudyItems(), courseItems: portalCourseItems(),
       isCurrent: () => profileId === activeProfile && host.isConnected,
       onSelection: selectContext,
+      onCourseSelection: selectCourseContext,
+      onCourseGenerate(prompt, meta) {
+        if (!selectCourseContext(meta)) return false;
+        ensurePageCoach();
+        const started = pageCoachCleanup?.ask(prompt);
+        $('#page-coach-slot').scrollIntoView({ block: 'start' });
+        return started !== false;
+      },
       onAskAstra(message, meta) {
         selectContext(meta); ensurePageCoach(); pageCoachCleanup?.ask(message);
         $('#page-coach-slot').scrollIntoView({ block: 'start' });
@@ -990,7 +1023,7 @@ async function viewStudentStudy(planId = null, stepId = null) {
     });
     studentStudyCleanup = instance;
     canvasBackgroundRefresh = () => {
-      if (host.isConnected && profileId === activeProfile) instance.updateSources({ courses: portalCourses(), canvasItems: portalStudyItems() });
+      if (host.isConnected && profileId === activeProfile) instance.updateSources({ courses: portalCourses(), canvasItems: portalStudyItems(), courseItems: portalCourseItems() });
     };
     loadSchoolContext().then(() => canvasBackgroundRefresh?.());
   } catch {
@@ -2553,6 +2586,7 @@ function router() {
   else if (route === 'diagnostic') viewDiagnostic();
   else if (route === 'review') viewReview();
   else if (route === 'focus') viewFocus();
+  else if (route === 'study' && a === 'course' && b && /^[0-9]{1,20}$/.test(b)) viewStudentStudy(null, null, b);
   else if (route === 'study') viewStudentStudy(a || null, b || null);
   else if (route === 'mixed') viewMixedStudy(['sat', 'algebra'].includes(a) ? a : null);
   else if (route === 'canvas' && a === 'plan') viewCanvasPlan();
