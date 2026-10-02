@@ -29,6 +29,9 @@ jobs:
           node --check ai-coach.js
           node --check coach-config.js
           node --check tutor-service.js
+          node --check coach-audio.js
+          node --check coach-memory.js
+          node --check public/coach-audio.js
           node --check anthropic-coach.js
           node --check scripts/check-tutor-models.mjs
           node --check ai-record-coach.js

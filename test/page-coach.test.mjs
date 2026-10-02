@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { safeCoachHref, coachContextLabel, coachConversationScope, coachSourceDetail, coachReplyIdentity, parseCoachMarkdown, appendReply } from '../public/page-coach.js';
+import { safeCoachHref, coachContextLabel, coachConversationScope, coachSourceDetail, coachReplyIdentity, parseCoachMarkdown, appendReply, mountPageCoach } from '../public/page-coach.js';
 
 test('reply identity names the actual model and derives backup status from the response', () => {
   for (const [model, name] of [
@@ -142,4 +142,343 @@ test('reply DOM uses semantic nodes and keeps HTML and unsafe links inert', () =
     appendReply(capped, [row, Array(9).fill('---').join('|'), ...Array(51).fill(row)].join('\n'));
     assert.match(capped.textContent, /Showing 50 of 51 rows and 8 of 9 columns/);
   } finally { globalThis.document = originalDocument; }
+});
+
+// A deliberately small DOM fixture for the coach's event and ownership boundary.
+// Browser layout and visual styling are checked separately; these tests exercise
+// real callbacks without a DOM package or network/AI services.
+class CoachFixtureNode {
+  constructor(tag = 'div', text = '') {
+    this.tagName = tag.toUpperCase();
+    this.children = []; this.parentNode = null; this.attributes = {};
+    this.listeners = new Map(); this._text = text; this.className = '';
+    this.value = ''; this.hidden = false; this.disabled = false; this.scrollTop = 0;
+    this.classList = {
+      contains: (name) => this.className.split(/\s+/).includes(name),
+      add: (...names) => { this.className = [...new Set([...this.className.split(/\s+/).filter(Boolean), ...names])].join(' '); },
+      remove: (...names) => { this.className = this.className.split(/\s+/).filter((name) => !names.includes(name)).join(' '); },
+      toggle: (name, force) => {
+        const present = force === undefined ? !this.classList.contains(name) : force;
+        this.classList[present ? 'add' : 'remove'](name); return present;
+      },
+    };
+  }
+  get textContent() { return this._text + this.children.map((node) => node.textContent).join(''); }
+  set textContent(value) { this.replaceChildren(); this._text = String(value); }
+  set innerHTML(_) { throw new Error('Coach rendering must use safe DOM nodes'); }
+  get isConnected() { return this._connected === true || this.parentNode?.isConnected === true; }
+  appendChild(child) { child.remove(); child.parentNode = this; this.children.push(child); return child; }
+  append(...children) { for (const child of children) this.appendChild(typeof child === 'string' ? new CoachFixtureNode('#text', child) : child); }
+  replaceChildren(...children) {
+    for (const child of this.children) child.parentNode = null;
+    this.children = []; this._text = ''; this.append(...children);
+  }
+  remove() {
+    if (this.parentNode) this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+    this.parentNode = null;
+  }
+  setAttribute(name, value) { this.attributes[name] = String(value); }
+  getAttribute(name) { return this.attributes[name] ?? null; }
+  addEventListener(type, callback) {
+    if (!this.listeners.has(type)) this.listeners.set(type, new Set());
+    this.listeners.get(type).add(callback);
+  }
+  removeEventListener(type, callback) { this.listeners.get(type)?.delete(callback); }
+  dispatch(type, event = {}) {
+    const dispatched = { type, target: this, currentTarget: this, preventDefault() {}, stopPropagation() {}, ...event };
+    for (const callback of [...(this.listeners.get(type) || [])]) callback(dispatched);
+  }
+  dispatchEvent(event) { this.dispatch(event.type, { detail: event.detail }); return true; }
+  click() { if (!this.disabled) this.dispatch('click'); }
+  requestSubmit() { this.dispatch('submit'); }
+  focus() { document.activeElement = this; }
+  getBoundingClientRect() { return { top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0 }; }
+  querySelectorAll(selector) {
+    const matches = (node) => selector.startsWith('.') ? node.classList.contains(selector.slice(1)) : node.tagName === selector.toUpperCase();
+    const descendants = (node) => node.children.flatMap((child) => [child, ...descendants(child)]);
+    return descendants(this).filter(matches);
+  }
+  querySelector(selector) { return this.querySelectorAll(selector)[0] || null; }
+}
+
+async function withCoach(options, callback) {
+  const originals = { document: globalThis.document, window: globalThis.window, CustomEvent: globalThis.CustomEvent };
+  globalThis.CustomEvent ||= class CustomEvent {
+    constructor(type, options = {}) { this.type = type; this.detail = options.detail; }
+  };
+  globalThis.document = {
+    activeElement: null,
+    createElement: (tag) => new CoachFixtureNode(tag),
+    createElementNS: (_namespace, tag) => new CoachFixtureNode(tag),
+    createTextNode: (text) => new CoachFixtureNode('#text', text),
+  };
+  const window = globalThis.window = new CoachFixtureNode('window');
+  const root = new CoachFixtureNode(); root._connected = true;
+  let cleanup;
+  try {
+    cleanup = mountPageCoach(root, options);
+    await callback({ root, window, cleanup, find: (selector) => {
+      const node = root.querySelector(selector); assert.ok(node, `Missing coach element ${selector}`); return node;
+    } });
+  } finally {
+    cleanup?.();
+    globalThis.document = originals.document; globalThis.window = originals.window; globalThis.CustomEvent = originals.CustomEvent;
+  }
+}
+
+function deferredReply() {
+  let resolve;
+  const promise = new Promise((complete) => { resolve = complete; });
+  return { promise, resolve };
+}
+const settleCoach = () => new Promise((resolve) => setImmediate(resolve));
+const actionNamed = (root, text) => {
+  const button = root.querySelectorAll('button').find((node) => node.textContent === text);
+  assert.ok(button, `Missing coach action ${text}`); return button;
+};
+
+test('mounted coach sends current context and only completed turns as conversation history', async () => {
+  const calls = [];
+  const context = { route: '#/practice/unit-01', subject: 'calculus-bc', unitId: 'unit-01', questionId: 'q1', sessionId: 'session-a', phase: 'before-answer' };
+  await withCoach({ context: () => context, request: async (payload, options) => {
+    calls.push({ payload, options }); return { text: 'Use the definition of the derivative.', model: 'gpt-6-astra' };
+  } }, async ({ find, cleanup }) => {
+    const form = find('.page-coach-form');
+    const input = form.querySelector('textarea');
+    cleanup.focus('  Explain the first step.  ');
+    assert.equal(document.activeElement, input);
+    assert.equal(calls.length, 0, 'opening a prepared draft never requests tutoring');
+    form.requestSubmit();
+    assert.equal(input.value, '');
+    assert.equal(form.getAttribute('aria-busy'), 'true');
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].payload, { pageContext: context, message: 'Explain the first step.', transcript: [] });
+    assert.ok(calls[0].options.signal instanceof AbortSignal);
+    await settleCoach();
+    assert.equal(form.getAttribute('aria-busy'), 'false');
+    assert.equal(find('.page-coach-log').querySelectorAll('article').length, 2);
+    assert.match(find('.page-coach-log').textContent, /Reply from GPT-6 Astra/);
+    cleanup.ask('What can I try next?');
+    assert.deepEqual(calls[1].payload.transcript, [
+      { role: 'user', text: 'Explain the first step.' },
+      { role: 'assistant', text: 'Use the definition of the derivative.' },
+    ]);
+    await settleCoach();
+  });
+});
+
+test('stopping a request aborts transport and ignores a late reply without retaining it in later history', async () => {
+  const late = deferredReply(); const calls = [];
+  await withCoach({ request: (payload, options) => {
+    calls.push({ payload, options }); return calls.length === 1 ? late.promise : Promise.resolve({ text: 'A current reply.' });
+  } }, async ({ root, find, cleanup }) => {
+    cleanup.ask('A request I want to stop.');
+    actionNamed(root, 'Stop waiting').click();
+    assert.equal(calls[0].options.signal.aborted, true);
+    const stoppedStatus = find('.page-coach-status').textContent;
+    late.resolve({ text: 'A late reply that must stay hidden.' }); await settleCoach();
+    assert.equal(find('.page-coach-log').querySelectorAll('article').length, 1);
+    assert.doesNotMatch(find('.page-coach-log').textContent, /late reply/);
+    assert.equal(find('.page-coach-status').textContent, stoppedStatus);
+    cleanup.ask('Start a different request.');
+    assert.deepEqual(calls[1].payload.transcript, []);
+    await settleCoach();
+  });
+});
+
+test('changing the active question cancels old work and clears drafts and conversation before the next request', async () => {
+  const late = deferredReply(); const calls = [];
+  let context = { subject: 'calculus-bc', unitId: 'unit-01', questionId: 'q1', sessionId: 'practice-a' };
+  await withCoach({ context: () => context, request: (payload, options) => {
+    calls.push({ payload, options }); return calls.length === 2 ? late.promise : Promise.resolve({ text: 'Reply for the current question.' });
+  } }, async ({ find, cleanup }) => {
+    cleanup.ask('Explain question one.'); await settleCoach();
+    cleanup.ask('More about question one.');
+    cleanup.focus('An unsent draft about question one.');
+    context = { ...context, questionId: 'q2' };
+    cleanup.refresh();
+    assert.equal(calls[1].options.signal.aborted, true);
+    assert.equal(find('.page-coach-log').textContent, '');
+    assert.equal(find('.page-coach-form').querySelector('textarea').value, '');
+    late.resolve({ text: 'Stale question one reply.' }); await settleCoach();
+    assert.equal(find('.page-coach-log').textContent, '');
+    cleanup.ask('Explain question two.');
+    assert.equal(calls[2].payload.pageContext.questionId, 'q2');
+    assert.deepEqual(calls[2].payload.transcript, []);
+    await settleCoach();
+  });
+});
+
+test('unmount aborts and removes handlers so old controls and late replies cannot revive a coach', async () => {
+  const late = deferredReply(); const calls = []; let mathRenders = 0;
+  await withCoach({ request: (payload, options) => { calls.push({ payload, options }); return late.promise; }, renderMath: () => { mathRenders += 1; } }, async ({ root, window, find, cleanup }) => {
+    cleanup.ask('A pending question.');
+    const form = find('.page-coach-form'); const log = find('.page-coach-log');
+    const input = form.querySelector('textarea');
+    cleanup(); cleanup();
+    assert.equal(root.children.length, 0);
+    assert.equal(calls[0].options.signal.aborted, true);
+    input.value = 'A stale form request.'; form.requestSubmit();
+    cleanup.ask('A stale caller request.'); cleanup.refresh(); window.dispatch('hashchange');
+    late.resolve({ text: 'A reply after sign-out.' }); await settleCoach();
+    assert.equal(calls.length, 1);
+    assert.equal(mathRenders, 0);
+    assert.doesNotMatch(log.textContent, /reply after sign-out/);
+    assert.equal(window.listeners.get('hashchange')?.size, 0);
+  });
+});
+
+test('signed-out coach never sends a request or mounts account notes', async () => {
+  let requests = 0; let noteMounts = 0;
+  await withCoach({ signedOut: true, request: async () => { requests += 1; return { text: 'Private reply.' }; }, mountNotes: () => { noteMounts += 1; } }, async ({ root, find, cleanup }) => {
+    cleanup.ask('Read my saved progress.');
+    cleanup.focus('Send a draft.'); find('.page-coach-form').requestSubmit();
+    for (const button of find('.page-coach-quick').querySelectorAll('button')) button.click();
+    await settleCoach();
+    assert.equal(requests, 0); assert.equal(noteMounts, 0);
+    assert.equal(root.querySelector('.page-coach-notes-toggle'), null);
+  });
+});
+
+test('notes drawer mounts only on explicit open and cleans up on close and coach unmount without tutoring or saving', async () => {
+  const mounted = []; let cleanups = 0; let requests = 0; let saves = 0;
+  await withCoach({ request: async () => { requests += 1; return { text: 'Reply.' }; }, saveMemo: async () => { saves += 1; }, mountNotes: (root) => {
+    mounted.push(root); return () => { cleanups += 1; };
+  } }, async ({ find, cleanup }) => {
+    const toggle = find('.page-coach-notes-toggle');
+    const notebook = find('.page-coach-notebook');
+    const content = find('.page-coach-notebook-content');
+    assert.equal(notebook.hidden, true);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.equal(mounted.length, 0);
+    toggle.click();
+    assert.equal(notebook.hidden, false);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.deepEqual(mounted, [content]);
+    find('.page-coach-notebook-close').click();
+    assert.equal(notebook.hidden, true);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.equal(cleanups, 1);
+    toggle.click(); toggle.click();
+    assert.equal(cleanups, 2);
+    assert.equal(notebook.hidden, true);
+    toggle.click(); cleanup(); cleanup();
+    assert.equal(mounted.length, 3);
+    assert.equal(cleanups, 3);
+    await settleCoach();
+    assert.equal(requests, 0, 'opening notes does not count as received tutoring');
+    assert.equal(saves, 0, 'notes and conversations are saved only by explicit save actions');
+  });
+});
+
+for (const action of ['updated', 'deleted']) {
+  test(`an owned memory ${action} event clears retained context, aborts the old reply, and keeps the drawer mounted`, async () => {
+    const calls = []; const late = deferredReply(); const mounts = []; let noteCleanups = 0;
+    await withCoach({ profileId: 'student-a', request: (payload, options) => {
+      calls.push({ payload, options });
+      return calls.length === 2 ? late.promise : Promise.resolve({ text: 'Reply based on the current saved memories.', model: 'gpt-6-astra' });
+    }, mountNotes: node => {
+      mounts.push(node);
+      const draft = document.createElement('textarea'); draft.value = 'An open memory edit.'; node.appendChild(draft);
+      return () => { noteCleanups += 1; };
+    } }, async ({ window, find, cleanup }) => {
+      cleanup.ask('Use what you remember about how I learn.'); await settleCoach();
+      cleanup.ask('Explain another step using that memory.');
+      assert.equal(calls[1].payload.transcript.length, 2);
+      find('.page-coach-notes-toggle').click();
+      const drawer = find('.page-coach-notebook');
+      const draft = find('.page-coach-notebook-content').querySelector('textarea');
+      window.dispatchEvent(new CustomEvent('students4ai-memo-saved', { detail: { profileId: 'student-b', action } }));
+      assert.equal(calls[1].options.signal.aborted, false, 'another learner cannot reset this Coach');
+      assert.equal(find('.page-coach-form').getAttribute('aria-busy'), 'true');
+      window.dispatchEvent(new CustomEvent('students4ai-memo-saved', { detail: { profileId: 'student-a', action } }));
+      assert.equal(calls[1].options.signal.aborted, true);
+      assert.equal(find('.page-coach-form').getAttribute('aria-busy'), 'false');
+      assert.match(find('.page-coach-status').textContent, /Memory changed/);
+      assert.equal(drawer.hidden, false);
+      assert.equal(find('.page-coach-notes-toggle').getAttribute('aria-expanded'), 'true');
+      assert.equal(mounts.length, 1);
+      assert.equal(noteCleanups, 0, 'memory changes must not unmount the editor that made them');
+      assert.equal(find('.page-coach-notebook-content').querySelector('textarea'), draft);
+      assert.equal(draft.value, 'An open memory edit.');
+      late.resolve({ text: 'This stale reply used a memory that is no longer current.' }); await settleCoach();
+      assert.doesNotMatch(find('.page-coach-log').textContent, /This stale reply/);
+      assert.match(find('.page-coach-status').textContent, /Memory changed/);
+      cleanup.ask('Use my current saved preferences.');
+      assert.deepEqual(calls[2].payload.transcript, [], 'old preference-bearing turns cannot enter the next model request');
+      await settleCoach();
+      assert.equal(drawer.hidden, false);
+      assert.equal(noteCleanups, 0);
+      cleanup();
+      assert.equal(noteCleanups, 1);
+      assert.equal(window.listeners.get('students4ai-memo-saved')?.size, 0);
+    });
+  });
+}
+
+test('newly created memories refresh listeners without cancelling the active Coach reply or losing its transcript', async () => {
+  const calls = []; const late = deferredReply(); const events = [];
+  await withCoach({ profileId: 'student-a', request: (payload, options) => {
+    calls.push({ payload, options });
+    return calls.length === 1 ? late.promise : Promise.resolve({ text: 'The next explanation.' });
+  } }, async ({ window, find, cleanup }) => {
+    window.addEventListener('students4ai-memo-saved', event => events.push(event.detail));
+    cleanup.ask('Please explain one step at a time.');
+    window.dispatchEvent(new CustomEvent('students4ai-memo-saved', { detail: { profileId: 'student-a', action: 'created' } }));
+    assert.equal(calls[0].options.signal.aborted, false);
+    assert.equal(find('.page-coach-form').getAttribute('aria-busy'), 'true');
+    late.resolve({ text: 'First, identify the variable.', model: 'gpt-6-astra', memoryWrites: [
+      { state: 'saved', id: 'memory-a', text: 'Prefers one step at a time.', kind: 'preference' },
+    ] });
+    await settleCoach();
+    assert.match(find('.page-coach-log').textContent, /First, identify the variable/);
+    assert.match(find('.page-coach-log').textContent, /Memory savedPrefers one step at a time/);
+    assert.equal(find('.page-coach-form').getAttribute('aria-busy'), 'false');
+    assert.equal(find('.page-coach-status').textContent, '');
+    assert.deepEqual(events, [
+      { profileId: 'student-a', action: 'created' },
+      { profileId: 'student-a', action: 'created' },
+    ]);
+    cleanup.ask('Continue with the second step.');
+    assert.deepEqual(calls[1].payload.transcript, [
+      { role: 'user', text: 'Please explain one step at a time.' },
+      { role: 'assistant', text: 'First, identify the variable.' },
+    ]);
+    await settleCoach();
+  });
+});
+
+test('a failed coaching reply still displays its durable memory receipt and offers access to edit it', async () => {
+  let requests = 0, noteMounts = 0; const events = [], calls = [];
+  const memoryText = '<img src=x onerror=alert(1)> Show a diagram before formulas.';
+  await withCoach({ profileId: 'student-a', request: async payload => {
+    calls.push(payload); requests += 1;
+    if (requests === 1) {
+      const error = new Error('Provider temporarily unavailable.');
+      error.memoryWrites = [{ state: 'saved', id: 'memory-a', text: memoryText, kind: 'preference' }];
+      throw error;
+    }
+    return { text: 'The provider is available again.', model: 'gpt-6-astra' };
+  }, mountNotes: () => { noteMounts += 1; return () => {}; } }, async ({ root, window, find, cleanup }) => {
+    window.addEventListener('students4ai-memo-saved', event => events.push(event.detail));
+    cleanup.ask('Please remember that diagrams help me.'); await settleCoach();
+    const log = find('.page-coach-log');
+    assert.equal(log.querySelectorAll('article').length, 1, 'a saved memory is not presented as a successful AI reply');
+    assert.match(log.textContent, /Memory saved/);
+    assert.ok(log.textContent.includes(memoryText));
+    assert.equal(log.querySelectorAll('img').length, 0, 'memory text is inert');
+    assert.match(find('.page-coach-status').textContent, /could not reply/);
+    assert.equal(find('.page-coach-form').getAttribute('aria-busy'), 'false');
+    assert.deepEqual(events, [{ profileId: 'student-a', action: 'created' }]);
+    actionNamed(root, 'Manage memories').click();
+    assert.equal(find('.page-coach-notebook').hidden, false);
+    assert.equal(noteMounts, 1);
+    assert.equal(requests, 1, 'opening saved memory controls does not retry tutoring');
+    actionNamed(root, 'Try again').click(); await settleCoach();
+    assert.equal(requests, 2);
+    assert.deepEqual(calls[1].transcript, [], 'failed replies never become conversation history');
+    assert.equal(calls[1].message, calls[0].message);
+    assert.match(log.textContent, /The provider is available again/);
+    assert.ok(log.textContent.includes(memoryText), 'the successful retry does not erase a confirmed saved memory receipt');
+  });
 });

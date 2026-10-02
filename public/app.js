@@ -84,6 +84,7 @@ function applyAccountWorkspaces() {
 }
 
 function showAccountGate(notice) {
+  updateStudentHeader(true);
   if (notice !== undefined) accountGateNotice = notice;
   const route = accountGateKey();
   if (accountGateActive && route === accountGateRoute && $('#account-form')) {
@@ -158,6 +159,92 @@ async function signOut(withoutSync = false) {
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const viewEl = () => $('#view');
+
+function updateStudentHeader(signedOut = accountGateActive) {
+  const canNavigate = !signedOut && S && (!ACCOUNT?.authRequired || ACCOUNT.authenticated);
+  const name = $('#student-header-name');
+  const displayName = canNavigate
+    ? S.settings.name || profiles.find(profile => profile.id === activeProfile)?.name || ACCOUNT?.user?.displayName || ACCOUNT?.user?.username || 'Student workspace'
+    : 'Student sign-in';
+  if (name && name.textContent !== displayName) name.textContent = displayName;
+  const menuToggle = $('#student-header-menu-toggle');
+  const navigation = $('.app-header nav');
+  const menu = $('#student-header-menu');
+  const navigationSlot = $('#student-header-navigation-slot');
+  // Keep one live navigation list. Larger text needs proportionally more
+  // room, so the drawer remains available before desktop links crowd.
+  const textScale = (parseFloat(getComputedStyle(document.body).fontSize) || 16) / 16;
+  const desktopNavigation = window.innerWidth >= Math.ceil(1024 * textScale);
+  if (!canNavigate || desktopNavigation) closeStudentHeaderMenu();
+  if (navigation && navigationSlot && menu) {
+    const target = desktopNavigation ? navigationSlot : menu;
+    if (navigation.parentElement !== target) target.appendChild(navigation);
+    navigation.hidden = !canNavigate;
+    navigationSlot.hidden = !canNavigate || !desktopNavigation;
+  }
+  if (menuToggle) menuToggle.hidden = !canNavigate || desktopNavigation;
+  const now = new Date();
+  const date = $('#student-header-date');
+  const time = $('#student-header-time');
+  if (date) {
+    const label = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (date.textContent !== label) date.textContent = label;
+    if (date.dateTime !== stamp) date.dateTime = stamp;
+  }
+  if (time) {
+    const label = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    const stamp = new Date(Math.floor(now.getTime() / 1000) * 1000).toISOString();
+    if (time.textContent !== label) time.textContent = label;
+    if (time.dateTime !== stamp) time.dateTime = stamp;
+  }
+}
+
+function closeStudentHeaderMenu() {
+  const menu = $('#student-header-menu');
+  if (menu?.open) menu.close();
+  $('#student-header-menu-toggle')?.setAttribute('aria-expanded', 'false');
+}
+
+function setupStudentHeaderMenu() {
+  const menu = $('#student-header-menu');
+  const toggle = $('#student-header-menu-toggle');
+  const close = $('#student-header-menu-close');
+  if (!menu || !toggle || !close) return;
+  toggle.addEventListener('click', () => {
+    if (toggle.hidden || accountGateActive || !S || (ACCOUNT?.authRequired && !ACCOUNT.authenticated)) return;
+    if (menu.open) { closeStudentHeaderMenu(); return; }
+    menu.showModal();
+    toggle.setAttribute('aria-expanded', 'true');
+    close.focus();
+  });
+  close.addEventListener('click', closeStudentHeaderMenu);
+  menu.addEventListener('cancel', event => { event.preventDefault(); closeStudentHeaderMenu(); });
+  menu.addEventListener('close', () => {
+    toggle.setAttribute('aria-expanded', 'false');
+    if (!toggle.hidden && !accountGateActive) toggle.focus();
+  });
+  menu.addEventListener('keydown', event => {
+    if (event.key !== 'Tab' || !menu.open) return;
+    const controls = [...menu.querySelectorAll('button:not(:disabled), a[href]')]
+      .filter(control => control.getClientRects().length > 0 && !control.closest('[hidden]'));
+    const first = controls[0], last = controls.at(-1);
+    if (!first) return;
+    if (event.shiftKey && (document.activeElement === first || !menu.contains(document.activeElement))) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  });
+  menu.addEventListener('click', event => {
+    if (event.target.closest?.('a[data-nav]')) { closeStudentHeaderMenu(); return; }
+    if (event.target !== menu) return;
+    const rect = menu.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeStudentHeaderMenu();
+  });
+  window.addEventListener('hashchange', closeStudentHeaderMenu);
+  window.addEventListener('resize', () => updateStudentHeader());
+}
 
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -304,6 +391,7 @@ const activeUnit = (id) => {
 };
 
 function studyControls() {
+  updateStudentHeader();
   const root = $('#study-controls');
   if (!root || !S) return;
   if (!$('#study-profile', root)) {
@@ -391,7 +479,12 @@ function setBreadcrumb(parts) {
 }
 
 function setNav(active) {
-  document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === active));
+  document.querySelectorAll('[data-nav]').forEach((a) => {
+    const current = a.dataset.nav === active;
+    a.classList.toggle('active', current);
+    if (current) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
 }
 
 function mountView(html, { breadcrumb = [], nav = '' } = {}) {
@@ -754,12 +847,49 @@ function wireHomeClasses(root) {
 function viewHome() {
   const profileId = activeProfile;
   const practiceHref = independentPracticeHref();
+  const studentName = [S.settings.name, profiles.find(profile => profile.id === activeProfile)?.name,
+    ACCOUNT?.user?.displayName, ACCOUNT?.user?.username]
+    .filter(value => typeof value === 'string').map(value => value.trim())
+    .find(value => value && !['my workspace', 'student workspace', 'student sign-in', 'learner'].includes(value.toLowerCase()));
+  // This is the student's requested literal choice prompt, not a rhetorical question.
+  // lint-ui: allow
+  const choicePrompt = 'What do you want to do first?';
+  const icon = paths => `<svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths}</svg>`;
+  const actions = [
+    { label: 'Ask Astra', tone: 'astra', description: 'Talk through a question or choose a next step.',
+      icon: '<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"></path><path d="m12 6 1.3 2.7L16 10l-2.7 1.3L12 14l-1.3-2.7L8 10l2.7-1.3Z"></path>' },
+    { label: 'Start practice', tone: 'practice', href: practiceHref, description: 'Pick a topic and try a fresh question.',
+      icon: '<circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1"></circle>' },
+    { label: 'My study plans', tone: 'plans', href: '#/plans', description: 'Open your saved topics and next steps.',
+      icon: '<rect x="5" y="4" width="14" height="17" rx="2"></rect><path d="M9 4V2h6v2M9 9h6M9 13h6M9 17h3"></path>' },
+    { label: 'My classes', tone: 'classes', href: '#/canvas', description: 'Find your Canvas classes and assignments.',
+      icon: '<path d="m2 8 10-5 10 5-10 5Z"></path><path d="M6 10v6c4 3 8 3 12 0v-6M22 8v7"></path>' },
+    { label: 'Explore lessons', tone: 'lessons', href: '#/library', description: 'Choose a lesson and explore an idea.',
+      icon: '<path d="M12 7v14M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3Z"></path>' },
+    { label: 'Study session', tone: 'session', href: '#/focus', description: 'Set a focus and work at your own pace.',
+      icon: '<circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l3 2M9 2h6M12 2v3M18 6l2-2"></path>' },
+  ];
+  const tiles = actions.map((action, index) => {
+    const tag = action.href ? 'a' : 'button';
+    const target = action.href ? `href="${esc(action.href)}"` : 'type="button" id="home-ask-astra"';
+    return `<${tag} ${target} class="home-action-tile home-action-${action.tone}" aria-label="${esc(action.label)}" aria-describedby="home-action-description-${index}">
+      <span class="home-action-icon">${icon(action.icon)}</span>
+      <span class="home-action-copy"><strong class="home-action-title">${esc(action.label)}</strong><span class="home-action-description" id="home-action-description-${index}">${esc(action.description)}</span></span>
+      <span class="home-action-arrow" aria-hidden="true">${icon('<path d="M5 12h14m-6-6 6 6-6 6"></path>')}</span>
+    </${tag}>`;
+  }).join('');
   const v = mountView(
-    '<section class="dashboard-hero"><div><span class="kicker">Students4AI</span><h1>Your classes and study plans</h1><p>Choose a class, save a plan, and return to the step you want to work on. Your saved course topics appear below.</p><div class="btn-row"><a class="btn" href="#/plans">Open study plans</a><a class="btn secondary" href="' + practiceHref + '">Start fresh practice</a><a class="btn secondary" href="#/library">Course library</a></div></div></section>' +
+    `<section class="home-welcome" aria-labelledby="home-greeting"><div class="home-welcome-heading"><h1 id="home-greeting">${studentName ? `Hi, ${esc(studentName)}` : 'Hi there'}</h1><p>${choicePrompt}</p></div><div class="home-action-grid">${tiles}</div></section>` +
     '<section class="home-classes" id="home-classes">' + homeClassesHtml() + '</section>' +
     '<section id="home-saved-plans"></section>' +
     '<section class="card"><h2>Your study tools</h2><p>Use your saved plan, work on a Canvas assignment, or start an optional session timer.</p><div class="home-study-tools"><a href="#/canvas/plan">Canvas assignment plan</a><a href="#/focus">Session timer</a><a href="#/library">Lessons and learning models</a><a href="#/build">Build new practice with Astra</a></div></section>',
     { breadcrumb: ['Home'], nav: 'home' });
+  $('#home-ask-astra', v).addEventListener('click', () => {
+    if (profileId !== activeProfile || !v.isConnected) return;
+    ensurePageCoach();
+    $('#page-coach-slot')?.scrollIntoView({ behavior: 'auto', block: 'start' });
+    pageCoachCleanup?.focus();
+  });
   wireHomeClasses($('#home-classes', v));
   const host = $('#home-saved-plans', v);
   studyPlansCleanup = mountHomeStudyPlans(host, { profileId, isCurrent: () => profileId === activeProfile });
@@ -2394,8 +2524,10 @@ function router() {
 }
 
 function ensurePageCoach() {
+  updateStudentHeader();
   if (pageCoachCleanup) { pageCoachCleanup.refresh(); return; }
   pageCoachCleanup = mountPageCoach($('#page-coach-slot'), {
+    profileId: activeProfile,
     context: () => ({ route: location.hash || '#/home', subject: activeMixedQuestion?.subject || S.settings.subject,
       selectedCourseId: CANVAS.selectedCourseId, termIds: CANVAS.termIds || [],
       questionId: activeMixedQuestion?.questionId || activeQuestionCoach?.q.id, unitId: activeQuestionCoach?.unit.id,
@@ -2405,7 +2537,28 @@ function ensurePageCoach() {
       title: coachCanvasReference ? coachCanvasReference.title || 'Canvas instructions' : activeMixedQuestion?.title || $('h1', viewEl())?.textContent,
     }),
     renderMath,
-    mountNotes: ACCOUNT?.authRequired ? (root) => mountStudentMemos(root, { profileId: activeProfile }) : undefined,
+    audio: {
+      transcribe: async (payload, { signal }) => {
+        const profile = activeProfile;
+        const response = await apiFetch(`/api/coach/transcribe?profile=${encodeURIComponent(profile)}`, {
+          method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok || data.error || profile !== activeProfile || signal.aborted) throw new Error('The recording could not be transcribed.');
+        return data;
+      },
+      synthesize: async (payload, { signal }) => {
+        const profile = activeProfile;
+        const response = await apiFetch(`/api/coach/speech?profile=${encodeURIComponent(profile)}`, {
+          method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        if (!response.ok || profile !== activeProfile || signal.aborted || !response.headers.get('content-type')?.startsWith('audio/')) throw new Error('The reply could not be read aloud.');
+        const audio = await response.blob();
+        if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
+        return audio;
+      },
+    },
+    mountNotes: ACCOUNT?.authRequired ? (root) => mountStudentMemos(root, { profileId: activeProfile, compact: true }) : undefined,
     saveMemo: ACCOUNT?.authRequired ? async (memo) => {
       const profile = activeProfile;
       const result = await saveStudentMemo(profile, memo);
@@ -2414,6 +2567,7 @@ function ensurePageCoach() {
     } : undefined,
     request: async (payload, { signal }) => {
       const profile = activeProfile;
+      const coachFailure = (data, fallback) => Object.assign(new Error(data.error || fallback), { memoryWrites: data.memoryWrites });
       const question = activeQuestionCoach?.container.isConnected ? activeQuestionCoach : null;
       const mixedQuestion = activeMixedQuestion?.container.isConnected ? activeMixedQuestion : null;
       // The persistent coach uses the verified question handler and hint-credit
@@ -2425,7 +2579,7 @@ function ensurePageCoach() {
           followUp: payload.message, transcript: payload.transcript,
         }) });
         const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.error || 'The question coach could not answer.');
+        if (!response.ok || data.error) throw coachFailure(data, 'The question coach could not answer.');
         if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
         if (data.assisted && activeMixedQuestion?.questionId === mixedQuestion.questionId) mixedCleanup?.markAssisted(data);
         return data;
@@ -2438,19 +2592,19 @@ function ensurePageCoach() {
           followUp: payload.message, transcript: payload.transcript,
         }) });
         const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.error || 'The question coach could not answer.');
+        if (!response.ok || data.error) throw coachFailure(data, 'The question coach could not answer.');
         if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
         if (data.text && data.available !== false && !data.refusal) ctx.onHelp?.();
         return data;
       }
       const schoolPayload = mixedQuestion ? { ...payload, pageContext: { ...payload.pageContext, subject: mixedQuestion.subject, selectedCourseId: null } } : payload;
       const { res, data } = await canvasApi('/api/canvas/coach', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(schoolPayload) });
-      if (!res.ok || data.error) throw new Error(data.error || 'The study coach could not answer.');
+      if (!res.ok || data.error) throw coachFailure(data, 'The study coach could not answer.');
       const receivedHelp = Boolean(data.text && data.available !== false && !data.refusal);
       if (question && receivedHelp && profile === activeProfile && !signal.aborted) question.ctx.onHelp?.();
       if (mixedQuestion && receivedHelp && mixedQuestion.phase === 'before-answer' && profile === activeProfile && !signal.aborted) {
         const marked = await apiFetch(`/api/mixed/assisted?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId }) });
-        if (!marked.ok) throw new Error('The coach replied, but assisted practice could not be recorded. Try again before checking this answer.');
+        if (!marked.ok) throw coachFailure(data, 'The coach replied, but assisted practice could not be recorded. Try again before checking this answer.');
         const assistance = await marked.json();
         if (activeMixedQuestion?.questionId === mixedQuestion.questionId) mixedCleanup?.markAssisted({ ...assistance, questionId: mixedQuestion.questionId });
       }
@@ -2462,6 +2616,10 @@ function ensurePageCoach() {
 async function boot() {
   try {
     captureEnrollment();
+    setupStudentHeaderMenu();
+    updateStudentHeader();
+    setInterval(() => { if (!document.hidden) updateStudentHeader(); }, 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) updateStudentHeader(); });
     const refreshVisibleSchool = () => { if (!document.hidden) loadSchoolContext(); };
     setInterval(refreshVisibleSchool, 300000);
     document.addEventListener('visibilitychange', refreshVisibleSchool);

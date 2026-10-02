@@ -67,9 +67,12 @@ export class ContinuityStoreError extends Error {
 }
 export function createContinuityStore() {
   const rows = [];
+  let clock = Date.now();
+  const timestamp = () => new Date(++clock).toISOString();
+  const missing = () => new ContinuityStoreError(404, 'CONTINUITY_NOT_FOUND', 'This learning note is no longer available.');
   return {
     async list({ profileId, limit = 30, offset = 0 }) {
-      const all = rows.filter(row => row.profileId === profileId).slice().reverse();
+      const all = rows.filter(row => row.profileId === profileId && !row.deletedAt).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
       const notes = all.slice(offset, offset + limit); return { notes, totalCount: all.length, omittedCount: Math.max(0, all.length - offset - notes.length) };
     },
     async append(input) {
@@ -79,13 +82,30 @@ export function createContinuityStore() {
       const values = { ...input, type: input.type || 'student_note', source: input.source || {} };
       const old = rows.find(row => row.profileId === values.profileId && row.clientRequestId === values.clientRequestId);
       if (old) {
-        if (['text','type','source','createdByUserId'].some(key => JSON.stringify(old[key]) !== JSON.stringify(values[key]))) {
+        if (old.deletedAt || ['text','type','source','createdByUserId'].some(key => JSON.stringify(old[key]) !== JSON.stringify(values[key]))) {
           throw new ContinuityStoreError(409, 'CONTINUITY_CONFLICT', 'That note request was already used.');
         }
         return { ...old, replayed: true };
       }
-      const row = { ...values, id: randomUUID(), createdAt: new Date().toISOString() };
+      const createdAt = timestamp();
+      const row = { ...values, id: randomUUID(), createdAt, updatedAt: createdAt };
       rows.push(row); return { ...row, replayed: false };
+    },
+    async update({ profileId, id, text }) {
+      if (typeof text !== 'string' || !text.trim() || text.trim().length > 2000) throw new ContinuityStoreError(400, 'CONTINUITY_INVALID', 'Enter a note of up to 2000 characters.');
+      const row = rows.find(row => row.profileId === profileId && row.id === id && !row.deletedAt);
+      if (!row) throw missing();
+      if (row.text !== text.trim()) { row.text = text.trim(); row.updatedAt = timestamp(); }
+      return { ...row };
+    },
+    async remove({ profileId, id }) {
+      const row = rows.find(row => row.profileId === profileId && row.id === id);
+      if (!row) throw missing();
+      if (!row.deletedAt) {
+        row.deletedAt = timestamp(); row.updatedAt = row.deletedAt;
+        row.text = '[Removed learning note]'; row.source = {};
+      }
+      return { deleted: true, id };
     },
   };
 }`;
@@ -126,7 +146,7 @@ globalThis.fetch = async (input, options = {}) => {
 };`;
 let sandbox, fixture;
 const children = new Set();
-const serverFixtureFiles = ['server.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
+const serverFixtureFiles = ['server.js', 'coach-audio.js', 'coach-memory.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
   'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'mixed-sat-bank.js', 'mixed-ap-variants.js', 'study-plans.js', 'practice-history.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
 async function start(extra = {}, directory = sandbox) {
   const socket = createServer();
@@ -140,6 +160,7 @@ async function start(extra = {}, directory = sandbox) {
       TUTOR_PROVIDERS: 'openai', TUTOR_MODEL_OPENAI: 'gpt-6-astra', TUTOR_MODEL_OPENAI_FALLBACK: 'gpt-5.6-sol', TUTOR_TIMEOUT_MS: '120000', TUTOR_TOTAL_TIMEOUT_MS: '240000',
       DATABASE_URL: 'postgres://fixture:fixture@127.0.0.1:1/fake', SESSION_SECRET: 'fixture-session-secret-for-isolated-http-tests',
       OPENAI_API_KEY: 'fixture-provider-key', DEV_API_TOKEN: 'fixture-canvas-secret', DEV_API_KEY: '', ESHA_API_TOKEN: '',
+      OPENAI_SPEECH_MODEL: 'gpt-4o-mini-tts', OPENAI_TRANSCRIBE_MODEL: 'gpt-transcribe',
       DEV_CANVAS_PROFILE_ID: 'profile-a', ESHA_CANVAS_PROFILE_ID: 'bound-esha',
       DEV_CANVAS_URL: '', ESHA_CANVAS_URL: '', CANVAS_BASE_URL: 'https://school.example', ...extra },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -161,7 +182,7 @@ async function start(extra = {}, directory = sandbox) {
     }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
     const text = await response.text(); let data;
     try { data = JSON.parse(text); } catch { data = text; }
-    assert.doesNotMatch(text, /fixture-(?:canvas-secret|alice-password|bob-password)|Bearer /, 'no credentials in HTTP bodies');
+    assert.doesNotMatch(text, /fixture-(?:canvas-secret|provider-key|alice-password|bob-password)|Bearer /, 'no credentials in HTTP bodies');
     return { response, status: response.status, data, cookie: response.headers.get('set-cookie')?.split(';')[0] || '' };
   };
   return { base, child, calls, api, output: () => output };
@@ -206,7 +227,8 @@ test('signed-out requests never touch private routes, saved Canvas secrets, or p
     ['/api/canvas/session?profile=profile-a', 'GET'], ['/api/canvas/snapshot', 'GET'],
     ['/api/canvas/coach', 'POST'], ['/api/canvas/assessment', 'POST'], ['/api/canvas/prefs', 'PUT'],
     ['/api/mixed/topics', 'GET'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'GET'], ['/api/tutor', 'POST'],
-    ['/api/continuity', 'GET'], ['/api/continuity', 'POST'],
+    ['/api/continuity', 'GET'], ['/api/continuity', 'POST'], ['/api/continuity', 'PATCH'], ['/api/continuity', 'DELETE'],
+    ['/api/coach/audio', 'GET'], ['/api/coach/speech', 'POST'], ['/api/coach/transcribe', 'POST'],
     ['/api/study-plans', 'GET'], ['/api/study-plans', 'POST'], ['/api/study-plans/draft', 'POST'], ['/api/study-plans/example', 'PATCH'],
   ]) {
     const result = await fixture.api(path, { method, ...(method === 'GET' ? {} : { body: {} }) });
@@ -237,7 +259,7 @@ test('login projects safe account data, sets an expiring HttpOnly cookie, and de
     assert.equal((await fixture.api(`/api/progress?profile=${query}`, { cookie: result.cookie })).status, 403);
   }
   assert.equal((await fixture.api('/api/progress?profile=profile-a&profile=profile-b', { cookie: result.cookie })).status, 403);
-  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans']) {
+  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans', '/api/coach/audio']) {
     assert.equal((await fixture.api(`${path}?profile=profile-b`, { cookie: result.cookie })).status, 403);
   }
 });
@@ -246,13 +268,26 @@ test('every account and private mutation rejects foreign, null, and missing orig
   const signed = await login();
   for (const origin of ['https://attacker.example', 'null', null]) {
     for (const [path, method] of [['/api/auth/login', 'POST'], ['/api/auth/register', 'POST'], ['/api/auth/logout', 'POST'],
-      ['/api/progress', 'PUT'], ['/api/canvas/session', 'POST'], ['/api/canvas/session', 'DELETE'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'POST']]) {
+      ['/api/progress', 'PUT'], ['/api/canvas/session', 'POST'], ['/api/canvas/session', 'DELETE'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'POST'], ['/api/coach/speech', 'POST'], ['/api/coach/transcribe', 'POST']]) {
       assert.equal((await fixture.api(path, { method, origin, cookie: signed.cookie, body: {} })).status, 403, `${method} ${path}: ${origin}`);
     }
   }
   assert.equal((await fixture.api('/api/progress', { method: 'PUT', cookie: signed.cookie, body: {}, headers: { 'sec-fetch-site': 'cross-site' } })).status, 403);
   assert.equal((await fixture.api('/api/auth/login', { method: 'POST', body: {}, headers: { 'content-type': 'text/plain' } })).status, 415);
   assert.equal((await fixture.api('/api/auth/session', { cookie: signed.cookie })).data.authenticated, true, 'CSRF logout did not revoke the session');
+});
+
+test('coach audio status is owner-bound, safe to display, and does not initiate provider calls', async () => {
+  const alice = await login();
+  const before = fixture.calls.length;
+  const status = await fixture.api('/api/coach/audio', { cookie: alice.cookie });
+  assert.equal(status.status, 200);
+  assert.equal(status.response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(status.data, { available: true, voices: ['marin', 'cedar'], speechModel: 'gpt-4o-mini-tts', transcriptionModel: 'gpt-transcribe' });
+  assert.equal(fixture.calls.length, before);
+  for (const path of ['/api/coach/speech', '/api/coach/transcribe']) {
+    assert.equal((await fixture.api(`${path}?profile=profile-b`, { method: 'POST', cookie: alice.cookie, body: {} })).status, 403);
+  }
 });
 
 test('private enrollment preserves the original workspace and arbitrary profile body fields cannot claim it', async () => {
@@ -515,8 +550,64 @@ test('continuity appends are explicit, idempotent, and bound to the authenticate
   assert.equal((await fixture.api('/api/continuity', { cookie: alice.cookie })).data.totalCount, 1);
   assert.equal((await fixture.api('/api/continuity', { cookie: bob.cookie })).data.totalCount, 0);
   assert.equal((await fixture.api('/api/continuity?profile=profile-a', { cookie: bob.cookie })).status, 403);
-  assert.equal((await fixture.api('/api/continuity', { method: 'DELETE', cookie: alice.cookie })).status, 405);
+  assert.equal((await fixture.api('/api/continuity', { method: 'DELETE', cookie: alice.cookie })).status, 400);
   assert.equal((await fixture.api('/api/continuity', { method: 'POST', cookie: alice.cookie, origin: null, body })).status, 403);
+});
+
+test('student note edits and removals enforce ownership and origin and update subsequent Coach context', async () => {
+  const bob = await login('bob'), alice = await login();
+  const original = { clientRequestId: randomUUID(), text: 'Bob initially wants a timeline.', type: 'student_note', source: { kind: 'settings' } };
+  const saved = await fixture.api('/api/continuity', { method: 'POST', cookie: bob.cookie, body: original });
+  assert.equal(saved.status, 201);
+  const id = saved.data.note.id, path = `/api/continuity?id=${id}`;
+  const newer = await fixture.api('/api/continuity', { method: 'POST', cookie: bob.cookie,
+    body: { ...original, clientRequestId: randomUUID(), text: 'Bob also wants to label the axes.' } });
+  const edit = { text: 'Bob prefers labeled graphs before symbolic steps.', profileId: 'profile-a', createdByUserId: 'account-a' };
+
+  for (const method of ['PATCH', 'DELETE']) {
+    for (const origin of ['https://attacker.example', 'null', null]) {
+      assert.equal((await fixture.api(path, { method, origin, cookie: bob.cookie, body: edit })).status, 403);
+    }
+    const foreign = await fixture.api(path, { method, cookie: alice.cookie, body: edit });
+    const unknown = await fixture.api(`/api/continuity?id=${randomUUID()}`, { method, cookie: alice.cookie, body: edit });
+    assert.equal(foreign.status, 404);
+    assert.equal(unknown.status, 404);
+    assert.deepEqual(foreign.data, unknown.data, 'a foreign note cannot be distinguished from an unknown note');
+    assert.equal((await fixture.api(`${path}&profile=profile-b`, { method, cookie: alice.cookie, body: edit })).status, 403);
+    assert.equal((await fixture.api(`${path}&id=${randomUUID()}`, { method, cookie: bob.cookie, body: edit })).status, 400);
+  }
+  let notes = await fixture.api('/api/continuity', { cookie: bob.cookie });
+  assert.equal(notes.data.notes.find(note => note.id === id).text, original.text, 'rejected requests leave the note intact');
+  const changed = await fixture.api(path, { method: 'PATCH', cookie: bob.cookie, body: edit });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.response.headers.get('cache-control'), 'no-store');
+  assert.equal(changed.data.note.text, edit.text);
+  assert.equal(changed.data.note.profileId, 'profile-b');
+  assert.equal(changed.data.note.createdByUserId, 'account-b');
+  assert.equal(changed.data.note.createdAt, saved.data.note.createdAt);
+  assert.ok(Date.parse(changed.data.note.updatedAt) > Date.parse(saved.data.note.updatedAt));
+  notes = await fixture.api('/api/continuity', { cookie: bob.cookie });
+  assert.equal(notes.data.notes[0].id, id, 'editing an older note brings its current text into recent memory');
+  const ask = () => fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie,
+    body: { message: 'Which learning preferences are saved?', pageContext: { route: '#/home', subject: 'bc' } } });
+  const afterEdit = await ask();
+  assert.equal(afterEdit.status, 200);
+  assert.match(afterEdit.data.text, /Bob prefers labeled graphs before symbolic steps/);
+  assert.doesNotMatch(afterEdit.data.text, /Bob initially wants a timeline/);
+
+  const removed = await fixture.api(path, { method: 'DELETE', cookie: bob.cookie });
+  assert.equal(removed.status, 200);
+  assert.deepEqual(removed.data, { deleted: true, id });
+  assert.equal(removed.response.headers.get('cache-control'), 'no-store');
+  assert.equal((await fixture.api(path, { method: 'DELETE', cookie: bob.cookie })).status, 200, 'a removal retry is safe');
+  assert.equal((await fixture.api(path, { method: 'PATCH', cookie: bob.cookie, body: edit })).status, 404);
+  assert.equal((await fixture.api('/api/continuity', { method: 'POST', cookie: bob.cookie, body: original })).status, 409, 'a delayed original save cannot recreate the removed note');
+  const afterDelete = await ask();
+  assert.equal(afterDelete.status, 200);
+  assert.doesNotMatch(afterDelete.data.text, /Bob prefers labeled graphs|Bob initially wants a timeline/);
+  assert.match(afterDelete.data.text, /Bob also wants to label the axes/);
+  assert.equal((await fixture.api(`/api/continuity?id=${newer.data.note.id}`, { method: 'DELETE', cookie: bob.cookie })).status, 200);
+  assert.equal((await fixture.api('/api/continuity', { cookie: bob.cookie })).data.totalCount, 0);
 });
 
 test('the study coach receives only the current student recent notes with explicit omission and untrusted-data rules', async () => {

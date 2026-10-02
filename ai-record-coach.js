@@ -1,6 +1,7 @@
 // Astra's function calls use Responses (Chat Completions is text-only for Astra).
 // https://developers.openai.com/api/docs/guides/function-calling
-// Only the closed, read-only student-record dispatcher is provided by the server.
+// The server supplies closed owner-bound tools: read-only records, plus an
+// optional separately authorized learning-memory saver.
 import { COACH_MODELS, COACH_CONFIG } from './ai-coach.js';
 import { RECORD_SYSTEM } from './coach-records.js';
 const ENDPOINT = 'https://api.openai.com/v1/responses';
@@ -10,6 +11,7 @@ export async function completeRecordCoach({ apiKey, system, messages, lookup, mo
   const base = { text: '', model: null, fallback: false, refusal: false, truncated: false, failures, recordReads: lookup.reads };
   if (!apiKey?.trim()) return { ...base, failures: ['openai: API key is not configured'] };
   let toolCount = 0;
+  const maxToolCalls = lookup.maxToolCalls === 10 ? 10 : 8;
   for (const [index, model] of models.entries()) {
     const result = { ...base, model, fallback: index > 0 };
     const controller = new AbortController();
@@ -19,10 +21,10 @@ export async function completeRecordCoach({ apiKey, system, messages, lookup, mo
       const out = await Promise.race([deadline, (async () => {
         const input = messages.map(message => ({ ...message }));
         let tokens = COACH_CONFIG.maxCompletionTokens;
-        for (let round = 0; round < 9; round++) {
+        for (let round = 0; round <= maxToolCalls; round++) {
           if (controller.signal.aborted) return { failure: 'timed out' };
           if (tokens < 1) return { failure: 'output token budget exhausted' };
-          const allowTools = toolCount < 8 && tokens >= 1024;
+          const allowTools = toolCount < maxToolCalls && tokens >= 1024;
           await lookup.assertCurrent();
           const response = await fetchImpl(ENDPOINT, { method: 'POST', signal: controller.signal,
             headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey.trim()}` },
@@ -45,7 +47,7 @@ export async function completeRecordCoach({ apiKey, system, messages, lookup, mo
           if (accounted) tokens -= usage;
           const calls = output.filter(item => item?.type === 'function_call');
           if (calls.length) {
-            if (!allowTools || calls.length > 8 - toolCount || calls.some(call => typeof call.call_id !== 'string' || typeof call.arguments !== 'string' || call.arguments.length > 2000)) return { failure: 'record lookup limit' };
+            if (!allowTools || calls.length > maxToolCalls - toolCount || calls.some(call => typeof call.call_id !== 'string' || typeof call.arguments !== 'string' || call.arguments.length > 2000)) return { failure: 'record lookup limit' };
             if (!accounted || tokens < 1) return { failure: 'output token budget exhausted' };
             // Reasoning items, including encrypted state, return only to OpenAI.
             input.push(...output);

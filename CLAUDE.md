@@ -26,7 +26,12 @@ Breaking any of these is a regression even if the code works:
 2. **Learner-controlled motion.** Meaningful graphs and simulations may
    autoplay in full-motion mode. Provide Pause, Reset, and speed controls,
    honor reduced-motion preferences, and stop animation in hidden tabs or
-   detached views. No sound, flashing, or forced countdown timers.
+   detached views. No automatic sound, flashing, or forced countdown timers.
+   Melody's October 2, 2026 request authorizes recording spoken questions and
+   reading the GPT Coach's text replies aloud after an explicit learner action.
+   Recording requires microphone permission. Keep stop/cancel controls visible,
+   stop on account/context changes, and retain text coaching. Do not autoplay
+   audio when opening a page or add a separate conversational voice assistant.
 3. **Literal language.** No idioms, no sarcasm, no rhetorical questions, no
    exclamation marks in teaching text, no emoji. Wrong answers are "Not yet."
    in calm amber (never red) with the specific misconception and the full
@@ -53,10 +58,10 @@ Breaking any of these is a regression even if the code works:
 |---|---|
 | Server: static + progress API + tutor proxy + Canvas proxy | `server.js` |
 | Password/session core and relational account ownership | `auth.js`, `account-store.js` |
-| Explicit, append-only student continuity notes | `continuity-store.js` |
+| Durable student learning memories with owner-scoped edit/removal | `continuity-store.js`, `coach-memory.js` |
 | Sign-in/enrollment UI and server-only enrollment command | `public/auth-ui.js`, `scripts/create-enrollment.mjs` |
 | Environment model/provider settings and shared fallback policy | `coach-config.js`, `tutor-service.js` |
-| Anthropic Messages and OpenAI text/Responses transports | `anthropic-coach.js`, `ai-coach.js`, `ai-record-coach.js` |
+| Active OpenAI text/Responses transports | `ai-coach.js`, `ai-record-coach.js` |
 | Owner-bound learning-record pages | `coach-records.js` |
 | Zero-dep Postgres wire client + key→JSON store (tested) | `store.js` |
 | Adaptive/mastery logic (pure, tested) | `public/engine.js` |
@@ -138,11 +143,15 @@ Breaking any of these is a regression even if the code works:
 - The six relational tables are `s4ai_users`, `s4ai_workspaces`,
   `s4ai_workspace_members`, `s4ai_sessions`, `s4ai_enrollments`, and
   `s4ai_auth_limits`. Authentication and ownership never fall back to files.
-- `s4ai_student_memos` separately stores explicitly saved continuity notes with
-  workspace and saving-account foreign keys. Never archive conversation by
-  default. Notes append with a client request UUID for safe retries; conflicting
-  reuse cannot edit a record. Source metadata is allowlisted, text is bounded to
-  2,000 characters, and no edit/delete API exists. The notes API pages 30 records;
+- Melody's Coach replacement explicitly adds selective remembered learning
+  preferences and editable/removable memories. `s4ai_student_memos` stores them
+  with workspace and saving-account foreign keys. Never archive whole
+  conversations or raw audio. Manual saves have a client UUID for safe retries;
+  conflicting reuse cannot edit a record. Only owner-scoped PATCH changes a note.
+  DELETE clears its text/source and retains an invisible idempotency tombstone
+  so a delayed save cannot recreate it. Existing rows survive additive schema
+  changes. Source metadata is allowlisted and note text is bounded to 2,000
+  characters. The notes API pages 30 records;
   the general study coach initially reads the ten newest and discloses omitted counts.
   The authenticated coach can page through older notes and saved learning
   records using a closed read-only tool. Record lookups use the provider's
@@ -150,6 +159,12 @@ Breaking any of these is a regression even if the code works:
   are excluded.
   Notes are untrusted context and cannot override existing rules, verified keys,
   current Canvas evidence, or the current student's instruction.
+  The separate `remember_student_memory` tool can save at most two exact quotes
+  (500 characters each) from the current learner message about preferences,
+  strategies, or goals. Never infer diagnoses, save credentials, or copy retrieved
+  material. Require an owner-bound saver, disclose confirmed saves, honor requests
+  not to remember, and preserve the separate eight-read budget. Editing/removing
+  a memory clears the browser's retained prompt transcript for the next request.
 - Passwords use salted scrypt (N=131072,r=8,p=1); random session/enrollment
   tokens are stored only as HMAC hashes. Bound expensive hashes to two active
   and four queued operations. Usernames are normalized ASCII 3–32 characters;
@@ -189,33 +204,38 @@ checks ownership before reaching these existing connection handlers.
 
 ## AI coaching configuration
 
-Melody's September 15 direction supersedes the former fixed OpenAI-only
-implementation. Provider/model values in Secrets are authoritative. The
-default order is **Claude Fable 5.1 → Claude Opus 5 → GPT-6 Astra → GPT-5.6 Sol**;
-Melody explicitly confirmed Sol as Astra's fallback. Gemini is disabled.
+Melody's October 2 direction requires **OpenAI only**, with no Claude/Opus
+coaching. It supersedes the September 15 multi-provider preference. The
+default text order is **GPT-6 Astra → GPT-5.6 Sol**; explicit OpenAI model
+values in Secrets remain authoritative. Anthropic and Gemini are disabled.
 The interface's study coach remains named Astra, with actual reply model
-labels identifying Fable, Opus, Astra, Sol, or another configured model.
+labels identifying Astra, Sol, or another explicitly configured OpenAI text model.
 
-- `coach-config.js` resolves `TUTOR_PROVIDERS` (default `anthropic,openai`),
-  `TUTOR_MODEL_ANTHROPIC` (`claude-fable-5-1`),
-  `TUTOR_MODEL_ANTHROPIC_FALLBACK` (`claude-opus-5`),
+- `coach-config.js` resolves `TUTOR_PROVIDERS` (default and only supported
+  provider `openai`),
   `TUTOR_MODEL_OPENAI` (`gpt-6-astra`), and
   `TUTOR_MODEL_OPENAI_FALLBACK` (`gpt-5.6-sol`). Defaults apply only when
   settings are absent. Blank fallback disables it; blank primary is an error.
   Preserve exact supplied model spelling after trimming surrounding whitespace.
   Never replace an explicit setting with a hardcoded model or silently repair
-  a typo. Unknown providers, including `gemini`, fail configuration clearly.
-- Only `ANTHROPIC_API_KEY` and `OPENAI_API_KEY` enable providers. Missing keys
-  skip their provider with safe warnings, so an OpenAI-only deployment remains
-  usable. Gemini/Google credentials do not enable another lane. Normal startup
+  a typo. Legacy `anthropic` selections and all other providers fail
+  configuration clearly with instructions to set `TUTOR_PROVIDERS=openai`.
+- Only `OPENAI_API_KEY` enables coaching. A missing key leaves it unavailable
+  with a safe warning. Legacy Anthropic/Gemini/Google credentials and model
+  settings do not enable another lane. Normal startup
   does not load `.env`; launch commands must not overwrite model settings.
-- `tutor-service.js` controls every production coaching path. A refusal ends
-  fallback across vendors. A 401 skips other models sharing that provider key
-  and may continue to the next vendor. Service failures, timeouts, and empty
+- `tutor-service.js` controls every production text coaching path. A refusal ends
+  model fallback. A 401 skips the other OpenAI model sharing that key and
+  never switches to Claude. Service failures, timeouts, and empty
   responses can advance. Nonempty truncated replies retain a visible notice.
   Loss of student authorization ends the request.
-- Anthropic Messages uses adaptive thinking, high `output_config.effort`, and
-  a 16,000-token output budget. OpenAI text uses Chat Completions with high
+- Coach audio is transcription and playback, not a separate voice assistant.
+  Route transcribed questions through the same authorized GPT text coach and
+  canonical question-assistance callback; synthesize the same displayed reply.
+  Audio requires an explicit learner action. Release recording/playback on
+  cancellation, context or account changes, and hidden tabs. Never archive raw
+  audio, let speech grade, or bypass ownership or assistance accounting.
+- OpenAI text uses Chat Completions with high
   `reasoning_effort` and `max_completion_tokens: 16000`; record-aware OpenAI
   uses Responses with equivalent reasoning/output settings and `store:false`.
   Tool turns share their model-attempt output budget. These limits include
@@ -224,9 +244,9 @@ labels identifying Fable, Opus, Astra, Sol, or another configured model.
 - `TUTOR_TIMEOUT_MS` is the per-attempt ceiling (default 120000; range
   1000–120000). `TUTOR_TOTAL_TIMEOUT_MS` bounds the full request (default
   240000; range 1000–480000). Divide remaining time among remaining fallbacks;
-  with four stalled attempts the default allocation is about 60 seconds each.
+  with the two default stalled attempts the allocation is about 120 seconds each.
   Preserve the shared eight-actual-record-read limit across model/provider
-  fallback. All providers use the same owner-bound dispatcher and fresh session
+  fallback. Both OpenAI models use the same owner-bound dispatcher and fresh session
   checks. Opaque thinking/tool state stays within its originating attempt.
 - `getTutorStatus()` exposes safe provider/model names, availability, warnings,
   and configuration errors. Never serialize the resolver's private `attempts`

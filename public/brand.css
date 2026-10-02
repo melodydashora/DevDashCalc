@@ -1,0 +1,326 @@
+/* Students4AI colors inspired by the Vecto blue/purple chrome. The learning
+   workspace, navigation order, and component layouts stay with the app. */
+:root {
+  --bg: #f9fafb;
+  --surface: #ffffff;
+  --surface-2: #f0f4ff;
+  --text: #1f2937;
+  --muted: #596579;
+  --border: #dce3ee;
+  --accent: #2563eb;
+  --accent-soft: #eaf1ff;
+  --on-accent: #ffffff;
+  --shadow: 0 5px 18px rgb(30 41 59 / 6%);
+  --brand-purple: #7c3aed;
+  --brand-purple-soft: #f1eaff;
+}
+
+html[data-theme="dark"] {
+  --bg: #0d1525;
+  --surface: #142036;
+  --surface-2: #1c2b46;
+  --text: #e8eef9;
+  --muted: #aabbd2;
+  --border: #344766;
+  --accent: #94baff;
+  --accent-soft: #233c64;
+  --on-accent: #10203a;
+  --shadow: 0 5px 20px rgb(0 0 0 / 20%);
+  --brand-purple: #bba0ff;
+  --brand-purple-soft: #342b50;
+}
+
+body { background-color: var(--bg); background-image: none; }
+
+.app-header {
+  color: #ffffff;
+  background: linear-gradient(110deg, #1d5cf3 0%, #5544ee 48%, #931cf1 100%);
+  border: 0;
+  box-shadow: 0 4px 12px rgb(17 24 39 / 12%);
+}
+
+.app-header .header-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: .85em 1em;
+}
+
+.brand-header-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5em 1.5em;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.brand-identity { display: flex; flex-wrap: wrap; align-items: center; gap: .35em 1.25em; min-width: 0; }
+.brand-astra { display: inline-flex; flex: 0 0 auto; align-items: center; gap: .25em; color: #ffffff; line-height: 1.2; white-space: nowrap; }
+.brand-astra svg { width: 1.1em; height: 1.1em; flex: 0 0 auto; }
+.brand-astra-gpt { font-size: .625em; font-weight: 500; letter-spacing: .06em; }
+.brand-astra-signature { font-family: Georgia, "Times New Roman", serif; font-size: 1.3em; font-style: italic; letter-spacing: -.05em; }
+
+.app-header .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .65em;
+  min-width: 0;
+  min-height: 44px;
+  color: #ffffff;
+  font-size: 1.25em;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: -.025em;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2em;
+  height: 2em;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 18%);
+  font-size: .9em;
+  font-weight: 500;
+  letter-spacing: -.075em;
+}
+
+.student-header-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .1em;
+  min-width: 0;
+  margin-inline-start: auto;
+  text-align: right;
+  line-height: 1.4;
+}
+
+.student-header-actions { display: flex; align-items: center; gap: .6em; min-width: 0; margin-inline-start: auto; }
+.app-header #student-header-menu-toggle,
+.app-header #student-header-menu-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: .5em;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #ffffff;
+  background: transparent;
+  box-shadow: none;
+}
+.app-header #student-header-menu-toggle:hover,
+.app-header #student-header-menu-close:hover { background: rgb(255 255 255 / 12%); box-shadow: none; }
+.app-header #student-header-menu-toggle:focus-visible,
+.app-header #student-header-menu-close:focus-visible { outline-color: #ffffff; outline-offset: -3px; }
+
+#student-header-time { font-size: 1em; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+#student-header-date { color: #f0eaff; font-size: .75em; }
+
+.student-header-menu {
+  position: fixed;
+  inset-block: 0;
+  inset-inline: auto 0;
+  width: min(16em, 100%);
+  max-width: 100%;
+  height: 100%;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-inline-start: 1px solid var(--border);
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: -8px 0 32px rgb(0 0 0 / 16%);
+}
+.student-header-menu[open] { display: flex; flex-direction: column; }
+.student-header-menu::backdrop { background: rgb(0 0 0 / 55%); }
+.student-menu-heading {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5em;
+  min-height: 64px;
+  padding: .6em .6em .6em 1em;
+  color: #ffffff;
+  background: linear-gradient(110deg, #7c3aed, #2563eb);
+}
+.student-menu-heading h2 { margin: 0; font-size: 1.125em; font-weight: 600; letter-spacing: 0; line-height: 1.5; }
+
+.app-header .student-header-menu nav {
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  justify-content: flex-start;
+  flex: 1 1 auto;
+  gap: .2em;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  margin: 0;
+  padding: .5em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.app-header .student-header-menu nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+  min-height: 48px;
+  min-width: 0;
+  padding: .8em .85em;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text);
+  background: transparent;
+  font-size: .875em;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: left;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.app-header .student-header-menu nav a:hover { color: var(--text); background: var(--surface-2); }
+.app-header .student-header-menu nav a.active { color: var(--accent); background: var(--accent-soft); border-color: var(--border); font-weight: 600; }
+.app-header a:focus-visible { outline-color: #ffffff; outline-offset: 2px; }
+.app-header .student-header-menu nav a:focus-visible { outline-color: var(--accent); outline-offset: -2px; }
+
+#student-header-navigation-slot { margin-top: .55em; min-width: 0; }
+.app-header #student-header-navigation-slot nav {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  gap: .25em;
+  width: 100%;
+  min-width: 0;
+}
+.app-header #student-header-navigation-slot nav a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 1 auto;
+  min-height: 44px;
+  min-width: 0;
+  padding: .55em .8em;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #ffffff;
+  background: transparent;
+  font-size: .8125em;
+  font-weight: 500;
+  line-height: 1.5;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.app-header #student-header-navigation-slot nav a:hover { background: rgb(255 255 255 / 6%); }
+.app-header #student-header-navigation-slot nav a.active { border-color: rgb(255 255 255 / 60%); background: rgb(255 255 255 / 8%); font-weight: 600; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-motion="full"] .student-header-menu[open] { animation: student-menu-enter 180ms ease-out; }
+  @keyframes student-menu-enter { from { transform: translateX(100%); } to { transform: translateX(0); } }
+}
+
+.student-header-strip { border-top: 1px solid rgb(255 255 255 / 13%); background: rgb(19 26 111 / 16%); }
+.student-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75em;
+  min-height: 52px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: .25em 1em;
+}
+.student-header-identity { display: flex; align-items: center; gap: .65em; min-width: 0; }
+.student-header-identity svg { flex: 0 0 auto; }
+#student-header-name { min-width: 0; font-size: .875em; overflow-wrap: anywhere; }
+.app-header #student-header-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: .45em;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: .5em .7em;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 6px;
+  color: #ffffff;
+  background: transparent;
+  box-shadow: none;
+  font-size: .8125em;
+  font-weight: 400;
+  line-height: 1.5;
+}
+.app-header #student-header-refresh:disabled { color: #ece9fa; border-color: rgb(255 255 255 / 20%); background: transparent; cursor: not-allowed; opacity: .7; }
+.app-header #student-header-refresh:hover { background: transparent; box-shadow: none; }
+
+html[data-theme="dark"] .app-header { background: linear-gradient(110deg, #1948ae 0%, #4033a4 48%, #641bac 100%); }
+html[data-theme="dark"] .student-header-strip { background: rgb(0 0 0 / 14%); }
+
+@media (max-width: 640px) {
+  .app-header .header-inner { padding: .65em .75em; gap: 0; }
+  .brand-header-top { gap: .5em; flex-wrap: nowrap; }
+  .brand-identity { flex: 1 1 auto; flex-direction: column; align-items: flex-start; gap: .25em; }
+  .app-header .brand { font-size: 1em; gap: .4em; white-space: normal; }
+  .brand-mark { width: 1.85em; height: 1.85em; }
+  .student-header-actions { gap: .25em; }
+  .student-header-clock { flex-shrink: 0; }
+  #student-header-time { font-size: .8125em; letter-spacing: 0; }
+  #student-header-date { font-size: .6875em; }
+  .student-header-inner { padding-inline: .75em; }
+}
+
+@media (max-width: 420px) {
+  .app-header .brand { flex-wrap: wrap; gap: .15em .35em; }
+  .app-header .brand > span:last-child { white-space: nowrap; }
+}
+
+@media (prefers-contrast: more) {
+  :root { --border: #64748b; --muted: #374151; }
+  html[data-theme="dark"] { --border: #9aacc9; --muted: #d0dcee; }
+  .app-header .student-header-menu nav a.active { border-color: var(--accent); }
+}
+
+@media (forced-colors: active) {
+  .app-header { color: CanvasText; background: Canvas; border-bottom: 1px solid CanvasText; box-shadow: none; }
+  .app-header .brand, .brand-astra, #student-header-date, #student-header-time { color: CanvasText; }
+  .brand-mark, .student-header-strip { background: Canvas; }
+  .student-header-strip { border-color: CanvasText; }
+  .student-header-menu { color: CanvasText; background: Canvas; border-color: CanvasText; }
+  .student-menu-heading { color: CanvasText; background: Canvas; border-bottom: 1px solid CanvasText; }
+  .app-header .student-header-menu nav a { color: LinkText; }
+  .app-header .student-header-menu nav a.active { color: HighlightText; background: Highlight; border-color: Highlight; }
+  .app-header #student-header-navigation-slot nav a { color: LinkText; }
+  .app-header #student-header-navigation-slot nav a.active { color: HighlightText; background: Highlight; border-color: Highlight; }
+  .app-header a:focus-visible { outline-color: Highlight; }
+  .app-header #student-header-menu-toggle, .app-header #student-header-menu-close { color: ButtonText; background: ButtonFace; border: 1px solid ButtonText; }
+  .app-header #student-header-menu-toggle:focus-visible, .app-header #student-header-menu-close:focus-visible { outline-color: Highlight; }
+  .app-header #student-header-refresh:disabled { color: GrayText; border-color: GrayText; opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-header *, .app-header *::before, .app-header *::after { animation: none !important; transition: none !important; }
+}

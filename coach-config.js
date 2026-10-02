@@ -3,18 +3,17 @@
 // attempts contains private API keys; only providers/models/warnings/error
 // and timeout values belong in status responses or diagnostics.
 const PROVIDERS = Object.freeze({
-  anthropic: Object.freeze({ key: 'ANTHROPIC_API_KEY', primary: 'TUTOR_MODEL_ANTHROPIC', fallback: 'TUTOR_MODEL_ANTHROPIC_FALLBACK',
-    primaryDefault: 'claude-fable-5-1', fallbackDefault: 'claude-opus-5' }),
   openai: Object.freeze({ key: 'OPENAI_API_KEY', primary: 'TUTOR_MODEL_OPENAI', fallback: 'TUTOR_MODEL_OPENAI_FALLBACK',
     primaryDefault: 'gpt-6-astra', fallbackDefault: 'gpt-5.6-sol' }),
 });
+// Legacy credentials remain private even though they cannot enable a provider.
+const PRIVATE_KEY_SETTINGS = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY', 'GOOGLE_API_KEY'];
 const MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/;
 const NON_TUTOR_MODEL = /^(?:sora|dall[-_]?e|tts|whisper|(?:text[-_])?embeddings?|gpt-image|gpt-audio|gpt-realtime|(?:omni|text)-moderation)(?:$|[-_.:])/i;
 
-function compatibleModel(provider, model) {
+function compatibleModel(model) {
   if (!MODEL_ID.test(model) || NON_TUTOR_MODEL.test(model)) return false;
-  if (provider === 'openai') return !/^(?:claude|gemini)(?:$|[-_.:])/i.test(model);
-  return !/^(?:gpt|chatgpt|gemini|o[0-9]+)(?:$|[-_.:])/i.test(model);
+  return !/^(?:claude|gemini)(?:$|[-_.:])/i.test(model);
 }
 
 export function resolveCoachConfig(env = process.env) {
@@ -32,11 +31,11 @@ export function resolveCoachConfig(env = process.env) {
     result[field] = value;
   }
 
-  let order = ['anthropic', 'openai'];
+  let order = ['openai'];
   if (has('TUTOR_PROVIDERS')) {
-    if (typeof env.TUTOR_PROVIDERS !== 'string' || !env.TUTOR_PROVIDERS.trim()) return fail('TUTOR_PROVIDERS must list anthropic, openai, or both.');
+    if (typeof env.TUTOR_PROVIDERS !== 'string' || !env.TUTOR_PROVIDERS.trim()) return fail('TUTOR_PROVIDERS must be openai. Only OpenAI coaching is enabled.');
     const selected = env.TUTOR_PROVIDERS.split(',').map(value => value.trim().toLowerCase());
-    if (selected.some(provider => !Object.hasOwn(PROVIDERS, provider))) return fail('TUTOR_PROVIDERS contains an unsupported provider. Only anthropic and openai are enabled.');
+    if (selected.some(provider => !Object.hasOwn(PROVIDERS, provider))) return fail('TUTOR_PROVIDERS contains an unsupported provider. Set it to openai; Anthropic and other providers are disabled.');
     order = [...new Set(selected)];
   }
 
@@ -48,8 +47,8 @@ export function resolveCoachConfig(env = process.env) {
       if (typeof raw !== 'string') return fail(`${name} must contain a valid model ID.`);
       const model = raw.trim();
       if (!model && optional) continue;
-      const isConfiguredKey = Object.values(PROVIDERS).some(definition => typeof env[definition.key] === 'string' && env[definition.key].trim() === model);
-      if (!model || isConfiguredKey || !compatibleModel(provider, model)) return fail(`${name} must contain a compatible text or tool-capable model ID.`);
+      const isConfiguredKey = PRIVATE_KEY_SETTINGS.some(key => typeof env[key] === 'string' && env[key].trim() === model);
+      if (!model || isConfiguredKey || !compatibleModel(model)) return fail(`${name} must contain a compatible text or tool-capable model ID.`);
       // Keep spelling and case exact. Catalog validation belongs to the
       // provider; changing a misspelled model silently would ignore Secrets.
       if (!ids.includes(model)) ids.push(model);

@@ -170,7 +170,7 @@ before(async () => {
   await mkdir(join(sandbox, 'public'));
   await mkdir(join(sandbox, 'data'));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
-  for (const file of ['server.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-plans.js', 'practice-history.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
+  for (const file of ['server.js', 'coach-audio.js', 'coach-memory.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-plans.js', 'practice-history.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
   await copyFile(new URL('../store.js', import.meta.url), join(sandbox, 'store-real.js'));

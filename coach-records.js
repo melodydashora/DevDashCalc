@@ -57,7 +57,7 @@ export function createStudentRecordLookup({ profileId, workspaceId, progress, sn
           assertActive();
           if (array(result.notes).some(note => note.profileId !== profileId) || !Number.isSafeInteger(result.totalCount)) throw new Error('Invalid scoped notes.');
           // Ignore any unexpected foreign row even if an adapter is defective.
-          rows = array(result.notes).filter(note => note.profileId === profileId).map(note => ({ ...fields(note, ['id', 'type', 'createdAt']), text: String(note.text || '').slice(0, 2000), source: fields(note.source, ['kind', 'subject', 'unitId', 'questionId']) }));
+          rows = array(result.notes).filter(note => note.profileId === profileId).map(note => ({ ...fields(note, ['id', 'type', 'createdAt', 'updatedAt']), text: String(note.text || '').slice(0, 2000), source: fields(note.source, ['kind', 'subject', 'unitId', 'questionId']) }));
           totalCount = result.totalCount;
         } else if (collection === 'practice_history') {
           if (typeof readPractice !== 'function') throw new Error('unavailable');

@@ -269,3 +269,60 @@ test('a canceled HTTP coach request cannot mark a late unseen explanation as ass
     assert.equal(service.answer('learner', session.sessionId, session.question.id, 0).summary.independentCorrect, 1);
   } finally { release?.(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
+
+test('confirmed memory receipts survive mixed-coach refusals, failures, and post-reply session errors', async () => {
+  const memoryWrites = [{ state: 'saved', id: 'memory-one', kind: 'preference', text: 'I prefer short steps.' }];
+  for (const mode of ['refusal', 'failed', 'expired']) {
+    const { service } = fixture(), session = start(service, ['physics-energy']);
+    const handler = createMixedPracticeApi({ service, isConfigured: () => true,
+      readBody: async req => JSON.stringify(req.body), sendJson: (res, status, body) => Object.assign(res, { status, body }),
+      complete: async () => {
+        if (mode === 'expired') service.close('learner', session.sessionId);
+        return { text: mode === 'expired' ? 'A reply after this practice session closed.' : '', refusal: mode === 'refusal', memoryWrites };
+      },
+    });
+    const res = {};
+    await handler({ method: 'POST', body: { sessionId: session.sessionId, questionId: session.question.id, followUp: 'I prefer short steps.' } }, res,
+      new URL('http://localhost/api/mixed/tutor?profile=learner'));
+    assert.equal(res.status, mode === 'refusal' ? 200 : mode === 'failed' ? 502 : 404);
+    assert.deepEqual(res.body.memoryWrites, memoryWrites, mode);
+    if (mode !== 'expired') assert.equal(service.restore('learner', session.sessionId).question.assisted, false);
+  }
+});
+
+test('mixed-coach account revocation withholds memory text and does not mark assistance', async () => {
+  const { service } = fixture(), session = start(service, ['physics-energy']);
+  const handler = createMixedPracticeApi({ service, isConfigured: () => true,
+    readBody: async req => JSON.stringify(req.body), sendJson: (res, status, body) => Object.assign(res, { status, body }),
+    complete: async () => ({ failureKind: 'authorization', text: '', memoryWrites: [{ state: 'saved', text: 'A former account memory.' }] }),
+  });
+  const res = {};
+  await handler({ method: 'POST', body: { sessionId: session.sessionId, questionId: session.question.id } }, res,
+    new URL('http://localhost/api/mixed/tutor?profile=learner'));
+  assert.equal(res.status, 401);
+  assert.equal(Object.hasOwn(res.body, 'memoryWrites'), false);
+  assert.equal(service.restore('learner', session.sessionId).question.assisted, false);
+});
+
+test('mixed memory receives the complete learner message and a fresh practice-session guard', async () => {
+  const { service } = fixture(), session = start(service, ['physics-energy']);
+  const followUp = `I prefer short steps. ${'A longer explanation. '.repeat(100)} Do not remember this.`;
+  assert.ok(followUp.length > 2000);
+  let captured;
+  const handler = createMixedPracticeApi({ service, isConfigured: () => true,
+    readBody: async req => JSON.stringify(req.body), sendJson: (res, status, body) => Object.assign(res, { status, body }),
+    complete: async request => {
+      captured = request;
+      assert.equal(request.memoryMessage, followUp, 'a trailing opt-out cannot be truncated away before memory validation');
+      assert.doesNotThrow(request.assertCurrent);
+      service.close('learner', session.sessionId);
+      assert.throws(request.assertCurrent, { code: 'SESSION_EXPIRED' });
+      return { text: '' };
+    },
+  });
+  const res = {};
+  await handler({ method: 'POST', body: { sessionId: session.sessionId, questionId: session.question.id, followUp } }, res,
+    new URL('http://localhost/api/mixed/tutor?profile=learner'));
+  assert.ok(captured);
+  assert.equal(res.status, 404);
+});
