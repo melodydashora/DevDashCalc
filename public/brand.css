@@ -324,3 +324,36 @@ html[data-theme="dark"] .student-header-strip { background: rgb(0 0 0 / 14%); }
 @media (prefers-reduced-motion: reduce) {
   .app-header *, .app-header *::before, .app-header *::after { animation: none !important; transition: none !important; }
 }
+
+.student-header-tools { display: flex; align-items: center; flex: 0 0 auto; gap: .5em; }
+.app-header #student-header-account { display: grid; place-items: center; width: 44px; height: 44px; color: #fff; border: 1px solid rgb(255 255 255 / 25%); border-radius: 7px; text-decoration: none; }
+.app-header #student-header-account[hidden] { display: none; }
+.app-header #student-header-account:hover { background: rgb(255 255 255 / 12%); }
+.app-header #student-header-account:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.portal-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .75em 1.25em; margin: 1em 0; }
+.portal-tools a { min-height: 44px; display: inline-flex; align-items: center; }
+.portal-tools-details { margin: 1.25em 0; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: .75em 1em; }
+.portal-tools-details > summary { min-height: 44px; padding-block: .5em; cursor: pointer; font-weight: 600; }
+.portal-course-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1em; margin-block: 1em; }
+.portal-course-card { min-width: 0; margin: 0; }
+.portal-course-heading { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: .5em 1em; }
+.portal-course-heading h3 { flex: 1 1 12em; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.portal-course-heading h3 a { color: var(--text); text-decoration-thickness: 1px; text-underline-offset: .15em; }
+.portal-course-card .btn-row { margin-top: 1em; }
+.course-choice-status { margin: .6em 0 0; font-size: .875em; overflow-wrap: anywhere; }
+.course-choice-status:empty { display: none; }
+@media (max-width: 640px) {
+  .portal-course-grid { grid-template-columns: minmax(0, 1fr); }
+  .portal-course-card .btn-row { flex-direction: column; align-items: stretch; }
+  .portal-course-card .btn-row > * { width: 100%; justify-content: center; min-height: 44px; }
+  .portal-tools { gap: .5em 1em; }
+}
+@media (forced-colors: active) {
+  .app-header #student-header-account { color: LinkText; border-color: ButtonText; }
+  .app-header #student-header-account:focus-visible { outline-color: Highlight; }
+}
+
+.view h1[tabindex="-1"]:focus { outline: none; }
+.portal-model-label { display: grid; gap: .5em; margin: 1em 0; font-weight: 600; }
+.portal-model-select { width: 100%; min-width: 0; min-height: 44px; font: inherit; }
+.study-plan-form textarea { width: 100%; box-sizing: border-box; padding: .75em; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; line-height: 1.6; }

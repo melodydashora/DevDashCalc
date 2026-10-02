@@ -1,8 +1,40 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadStudyCoachContext, STUDY_CONTEXT_LIMITS } from '../study-coach-context.js';
+import { loadStudyCoachContext, studyPageContext, visibleCoachCourses, STUDY_CONTEXT_LIMITS } from '../study-coach-context.js';
 
 const NOW = '2026-09-14T18:00:00.000Z';
+
+test('current lesson context is reconstructed from authored content without private checkpoint answers', () => {
+  const unit = { id: 'unit-01', title: 'Limits', overview: 'Study approaching values.', skills: [{ id: 'limit', name: 'Limits' }],
+    lessons: [{ id: 'u1-l1', title: 'One-sided limits', sections: [
+      { type: 'concept', html: '<p>Compare the left and right limits.</p>' },
+      { type: 'worked-example', title: 'A visible example', steps: [{ text: 'Compare both sides.', math: 'L=R' }] },
+      { type: 'checkpoint', questionIds: ['u1-q001'] },
+    ] }], questions: [{ id: 'u1-q001', answerIndex: 2, solution: [{ text: 'PRIVATE ANSWER SENTINEL' }], hints: ['PRIVATE HINT'] }] };
+  const page = studyPageContext({ route: '#/lesson/unit-01/u1-l1', title: 'FORGED PAGE TITLE', unitId: 'unit-10', questionId: 'u1-q001' }, unit);
+  assert.equal(page.title, 'One-sided limits');
+  assert.equal(page.unitId, 'unit-01');
+  assert.equal(page.lessonId, 'u1-l1');
+  assert.equal(page.questionId, 'u1-q001');
+  assert.equal(page.curriculum.lesson.sections[0].text, 'Compare the left and right limits.');
+  assert.equal(page.curriculum.lesson.sections[1].steps[0].math, 'L=R');
+  assert.doesNotMatch(JSON.stringify(page), /PRIVATE ANSWER|PRIVATE HINT|answerIndex|FORGED/);
+  assert.equal(studyPageContext({ route: '#/lesson/unit-01/not-a-lesson' }, unit).curriculum.state, 'unavailable');
+  assert.equal(studyPageContext({ route: '#/lesson/unit-02/u2-l1' }, unit).curriculum.state, 'unavailable');
+});
+
+test('general Coach course selection respects hidden choices while explicit course requests remain readable', () => {
+  const snapshot = { courses: [{ id: '11', name: 'Current class' }, { id: '22', name: 'Removed old class' }],
+    missingSubmissions: [{ courseId: '11', name: 'Current task' }, { courseId: '22', name: 'Old task' }] };
+  const original = JSON.stringify(snapshot);
+  for (const selection of [null, 'all']) {
+    const visible = visibleCoachCourses(snapshot, { '22': 'hidden' }, selection);
+    assert.deepEqual(visible.courses.map(course => course.id), ['11']);
+    assert.deepEqual(visible.missingSubmissions.map(item => item.name), ['Current task']);
+  }
+  assert.deepEqual(visibleCoachCourses(snapshot, { '22': 'hidden' }, '22').courses.map(course => course.id), ['11', '22']);
+  assert.equal(JSON.stringify(snapshot), original);
+});
 function assignment(id, name, extra = {}) {
   return { id, name, dueAt: null, dueDateStatus: 'no-date', descriptionHtml: null, submission: null, ...extra };
 }

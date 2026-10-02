@@ -1,15 +1,20 @@
-// Astra's function calls use Responses (Chat Completions is text-only for Astra).
+// Astra's record tools use Responses; attached photos use native input_image parts.
 // https://developers.openai.com/api/docs/guides/function-calling
 // The server supplies closed owner-bound tools: read-only records, plus an
 // optional separately authorized learning-memory saver.
 import { COACH_MODELS, COACH_CONFIG } from './ai-coach.js';
 import { RECORD_SYSTEM } from './coach-records.js';
+import { coachAttachmentMessages, COACH_ATTACHMENT_SYSTEM } from './coach-attachments.js';
 const ENDPOINT = 'https://api.openai.com/v1/responses';
 
-export async function completeRecordCoach({ apiKey, system, messages, lookup, models = COACH_MODELS, fetchImpl = fetch, timeoutMs = COACH_CONFIG.timeoutMs }) {
+export async function completeRecordCoach({ apiKey, system, messages, attachments, lookup, models = COACH_MODELS, fetchImpl = fetch, timeoutMs = COACH_CONFIG.timeoutMs }) {
   const failures = [];
   const base = { text: '', model: null, fallback: false, refusal: false, truncated: false, failures, recordReads: lookup.reads };
   if (!apiKey?.trim()) return { ...base, failures: ['openai: API key is not configured'] };
+  try {
+    messages = coachAttachmentMessages(messages, attachments, 'responses');
+    if (attachments?.length) system = `${system}\n${COACH_ATTACHMENT_SYSTEM}`;
+  } catch { return { ...base, failures: ['openai: invalid study attachments'] }; }
   let toolCount = 0;
   const maxToolCalls = lookup.maxToolCalls === 10 ? 10 : 8;
   for (const [index, model] of models.entries()) {

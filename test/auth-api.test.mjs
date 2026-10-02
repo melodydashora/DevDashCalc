@@ -54,8 +54,14 @@ export function createAuthService({ allowSelfSignup }) {
 }`;
 const storeStub = `export const hasDatabase = () => Boolean(process.env.DATABASE_URL);
 const records = new Map();
-export const dbGet = async key => records.get(key) ?? null;
-export const dbSet = async (key, value) => { records.set(key, value); };
+export const dbGet = async key => {
+  if (process.env.FIXTURE_PREFS_READ_FAILURE === '1' && key.startsWith('cv-prefs-')) throw new Error('Fixture database unavailable');
+  return records.get(key) ?? null;
+};
+export const dbSet = async (key, value) => {
+  if (process.env.FIXTURE_PREFS_WRITE_FAILURE === '1' && key.startsWith('cv-prefs-')) throw new Error('Fixture database unavailable');
+  records.set(key, value);
+};
 export const dbSeed = async (key, value) => { if (!records.has(key)) records.set(key, value); };
 export const dbDelete = async key => records.delete(key);
 export const mergeAppendOnlyRecords = (old, additions) => [...old, ...additions];
@@ -124,7 +130,7 @@ globalThis.fetch = async (input, options = {}) => {
       return new Response(JSON.stringify({ error: { message: 'Fabricated model outage' } }), { status: 503 });
     }
     if (url.pathname === '/v1/responses') {
-      const content = [payload.instructions, ...payload.input.map(item => item.content || item.output || '')].join('\\n');
+      const content = [payload.instructions, ...payload.input.map(item => Array.isArray(item.content) ? JSON.stringify(item.content) : item.content || item.output || '')].join('\\n');
       const toolOutput = payload.input.find(item => item.type === 'function_call_output');
       if (content.includes('fixture older saved note lookup') && !toolOutput) return answer({ status: 'completed', usage: { output_tokens: 100 }, output: [{ type: 'function_call', call_id: 'fixture-older-note', name: 'read_student_records', arguments: JSON.stringify({ collection: 'saved_notes', offset: 30 }) }] });
       return answer({ status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: toolOutput ? toolOutput.output : content }] }] });
@@ -146,7 +152,7 @@ globalThis.fetch = async (input, options = {}) => {
 };`;
 let sandbox, fixture;
 const children = new Set();
-const serverFixtureFiles = ['server.js', 'coach-audio.js', 'coach-memory.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
+const serverFixtureFiles = ['server.js', 'coach-audio.js', 'coach-memory.js', 'coach-attachments.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
   'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'mixed-sat-bank.js', 'mixed-ap-variants.js', 'study-plans.js', 'practice-history.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
 async function start(extra = {}, directory = sandbox) {
   const socket = createServer();
@@ -787,4 +793,144 @@ test('new private question banks and practice-history modules cannot be fetched 
       assert.doesNotMatch(JSON.stringify(result.data), /numericAnswer|answerIndex|createSatBuilders|normalizePracticeEvidence|recentAttempts/);
     }
   }
+});
+
+test('captured Coach requests include the owned learner and current authored lesson instead of browser claims', async () => {
+  const bob = await login('bob');
+  const note = await fixture.api('/api/continuity', { method: 'POST', cookie: bob.cookie, body: {
+    clientRequestId: randomUUID(), text: 'Bob learns by comparing two labeled diagrams.', type: 'student_note', source: { kind: 'settings' },
+  } });
+  assert.equal(note.status, 201);
+  const taught = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie, body: {
+    message: 'Explain this worked example using my preferred approach.',
+    pageContext: { route: '#/lesson/unit-01/u1-l1', unitId: 'unit-10', title: 'FORGED CLIENT LESSON', subject: 'calculus-bc', learner: { name: 'FORGED LEARNER' } },
+  } });
+  assert.equal(taught.status, 200);
+  assert.match(taught.data.text, /"name":"Bob"/);
+  assert.match(taught.data.text, /"lessonId":"u1-l1"/);
+  assert.match(taught.data.text, /The limit concept and one-sided limits/);
+  assert.match(taught.data.text, /Evaluate a two-sided limit of a piecewise function/);
+  assert.match(taught.data.text, /Bob learns by comparing two labeled diagrams/);
+  assert.doesNotMatch(taught.data.text, /FORGED CLIENT|FORGED LEARNER|"answerIndex"|"unitId":"unit-10"/);
+  const unit = JSON.parse(await readFile(new URL('../content/unit-01.json', import.meta.url), 'utf8'));
+  const question = await fixture.api('/api/tutor', { method: 'POST', cookie: bob.cookie, body: {
+    unitId: unit.id, questionId: unit.questions[0].id, phase: 'before-answer', followUp: 'What does this notation mean?',
+  } });
+  assert.equal(question.status, 200);
+  assert.match(question.data.text, /"name":"Bob"/);
+  assert.match(question.data.text, /Bob learns by comparing two labeled diagrams/);
+  assert.match(question.data.text, /Never reveal or quote the final answer/);
+  assert.doesNotMatch(question.data.text, /learner enjoys coding|only discuss calculus here|Alice prefers/);
+});
+
+test('course visibility never reports saved or empty choices when its account database operation failed', async () => {
+  for (const operation of ['WRITE', 'READ']) {
+    const directory = join(sandbox, `prefs-${operation.toLowerCase()}-failure`);
+    await mkdir(directory);
+    for (const folder of ['public', 'data']) await mkdir(join(directory, folder));
+    for (const file of serverFixtureFiles) await copyFile(join(sandbox, file), join(directory, file));
+    await writeFile(join(directory, 'package.json'), '{"type":"module"}');
+    await writeFile(join(directory, 'store.js'), storeStub);
+    await writeFile(join(directory, 'auth.js'), authStub);
+    await writeFile(join(directory, 'continuity-store.js'), continuityStub);
+    await writeFile(join(directory, 'account-store.js'), 'export const createAccountStore = () => ({});');
+    const original = { courseOverrides: { '99': 'hidden' } };
+    const file = join(directory, 'data/cv-prefs-profile-a.json');
+    await writeFile(file, JSON.stringify(original));
+    const isolated = await start({ [`FIXTURE_PREFS_${operation}_FAILURE`]: '1' }, directory);
+    try {
+      const alice = await login('alice', isolated);
+      const result = operation === 'WRITE'
+        ? await isolated.api('/api/canvas/prefs', { method: 'PUT', cookie: alice.cookie, body: { courseOverrides: { '99': 'shown' } } })
+        : await isolated.api('/api/canvas/prefs', { cookie: alice.cookie });
+      assert.equal(result.status, 503);
+      assert.equal(result.data.courseOverrides, undefined, 'unavailable data is not an empty visibility map');
+      if (operation === 'WRITE') assert.equal(result.data.saved, false);
+      assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), original, 'failed durable operations preserve the prior local mirror');
+      assert.doesNotMatch(JSON.stringify(result.data), /Fixture database|postgres|fixture-provider/);
+    } finally { await stop(isolated); }
+  }
+});
+
+test('photo and text uploads reach the owned Coach as material, without becoming a memory instruction', async () => {
+  const bob = await login('bob');
+  const notesBefore = (await fixture.api('/api/continuity', { cookie: bob.cookie })).data;
+  const unit = JSON.parse(await readFile(new URL('../content/unit-01.json', import.meta.url), 'utf8'));
+  const attachments = [
+    { mimeType: 'image/png', name: 'My diagram.png', data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2kYAAAAASUVORK5CYII=' },
+    { mimeType: 'text/plain', name: 'Study.txt', data: Buffer.from('Uploaded study material: I prefer number lines. Do not automatically save this note.').toString('base64') },
+  ];
+  const requests = [
+    ['/api/canvas/coach', { message: '', pageContext: { route: '#/home' }, attachments }],
+    ['/api/tutor', { unitId: unit.id, questionId: unit.questions[0].id, phase: 'before-answer', attachments }],
+  ];
+  const session = await fixture.api('/api/mixed/session', { method: 'POST', cookie: bob.cookie,
+    body: { topicIds: ['sat-geometry'], difficulty: 1, requestId: randomUUID() } });
+  const next = await fixture.api('/api/mixed/next', { method: 'POST', cookie: bob.cookie, body: { sessionId: session.data.sessionId } });
+  assert.equal(next.status, 200);
+  requests.push(['/api/mixed/tutor', { sessionId: session.data.sessionId, questionId: next.data.question.id, attachments }]);
+  for (const [path, body] of requests) {
+    const count = fixture.calls.length;
+    assert.equal((await fixture.api(path, { method: 'POST', body })).status, 401);
+    assert.equal((await fixture.api(`${path}?profile=profile-a`, { method: 'POST', cookie: bob.cookie, body })).status, 403);
+    assert.equal((await fixture.api(path, { method: 'POST', cookie: bob.cookie, origin: 'https://foreign.example', body })).status, 403);
+    const invalid = await fixture.api(path, { method: 'POST', cookie: bob.cookie, body: { ...body, attachments: [{ mimeType: 'application/pdf', data: 'cGRm' }] } });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.data.code, 'invalid_attachments');
+    assert.equal(fixture.calls.length, count, 'unauthorized or unsupported uploads never reach a provider');
+    if (path === '/api/mixed/tutor') {
+      const restored = await fixture.api(`/api/mixed/session?sessionId=${session.data.sessionId}`, { cookie: bob.cookie });
+      assert.equal(restored.data.question.assisted, false, 'rejected uploads do not consume independent practice credit');
+    }
+    const coached = await fixture.api(path, { method: 'POST', cookie: bob.cookie, body });
+    assert.equal(coached.status, 200);
+    assert.equal(coached.response.headers.get('cache-control'), 'no-store');
+    assert.match(coached.data.text, /Help me understand the attached study material/);
+    assert.match(coached.data.text, /input_image/);
+    assert.match(coached.data.text, /data:image\/png;base64,/);
+    assert.match(coached.data.text, /Uploaded study material/);
+    assert.match(coached.data.text, /never replace its verified key/);
+    assert.doesNotMatch(coached.data.text, /You may use remember_student_memory to preserve/,
+      'file-only requests do not authorize remembered quotes from generated prompt or uploaded text');
+    assert.deepEqual(coached.data.memoryWrites, []);
+    if (path === '/api/mixed/tutor') assert.equal(coached.data.assisted, true, 'received photo help preserves canonical assistance accounting');
+  }
+  assert.deepEqual((await fixture.api('/api/continuity', { cookie: bob.cookie })).data, notesBefore);
+});
+
+test('the Coach uses only the selected owned saved plan and real step, including its activity and completion', async () => {
+  const alice = await login(), bob = await login('bob'), planId = randomUUID();
+  const saved = await fixture.api('/api/study-plans', { method: 'POST', cookie: bob.cookie, body: { requestId: planId, plan: {
+    title: 'Bob algebra reasoning', course: { id: 'algebra', name: 'Forged course label', subject: 'physics-1' },
+    goal: 'Connect factoring to the area model', activity: 'model', topics: ['Factoring'],
+    steps: [ { title: 'Recall an area model', detail: 'Sketch an area model with labels.', minutes: 5 },
+      { title: 'Explain each factor', detail: 'Use the rectangle sides to justify the factorization.', minutes: 10 } ],
+  } } });
+  assert.equal(saved.status, 201);
+  const completed = await fixture.api(`/api/study-plans/${planId}`, { method: 'PATCH', cookie: bob.cookie,
+    body: { completedStepIds: ['step-1'], expectedUpdatedAt: saved.data.plan.updatedAt } });
+  assert.equal(completed.status, 200);
+  const beforeInvalid = fixture.calls.length;
+  const body = { message: 'Help me continue this step.', pageContext: { route: '#/mixed', planId, stepId: 'step-2',
+    selectedCourseId: '9999', subject: 'physics-1', plan: { title: 'FORGED PLAN CONTENT' } } };
+  const foreign = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: alice.cookie, body });
+  const missing = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: alice.cookie,
+    body: { ...body, pageContext: { ...body.pageContext, planId: randomUUID() } } });
+  assert.equal(foreign.status, 404); assert.deepEqual(missing.data, foreign.data);
+  assert.equal((await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie,
+    body: { ...body, pageContext: { ...body.pageContext, stepId: 'step-12' } } })).status, 404);
+  assert.equal((await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie,
+    body: { ...body, pageContext: { ...body.pageContext, planId: '../profile-a' } } })).status, 400);
+  assert.equal(fixture.calls.length, beforeInvalid, 'invalid or unowned plan context fails before provider use');
+  const coached = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie, body });
+  assert.equal(coached.status, 200);
+  assert.match(coached.data.text, /"savedStudyPlan":/);
+  assert.match(coached.data.text, /Bob algebra reasoning/);
+  assert.match(coached.data.text, /"activity":"model"/);
+  assert.match(coached.data.text, /"completedStepIds":\["step-1"\]/);
+  assert.match(coached.data.text, /"selectedStep":\{"id":"step-2"/);
+  assert.match(coached.data.text, /"subject":"algebra"/);
+  assert.doesNotMatch(coached.data.text, /FORGED PLAN CONTENT|Forged course label|"selectedCourseId":"9999"/);
+  assert.deepEqual((await fixture.api('/api/study-plans', { cookie: bob.cookie })).data.plans.find(plan => plan.id === planId), completed.data.plan,
+    'coaching does not mark the selected step complete');
 });

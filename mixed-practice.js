@@ -1,8 +1,9 @@
 // Server-owned generated practice. This evidence never changes curriculum
 // mastery, Canvas, or persisted learner progress. No client answer keys.
-import { randomUUID, randomBytes } from 'node:crypto';
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import { normalizePracticeEvidence } from './practice-history.js';
 
-export const MIXED_SESSION_LIMITS = Object.freeze({ ttlMs: 6 * 60 * 60 * 1000, sessions: 200, perProfile: 3, questions: 200, variationAttempts: 20 });
+export const MIXED_SESSION_LIMITS = Object.freeze({ ttlMs: 6 * 60 * 60 * 1000, sessions: 200, perProfile: 3, questions: 200, variationAttempts: 20, recentProfiles: 200, recentQuestions: 500 });
 export class MixedPracticeError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
@@ -15,6 +16,11 @@ const stable = value => Array.isArray(value) ? value.map(stable) : value && type
   ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value;
 const problemFingerprint = q => q.parameters && Object.keys(q.parameters).length
   ? `${q.topicId}:${q.difficulty}:${JSON.stringify(stable(q.parameters))}` : promptFingerprint(q);
+const fingerprintHash = value => createHash('sha256').update(value).digest('hex');
+const questionHashes = question => {
+  const original = question.basePrompt ? { ...question, prompt: question.basePrompt } : question;
+  return { problemHash: fingerprintHash(problemFingerprint(original)), promptHash: fingerprintHash(promptFingerprint(original)) };
+};
 function safeVisual(value) {
   if (!value || typeof value !== 'object') return null;
   const finite = n => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= 1e6;
@@ -49,6 +55,42 @@ export function createMixedPracticeService({ topics, generateQuestion, now = Dat
   randomId = randomUUID, randomSeed = () => randomBytes(12).toString('hex'), limits = MIXED_SESSION_LIMITS }) {
   const catalog = new Map(topics.map(topic => [topic.id, clone(topic)]));
   const sessions = new Map();
+  // Only exposure identifiers and hashes are retained here, never prompts,
+  // answer keys, or student text. Closing a session does not erase freshness.
+  const recentProfiles = new Map();
+  const recentLimit = Math.max(1, limits.recentQuestions || MIXED_SESSION_LIMITS.recentQuestions);
+  function retainRecent(profile, rows) {
+    recentProfiles.delete(profile);
+    recentProfiles.set(profile, rows.slice(-recentLimit));
+    while (recentProfiles.size > (limits.recentProfiles || MIXED_SESSION_LIMITS.recentProfiles)) recentProfiles.delete(recentProfiles.keys().next().value);
+  }
+  function exposure(item) {
+    const q = item.question;
+    return { attemptId: q.id, topicId: q.topicId, subject: q.subject, variantId: q.variantId || q.templateId || null,
+      ...questionHashes(q), at: item.shownAt };
+  }
+  function recent(session) {
+    const rows = new Map((recentProfiles.get(session.profileId) || []).map(row => [row.attemptId, row]));
+    // Active sessions retain their own complete evidence even if the global
+    // exposure cache was evicted to keep memory bounded.
+    for (const active of sessions.values()) if (active.profileId === session.profileId) {
+      for (const item of active.records) if (item.practiceMode !== 'wording') rows.set(item.question.id, exposure(item));
+    }
+    return [...rows.values()].sort((a, b) => a.at - b.at);
+  }
+  function seedRecent(profile, history) {
+    if (!Array.isArray(history)) throw new Error('Saved practice history is unavailable.');
+    const rows = new Map();
+    for (const input of history.slice(-10000)) {
+      const row = normalizePracticeEvidence(input);
+      if (!catalog.has(row.topicId) || catalog.get(row.topicId).subject !== row.subject) continue;
+      if (!rows.has(row.attemptId)) rows.set(row.attemptId, { attemptId: row.attemptId, topicId: row.topicId,
+        subject: row.subject, variantId: row.variantId || row.templateId, problemHash: row.problemHash,
+        promptHash: row.promptHash, at: Date.parse(row.at) });
+    }
+    for (const row of recentProfiles.get(profile) || []) rows.set(row.attemptId, row);
+    retainRecent(profile, [...rows.values()].sort((a, b) => a.at - b.at));
+  }
   const profileCheck = profile => { if (!validProfile(profile)) fail(400, 'INVALID_PROFILE', 'Choose a valid learner workspace.'); };
   function selection(ids) {
     if (!Array.isArray(ids) || !ids.length || ids.length > catalog.size || ids.some(id => typeof id !== 'string' || !catalog.has(id))) {
@@ -122,7 +164,8 @@ export function createMixedPracticeService({ topics, generateQuestion, now = Dat
     const current = session.records.at(-1);
     return { sessionId: session.id, topicIds: [...session.topicIds], question: publicQuestion(current), feedback: feedback(current, session),
       selectionReason: current?.selectionReason || null, summary: summary(session), version: 1,
-      createdAt: new Date(session.createdAt).toISOString(), expiresAt: new Date(session.expiresAt).toISOString(), storage: 'server-memory' };
+      createdAt: new Date(session.createdAt).toISOString(), expiresAt: new Date(session.expiresAt).toISOString(), storage: 'server-memory',
+      ...(session.historyNotice ? { historyNotice: session.historyNotice } : {}) };
   }
   function choose(session, stats) {
     const last = session.records.findLast(item => item.practiceMode !== 'wording');
@@ -137,7 +180,8 @@ export function createMixedPracticeService({ topics, generateQuestion, now = Dat
       const otherSubject = choices.filter(id => catalog.get(id).subject !== last.question.subject);
       if (otherSubject.length) choices = otherSubject;
     }
-    const lastAsked = id => session.records.findLastIndex(item => item.question.topicId === id);
+    const prior = recent(session);
+    const lastAsked = id => prior.findLastIndex(item => item.topicId === id);
     choices.sort((a, b) => lastAsked(a) - lastAsked(b) || session.topicIds.indexOf(a) - session.topicIds.indexOf(b));
     const topicId = choices[0], stat = stats.byTopic.find(row => row.topicId === topicId);
     return { topicId, kind: 'rotation', reason: last
@@ -146,7 +190,7 @@ export function createMixedPracticeService({ topics, generateQuestion, now = Dat
   }
   return {
     topics() { return [...catalog.values()].map(clone); },
-    create(profile, input = {}) {
+    create(profile, input = {}, { history, historyUnavailable = false } = {}) {
       profileCheck(profile); expire();
       const topicIds = selection(input.topicIds), startDifficulty = input.difficulty ?? 1;
       if (![1, 2, 3].includes(startDifficulty)) fail(400, 'INVALID_DIFFICULTY', 'Starting difficulty must be 1, 2, or 3.');
@@ -160,7 +204,11 @@ export function createMixedPracticeService({ topics, generateQuestion, now = Dat
       if (sessions.size >= limits.sessions || [...sessions.values()].filter(session => session.profileId === profile).length >= limits.perProfile) {
         fail(429, 'SESSION_LIMIT', 'The active session limit was reached. Resume an existing session or finish it before starting another.');
       }
-      const createdAt = now(), session = { id: randomId(), profileId: profile, topicIds, createTopicIds: [...topicIds], requestId, startDifficulty, createdAt, expiresAt: createdAt + limits.ttlMs, records: [] };
+      if (history !== undefined) {
+        try { seedRecent(profile, history); } catch { historyUnavailable = true; }
+      }
+      const createdAt = now(), session = { id: randomId(), profileId: profile, topicIds, createTopicIds: [...topicIds], requestId, startDifficulty, createdAt, expiresAt: createdAt + limits.ttlMs, records: [],
+        historyNotice: historyUnavailable ? 'Saved practice history could not be read. Recent questions from this running server are still checked, but earlier questions may repeat.' : null };
       sessions.set(session.id, session); return view(session);
     },
     restore(profile, id) {
@@ -188,12 +236,14 @@ export function createMixedPracticeService({ topics, generateQuestion, now = Dat
         ? {topicId:lastEvidence.question.topicId,kind:'challenge',reason:'Try a fresh problem on this topic. A different question form is preferred when available.'}
         : choose(session, stats);
       const difficulty = stats.byTopic.find(row => row.topicId === selected.topicId)?.difficulty || session.startDifficulty;
-      let generated, focusedTemplate = false, repeated = false, oldestSeen = Infinity;
+      const prior = recent(session);
+      const previousVariant = selected.kind === 'follow-up' ? null : prior.findLast(row => row.topicId === selected.topicId)?.variantId;
+      let generated, focusedTemplate = false, repeated = false, oldestSeen = Infinity, newSameForm = null;
       // A new seed does not guarantee new numbers in a finite parameter space.
       // Ignore shuffled choices and retry unseen prompts within a strict cap.
       for (let attempt = 0; attempt < (limits.variationAttempts || 20); attempt += 1) {
         const candidate = generateQuestion({ topicId: selected.topicId, difficulty, seed: randomSeed(),
-          ...(mode==='challenge'&&lastEvidence?{avoidVariantId:lastEvidence.question.variantId||lastEvidence.question.templateId}:{}),
+          ...(previousVariant && attempt === 0 ? { avoidVariantId: previousVariant } : {}),
           ...(selected.templateId ? { templateId: selected.templateId, ...(selected.focusTag ? { focusTag: selected.focusTag } : {}) } : {}) });
         const focused = Boolean(selected.templateId && candidate?.templateId === selected.templateId && candidate?.focusedTemplate === true);
         if (!candidate || candidate.type !== 'mc' || candidate.topicId !== selected.topicId || ![1, 2, 3].includes(candidate.difficulty)
@@ -204,16 +254,26 @@ export function createMixedPracticeService({ topics, generateQuestion, now = Dat
           || candidate.answerIndex < 0 || candidate.answerIndex >= candidate.choices.length || !Array.isArray(candidate.hints) || !Array.isArray(candidate.solution)) {
           fail(500, 'GENERATOR_ERROR', 'A valid practice question could not be prepared. Try another topic.');
         }
-        const fingerprint = problemFingerprint(candidate), prompt = promptFingerprint(candidate);
-        const lastSeen = session.records.findLastIndex(item => problemFingerprint(item.question) === fingerprint || promptFingerprint(item.question) === prompt);
-        if (lastSeen === -1) { generated = candidate; focusedTemplate = focused; repeated = false; break; }
+        const { problemHash, promptHash } = questionHashes(candidate);
+        const lastSeen = prior.findLastIndex(item => item.problemHash === problemHash || item.promptHash === promptHash);
+        if (lastSeen === -1) {
+          if (!previousVariant || (candidate.variantId || candidate.templateId) !== previousVariant) {
+            generated = candidate; focusedTemplate = focused; repeated = false; newSameForm = null; break;
+          }
+          // New givens outrank a previously seen problem in another form.
+          // Keep searching within the same cap for a new supported form.
+          newSameForm ||= { candidate, focused };
+          continue;
+        }
         if (lastSeen < oldestSeen) { generated = candidate; focusedTemplate = focused; oldestSeen = lastSeen; repeated = true; }
       }
+      if (newSameForm) { generated = newSameForm.candidate; focusedTemplate = newSameForm.focused; repeated = false; }
       const question = { ...clone(generated), generationId: generated.id, id: randomId() };
       const selectionReason = (repeated ? selected.reason.replace(/new variation/g, 'previously seen variation') : selected.reason)
         + (focusedTemplate ? ` This follow-up keeps the same concept at difficulty ${question.difficulty}${repeated ? '.' : ' with new numbers.'}` : '')
         + (repeated ? ' This concept has a finite set of variations. A previously seen problem is repeated after checking for an unused variation.' : '');
-      session.records.push({ question, assisted: false, hintsUsed: 0, answer: null, reviewOnly:repeated, practiceMode:mode, selectionKind: selected.kind, selectionReason });
+      session.records.push({ question, shownAt: now(), assisted: false, hintsUsed: 0, answer: null, reviewOnly:repeated, practiceMode:mode, selectionKind: selected.kind, selectionReason });
+      retainRecent(profile, recent(session));
       return view(session);
     },
     answer(profile, id, questionId, answerIndex) {
@@ -242,6 +302,7 @@ export function createMixedPracticeService({ topics, generateQuestion, now = Dat
       const session=get(profile,id), item=record(session,questionId), q=item.question;
       if(!item.answer)return null;
       return {attemptId:q.id,topicId:q.topicId,subject:q.subject,templateId:q.templateId||null,variantId:q.variantId||q.templateId||null,
+        ...questionHashes(q),
         difficulty:q.difficulty,correct:item.answer.correct,assisted:Boolean(item.assisted),
         misconceptionTag:item.answer.correct?null:q.misconceptionTags?.[item.answer.answerIndex]||null,
         at:new Date(item.answer.answeredAt).toISOString(),isReview:Boolean(item.reviewOnly)};

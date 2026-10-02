@@ -5,6 +5,24 @@
 .plan-field input,.plan-field select,.plan-field textarea{box-sizing:border-box;width:100%;min-width:0;font:inherit}
 .plan-field textarea{resize:vertical;min-height:5rem}
 .plan-field[hidden]{display:none}
+.plan-activity-choices,.plan-course-items{min-width:0;margin:0;padding:0;border:0}
+.plan-activity-choices{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}
+.plan-activity-choices legend,.plan-course-items legend{padding:0;margin-bottom:.6rem;font-weight:600}
+.plan-activity-choice,.plan-course-item{display:flex;align-items:flex-start;gap:.6rem;min-width:0;min-height:44px;padding:.8rem;border:1px solid var(--border);border-radius:9px;background:var(--surface);cursor:pointer}
+.plan-activity-choice:has(input:checked),.plan-course-item:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.plan-activity-choice:has(input:focus-visible),.plan-course-item:has(input:focus-visible){outline:3px solid var(--accent);outline-offset:2px}
+.plan-activity-choice input,.plan-course-item input{flex:0 0 auto;margin-top:.2rem;width:18px;height:18px;accent-color:var(--accent)}
+.plan-activity-choice>span,.plan-course-item>span{min-width:0;overflow-wrap:anywhere}
+.plan-activity-choice strong,.plan-course-item strong{display:block;font-size:.9em}
+.plan-activity-choice small,.plan-course-item small{display:block;margin-top:.3rem;color:var(--muted);font-size:.75em;line-height:1.6}
+.plan-course-items{display:grid;gap:.5rem;max-height:24rem;overflow-y:auto;padding:.2rem}
+.plan-course-items[hidden]{display:none}
+.plan-preferences{min-width:0;border-block:1px solid var(--border)}
+.plan-preferences>summary{min-height:44px;padding:.7rem .2rem;font-weight:600;font-size:.9em;cursor:pointer}
+.plan-preferences[open]{padding-bottom:1rem}
+.plan-preferences .plan-sat-fields{margin-top:1rem}
+.saved-plan-summary .plan-study-start{display:block;margin-top:.7rem}
+.plan-study-step{margin-block:.5rem}
 .plan-sat-fields{border:1px solid var(--border,#96a0aa);border-radius:.6rem;padding:1rem;min-width:0}
 .plan-sat-fields[hidden]{display:none}
 .plan-sat-fields legend{font-weight:700;padding:0 .35rem}
@@ -24,3 +42,5 @@
 .home-study-tools{display:flex;gap:1rem;flex-wrap:wrap}
 .saved-plans,.saved-plan-detail,.plan-draft-slot{margin-top:1.5rem}
 @media(max-width:640px){.plan-fields{grid-template-columns:minmax(0,1fr)}.study-plan-form .btn-row,.study-plan-draft .btn-row{align-items:stretch;flex-direction:column}}
+@media(max-width:800px){.plan-activity-choices{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:420px){.plan-activity-choices{grid-template-columns:minmax(0,1fr)}.plan-course-items{max-height:20rem}.plan-study-start,.plan-study-step{min-height:44px;width:100%}}

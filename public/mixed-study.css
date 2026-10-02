@@ -6,6 +6,19 @@
 .mixed-eyebrow { color: var(--accent); font: 0.72em/1.6 var(--mono); letter-spacing: 0.07em; }
 .mixed-muted, .mixed-help-note, .mixed-source { color: var(--muted); font-size: 0.85em; line-height: 1.7; }
 .mixed-rules { max-width: 75ch; }
+.mixed-setup-intro { max-width: 65ch; color: var(--muted); }
+.mixed-details { min-width: 0; margin: .65rem 0 1rem; border-block: 1px solid var(--border); }
+.mixed-details > summary { min-height: 44px; padding: .65rem .2rem; color: var(--text); font-size: .85em; font-weight: 600; cursor: pointer; }
+.mixed-details > summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.mixed-details[open] { padding-bottom: .6rem; }
+.mixed-details > .mixed-rules { margin-top: .25rem; padding-left: 1.4rem; font-size: .85em; line-height: 1.7; color: var(--muted); }
+.mixed-rules li + li { margin-top: .4rem; }
+.mixed-progress-details { margin-top: -.5rem; }
+.mixed-progress-details .mixed-progress-tags { padding: 0 .2rem .3rem; }
+.mixed-question-details .mixed-why { margin: .2rem 0 .7rem; }
+.mixed-question-details .mixed-source { margin: .4rem .2rem 0; }
+.mixed-more-practice { margin-top: 1rem; }
+.mixed-more-practice .btn-row { margin: .5rem 0; }
 .mixed-topic-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1.1rem 0; }
 .mixed-topic-group { min-width: 0; margin: 0; padding: 0.8rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
 .mixed-topic-group legend { padding: 0 0.4rem; color: var(--mixed-color); font-weight: 650; }
@@ -15,7 +28,7 @@
 .mixed-question-model { margin: 1rem 0; }
 .mixed-question-model:empty { display: none; }
 .mixed-topic-shortcuts { display: flex; gap: 0.5rem; margin-bottom: 0.45rem; }
-.mixed-topic-shortcuts button { min-height: 36px; padding: 0.25rem 0.65rem; font-size: 0.75em; }
+.mixed-topic-shortcuts button { min-height: 44px; padding: 0.25rem 0.65rem; font-size: 0.75em; }
 .mixed-topic-option { display: flex; align-items: flex-start; gap: 0.65rem; padding: 0.6rem 0.35rem; border-radius: 7px; cursor: pointer; }
 .mixed-topic-option:hover { background: var(--surface); }
 .mixed-topic-option input { flex: 0 0 auto; width: 18px; height: 18px; margin: 0.25rem 0 0; accent-color: var(--mixed-color); }
@@ -26,6 +39,7 @@
 .mixed-session-options label { display: grid; flex: 1 1 12rem; gap: 0.35rem; font-size: 0.85em; color: var(--muted); }
 .mixed-session-options select { width: 100%; min-height: 44px; padding: 0.55rem; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }
 .mixed-selection-status, .mixed-status { font-size: 0.87em; line-height: 1.7; color: var(--muted); }
+.mixed-session-notice { margin: .75rem 0; padding: .75rem 1rem; border-left: 3px solid var(--notyet); color: var(--text); background: var(--notyet-soft); font-size: .85em; line-height: 1.7; }
 .mixed-selection-status:empty, .mixed-status:empty, .mixed-toolbar:empty { display: none; }
 .mixed-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
 .mixed-toolbar button { min-height: 42px; font-size: 0.8em; }
@@ -64,9 +78,9 @@
 .mixed-feedback.is-correct h3 { color: var(--good); }
 .mixed-feedback.is-not-yet { background: var(--notyet-soft); border-color: var(--notyet); }
 .mixed-feedback.is-not-yet h3 { color: var(--notyet); }
-.mixed-coach-callout { background: var(--surface); font-size: 0.87em; }
-.mixed-coach-callout p { color: var(--muted); }
-.mixed-coach-callout button { margin-top: 0.5rem; min-height: 44px; }
+.mixed-coach-callout { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; padding: .75rem 0 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; background: transparent; font-size: .85em; }
+.mixed-coach-callout p { margin: 0; color: var(--muted); }
+.mixed-coach-callout button { margin: 0; min-height: 44px; }
 .mixed-question .katex-display { max-width: 100%; overflow-x: auto; }
 .mixed-study .btn-row button { min-height: 44px; }
 .mixed-paused, .mixed-complete { padding: 1.5rem; }

@@ -1,8 +1,9 @@
 import { MixedPracticeError, mixedTutorRequest } from './mixed-practice.js';
+import { normalizeCoachAttachments, CoachAttachmentError, COACH_ATTACHMENT_BODY_LIMIT, COACH_ATTACHMENT_MESSAGE } from './coach-attachments.js';
 
 // Small HTTP adapter. The service owns all questions, keys, assistance flags,
 // submitted choices, and topic evidence. The client supplies identifiers only.
-export function createMixedPracticeApi({ service, readBody, sendJson, complete, isConfigured, recordAttempt }) {
+export function createMixedPracticeApi({ service, readBody, sendJson, complete, isConfigured, recordAttempt, readHistory, authorizeTutor }) {
   return async function handleMixedPractice(req, res, url) {
     const profileId = url.searchParams.get('profile') || 'learner';
     if (!/^[a-z0-9-]{1,55}$/.test(profileId)) return sendJson(res, 400, { error: 'Choose a valid learner workspace.', code: 'INVALID_PROFILE' });
@@ -15,7 +16,7 @@ export function createMixedPracticeApi({ service, readBody, sendJson, complete, 
       if (!['session', 'topics', 'next', 'answer', 'hint', 'tutor', 'assisted'].includes(path)) return sendJson(res, 404, { error: 'Unknown mixed-practice endpoint.' });
       if (req.method !== 'POST') return sendJson(res, 405, { error: 'Use POST for this mixed-practice action.' });
       let body;
-      try { body = JSON.parse(await readBody(req, 40_000)); } catch { return sendJson(res, 400, { error: 'The request must contain valid JSON.' }); }
+      try { body = JSON.parse(await readBody(req, path === 'tutor' ? COACH_ATTACHMENT_BODY_LIMIT : 40_000)); } catch { return sendJson(res, 400, { error: 'The request must contain valid JSON.' }); }
       if (!body || Array.isArray(body) || typeof body !== 'object') return sendJson(res, 400, { error: 'The request must be a JSON object.' });
       const { sessionId, questionId } = body;
       const persistAttempt = async () => {
@@ -25,17 +26,27 @@ export function createMixedPracticeApi({ service, readBody, sendJson, complete, 
         try { await recordAttempt({profileId,evidence}); return {historySaved:true}; }
         catch { return {historySaved:false,historyNotice:'Your answer is checked, but it could not be saved to long-term practice history. The current session still has it. Check the same answer again to retry saving.'}; }
       };
-      if (path === 'session') return sendJson(res, 201, service.create(profileId, { topicIds: body.topicIds, difficulty: body.difficulty, requestId: body.requestId }));
+      if (path === 'session') {
+        let history, historyUnavailable = false;
+        if (readHistory) {
+          try { history = await readHistory(profileId); } catch { historyUnavailable = true; }
+        }
+        return sendJson(res, 201, service.create(profileId, { topicIds: body.topicIds, difficulty: body.difficulty, requestId: body.requestId }, { history, historyUnavailable }));
+      }
       if (path === 'topics') return sendJson(res, 200, service.updateTopics(profileId, sessionId, body.topicIds));
       if (path === 'next') return sendJson(res, 200, service.next(profileId, sessionId, {mode:body.mode}));
       if (path === 'answer') { const result=service.answer(profileId, sessionId, questionId, body.answerIndex); return sendJson(res,200,{...result,...await persistAttempt()}); }
       if (path === 'hint') { const result=service.hint(profileId, sessionId, questionId); return sendJson(res,200,{...result,...await persistAttempt()}); }
       if (path === 'assisted') { const result=service.tutorReceived(profileId, sessionId, questionId, true); return sendJson(res,200,{...result,...await persistAttempt()}); }
+      if (authorizeTutor && !await authorizeTutor(req, res, url)) return;
       const context = service.tutorContext(profileId, sessionId, questionId);
+      const attachments = normalizeCoachAttachments(body.attachments);
+      const originalFollowUp = typeof body.followUp === 'string' ? body.followUp : '';
+      const followUp = originalFollowUp.trim() ? originalFollowUp : attachments.length ? COACH_ATTACHMENT_MESSAGE : originalFollowUp;
       if (!isConfigured()) return sendJson(res, 200, { available: false, assisted: context.assisted,
         text: 'The AI coach is unavailable on this server. The built-in hints and checked solution remain available.' });
-      const response = await complete({ ...mixedTutorRequest(context, { followUp: body.followUp, transcript: body.transcript }),
-        memoryMessage: typeof body.followUp === 'string' ? body.followUp : '',
+      const response = await complete({ ...mixedTutorRequest(context, { followUp, transcript: body.transcript }),
+        attachments, memoryMessage: originalFollowUp,
         assertCurrent: () => { service.tutorContext(profileId, sessionId, questionId); },
       }, req, res);
       // A known closed connection means the learner canceled or left before
@@ -55,6 +66,7 @@ export function createMixedPracticeApi({ service, readBody, sendJson, complete, 
         text: response.text + (response.truncated ? '\n\nThis reply reached its length limit. Ask a narrower follow-up to continue.' : ''),
         model: response.model, fallback: response.fallback, recordReads: response.recordReads || [], memoryWrites });
     } catch (error) {
+      if (error instanceof CoachAttachmentError) return sendJson(res, error.status, { error: error.message, code: 'invalid_attachments' });
       if (error instanceof MixedPracticeError) return sendJson(res, error.status, { error: error.message, code: error.code, ...(memoryWrites.length ? { memoryWrites } : {}) });
       return sendJson(res, 500, { error: 'The mixed-practice request could not be completed.', code: 'MIXED_REQUEST_FAILED', ...(memoryWrites.length ? { memoryWrites } : {}) });
     }

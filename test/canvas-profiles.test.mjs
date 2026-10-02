@@ -170,7 +170,7 @@ before(async () => {
   await mkdir(join(sandbox, 'public'));
   await mkdir(join(sandbox, 'data'));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
-  for (const file of ['server.js', 'coach-audio.js', 'coach-memory.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-plans.js', 'practice-history.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
+  for (const file of ['server.js', 'coach-audio.js', 'coach-memory.js', 'coach-attachments.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-plans.js', 'practice-history.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
   await copyFile(new URL('../store.js', import.meta.url), join(sandbox, 'store-real.js'));
@@ -310,6 +310,30 @@ test('page coach respects selected terms even when a course is explicitly select
   assert.deepEqual(result.data.sources, []);
   assert.equal(result.data.rulesAdded, 0, 'an excluded course is neither read nor added to source history');
   assert.match(result.data.limitations.join(' '), /selected.*term selection/);
+});
+
+test('opening an owned saved plan clears an unrelated Canvas term and instruction target', async () => {
+  const profile = 'coach-plan-term-scope';
+  const connected = await connect(profile, originalToken, false);
+  const response = await fetch(`${base}/api/study-plans?profile=${profile}`, { method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: connected.cookie },
+    body: JSON.stringify({ requestId: '00000000-0000-4000-8000-000000000099', plan: {
+      title: 'Use the current class example', course: { id: '99' }, goal: 'Explain the current class work', topics: ['Limits'], activity: 'guide',
+      steps: [{ title: 'Explain one step', detail: 'Use a current class example to explain the first step.', minutes: 10 }],
+    } }),
+  });
+  assert.equal(response.status, 201);
+  const { plan } = await response.json();
+  const result = await api('coach', { profile, method: 'POST', cookie: connected.cookie, body: {
+    pageContext: { route: '#/mixed', planId: plan.id, stepId: 'step-1', selectedCourseId: '777', termIds: ['22'], itemId: '999', moduleItemId: '888' },
+    message: 'Use my current class instructions to help with this plan step.',
+  } });
+  assert.equal(result.status, 200);
+  assert.match(result.data.text, /Original learner assignment/);
+  assert.match(result.data.text, /"termIds":\[\]/);
+  assert.match(result.data.text, /"selectedCourseId":"99"/);
+  assert.doesNotMatch(result.data.limitations.join(' '), /selected course is not present/);
+  assert.ok(result.data.sources.length > 0, 'the saved plan course remains readable despite a different previously selected term');
 });
 
 test('a readable front page finds linked instructions despite page-index failure while a private calendar remains unread', async () => {

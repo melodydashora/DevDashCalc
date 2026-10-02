@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStudentRecordLookup } from '../coach-records.js';
 
+test('authenticated learner identity remains available before any progress is saved', async () => {
+  const lookup = createStudentRecordLookup({ profileId: 'student-a', workspaceId: 'owned',
+    learner: { name: 'Current Student', selectedSubject: 'physics', source: 'Current authenticated learner workspace', token: 'never-show' } });
+  assert.equal(lookup.initialContext.name, 'Current Student');
+  assert.equal(lookup.catalog.find(item => item.collection === 'learning_profile').available, true);
+  const page = await lookup.execute('read_student_records', { collection: 'learning_profile', offset: 0 });
+  assert.equal(page.records[0].settings.name, 'Current Student');
+  assert.doesNotMatch(JSON.stringify({ initial: lookup.initialContext, page }), /never-show|token/);
+});
+
 test('saved course plans are owner-bound, paged and exclude arbitrary fields', async () => {
   const calls = [];
   const lookup = createStudentRecordLookup({ profileId: 'dev', readPlans: async options => {

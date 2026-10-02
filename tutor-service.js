@@ -11,7 +11,7 @@ export function getTutorStatus(env = process.env) {
     coach: 'Astra', warnings, ...(error ? { configurationError: error } : {}) };
 }
 
-export async function completeTutor({ system, messages, lookup, remember, memoryMessage, assertCurrent: requestGuard, env = process.env, fetchImpl = fetch }) {
+export async function completeTutor({ system, messages, attachments, lookup, remember, memoryMessage, assertCurrent: requestGuard, env = process.env, fetchImpl = fetch }) {
   const config = resolveCoachConfig(env);
   // Writable memory exists only when the authenticated host explicitly adds
   // a saver and raw current student message alongside its owner-bound lookup.
@@ -67,7 +67,7 @@ export async function completeTutor({ system, messages, lookup, remember, memory
     } : undefined;
     try {
       await assertCurrent();
-      const options = { apiKey: entry.apiKey, model, models: [model], system: memory ? `${system}\n${COACH_MEMORY_SYSTEM}` : system, messages,
+      const options = { apiKey: entry.apiKey, model, models: [model], system: memory ? `${system}\n${COACH_MEMORY_SYSTEM}` : system, messages, attachments,
         lookup: scopedLookup, fetchImpl, timeoutMs: Math.max(1, attemptDeadline - Date.now()) };
       const out = lookup ? await completeRecordCoach(options) : await completeGPTCoach(options);
       failures.push(...(out.failures || []));

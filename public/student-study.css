@@ -1,0 +1,24 @@
+.student-study{display:grid;gap:1rem;min-width:0}
+.student-study-picker{display:flex;align-items:end;gap:.8rem;flex-wrap:wrap}
+.student-study-field{display:grid;gap:.4rem;flex:1 1 260px;min-width:0;font-weight:600}
+.student-study-field select{width:100%;min-width:0;min-height:44px;font:inherit;box-sizing:border-box}
+.student-study-status{min-height:1.4em;margin:0;overflow-wrap:anywhere}
+.student-study-workspace{display:grid;grid-template-columns:minmax(210px,.85fr) minmax(0,2fr);gap:1rem;align-items:start}
+.student-study-steps,.student-study-current,.student-study-instructor{min-width:0;overflow-wrap:anywhere}
+.student-study-steps h2,.student-study-current h2,.student-study-instructor h2{margin-top:0}
+.student-study-steps ol{display:grid;gap:.5rem;list-style:none;margin:0;padding:0}
+.student-study-step{display:block;width:100%;text-align:left;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:.8rem;border-radius:.6rem;font:inherit;line-height:1.45;min-height:44px}
+.student-study-step[aria-current="step"]{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent);font-weight:700}
+.student-study-current{display:grid;gap:.85rem}
+.student-study-current>.kicker,.student-study-current>h2,.student-study-current>p{margin:0}
+.student-study-instructions{white-space:pre-wrap;line-height:1.7}
+.student-study-actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.student-study-actions button,.student-study-picker button{min-height:44px}
+.student-study-paused{padding:.75rem;border:1px solid var(--border);border-radius:.5rem;background:var(--surface)}
+.student-study-instructor-list{display:grid;gap:.8rem;padding-left:1.2rem;margin-bottom:0}
+.student-study-instructor-list li{padding-left:.2rem}
+.student-study-instructor-list .canvas-meta{display:block;margin-top:.2rem}
+.student-study-instructor[hidden]{display:none}
+.student-study-empty{grid-column:1/-1}
+.student-study :is(button,select,a):focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+@media(max-width:720px){.student-study-workspace{grid-template-columns:minmax(0,1fr)}.student-study-picker{align-items:stretch}.student-study-field{flex-basis:100%}.student-study-actions{align-items:stretch}.student-study-actions button{flex:1 1 160px}}

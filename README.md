@@ -744,10 +744,15 @@ The main header uses VectoPilot-inspired blue and purple branding with the
 active student's name, local date/time, and an original diamond/Astra signature
 beside Students4AI. Navigation stays horizontal at desktop sizes and moves into
 a right-hand menu when space is limited. Mobile home actions stack vertically.
-Home greets the active student by name and offers large action cards for Astra,
-practice, study plans, classes, lessons, and study sessions. Existing class and
-saved-topic information follows the cards. The Astra card focuses the same
-bottom Coach without automatically sending a question.
+Home greets the active student by name and offers three large action cards:
+Study, Plan, and Canvas. Canvas refreshes the school course list and controls
+which courses appear in Plan. Plan combines selected course items, a specific
+topic or question, and a Guide/Practice/Test/Model activity into an editable
+draft. Saving is explicit. Study opens the saved steps with instructor work for
+that course and the same bottom Coach. Completion is student-reported and
+versioned; practice sessions and pause/resume stay scoped to their plan step.
+Course removal preserves Canvas and saved work. Account settings remain in the
+header; lessons, review, and other tools are available from Study.
 The Refresh control is reserved and disabled until its behavior is defined.
 Signed-out screens never show the previous student's name.
 
@@ -756,7 +761,7 @@ requests to pick a next step, find instructions, and explain the current page.
 Replies identify the actual configured GPT model that answered, link to
 retrieved sources, show lookup limitations, and provide explicit navigation
 buttons. The student chooses each action. Conversations stay in tab memory
-and clear when the learner, course, terms, resource, or active question changes.
+and clear when the learner, course, terms, resource, saved plan/step, or active question changes.
 During a live question, the question shortcut points to this same bottom coach,
 which uses the canonical tutor and hint accounting; help cannot silently earn
 an independent mastery pass. Coach Notes opens from the right inside the Coach
@@ -770,10 +775,23 @@ student message: at most two exact excerpts of 500 characters per reply. Saved
 memories are disclosed in the conversation. Coach Notes also supports manual
 saves, editing, and removal. Updated memories are available to subsequent Coach
 requests; removed text and source metadata are cleared and excluded from lookup.
-An invisible request-ID tombstone prevents an old retry from restoring a removed
+An internal request-ID tombstone prevents an old retry from restoring a removed
 memory. Existing notes are preserved by additive database changes. Whole chats
 and raw audio are never automatically archived. Students can say not to remember
 a message, and memory never overrides verified answers or teacher instructions.
+
+Students can attach up to two phone photos (JPEG, PNG, WebP) or plain UTF-8
+notes to a Coach question: 6 MiB total, at most 12,000 note characters. Files
+are sent as request-scoped native GPT image/text content, never copied into
+chat history or saved learning memories. Failed sends retain the draft for
+retry. The Add to Plan action opens an editable request without saving it or
+copying attachment bytes. HEIC and PDF are not supported by this upload path.
+
+For saved Canvas course plans without a verified bank mapping, Astra creates
+learning questions in the conversation. Available checked-bank topic choices
+remain explicit. Models are selected from the reviewed interactive library;
+arbitrary generated 3D scripts are not run. See
+[the workspace guide](docs/learning-workspace.md) for persistence and limits.
 
 Canvas assignments and module items have **Find instructions** buttons. The
 server reconstructs the selected workspace and course, then reads up to four
@@ -788,7 +806,7 @@ claim that every teacher resource or external document was searched.
 The app distinguishes a reported date, an explicitly empty date field, an
 omitted/invalid field, and deadline text inside instructions. Teacher prose
 never becomes an official deadline automatically. Undated assignments remain
-in the plan and are now considered by Home and the study-session picker.
+in the course item list and can be selected in Plan without inventing a due date.
 Older courses remain outside automatic pacing, with an explicit option to
 inspect their materials without deleting the older-course rule.
 

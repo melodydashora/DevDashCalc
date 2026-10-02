@@ -64,7 +64,7 @@ test('coach conversation scope follows course/subject and isolates each active q
 test('specific source targets and school terms cannot reuse another lookup conversation', () => {
   const base = { subject: 'calculus-bc', selectedCourseId: '11', termIds: ['1', '2'] };
   assert.equal(coachConversationScope(base), coachConversationScope({ ...base, termIds: [2, 1, 1] }), 'term order and numeric representation do not change scope');
-  for (const field of ['itemId', 'assignmentId', 'moduleItemId']) {
+  for (const field of ['itemId', 'assignmentId', 'moduleItemId', 'planId', 'stepId']) {
     assert.notEqual(coachConversationScope({ ...base, [field]: '100' }), coachConversationScope({ ...base, [field]: '101' }), field);
   }
   assert.notEqual(coachConversationScope(base), coachConversationScope({ ...base, termIds: ['3'] }));
@@ -211,6 +211,7 @@ async function withCoach(options, callback) {
     createElement: (tag) => new CoachFixtureNode(tag),
     createElementNS: (_namespace, tag) => new CoachFixtureNode(tag),
     createTextNode: (text) => new CoachFixtureNode('#text', text),
+    addEventListener() {}, removeEventListener() {},
   };
   const window = globalThis.window = new CoachFixtureNode('window');
   const root = new CoachFixtureNode(); root._connected = true;
@@ -264,6 +265,59 @@ test('mounted coach sends current context and only completed turns as conversati
       { role: 'assistant', text: 'Use the definition of the derivative.' },
     ]);
     await settleCoach();
+  });
+});
+
+test('the Coach header stays simple and read-aloud clearly discloses its AI-generated voice when enabled', async () => {
+  await withCoach({ audio: { transcribe: async () => '', synthesize: async () => new Blob() } }, async ({ root, find }) => {
+    assert.equal(find('.page-coach-subtitle').textContent, 'Your AI study assistant');
+    assert.equal(find('.page-coach-voice-state').textContent, 'Read aloud off');
+    assert.match(find('.page-coach-contextbar').textContent, /Spoken replies use an AI-generated voice/);
+    const toggle = actionNamed(root, 'Read replies aloud');
+    assert.match(toggle.getAttribute('aria-describedby'), /-audio-note$/);
+    toggle.click();
+    assert.match(find('.page-coach-voice-state').textContent, /^AI-generated voice · Replies will be read aloud$/);
+    toggle.click();
+    assert.equal(find('.page-coach-voice-state').textContent, 'Read aloud off');
+  });
+});
+
+test('successful source details stay optional while citations and exact reply identity remain available', async () => {
+  await withCoach({ request: async () => ({ text: 'Start with your class instructions.', model: 'gpt-6-astra',
+    sources: [{ label: 'Class instructions', href: 'https://school.example/instructions', detail: 'available · Read 2026-10-02T12:00:00Z' }],
+    rulesAdded: 1,
+    recordReads: [{ collection: 'saved_notes', state: 'available', count: 2, totalCount: 2, nextOffset: null }],
+  }) }, async ({ find, cleanup }) => {
+    cleanup.ask('Help me start.'); await settleCoach();
+    const log = find('.page-coach-log');
+    assert.match(log.textContent, /Reply from GPT-6 Astra/);
+    assert.equal(find('.page-coach-sources').querySelector('a').href, 'https://school.example/instructions');
+    assert.equal(find('.page-coach-sources').querySelector('.page-coach-source-detail'), null);
+    const details = find('.page-coach-reference-details');
+    assert.ok(!details.open);
+    assert.match(details.textContent, /Retrieved/);
+    assert.match(details.textContent, /Saved 1 additional source location/);
+    assert.ok(!find('.page-coach-limitations').open);
+    assert.ok(!find('.page-coach-contextbar').open);
+    assert.match(find('.page-coach-contextbar').textContent, /This conversation stays in this tab/);
+    const userMessage = log.querySelectorAll('article')[0];
+    assert.equal(userMessage.querySelector('.page-coach-message-context'), null);
+  });
+});
+
+test('missing sources and incomplete learning information remain visible with the reply', async () => {
+  await withCoach({ request: async () => ({ text: 'I could not read the assignment.', model: 'gpt-6-astra',
+    sources: [{ label: 'Assignment', href: 'https://school.example/assignment', detail: 'read_failed' }],
+    limitations: ['The assignment content could not be read.'],
+    recordReads: [{ collection: 'saved_notes', state: 'available', count: 2, totalCount: 5, nextOffset: 2 }],
+  }) }, async ({ find, cleanup }) => {
+    cleanup.ask('Read my assignment.'); await settleCoach();
+    assert.match(find('.page-coach-sources').textContent, /Could not read/);
+    const disclosures = find('.page-coach-log').querySelectorAll('.page-coach-limitations');
+    assert.equal(disclosures.length, 2);
+    assert.ok(disclosures.every(details => details.open));
+    assert.match(disclosures[0].textContent, /more records remain/);
+    assert.match(disclosures[1].textContent, /assignment content could not be read/);
   });
 });
 
@@ -480,5 +534,147 @@ test('a failed coaching reply still displays its durable memory receipt and offe
     assert.equal(calls[1].message, calls[0].message);
     assert.match(log.textContent, /The provider is available again/);
     assert.ok(log.textContent.includes(memoryText), 'the successful retry does not erase a confirmed saved memory receipt');
+  });
+});
+
+test('attachment selection never sends automatically and failed uploads retry the same question until a confirmed reply', async () => {
+  const calls = [];
+  const note = new File(['Explain this study note.'], 'class-note.txt', { type: 'text/plain' });
+  await withCoach({ request: async payload => {
+    calls.push(payload);
+    if (calls.length === 1) throw new Error('Unavailable');
+    return { text: 'Start with the definition.', model: 'gpt-6-astra' };
+  } }, async ({ root, find, cleanup }) => {
+    const picker = find('.page-coach-file-input'); picker.files = [note]; picker.dispatch('change');
+    await settleCoach();
+    assert.equal(calls.length, 0);
+    assert.equal(find('.page-coach-send').disabled, false);
+    assert.equal(find('.page-coach-attachments').children.length, 1);
+    assert.doesNotMatch(root.textContent, /Explain this study note/);
+    find('.page-coach-form').requestSubmit(); await settleCoach();
+    assert.equal(calls[0].message, 'Help me understand the attached study material.');
+    assert.equal(Buffer.from(calls[0].attachments[0].data, 'base64').toString(), 'Explain this study note.');
+    assert.equal(find('.page-coach-attachments').children.length, 1, 'files stay selected after a failure');
+    actionNamed(root, 'Try again').click(); await settleCoach();
+    assert.deepEqual(calls[1], calls[0]);
+    assert.equal(find('.page-coach-attachments').children.length, 0, 'confirmed replies release upload drafts');
+    assert.doesNotMatch(root.textContent, new RegExp(calls[0].attachments[0].data));
+    cleanup.ask('Explain one more step.'); await settleCoach();
+    assert.equal('attachments' in calls[2], false);
+    assert.ok(calls[2].transcript.every(turn => Object.keys(turn).sort().join(',') === 'role,text'));
+  });
+});
+
+test('removing an attachment after a failure restores the question and cannot resend removed bytes', async () => {
+  const calls = [];
+  await withCoach({ request: async payload => { calls.push(payload); throw new Error('Unavailable'); } }, async ({ root, find, cleanup }) => {
+    const picker = find('.page-coach-file-input'); picker.files = [new File(['My notes'], 'notes.txt', { type: 'text/plain' })]; picker.dispatch('change'); await settleCoach();
+    cleanup.focus('Explain my notes.'); find('.page-coach-form').requestSubmit(); await settleCoach();
+    find('.page-coach-attachment-remove').click();
+    assert.equal(find('.page-coach-form').querySelector('textarea').value, 'Explain my notes.');
+    assert.equal(actionNamed(root, 'Try again').hidden, true);
+    find('.page-coach-form').requestSubmit(); await settleCoach();
+    assert.equal(calls[1].message, 'Explain my notes.');
+    assert.equal('attachments' in calls[1], false);
+  });
+});
+
+test('scope changes and unmount revoke photo previews and prevent late attachment reads from returning', async () => {
+  const originalCreate = URL.createObjectURL, originalRevoke = URL.revokeObjectURL;
+  const revoked = []; URL.createObjectURL = () => 'blob:study-photo'; URL.revokeObjectURL = url => revoked.push(url);
+  let context = { selectedCourseId: 'one' }, finish;
+  try {
+    await withCoach({ context: () => context }, async ({ find, cleanup }) => {
+      const picker = find('.page-coach-file-input'); picker.files = [new File(['photo'], 'photo.jpg', { type: 'image/jpeg' })]; picker.dispatch('change'); await settleCoach();
+      assert.equal(find('.page-coach-attachments').querySelector('img').src, 'blob:study-photo');
+      context = { selectedCourseId: 'two' }; cleanup.refresh();
+      assert.deepEqual(revoked, ['blob:study-photo']);
+      assert.equal(find('.page-coach-attachments').children.length, 0);
+      picker.files = [{ name: 'late.jpg', type: 'image/jpeg', size: 1, arrayBuffer: () => new Promise(resolve => { finish = resolve; }) }]; picker.dispatch('change');
+      context = { selectedCourseId: 'three' }; cleanup.refresh(); finish(Uint8Array.of(1).buffer); await settleCoach();
+      assert.equal(find('.page-coach-attachments').children.length, 0);
+      picker.files = [new File(['photo'], 'photo.jpg', { type: 'image/jpeg' })]; picker.dispatch('change'); await settleCoach();
+      cleanup();
+      assert.deepEqual(revoked, ['blob:study-photo', 'blob:study-photo']);
+    });
+  } finally { URL.createObjectURL = originalCreate; URL.revokeObjectURL = originalRevoke; }
+});
+
+test('Add to Plan hands off only the reply, original request, and study context on explicit click', async () => {
+  const plans = [];
+  await withCoach({ context: () => ({ selectedCourseId: 'biology', title: 'Biology' }), onPlan: draft => plans.push(draft), request: async () => ({ text: 'Practice five cell questions.', model: 'gpt-6-astra' }) }, async ({ root, find, cleanup }) => {
+    const picker = find('.page-coach-file-input'); picker.files = [new File(['Cell structure'], 'biology.txt', { type: 'text/plain' })]; picker.dispatch('change'); await settleCoach();
+    cleanup.ask('Suggest a practice plan.'); await settleCoach();
+    assert.deepEqual(plans, []);
+    actionNamed(root, 'Add to Plan').click(); await settleCoach();
+    assert.deepEqual(plans, [{ text: 'Practice five cell questions.', request: 'Suggest a practice plan.', pageContext: { selectedCourseId: 'biology', title: 'Biology' } }]);
+    assert.equal(find('.page-coach-status').textContent, '', 'opening a draft must not claim it was saved');
+  });
+});
+
+for (const field of ['planId', 'stepId']) {
+  test(`changing the selected ${field} cancels stale replies and clears files and retained conversation`, async () => {
+    const calls = [], late = deferredReply();
+    let context = { route: '#/study', selectedCourseId: 'biology', planId: 'plan-one', stepId: 'step-one' };
+    await withCoach({ context: () => context, request: (payload, options) => {
+      calls.push({ payload, options });
+      return calls.length === 2 ? late.promise : Promise.resolve({ text: 'Work on the selected step.', model: 'gpt-6-astra' });
+    } }, async ({ find, cleanup }) => {
+      cleanup.ask('Explain this step.'); await settleCoach();
+      const picker = find('.page-coach-file-input'); picker.files = [new File(['Old study material'], 'old-plan.txt', { type: 'text/plain' })]; picker.dispatch('change'); await settleCoach();
+      cleanup.ask('Use this note for the same step.');
+      assert.equal(calls[1].payload.transcript.length, 2);
+      context = { ...context, [field]: 'changed-selection' }; cleanup.refresh();
+      assert.equal(calls[1].options.signal.aborted, true);
+      assert.equal(find('.page-coach-attachments').children.length, 0);
+      assert.equal(find('.page-coach-log').children.length, 0);
+      late.resolve({ text: 'A stale reply for the old plan.' }); await settleCoach();
+      assert.equal(find('.page-coach-log').children.length, 0);
+      cleanup.ask('Explain the newly selected step.'); await settleCoach();
+      assert.equal(calls[2].payload.pageContext[field], 'changed-selection');
+      assert.deepEqual(calls[2].payload.transcript, []);
+      assert.equal('attachments' in calls[2].payload, false);
+    });
+  });
+}
+
+test('safe attachment validation errors remain visible while the draft stays available to remove', async () => {
+  await withCoach({ request: async () => { throw Object.assign(new Error('This photo could not be read. Choose a JPG, PNG or WebP image.'), { code: 'invalid_attachments' }); } }, async ({ find, cleanup }) => {
+    const picker = find('.page-coach-file-input'); picker.files = [new File(['unreadable'], 'photo.jpg', { type: 'image/jpeg' })]; picker.dispatch('change'); await settleCoach();
+    cleanup.ask('Explain this photo.'); await settleCoach();
+    assert.match(find('.page-coach-status').textContent, /This photo could not be read/);
+    assert.equal(find('.page-coach-attachments').children.length, 1);
+    assert.equal(find('.page-coach-attachment-remove').disabled, false);
+  });
+});
+
+test('pausing Study aborts the pending reply and audio preference while preserving the conversation, draft, and attachments for retry', async () => {
+  const calls = [], late = deferredReply();
+  await withCoach({ context: () => ({ planId: 'plan-one', stepId: 'step-one' }), audio: { transcribe: async () => '', synthesize: async () => new Blob() }, request: (payload, options) => {
+    calls.push({ payload, options });
+    return calls.length === 2 ? late.promise : Promise.resolve({ text: 'A current explanation.', model: 'gpt-6-astra' });
+  } }, async ({ root, find, cleanup }) => {
+    actionNamed(root, 'Read replies aloud').click();
+    cleanup.pause();
+    assert.equal(find('.page-coach-voice-toggle').getAttribute('aria-pressed'), 'false');
+    cleanup.ask('Explain the first step.'); await settleCoach();
+    const picker = find('.page-coach-file-input'); picker.files = [new File(['Step notes'], 'step.txt', { type: 'text/plain' })]; picker.dispatch('change'); await settleCoach();
+    cleanup.ask('Explain my notes.');
+    cleanup.focus('An unsent follow-up.');
+    cleanup.pause();
+    assert.equal(calls[1].options.signal.aborted, true);
+    assert.equal(find('.page-coach-form').getAttribute('aria-busy'), 'false');
+    assert.equal(find('.page-coach-form').querySelector('textarea').value, 'An unsent follow-up.');
+    assert.equal(find('.page-coach-attachments').children.length, 1);
+    assert.equal(find('.page-coach-status').textContent, 'Study paused.');
+    assert.equal(find('.page-coach-log').querySelectorAll('article').length, 3);
+    late.resolve({ text: 'A stale reply after pause.' }); await settleCoach();
+    assert.doesNotMatch(find('.page-coach-log').textContent, /stale reply/);
+    assert.equal(find('.page-coach-status').textContent, 'Study paused.');
+    actionNamed(root, 'Try again').click(); await settleCoach();
+    assert.deepEqual(calls[2].payload, calls[1].payload);
+    assert.equal(find('.page-coach-form').querySelector('textarea').value, 'An unsent follow-up.');
+    assert.equal(find('.page-coach-attachments').children.length, 0);
+    cleanup(); cleanup.pause();
   });
 });
