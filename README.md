@@ -90,9 +90,9 @@ to the owner established by the server; it accepts no profile, SQL, URL, or
 arbitrary table name. Ownership and session validity are checked again before
 tool reads and model requests. The reply displays which record pages were read.
 
-The tool-enabled coach uses Anthropic Messages or OpenAI Responses through
-the shared provider configuration described below. Both receive the same
-owner-bound record tools; OpenAI Responses uses `store:false`. Pages contain
+The tool-enabled coach uses OpenAI Responses through
+the shared configuration described below, with the same
+owner-bound record tools and `store:false`. Pages contain
 at most ten records and 24,000 characters. At most eight actual tool reads
 occur across the whole reply, including provider/model fallbacks. Opaque
 thinking and tool-conversation state remain within their originating provider
@@ -166,8 +166,7 @@ For the current family setup, Replit Secrets can supply these two tokens:
 Tokens belong in Replit Secrets. Workspace IDs and school addresses are
 nonsecret server configuration and can go under `[env]` in `.replit`. Restart
 the workflow after changing its environment. Neither token is an OpenAI key;
-`OPENAI_API_KEY` and `ANTHROPIC_API_KEY` are separate coaching credentials;
-neither is a Canvas token.
+`OPENAI_API_KEY` is the separate coaching credential and is not a Canvas token.
 Dev's existing `DEV_API_KEY` name is accepted only when `DEV_API_TOKEN` is
 absent. A rejected preferred token does not silently try the older name.
 The connection-source label identifies the name actually used.
@@ -384,7 +383,8 @@ Everything below is deterministic and visible to the learner in-app (Settings �
   never shaming phrasing, never a red flash.
 - **Meaningful, controllable animation.** Graphs respond to parameters and
   playback. Reduced/off motion settings remain available. Incorrect feedback
-  uses amber; there is no flashing or sound.
+  uses amber; there is no flashing or automatic sound. Coach speech is an
+  explicit learner-controlled option.
 - **No timers by default.** An optional elapsed-time counter (counts up, never
   down) can be turned on in Settings for exam pacing practice; the app itself
   never imposes time pressure.
@@ -400,8 +400,9 @@ Everything below is deterministic and visible to the learner in-app (Settings �
 
 ## Optional: the Astra AI coach
 
-Set `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or both in Replit Secrets to connect
-the coach. Astra remains the study-coach name in the interface; each reply
+Set `OPENAI_API_KEY` in Replit Secrets to connect
+the coach. Coaching uses OpenAI only; Claude/Anthropic and Gemini are disabled.
+Astra remains the study-coach name in the interface; each reply
 identifies the provider model that actually answered. The Astra panel
 stays visible at the bottom of every question: practice, lesson checkpoints,
 mastery checks, placement, and all written-response challenges. It offers
@@ -432,43 +433,47 @@ are never included in status responses.
 
 | Setting | Default when absent / value to enter | Purpose |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | Add your own Anthropic API key | Enables the Anthropic provider |
 | `OPENAI_API_KEY` | Add your own OpenAI API key | Enables the OpenAI provider |
-| `TUTOR_PROVIDERS` | `anthropic,openai` | Provider order; use `openai` or `anthropic` to select only one |
-| `TUTOR_MODEL_ANTHROPIC` | `claude-fable-5-1` | Anthropic primary model: Claude Fable 5.1 |
-| `TUTOR_MODEL_ANTHROPIC_FALLBACK` | `claude-opus-5` | Anthropic fallback: Claude Opus 5 |
+| `TUTOR_PROVIDERS` | `openai` | Only supported provider; update older values containing `anthropic` |
 | `TUTOR_MODEL_OPENAI` | `gpt-6-astra` | OpenAI primary: GPT-6 Astra |
 | `TUTOR_MODEL_OPENAI_FALLBACK` | `gpt-5.6-sol` | OpenAI fallback: GPT-5.6 Sol, as confirmed by Melody |
 | `TUTOR_TIMEOUT_MS` | `120000` | Per-attempt ceiling; integer from 1,000 to 120,000 milliseconds |
 | `TUTOR_TOTAL_TIMEOUT_MS` | `240000` | Whole-request budget; integer from 1,000 to 480,000 milliseconds |
 
-With both keys and no overrides, attempts run in this order: **Fable 5.1 →
-Opus 5 → Astra → Sol**. A provider with no key is skipped with a configuration
-warning. Supplying a primary or fallback model setting takes precedence over
+With an OpenAI key and no model overrides, text attempts run in this order:
+**Astra → Sol**. A missing OpenAI key leaves coaching unavailable with a safe
+configuration warning. Supplying a primary or fallback model setting takes precedence over
 its default. An explicitly blank fallback disables that attempt; an explicitly
 blank primary is a configuration error. Repeated provider names and identical
 primary/fallback IDs do not cause duplicate attempts.
 
 Model IDs keep the supplied spelling and case after surrounding whitespace is
-trimmed. Use exact provider catalog IDs; a typo such as `Opus-5` is not silently
+trimmed. Use exact OpenAI catalog IDs; a typo such as `GPT-Atsra` is not silently
 rewritten. The validator rejects malformed IDs and obvious non-tutoring or
 wrong-provider names. These checks cannot establish that an account has access
 to a model. The default order reflects Melody's current preference. Model
 specifications and successful API requests do not establish comparative
 tutoring quality; compare representative student questions separately.
 
-Gemini is disabled. `GEMINI_API_KEY`, `GOOGLE_API_KEY`, and
-`TUTOR_MODEL_GEMINI` do not enable it. Listing `gemini` or an unknown provider
-in `TUTOR_PROVIDERS` produces a configuration error. Existing unused Secrets
-can remain stored. Normal startup does not load `.env`, and tracked launch
-commands do not set model values or overwrite these settings. Defaults apply
-only when the corresponding setting is absent.
+Anthropic and Gemini are disabled. Their existing API keys and model settings
+do not enable them and may remain stored without being used. An existing
+`TUTOR_PROVIDERS=anthropic,openai` or any value selecting a non-OpenAI provider
+produces an actionable configuration error; change it to `openai` in Replit
+Secrets as well as deployment settings. The app never silently overrides a
+conflicting provider setting or sends student context to Claude. `.replit`
+sets the nonsecret default to `openai`. Normal startup does not load `.env`;
+launch commands do not overwrite model settings. Model defaults apply only
+when the corresponding setting is absent.
+
+For this Coach replacement, set `TUTOR_PROVIDERS=openai`,
+`TUTOR_MODEL_OPENAI=gpt-6-astra`, and
+`TUTOR_MODEL_OPENAI_FALLBACK=gpt-5.6-sol` in both preview and production.
+An existing explicit primary such as `gpt-5` remains selected until that
+setting is changed. Keep the existing OpenAI key and unrelated Secrets.
 
 ### Reasoning, tools, and fallback behavior
 
-Anthropic uses its Messages API with adaptive thinking, high
-`output_config.effort`, and a 16,000-token output budget. OpenAI text requests
-use Chat Completions with high `reasoning_effort` and
+OpenAI text requests use Chat Completions with high `reasoning_effort` and
 `max_completion_tokens: 16000`. OpenAI record-aware requests use Responses
 with high `reasoning.effort` and `max_output_tokens`, sharing the 16,000-token
 budget across tool turns. These budgets include reasoning; they do not promise
@@ -477,19 +482,44 @@ budget across tool turns. These budgets include reasoning; they do not promise
 The total request budget defaults to 240 seconds, with a 120-second ceiling
 for an individual attempt. Before each attempt, the service divides the
 remaining time across remaining fallbacks so a stalled primary cannot consume
-the whole budget. With four configured attempts that all stall, each receives
-approximately 60 seconds. Fast failures leave more time for later attempts.
+the whole budget. With the two default models that both stall, each receives
+approximately 120 seconds. Fast failures leave more time for later attempts.
 Timeouts cover response headers, bodies, and tool turns.
 
-A refusal is final across providers. HTTP 401 skips the remaining models at
-that provider because they share the rejected key; another configured provider
-can still answer. Other service failures and empty/unusable responses can
+A refusal is final across model fallbacks. HTTP 401 skips the remaining OpenAI
+models because they share the rejected key; coaching stays unavailable until
+that credential is corrected. Other service failures and empty/unusable responses can
 advance to the next attempt. Loss of student authorization ends the request.
 A nonempty reply cut off by the completion limit is displayed with an
 explicit notice that it stops early; an empty truncated reply can fall back.
 Failures contain only locally generated diagnostic text, never raw remote
 error bodies or API keys. The same owner-bound tools and shared eight-read
-limit apply to every provider; fallback does not grant additional data access.
+limit apply to both OpenAI models; fallback does not grant additional data access.
+
+### Spoken questions and reading replies aloud
+
+There is one GPT study coach. Spoken questions are transcribed with
+`gpt-transcribe` and sent through the same canonical student-coaching request as
+text. The displayed reply can be read aloud with `gpt-4o-mini-tts`, in ordered
+chunks of the same text. There is no separate conversational voice assistant or
+delegation model. Text remains usable when audio is unavailable.
+
+Audio begins only after the learner selects Read replies aloud, Read aloud on
+an individual reply, or Record a question. Recording requires microphone access;
+Send recording submits it, and Cancel recording discards it. Recording is limited
+to two minutes and 6 MiB; reaching a limit never submits automatically. Marin
+and Cedar are available for playback. Stopping, changing student/study context,
+or hiding the tab cancels audio and releases the microphone.
+
+The server uses the existing `OPENAI_API_KEY`. `OPENAI_SPEECH_MODEL` and
+`OPENAI_TRANSCRIBE_MODEL` optionally select compatible supported speech models.
+The authenticated `/api/coach/speech` and `/api/coach/transcribe` endpoints keep
+the API key server-side, enforce workspace ownership before and after provider
+requests, and retain no audio files. Speech conversion does not grade, access
+another student's records, or create a second coaching answer.
+
+API contracts: [text to speech](https://developers.openai.com/api/docs/guides/text-to-speech)
+and [transcription](https://developers.openai.com/api/docs/guides/speech-to-text).
 
 ### Operator verification and recovery
 
@@ -619,7 +649,7 @@ DevDashCalc (repo root)
 |-- server.js              # static files + progress, tutor, and Canvas APIs
 |-- coach-config.js        # environment model/provider settings and safe validation
 |-- tutor-service.js       # provider fallback, total time budget, shared record limit
-|-- anthropic-coach.js     # Anthropic Messages + owner-bound record tool adapter
+|-- anthropic-coach.js     # Legacy adapter, excluded from production coaching
 |-- ai-coach.js            # OpenAI text requests, safe failures, and timeouts
 |-- ai-record-coach.js     # OpenAI Responses + owner-bound record tool adapter
 |-- store.js               # zero-dep Postgres wire client; files remain the fallback
@@ -710,17 +740,63 @@ DevDashCalc (repo root)
 
 ## Study coach and finding Canvas instructions
 
-An Astra study-coach box sits below every screen, with quick requests to pick
-a next step, find instructions, explain the current page, and check missing
-due dates. Replies identify the actual configured model that answered, link to
+The main header uses VectoPilot-inspired blue and purple branding with the
+active student's name, local date/time, and an original diamond/Astra signature
+beside Students4AI. Navigation stays horizontal at desktop sizes and moves into
+a right-hand menu when space is limited. Mobile home actions stack vertically.
+Home greets the active student by name and offers three large action cards:
+Study, Plan, and Canvas. Canvas refreshes the school course list and controls
+which courses appear in Plan. Plan combines selected course items, a specific
+topic or question, and a Guide/Practice/Test/Model activity into an editable
+draft. Saving is explicit. Study opens either a course directly or saved plan
+steps, with instructor work for that course and the same bottom Coach. Course
+mode offers explanations, practice, study guides, flashcards, and worked
+examples without requiring a saved plan. The selected class, assignment, and
+topic stay with follow-up questions. Changing only the activity (such as
+Explain to Practice) preserves the conversation; changing course, assignment,
+or topic clears its old context. Completion is student-reported and
+versioned; practice sessions and pause/resume stay scoped to their plan step.
+Course removal preserves Canvas and saved work. Account settings remain in the
+header; lessons, review, and other tools are available from Study.
+The Refresh control is reserved and disabled until its behavior is defined.
+Signed-out screens never show the previous student's name.
+
+The Vecto-style Astra study-coach card sits below every screen, with quick
+requests to pick a next step, find instructions, and explain the current page.
+Replies identify the actual configured GPT model that answered, link to
 retrieved sources, show lookup limitations, and provide explicit navigation
 buttons. The student chooses each action. Conversations stay in tab memory
-and clear when the learner, course, terms, resource, or active question changes.
+and clear when the learner, course, terms, resource, saved plan/step, or active question changes.
 During a live question, the question shortcut points to this same bottom coach,
 which uses the canonical tutor and hint accounting; help cannot silently earn
-an independent mastery pass. Coach Notes opens beside the conversation on a
-wide screen and below it on a narrow screen. The signed-out screen retains a
+an independent mastery pass. Coach Notes opens from the right inside the Coach
+card on both wide and narrow screens, showing saved memories first with edit
+and remove controls. Adding a memory manually is optional. The signed-out screen retains a
 static coach introduction without loading private records or calling AI.
+
+Learning memories follow the signed-in student across sessions. Astra can
+selectively save useful preferences, strategies, or goals stated in the current
+student message: at most two exact excerpts of 500 characters per reply. Saved
+memories are disclosed in the conversation. Coach Notes also supports manual
+saves, editing, and removal. Updated memories are available to subsequent Coach
+requests; removed text and source metadata are cleared and excluded from lookup.
+An internal request-ID tombstone prevents an old retry from restoring a removed
+memory. Existing notes are preserved by additive database changes. Whole chats
+and raw audio are never automatically archived. Students can say not to remember
+a message, and memory never overrides verified answers or teacher instructions.
+
+Students can attach up to two phone photos (JPEG, PNG, WebP) or plain UTF-8
+notes to a Coach question: 6 MiB total, at most 12,000 note characters. Files
+are sent as request-scoped native GPT image/text content, never copied into
+chat history or saved learning memories. Failed sends retain the draft for
+retry. The Add to Plan action opens an editable request without saving it or
+copying attachment bytes. HEIC and PDF are not supported by this upload path.
+
+For saved Canvas course plans without a verified bank mapping, Astra creates
+learning questions in the conversation. Available checked-bank topic choices
+remain explicit. Models are selected from the reviewed interactive library;
+arbitrary generated 3D scripts are not run. See
+[the workspace guide](docs/learning-workspace.md) for persistence and limits.
 
 Canvas assignments and module items have **Find instructions** buttons. The
 server reconstructs the selected workspace and course, then reads up to four
@@ -735,7 +811,7 @@ claim that every teacher resource or external document was searched.
 The app distinguishes a reported date, an explicitly empty date field, an
 omitted/invalid field, and deadline text inside instructions. Teacher prose
 never becomes an official deadline automatically. Undated assignments remain
-in the plan and are now considered by Home and the study-session picker.
+in the course item list and can be selected in Plan without inventing a due date.
 Older courses remain outside automatic pacing, with an explicit option to
 inspect their materials without deleting the older-course rule.
 

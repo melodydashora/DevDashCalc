@@ -82,3 +82,29 @@ test('same-time cross-instance conflicting completions cannot both report succes
   assert.equal(completions.length, 2);
   assert.equal(completions[0].at, completions[1].at, 'regression specifically exercises equal timestamps');
 });
+
+test('planned activities are allowlisted, survive saving/restart, and cannot be overwritten by model output', async () => {
+  for (const activity of ['guide', 'practice', 'test', 'model']) {
+    const plan = starterStudyPlan({ course, goal: 'Study cell membranes', minutes: 20, activity });
+    assert.equal(plan.activity, activity);
+    const parsed = parseStudyPlanDraft(JSON.stringify({ ...plan, activity: 'model-selected-another-value' }), course, plan.goal, 20, activity);
+    assert.equal(parsed.activity, activity);
+    const f = fixture(), client = f.make(), requestId = randomUUID();
+    await client.create('dev', parsed, { course, requestId });
+    assert.equal((await f.make().list('dev'))[0].activity, activity);
+    const nextActivity = activity === 'guide' ? 'practice' : 'guide';
+    await assert.rejects(client.create('dev', { ...parsed, activity: nextActivity }, { course, requestId }), { status: 409 });
+  }
+  for (const activity of ['quiz', '', null, {}, '__proto__']) {
+    assert.throws(() => normalizeStudyPlan({ ...input(), activity }, course), /Choose Guide/);
+    assert.throws(() => starterStudyPlan({ course, goal: 'Goal', minutes: 20, activity }), /Choose Guide/);
+  }
+});
+
+test('legacy saved plans default to Guide without rewriting their stored events', () => {
+  const plan = { ...input(), id: randomUUID(), createdAt: '2026-09-17T01:00:00Z', updatedAt: '2026-09-17T01:00:00Z', completedStepIds: [] };
+  delete plan.activity;
+  assert.equal(normalizeStudyPlan(plan, course).activity, 'guide');
+  assert.equal(projectStudyPlans([{ type: 'create', plan }])[0].activity, 'guide');
+  assert.equal(Object.hasOwn(plan, 'activity'), false);
+});

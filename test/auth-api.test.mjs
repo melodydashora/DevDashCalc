@@ -54,8 +54,14 @@ export function createAuthService({ allowSelfSignup }) {
 }`;
 const storeStub = `export const hasDatabase = () => Boolean(process.env.DATABASE_URL);
 const records = new Map();
-export const dbGet = async key => records.get(key) ?? null;
-export const dbSet = async (key, value) => { records.set(key, value); };
+export const dbGet = async key => {
+  if (process.env.FIXTURE_PREFS_READ_FAILURE === '1' && key.startsWith('cv-prefs-')) throw new Error('Fixture database unavailable');
+  return records.get(key) ?? null;
+};
+export const dbSet = async (key, value) => {
+  if (process.env.FIXTURE_PREFS_WRITE_FAILURE === '1' && key.startsWith('cv-prefs-')) throw new Error('Fixture database unavailable');
+  records.set(key, value);
+};
 export const dbSeed = async (key, value) => { if (!records.has(key)) records.set(key, value); };
 export const dbDelete = async key => records.delete(key);
 export const mergeAppendOnlyRecords = (old, additions) => [...old, ...additions];
@@ -67,9 +73,12 @@ export class ContinuityStoreError extends Error {
 }
 export function createContinuityStore() {
   const rows = [];
+  let clock = Date.now();
+  const timestamp = () => new Date(++clock).toISOString();
+  const missing = () => new ContinuityStoreError(404, 'CONTINUITY_NOT_FOUND', 'This learning note is no longer available.');
   return {
     async list({ profileId, limit = 30, offset = 0 }) {
-      const all = rows.filter(row => row.profileId === profileId).slice().reverse();
+      const all = rows.filter(row => row.profileId === profileId && !row.deletedAt).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
       const notes = all.slice(offset, offset + limit); return { notes, totalCount: all.length, omittedCount: Math.max(0, all.length - offset - notes.length) };
     },
     async append(input) {
@@ -79,13 +88,30 @@ export function createContinuityStore() {
       const values = { ...input, type: input.type || 'student_note', source: input.source || {} };
       const old = rows.find(row => row.profileId === values.profileId && row.clientRequestId === values.clientRequestId);
       if (old) {
-        if (['text','type','source','createdByUserId'].some(key => JSON.stringify(old[key]) !== JSON.stringify(values[key]))) {
+        if (old.deletedAt || ['text','type','source','createdByUserId'].some(key => JSON.stringify(old[key]) !== JSON.stringify(values[key]))) {
           throw new ContinuityStoreError(409, 'CONTINUITY_CONFLICT', 'That note request was already used.');
         }
         return { ...old, replayed: true };
       }
-      const row = { ...values, id: randomUUID(), createdAt: new Date().toISOString() };
+      const createdAt = timestamp();
+      const row = { ...values, id: randomUUID(), createdAt, updatedAt: createdAt };
       rows.push(row); return { ...row, replayed: false };
+    },
+    async update({ profileId, id, text }) {
+      if (typeof text !== 'string' || !text.trim() || text.trim().length > 2000) throw new ContinuityStoreError(400, 'CONTINUITY_INVALID', 'Enter a note of up to 2000 characters.');
+      const row = rows.find(row => row.profileId === profileId && row.id === id && !row.deletedAt);
+      if (!row) throw missing();
+      if (row.text !== text.trim()) { row.text = text.trim(); row.updatedAt = timestamp(); }
+      return { ...row };
+    },
+    async remove({ profileId, id }) {
+      const row = rows.find(row => row.profileId === profileId && row.id === id);
+      if (!row) throw missing();
+      if (!row.deletedAt) {
+        row.deletedAt = timestamp(); row.updatedAt = row.deletedAt;
+        row.text = '[Removed learning note]'; row.source = {};
+      }
+      return { deleted: true, id };
     },
   };
 }`;
@@ -104,7 +130,7 @@ globalThis.fetch = async (input, options = {}) => {
       return new Response(JSON.stringify({ error: { message: 'Fabricated model outage' } }), { status: 503 });
     }
     if (url.pathname === '/v1/responses') {
-      const content = [payload.instructions, ...payload.input.map(item => item.content || item.output || '')].join('\\n');
+      const content = [payload.instructions, ...payload.input.map(item => Array.isArray(item.content) ? JSON.stringify(item.content) : item.content || item.output || '')].join('\\n');
       const toolOutput = payload.input.find(item => item.type === 'function_call_output');
       if (content.includes('fixture older saved note lookup') && !toolOutput) return answer({ status: 'completed', usage: { output_tokens: 100 }, output: [{ type: 'function_call', call_id: 'fixture-older-note', name: 'read_student_records', arguments: JSON.stringify({ collection: 'saved_notes', offset: 30 }) }] });
       return answer({ status: 'completed', output: [{ type: 'message', role: 'assistant', content: [{ type: 'output_text', text: toolOutput ? toolOutput.output : content }] }] });
@@ -126,7 +152,7 @@ globalThis.fetch = async (input, options = {}) => {
 };`;
 let sandbox, fixture;
 const children = new Set();
-const serverFixtureFiles = ['server.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
+const serverFixtureFiles = ['server.js', 'coach-audio.js', 'coach-memory.js', 'coach-attachments.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
   'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'mixed-sat-bank.js', 'mixed-ap-variants.js', 'study-plans.js', 'practice-history.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
 async function start(extra = {}, directory = sandbox) {
   const socket = createServer();
@@ -140,6 +166,7 @@ async function start(extra = {}, directory = sandbox) {
       TUTOR_PROVIDERS: 'openai', TUTOR_MODEL_OPENAI: 'gpt-6-astra', TUTOR_MODEL_OPENAI_FALLBACK: 'gpt-5.6-sol', TUTOR_TIMEOUT_MS: '120000', TUTOR_TOTAL_TIMEOUT_MS: '240000',
       DATABASE_URL: 'postgres://fixture:fixture@127.0.0.1:1/fake', SESSION_SECRET: 'fixture-session-secret-for-isolated-http-tests',
       OPENAI_API_KEY: 'fixture-provider-key', DEV_API_TOKEN: 'fixture-canvas-secret', DEV_API_KEY: '', ESHA_API_TOKEN: '',
+      OPENAI_SPEECH_MODEL: 'gpt-4o-mini-tts', OPENAI_TRANSCRIBE_MODEL: 'gpt-transcribe',
       DEV_CANVAS_PROFILE_ID: 'profile-a', ESHA_CANVAS_PROFILE_ID: 'bound-esha',
       DEV_CANVAS_URL: '', ESHA_CANVAS_URL: '', CANVAS_BASE_URL: 'https://school.example', ...extra },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
@@ -161,7 +188,7 @@ async function start(extra = {}, directory = sandbox) {
     }, ...(body !== undefined ? { body: JSON.stringify(body) } : {}) });
     const text = await response.text(); let data;
     try { data = JSON.parse(text); } catch { data = text; }
-    assert.doesNotMatch(text, /fixture-(?:canvas-secret|alice-password|bob-password)|Bearer /, 'no credentials in HTTP bodies');
+    assert.doesNotMatch(text, /fixture-(?:canvas-secret|provider-key|alice-password|bob-password)|Bearer /, 'no credentials in HTTP bodies');
     return { response, status: response.status, data, cookie: response.headers.get('set-cookie')?.split(';')[0] || '' };
   };
   return { base, child, calls, api, output: () => output };
@@ -206,7 +233,8 @@ test('signed-out requests never touch private routes, saved Canvas secrets, or p
     ['/api/canvas/session?profile=profile-a', 'GET'], ['/api/canvas/snapshot', 'GET'],
     ['/api/canvas/coach', 'POST'], ['/api/canvas/assessment', 'POST'], ['/api/canvas/prefs', 'PUT'],
     ['/api/mixed/topics', 'GET'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'GET'], ['/api/tutor', 'POST'],
-    ['/api/continuity', 'GET'], ['/api/continuity', 'POST'],
+    ['/api/continuity', 'GET'], ['/api/continuity', 'POST'], ['/api/continuity', 'PATCH'], ['/api/continuity', 'DELETE'],
+    ['/api/coach/audio', 'GET'], ['/api/coach/speech', 'POST'], ['/api/coach/transcribe', 'POST'],
     ['/api/study-plans', 'GET'], ['/api/study-plans', 'POST'], ['/api/study-plans/draft', 'POST'], ['/api/study-plans/example', 'PATCH'],
   ]) {
     const result = await fixture.api(path, { method, ...(method === 'GET' ? {} : { body: {} }) });
@@ -237,7 +265,7 @@ test('login projects safe account data, sets an expiring HttpOnly cookie, and de
     assert.equal((await fixture.api(`/api/progress?profile=${query}`, { cookie: result.cookie })).status, 403);
   }
   assert.equal((await fixture.api('/api/progress?profile=profile-a&profile=profile-b', { cookie: result.cookie })).status, 403);
-  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans']) {
+  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans', '/api/coach/audio']) {
     assert.equal((await fixture.api(`${path}?profile=profile-b`, { cookie: result.cookie })).status, 403);
   }
 });
@@ -246,13 +274,26 @@ test('every account and private mutation rejects foreign, null, and missing orig
   const signed = await login();
   for (const origin of ['https://attacker.example', 'null', null]) {
     for (const [path, method] of [['/api/auth/login', 'POST'], ['/api/auth/register', 'POST'], ['/api/auth/logout', 'POST'],
-      ['/api/progress', 'PUT'], ['/api/canvas/session', 'POST'], ['/api/canvas/session', 'DELETE'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'POST']]) {
+      ['/api/progress', 'PUT'], ['/api/canvas/session', 'POST'], ['/api/canvas/session', 'DELETE'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'POST'], ['/api/coach/speech', 'POST'], ['/api/coach/transcribe', 'POST']]) {
       assert.equal((await fixture.api(path, { method, origin, cookie: signed.cookie, body: {} })).status, 403, `${method} ${path}: ${origin}`);
     }
   }
   assert.equal((await fixture.api('/api/progress', { method: 'PUT', cookie: signed.cookie, body: {}, headers: { 'sec-fetch-site': 'cross-site' } })).status, 403);
   assert.equal((await fixture.api('/api/auth/login', { method: 'POST', body: {}, headers: { 'content-type': 'text/plain' } })).status, 415);
   assert.equal((await fixture.api('/api/auth/session', { cookie: signed.cookie })).data.authenticated, true, 'CSRF logout did not revoke the session');
+});
+
+test('coach audio status is owner-bound, safe to display, and does not initiate provider calls', async () => {
+  const alice = await login();
+  const before = fixture.calls.length;
+  const status = await fixture.api('/api/coach/audio', { cookie: alice.cookie });
+  assert.equal(status.status, 200);
+  assert.equal(status.response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(status.data, { available: true, voices: ['marin', 'cedar'], speechModel: 'gpt-4o-mini-tts', transcriptionModel: 'gpt-transcribe' });
+  assert.equal(fixture.calls.length, before);
+  for (const path of ['/api/coach/speech', '/api/coach/transcribe']) {
+    assert.equal((await fixture.api(`${path}?profile=profile-b`, { method: 'POST', cookie: alice.cookie, body: {} })).status, 403);
+  }
 });
 
 test('private enrollment preserves the original workspace and arbitrary profile body fields cannot claim it', async () => {
@@ -515,8 +556,64 @@ test('continuity appends are explicit, idempotent, and bound to the authenticate
   assert.equal((await fixture.api('/api/continuity', { cookie: alice.cookie })).data.totalCount, 1);
   assert.equal((await fixture.api('/api/continuity', { cookie: bob.cookie })).data.totalCount, 0);
   assert.equal((await fixture.api('/api/continuity?profile=profile-a', { cookie: bob.cookie })).status, 403);
-  assert.equal((await fixture.api('/api/continuity', { method: 'DELETE', cookie: alice.cookie })).status, 405);
+  assert.equal((await fixture.api('/api/continuity', { method: 'DELETE', cookie: alice.cookie })).status, 400);
   assert.equal((await fixture.api('/api/continuity', { method: 'POST', cookie: alice.cookie, origin: null, body })).status, 403);
+});
+
+test('student note edits and removals enforce ownership and origin and update subsequent Coach context', async () => {
+  const bob = await login('bob'), alice = await login();
+  const original = { clientRequestId: randomUUID(), text: 'Bob initially wants a timeline.', type: 'student_note', source: { kind: 'settings' } };
+  const saved = await fixture.api('/api/continuity', { method: 'POST', cookie: bob.cookie, body: original });
+  assert.equal(saved.status, 201);
+  const id = saved.data.note.id, path = `/api/continuity?id=${id}`;
+  const newer = await fixture.api('/api/continuity', { method: 'POST', cookie: bob.cookie,
+    body: { ...original, clientRequestId: randomUUID(), text: 'Bob also wants to label the axes.' } });
+  const edit = { text: 'Bob prefers labeled graphs before symbolic steps.', profileId: 'profile-a', createdByUserId: 'account-a' };
+
+  for (const method of ['PATCH', 'DELETE']) {
+    for (const origin of ['https://attacker.example', 'null', null]) {
+      assert.equal((await fixture.api(path, { method, origin, cookie: bob.cookie, body: edit })).status, 403);
+    }
+    const foreign = await fixture.api(path, { method, cookie: alice.cookie, body: edit });
+    const unknown = await fixture.api(`/api/continuity?id=${randomUUID()}`, { method, cookie: alice.cookie, body: edit });
+    assert.equal(foreign.status, 404);
+    assert.equal(unknown.status, 404);
+    assert.deepEqual(foreign.data, unknown.data, 'a foreign note cannot be distinguished from an unknown note');
+    assert.equal((await fixture.api(`${path}&profile=profile-b`, { method, cookie: alice.cookie, body: edit })).status, 403);
+    assert.equal((await fixture.api(`${path}&id=${randomUUID()}`, { method, cookie: bob.cookie, body: edit })).status, 400);
+  }
+  let notes = await fixture.api('/api/continuity', { cookie: bob.cookie });
+  assert.equal(notes.data.notes.find(note => note.id === id).text, original.text, 'rejected requests leave the note intact');
+  const changed = await fixture.api(path, { method: 'PATCH', cookie: bob.cookie, body: edit });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.response.headers.get('cache-control'), 'no-store');
+  assert.equal(changed.data.note.text, edit.text);
+  assert.equal(changed.data.note.profileId, 'profile-b');
+  assert.equal(changed.data.note.createdByUserId, 'account-b');
+  assert.equal(changed.data.note.createdAt, saved.data.note.createdAt);
+  assert.ok(Date.parse(changed.data.note.updatedAt) > Date.parse(saved.data.note.updatedAt));
+  notes = await fixture.api('/api/continuity', { cookie: bob.cookie });
+  assert.equal(notes.data.notes[0].id, id, 'editing an older note brings its current text into recent memory');
+  const ask = () => fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie,
+    body: { message: 'Which learning preferences are saved?', pageContext: { route: '#/home', subject: 'bc' } } });
+  const afterEdit = await ask();
+  assert.equal(afterEdit.status, 200);
+  assert.match(afterEdit.data.text, /Bob prefers labeled graphs before symbolic steps/);
+  assert.doesNotMatch(afterEdit.data.text, /Bob initially wants a timeline/);
+
+  const removed = await fixture.api(path, { method: 'DELETE', cookie: bob.cookie });
+  assert.equal(removed.status, 200);
+  assert.deepEqual(removed.data, { deleted: true, id });
+  assert.equal(removed.response.headers.get('cache-control'), 'no-store');
+  assert.equal((await fixture.api(path, { method: 'DELETE', cookie: bob.cookie })).status, 200, 'a removal retry is safe');
+  assert.equal((await fixture.api(path, { method: 'PATCH', cookie: bob.cookie, body: edit })).status, 404);
+  assert.equal((await fixture.api('/api/continuity', { method: 'POST', cookie: bob.cookie, body: original })).status, 409, 'a delayed original save cannot recreate the removed note');
+  const afterDelete = await ask();
+  assert.equal(afterDelete.status, 200);
+  assert.doesNotMatch(afterDelete.data.text, /Bob prefers labeled graphs|Bob initially wants a timeline/);
+  assert.match(afterDelete.data.text, /Bob also wants to label the axes/);
+  assert.equal((await fixture.api(`/api/continuity?id=${newer.data.note.id}`, { method: 'DELETE', cookie: bob.cookie })).status, 200);
+  assert.equal((await fixture.api('/api/continuity', { cookie: bob.cookie })).data.totalCount, 0);
 });
 
 test('the study coach receives only the current student recent notes with explicit omission and untrusted-data rules', async () => {
@@ -696,4 +793,156 @@ test('new private question banks and practice-history modules cannot be fetched 
       assert.doesNotMatch(JSON.stringify(result.data), /numericAnswer|answerIndex|createSatBuilders|normalizePracticeEvidence|recentAttempts/);
     }
   }
+});
+
+test('captured Coach requests include the owned learner and current authored lesson instead of browser claims', async () => {
+  const bob = await login('bob');
+  const note = await fixture.api('/api/continuity', { method: 'POST', cookie: bob.cookie, body: {
+    clientRequestId: randomUUID(), text: 'Bob learns by comparing two labeled diagrams.', type: 'student_note', source: { kind: 'settings' },
+  } });
+  assert.equal(note.status, 201);
+  const taught = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie, body: {
+    message: 'Explain this worked example using my preferred approach.',
+    pageContext: { route: '#/lesson/unit-01/u1-l1', unitId: 'unit-10', title: 'FORGED CLIENT LESSON', subject: 'calculus-bc', learner: { name: 'FORGED LEARNER' } },
+  } });
+  assert.equal(taught.status, 200);
+  assert.match(taught.data.text, /"name":"Bob"/);
+  assert.match(taught.data.text, /"lessonId":"u1-l1"/);
+  assert.match(taught.data.text, /The limit concept and one-sided limits/);
+  assert.match(taught.data.text, /Evaluate a two-sided limit of a piecewise function/);
+  assert.match(taught.data.text, /Bob learns by comparing two labeled diagrams/);
+  assert.doesNotMatch(taught.data.text, /FORGED CLIENT|FORGED LEARNER|"answerIndex"|"unitId":"unit-10"/);
+  const unit = JSON.parse(await readFile(new URL('../content/unit-01.json', import.meta.url), 'utf8'));
+  const question = await fixture.api('/api/tutor', { method: 'POST', cookie: bob.cookie, body: {
+    unitId: unit.id, questionId: unit.questions[0].id, phase: 'before-answer', followUp: 'What does this notation mean?',
+  } });
+  assert.equal(question.status, 200);
+  assert.match(question.data.text, /"name":"Bob"/);
+  assert.match(question.data.text, /Bob learns by comparing two labeled diagrams/);
+  assert.match(question.data.text, /Never reveal or quote the final answer/);
+  assert.doesNotMatch(question.data.text, /learner enjoys coding|only discuss calculus here|Alice prefers/);
+});
+
+test('course visibility never reports saved or empty choices when its account database operation failed', async () => {
+  for (const operation of ['WRITE', 'READ']) {
+    const directory = join(sandbox, `prefs-${operation.toLowerCase()}-failure`);
+    await mkdir(directory);
+    for (const folder of ['public', 'data']) await mkdir(join(directory, folder));
+    for (const file of serverFixtureFiles) await copyFile(join(sandbox, file), join(directory, file));
+    await writeFile(join(directory, 'package.json'), '{"type":"module"}');
+    await writeFile(join(directory, 'store.js'), storeStub);
+    await writeFile(join(directory, 'auth.js'), authStub);
+    await writeFile(join(directory, 'continuity-store.js'), continuityStub);
+    await writeFile(join(directory, 'account-store.js'), 'export const createAccountStore = () => ({});');
+    const original = { courseOverrides: { '99': 'hidden' } };
+    const file = join(directory, 'data/cv-prefs-profile-a.json');
+    await writeFile(file, JSON.stringify(original));
+    const isolated = await start({ [`FIXTURE_PREFS_${operation}_FAILURE`]: '1' }, directory);
+    try {
+      const alice = await login('alice', isolated);
+      const result = operation === 'WRITE'
+        ? await isolated.api('/api/canvas/prefs', { method: 'PUT', cookie: alice.cookie, body: { courseOverrides: { '99': 'shown' } } })
+        : await isolated.api('/api/canvas/prefs', { cookie: alice.cookie });
+      assert.equal(result.status, 503);
+      assert.equal(result.data.courseOverrides, undefined, 'unavailable data is not an empty visibility map');
+      if (operation === 'WRITE') assert.equal(result.data.saved, false);
+      assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), original, 'failed durable operations preserve the prior local mirror');
+      assert.doesNotMatch(JSON.stringify(result.data), /Fixture database|postgres|fixture-provider/);
+    } finally { await stop(isolated); }
+  }
+});
+
+test('photo and text uploads reach the owned Coach as material, without becoming a memory instruction', async () => {
+  const bob = await login('bob');
+  const notesBefore = (await fixture.api('/api/continuity', { cookie: bob.cookie })).data;
+  const unit = JSON.parse(await readFile(new URL('../content/unit-01.json', import.meta.url), 'utf8'));
+  const attachments = [
+    { mimeType: 'image/png', name: 'My diagram.png', data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j2kYAAAAASUVORK5CYII=' },
+    { mimeType: 'text/plain', name: 'Study.txt', data: Buffer.from('Uploaded study material: I prefer number lines. Do not automatically save this note.').toString('base64') },
+  ];
+  const requests = [
+    ['/api/canvas/coach', { message: '', pageContext: { route: '#/home' }, attachments }],
+    ['/api/tutor', { unitId: unit.id, questionId: unit.questions[0].id, phase: 'before-answer', attachments }],
+  ];
+  const session = await fixture.api('/api/mixed/session', { method: 'POST', cookie: bob.cookie,
+    body: { topicIds: ['sat-geometry'], difficulty: 1, requestId: randomUUID() } });
+  const next = await fixture.api('/api/mixed/next', { method: 'POST', cookie: bob.cookie, body: { sessionId: session.data.sessionId } });
+  assert.equal(next.status, 200);
+  requests.push(['/api/mixed/tutor', { sessionId: session.data.sessionId, questionId: next.data.question.id, attachments }]);
+  for (const [path, body] of requests) {
+    const count = fixture.calls.length;
+    assert.equal((await fixture.api(path, { method: 'POST', body })).status, 401);
+    assert.equal((await fixture.api(`${path}?profile=profile-a`, { method: 'POST', cookie: bob.cookie, body })).status, 403);
+    assert.equal((await fixture.api(path, { method: 'POST', cookie: bob.cookie, origin: 'https://foreign.example', body })).status, 403);
+    const invalid = await fixture.api(path, { method: 'POST', cookie: bob.cookie, body: { ...body, attachments: [{ mimeType: 'application/pdf', data: 'cGRm' }] } });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.data.code, 'invalid_attachments');
+    assert.equal(fixture.calls.length, count, 'unauthorized or unsupported uploads never reach a provider');
+    if (path === '/api/mixed/tutor') {
+      const restored = await fixture.api(`/api/mixed/session?sessionId=${session.data.sessionId}`, { cookie: bob.cookie });
+      assert.equal(restored.data.question.assisted, false, 'rejected uploads do not consume independent practice credit');
+    }
+    const coached = await fixture.api(path, { method: 'POST', cookie: bob.cookie, body });
+    assert.equal(coached.status, 200);
+    assert.equal(coached.response.headers.get('cache-control'), 'no-store');
+    assert.match(coached.data.text, /Help me understand the attached study material/);
+    assert.match(coached.data.text, /input_image/);
+    assert.match(coached.data.text, /data:image\/png;base64,/);
+    assert.match(coached.data.text, /Uploaded study material/);
+    assert.match(coached.data.text, /never replace its verified key/);
+    assert.doesNotMatch(coached.data.text, /You may use remember_student_memory to preserve/,
+      'file-only requests do not authorize remembered quotes from generated prompt or uploaded text');
+    assert.deepEqual(coached.data.memoryWrites, []);
+    if (path === '/api/mixed/tutor') assert.equal(coached.data.assisted, true, 'received photo help preserves canonical assistance accounting');
+  }
+  assert.deepEqual((await fixture.api('/api/continuity', { cookie: bob.cookie })).data, notesBefore);
+});
+
+test('the Coach uses only the selected owned saved plan and real step, including its activity and completion', async () => {
+  const alice = await login(), bob = await login('bob'), planId = randomUUID();
+  const saved = await fixture.api('/api/study-plans', { method: 'POST', cookie: bob.cookie, body: { requestId: planId, plan: {
+    title: 'Bob algebra reasoning', course: { id: 'algebra', name: 'Forged course label', subject: 'physics-1' },
+    goal: 'Connect factoring to the area model', activity: 'model', topics: ['Factoring'],
+    steps: [ { title: 'Recall an area model', detail: 'Sketch an area model with labels.', minutes: 5 },
+      { title: 'Explain each factor', detail: 'Use the rectangle sides to justify the factorization.', minutes: 10 } ],
+  } } });
+  assert.equal(saved.status, 201);
+  const completed = await fixture.api(`/api/study-plans/${planId}`, { method: 'PATCH', cookie: bob.cookie,
+    body: { completedStepIds: ['step-1'], expectedUpdatedAt: saved.data.plan.updatedAt } });
+  assert.equal(completed.status, 200);
+  const beforeInvalid = fixture.calls.length;
+  const body = { message: 'Help me continue this step.', pageContext: { route: '#/mixed', planId, stepId: 'step-2',
+    selectedCourseId: '9999', subject: 'physics-1', plan: { title: 'FORGED PLAN CONTENT' } } };
+  const foreign = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: alice.cookie, body });
+  const missing = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: alice.cookie,
+    body: { ...body, pageContext: { ...body.pageContext, planId: randomUUID() } } });
+  assert.equal(foreign.status, 404); assert.deepEqual(missing.data, foreign.data);
+  assert.equal((await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie,
+    body: { ...body, pageContext: { ...body.pageContext, stepId: 'step-12' } } })).status, 404);
+  assert.equal((await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie,
+    body: { ...body, pageContext: { ...body.pageContext, planId: '../profile-a' } } })).status, 400);
+  assert.equal(fixture.calls.length, beforeInvalid, 'invalid or unowned plan context fails before provider use');
+  const coached = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie, body });
+  assert.equal(coached.status, 200);
+  assert.match(coached.data.text, /"savedStudyPlan":/);
+  assert.match(coached.data.text, /Bob algebra reasoning/);
+  assert.match(coached.data.text, /"activity":"model"/);
+  assert.match(coached.data.text, /"completedStepIds":\["step-1"\]/);
+  assert.match(coached.data.text, /"selectedStep":\{"id":"step-2"/);
+  assert.match(coached.data.text, /"subject":"algebra"/);
+  assert.doesNotMatch(coached.data.text, /FORGED PLAN CONTENT|Forged course label|"selectedCourseId":"9999"/);
+  assert.deepEqual((await fixture.api('/api/study-plans', { cookie: bob.cookie })).data.plans.find(plan => plan.id === planId), completed.data.plan,
+    'coaching does not mark the selected step complete');
+});
+
+test('direct course learning cannot borrow another account Canvas connection or trust a supplied course name', async () => {
+  const bob = await login('bob'), before = fixture.calls.length;
+  const body = { message: 'Explain photosynthesis.', pageContext: { route: '#/study', selectedCourseId: '99', learningActivity: 'explain',
+    learningTopic: 'Photosynthesis', courseName: 'Private fixture course', canvasProfile: 'profile-a' } };
+  assert.equal((await fixture.api('/api/canvas/coach', { method: 'POST', body })).status, 401);
+  assert.equal((await fixture.api('/api/canvas/coach?profile=profile-a', { method: 'POST', cookie: bob.cookie, body })).status, 403);
+  const own = await fixture.api('/api/canvas/coach', { method: 'POST', cookie: bob.cookie, body });
+  assert.equal(own.status, 404);
+  assert.doesNotMatch(JSON.stringify(own.data), /Private fixture course|Photosynthesis/);
+  assert.equal(fixture.calls.length, before, 'unavailable owner course context never touches a foreign Canvas connection or the model');
 });

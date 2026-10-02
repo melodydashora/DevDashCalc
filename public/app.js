@@ -13,7 +13,9 @@ import { apiFetch, captureEnrollment, isSignupRoute, accountGateKey, getAccountS
 import { mountStudentMemos, saveStudentMemo } from '/continuity-ui.js';
 import { homeCourseGroups, currentHomeTermIds, canvasRefreshDue } from '/student-home.js';
 import { mountCanvasAccount } from '/canvas-account.js';
-import { mountStudyPlans, mountHomeStudyPlans } from '/study-plans.js';
+import { mountStudyPlans } from '/study-plans.js';
+import { visiblePortalCourses } from '/course-materials.js';
+import { coachRequestTarget } from '/coach-intent.js';
 import { getQuestionModel, mountQuestionModel } from '/question-models.js';
 import { mountPracticeInsights } from '/practice-insights.js';
 
@@ -31,6 +33,9 @@ let practiceBuilderCleanup = null;
 let evidenceMysteryCleanup = null;
 let practiceInsightsCleanup = null;
 const questionModelCleanups = new Set();
+let studentStudyCleanup = null;
+let selectedStudyContext = null;
+let planPrefill = null;
 let pageCoachCleanup = null;
 let activeQuestionCoach = null;
 let mixedCleanup = null;
@@ -84,6 +89,7 @@ function applyAccountWorkspaces() {
 }
 
 function showAccountGate(notice) {
+  updateStudentHeader(true);
   if (notice !== undefined) accountGateNotice = notice;
   const route = accountGateKey();
   if (accountGateActive && route === accountGateRoute && $('#account-form')) {
@@ -159,6 +165,94 @@ async function signOut(withoutSync = false) {
 const $ = (sel, root = document) => root.querySelector(sel);
 const viewEl = () => $('#view');
 
+function updateStudentHeader(signedOut = accountGateActive) {
+  const canNavigate = !signedOut && S && (!ACCOUNT?.authRequired || ACCOUNT.authenticated);
+  const name = $('#student-header-name');
+  const displayName = canNavigate
+    ? S.settings.name || profiles.find(profile => profile.id === activeProfile)?.name || ACCOUNT?.user?.displayName || ACCOUNT?.user?.username || 'Student workspace'
+    : 'Student sign-in';
+  if (name && name.textContent !== displayName) name.textContent = displayName;
+  const accountLink = $('#student-header-account');
+  if (accountLink) accountLink.hidden = !canNavigate;
+  const menuToggle = $('#student-header-menu-toggle');
+  const navigation = $('.app-header nav');
+  const menu = $('#student-header-menu');
+  const navigationSlot = $('#student-header-navigation-slot');
+  // Keep one live navigation list. Larger text needs proportionally more
+  // room, so the drawer remains available before desktop links crowd.
+  const textScale = (parseFloat(getComputedStyle(document.body).fontSize) || 16) / 16;
+  const desktopNavigation = window.innerWidth >= Math.ceil(1024 * textScale);
+  if (!canNavigate || desktopNavigation) closeStudentHeaderMenu();
+  if (navigation && navigationSlot && menu) {
+    const target = desktopNavigation ? navigationSlot : menu;
+    if (navigation.parentElement !== target) target.appendChild(navigation);
+    navigation.hidden = !canNavigate;
+    navigationSlot.hidden = !canNavigate || !desktopNavigation;
+  }
+  if (menuToggle) menuToggle.hidden = !canNavigate || desktopNavigation;
+  const now = new Date();
+  const date = $('#student-header-date');
+  const time = $('#student-header-time');
+  if (date) {
+    const label = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    if (date.textContent !== label) date.textContent = label;
+    if (date.dateTime !== stamp) date.dateTime = stamp;
+  }
+  if (time) {
+    const label = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+    const stamp = new Date(Math.floor(now.getTime() / 1000) * 1000).toISOString();
+    if (time.textContent !== label) time.textContent = label;
+    if (time.dateTime !== stamp) time.dateTime = stamp;
+  }
+}
+
+function closeStudentHeaderMenu() {
+  const menu = $('#student-header-menu');
+  if (menu?.open) menu.close();
+  $('#student-header-menu-toggle')?.setAttribute('aria-expanded', 'false');
+}
+
+function setupStudentHeaderMenu() {
+  const menu = $('#student-header-menu');
+  const toggle = $('#student-header-menu-toggle');
+  const close = $('#student-header-menu-close');
+  if (!menu || !toggle || !close) return;
+  toggle.addEventListener('click', () => {
+    if (toggle.hidden || accountGateActive || !S || (ACCOUNT?.authRequired && !ACCOUNT.authenticated)) return;
+    if (menu.open) { closeStudentHeaderMenu(); return; }
+    menu.showModal();
+    toggle.setAttribute('aria-expanded', 'true');
+    close.focus();
+  });
+  close.addEventListener('click', closeStudentHeaderMenu);
+  menu.addEventListener('cancel', event => { event.preventDefault(); closeStudentHeaderMenu(); });
+  menu.addEventListener('close', () => {
+    toggle.setAttribute('aria-expanded', 'false');
+    if (!toggle.hidden && !accountGateActive) toggle.focus();
+  });
+  menu.addEventListener('keydown', event => {
+    if (event.key !== 'Tab' || !menu.open) return;
+    const controls = [...menu.querySelectorAll('button:not(:disabled), a[href]')]
+      .filter(control => control.getClientRects().length > 0 && !control.closest('[hidden]'));
+    const first = controls[0], last = controls.at(-1);
+    if (!first) return;
+    if (event.shiftKey && (document.activeElement === first || !menu.contains(document.activeElement))) {
+      event.preventDefault(); last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault(); first.focus();
+    }
+  });
+  menu.addEventListener('click', event => {
+    if (event.target.closest?.('a[data-nav]')) { closeStudentHeaderMenu(); return; }
+    if (event.target !== menu) return;
+    const rect = menu.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) closeStudentHeaderMenu();
+  });
+  window.addEventListener('hashchange', closeStudentHeaderMenu);
+  window.addEventListener('resize', () => updateStudentHeader());
+}
+
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -193,7 +287,7 @@ function mountTutor(container, unit, q, ctx) {
     coachCanvasReference = null;
     pageCoachCleanup?.refresh();
   };
-  if (/^#\/(?:practice|mastery|diagnostic|lesson)(?:\/|$)/.test(location.hash)
+  if (/^#\/(?:practice|mastery|diagnostic)(?:\/|$)/.test(location.hash)
       && (before || activeQuestionCoach?.q.id === q.id)) activate();
   const guidance = !before ? 'Use the coach below to discuss the worked solution.' : ctx.selfCheck
     ? 'Use the coach below for an explanation. The scoring guide remains your written-work check.'
@@ -304,12 +398,14 @@ const activeUnit = (id) => {
 };
 
 function studyControls() {
+  updateStudentHeader();
   const root = $('#study-controls');
   if (!root || !S) return;
+  const settingsPage = location.hash.startsWith('#/settings');
+  root.hidden = !settingsPage && !/^#\/(?:library|unit|lesson|practice|mastery|diagnostic|review)(?:\/|$)/.test(location.hash);
   if (!$('#study-profile', root)) {
     root.innerHTML = `<label class="study-profile">Learner <select id="study-profile"></select></label>
-    <label class="course-switcher">Studying <select id="study-subject" class="course-select"></select></label>
-    <span class="open-status">All learning modules open</span>`;
+    <label class="course-switcher">Studying <select id="study-subject" class="course-select"></select></label>`;
     $('#study-profile', root).addEventListener('change', (e) => switchProfile(e.target.value));
     $('#study-subject', root).addEventListener('change', (e) => {
     S.settings.subject = normalizeSubjectId(e.target.value);
@@ -341,6 +437,7 @@ function studyControls() {
     select.disabled = switchingProfile;
   };
   updateSelect($('#study-profile', root), profiles.map(p => [p.id, p.id === activeProfile && S.settings.name ? S.settings.name : p.name]), activeProfile);
+  $('.study-profile', root).hidden = !settingsPage;
   updateSelect($('#study-subject', root), STUDY_SUBJECTS.map(c => [c.id, c.label]), S.settings.subject);
 }
 
@@ -391,7 +488,14 @@ function setBreadcrumb(parts) {
 }
 
 function setNav(active) {
-  document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === active));
+  if (['library', 'mixed', 'build', 'review', 'unit', 'lesson', 'practice', 'mastery', 'diagnostic'].includes(active)) active = 'study';
+  if (['plans', 'focus'].includes(active)) active = 'planner';
+  document.querySelectorAll('[data-nav]').forEach((a) => {
+    const current = a.dataset.nav === active;
+    a.classList.toggle('active', current);
+    if (current) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
+  });
 }
 
 function mountView(html, { breadcrumb = [], nav = '' } = {}) {
@@ -405,6 +509,8 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   practiceInsightsCleanup?.(); practiceInsightsCleanup = null;
   for (const cleanup of questionModelCleanups) cleanup();
   questionModelCleanups.clear();
+  studentStudyCleanup?.dispose(); studentStudyCleanup = null;
+  selectedStudyContext = null;
   activeQuestionCoach = null;
   if (mixedCleanup) { mixedCleanup(); mixedCleanup = null; }
   activeMixedQuestion = null;
@@ -417,6 +523,7 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   const v = viewEl();
   v.innerHTML = html;
   setBreadcrumb(breadcrumb);
+  $('#breadcrumb').hidden = nav === 'home';
   setNav(nav);
   renderMath(v);
   if (!controlsFocused) window.scrollTo(0, 0);
@@ -687,82 +794,28 @@ function mountSpatialSection(parent) {
   parent.appendChild(details);
 }
 
-function homeClassesHtml() {
-  const heading = '<span class="kicker">Your school workspace</span><h2>Your current classes</h2>';
-  if (!CANVAS.checked) return heading + '<p>Checking your Canvas connection.</p>';
-  if (!CANVAS.connected) return heading + '<p>Canvas is optional. Your lessons, practice, and mastery checks are ready to use. Add your Canvas token in Settings whenever you want to include your school courses.</p><a class="btn secondary" href="#/settings">Set up Canvas in Settings</a>';
-  if (!CANVAS.snapshot) return heading + '<p>Loading your courses from Canvas.</p>' + canvasNoteHtml() + '<button type="button" class="secondary home-refresh">Try loading Canvas again</button>';
-  const groups = homeCourseGroups(CANVAS.snapshot, Date.now());
-  const cards = courses => courses.map(course => {
-    const assignments = Array.isArray(course.assignments) ? course.assignments : [];
-    const undated = assignments.filter(item => !item.dueAt).length;
-    return `<article class="card home-class-card"><h3>${esc(course.name)}</h3><p class="canvas-meta">${esc(course.term?.name || 'Term dates not supplied')}${course.assignmentsError ? ' · Assignment read incomplete' : ` · ${assignments.length} assignments loaded`}</p>${undated ? `<p class="canvas-meta">${undated} without a reported due date. Astra can check the instructions.</p>` : ''}<div class="btn-row"><a class="btn secondary" href="#/canvas/course/${esc(course.id)}" data-home-course="${esc(course.id)}">Open class</a><a class="btn secondary" href="#/plans/course/${esc(course.id)}">Study plan</a><button type="button" class="quiet" data-home-ask="${esc(course.id)}">Ask Astra about this class</button><button type="button" class="quiet" data-home-quick="${esc(course.id)}">Quick study with Astra</button></div></article>`;
-  }).join('');
-  return heading + '<p>Choose any class for its resources, assignments, and coaching. Astra can help across your Canvas subjects.</p>' +
-    `<p class="canvas-meta">Refreshed ${esc(canvasDateTime(CANVAS.snapshot.fetchedAt))}. Canvas refreshes every five minutes while this app is visible.</p>` + canvasNoteHtml() +
-    (CANVAS.snapshot.coursesTruncated ? '<p class="canvas-note">Canvas returned a limited course list. Some classes may not be included in this load.</p>' : '') +
-    (groups.current.length ? `<div class="unit-grid">${cards(groups.current)}</div>` : '<p>Canvas has not confirmed a current term for the classes in this load. Check the additional courses below.</p>') +
-    (groups.unknown.length ? `<details class="home-course-group" data-home-group="unknown"><summary>Additional courses and school resources (${groups.unknown.length})</summary><p>Canvas did not supply enough term dates to label these classes current or past.</p><div class="unit-grid">${cards(groups.unknown)}</div></details>` : '') +
-    (groups.past.length ? `<details class="home-course-group" data-home-group="past"><summary>Past classes and practice (${groups.past.length})</summary><div class="unit-grid">${cards(groups.past)}</div></details>` : '') +
-    (groups.upcoming.length ? `<details class="home-course-group" data-home-group="upcoming"><summary>Upcoming classes (${groups.upcoming.length})</summary><div class="unit-grid">${cards(groups.upcoming)}</div></details>` : '') +
-    '<button type="button" class="secondary home-refresh">Refresh Canvas now</button>';
-}
-
-function refreshHomeClasses() {
-  const root = $('#home-classes');
-  if (!root) return;
-  const version = JSON.stringify([CANVAS.checked, CANVAS.connected, CANVAS.snapshot?.fetchedAt, CANVAS.note]);
-  if (root.dataset.renderVersion === version) return;
-  if (root.contains(document.activeElement)) { root.dataset.pendingRefresh = 'true'; return; }
-  const expanded = new Set([...root.querySelectorAll('details[open]')].map(details => details.dataset.homeGroup));
-  delete root.dataset.pendingRefresh;
-  root.dataset.renderVersion = version;
-  root.innerHTML = homeClassesHtml();
-  root.querySelectorAll('details').forEach(details => { details.open = expanded.has(details.dataset.homeGroup); });
-}
-
-function wireHomeClasses(root) {
-  root.dataset.renderVersion = JSON.stringify([CANVAS.checked, CANVAS.connected, CANVAS.snapshot?.fetchedAt, CANVAS.note]);
-  root.addEventListener('focusout', () => queueMicrotask(() => {
-    if (root.isConnected && root.dataset.pendingRefresh && !root.contains(document.activeElement)) refreshHomeClasses();
-  }));
-  root.addEventListener('click', async event => {
-    const open = event.target.closest('[data-home-course]');
-    if (open) { selectCanvasCourse(open.dataset.homeCourse); return; }
-    const ask = event.target.closest('[data-home-ask], [data-home-quick]');
-    if (ask) {
-      const course = CANVAS.snapshot?.courses.find(item => item.id === (ask.dataset.homeAsk || ask.dataset.homeQuick));
-      if (!course) return;
-      selectCanvasCourse(course.id);
-      coachCanvasReference = { subject: 'all', canvasCourse: true, selectedCourseId: course.id, termIds: course.term?.id ? [course.term.id] : [], title: course.name };
-      ensurePageCoach();
-      pageCoachCleanup.ask(ask.dataset.homeQuick
-        ? `Give me one short recall question for ${course.name}, using the current course resources you can read. Keep it short enough to read on my phone and wait for my answer before showing the explanation. If the topic is unclear, let me choose it first. This is practice, with no mastery credit.`
-        : `Help me use the current instructions and resources for ${course.name}. Let us choose one study step.`);
-      $('#page-coach-slot')?.scrollIntoView({ block: 'start' });
-      return;
-    }
-    const refresh = event.target.closest('.home-refresh');
-    if (refresh) {
-      refresh.disabled = true; refresh.textContent = 'Refreshing Canvas.';
-      await loadSchoolContext(true);
-      if (refresh.isConnected) { refresh.disabled = false; refresh.textContent = 'Refresh Canvas now'; }
-    }
-  });
-}
-
 function viewHome() {
-  const profileId = activeProfile;
-  const practiceHref = independentPracticeHref();
-  const v = mountView(
-    '<section class="dashboard-hero"><div><span class="kicker">Students4AI</span><h1>Your classes and study plans</h1><p>Choose a class, save a plan, and return to the step you want to work on. Your saved course topics appear below.</p><div class="btn-row"><a class="btn" href="#/plans">Open study plans</a><a class="btn secondary" href="' + practiceHref + '">Start fresh practice</a><a class="btn secondary" href="#/library">Course library</a></div></div></section>' +
-    '<section class="home-classes" id="home-classes">' + homeClassesHtml() + '</section>' +
-    '<section id="home-saved-plans"></section>' +
-    '<section class="card"><h2>Your study tools</h2><p>Use your saved plan, work on a Canvas assignment, or start an optional session timer.</p><div class="home-study-tools"><a href="#/canvas/plan">Canvas assignment plan</a><a href="#/focus">Session timer</a><a href="#/library">Lessons and learning models</a><a href="#/build">Build new practice with Astra</a></div></section>',
+  const studentName = [S.settings.name, profiles.find(profile => profile.id === activeProfile)?.name,
+    ACCOUNT?.user?.displayName, ACCOUNT?.user?.username]
+    .filter(value => typeof value === 'string').map(value => value.trim())
+    .find(value => value && !['my workspace', 'student workspace', 'student sign-in', 'learner'].includes(value.toLowerCase()));
+  // A direct navigation choice requested by the students.
+  // lint-ui: allow
+  const choicePrompt = 'What do you want to do first?';
+  const actions = [
+    { label: 'Study', tone: 'practice', href: '#/study', description: 'Choose a class, practise, or ask Astra.',
+      icon: '<path d="M12 7v14M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3Z"></path>' },
+    { label: 'Plan', tone: 'plans', href: '#/plans', description: 'Choose what you want to work on tonight.',
+      icon: '<rect x="4" y="5" width="16" height="16" rx="2"></rect><path d="M8 3v4m8-4v4M4 10h16M8 14h3m-3 3h7"></path>' },
+    { label: 'Canvas', tone: 'classes', href: '#/canvas', description: 'Check your courses and choose which ones to plan.',
+      icon: '<path d="m2 8 10-5 10 5-10 5Z"></path><path d="M6 10v6c4 3 8 3 12 0v-6M22 8v7"></path>' },
+  ];
+  const tiles = actions.map((action, index) => `<a href="${esc(action.href)}" class="home-action-tile home-action-${action.tone}" aria-label="${esc(action.label)}" aria-describedby="home-action-description-${index}">
+    <span class="home-action-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${action.icon}</svg></span>
+    <span class="home-action-copy"><strong class="home-action-title">${esc(action.label)}</strong><span class="home-action-description" id="home-action-description-${index}">${esc(action.description)}</span></span>
+    <span class="home-action-arrow" aria-hidden="true">→</span></a>`).join('');
+  mountView(`<section class="home-welcome" aria-labelledby="home-greeting"><div class="home-welcome-heading"><h1 id="home-greeting">${studentName ? `Hello, ${esc(studentName)}` : 'Hello'}</h1><p>${choicePrompt}</p></div><div class="home-action-grid">${tiles}</div></section>`,
     { breadcrumb: ['Home'], nav: 'home' });
-  wireHomeClasses($('#home-classes', v));
-  const host = $('#home-saved-plans', v);
-  studyPlansCleanup = mountHomeStudyPlans(host, { profileId, isCurrent: () => profileId === activeProfile });
   loadSchoolContext();
   S.lastLocation = '#/home'; save();
 }
@@ -780,10 +833,13 @@ async function viewPracticeBuilder() {
     if (!host.isConnected || profileId !== activeProfile) return;
     $('p', host)?.remove();
     practiceBuilderCleanup = mountPracticeBuilder(host, {
-      subject: S.settings.subject, courses: CANVAS.snapshot?.courses || [], renderMath,
+      subject: S.settings.subject, courses: portalCourses(), selectedCourseId: CANVAS.selectedCourseId, renderMath,
       motion: document.documentElement.dataset.motion,
-      onAskAstra(prompt) {
+      onAskAstra(prompt, { courseId } = {}) {
         if (!host.isConnected || profileId !== activeProfile) return;
+        const course = portalCourses().find(item => String(item.id) === String(courseId));
+        coachCanvasReference = course ? { subject: 'all', canvasCourse: true, selectedCourseId: course.id, termIds: course.term?.id ? [course.term.id] : [], title: course.name } : null;
+        if (course) selectCanvasCourse(course.id);
         ensurePageCoach(); pageCoachCleanup?.focus(prompt);
       },
     });
@@ -808,21 +864,171 @@ async function viewEvidenceMystery() {
   }
 }
 
+function portalCourseItems() {
+  return portalCourses().flatMap(course => (course.assignments || []).map(item => ({
+    id: String(item.id), courseId: String(course.id), title: item.name,
+    dueAt: item.dueAt || null, htmlUrl: item.htmlUrl, type: item.isQuiz ? 'quiz' : 'assignment',
+    submitted: Boolean(item.submission?.submittedAt || ['submitted', 'graded'].includes(item.submission?.workflowState)),
+    excused: Boolean(item.submission?.excused),
+  })));
+}
+function portalStudyItems() {
+  return portalCourseItems().filter(item => !item.submitted && !item.excused);
+}
+
 function viewStudyPlans(selectedPlanId = null, courseId = null) {
   const profileId = activeProfile;
-  const v = mountView('<h1>Study plans</h1><p>Save a useful plan for any class. Open it later, follow its steps, and keep track of what you complete.</p><div id="study-plans-slot"></div>', { breadcrumb: ['Home', 'Study plans'], nav: 'plans' });
+  const prefill = planPrefill?.profileId === profileId ? planPrefill : null;
+  planPrefill = null;
+  const v = mountView('<h1>Plan</h1><p>Choose a course and make a plan for tonight.</p><div id="study-plans-slot"></div><div class="portal-tools"><a href="#/canvas">Choose courses in Canvas</a><a href="#/focus">Session timer</a></div>', { breadcrumb: ['Home', 'Plan'], nav: 'plans' });
   const host = $('#study-plans-slot', v);
   const instance = mountStudyPlans(host, {
-    profileId, courses: CANVAS.snapshot?.courses || [], subjects: STUDY_SUBJECTS,
-    selectedCourseId: courseId || CANVAS.selectedCourseId, subject: S.settings.subject, selectedPlanId,
-    isCurrent: () => profileId === activeProfile,
+    profileId, courses: portalCourses(), subjects: STUDY_SUBJECTS, canvasItems: portalStudyItems(),
+    selectedCourseId: courseId || prefill?.courseId || CANVAS.selectedCourseId,
+    subject: S.settings.subject, selectedPlanId, initialGoal: prefill?.goal || '', initialActivity: prefill?.activity || 'guide',
+    isCurrent: () => profileId === activeProfile && host.isConnected,
+    onStudyPlan({ planId, stepId }) {
+      if (!host.isConnected || profileId !== activeProfile) return;
+      location.hash = '#/study/' + encodeURIComponent(planId) + (stepId ? '/' + encodeURIComponent(stepId) : '');
+    },
   });
   studyPlansCleanup = () => instance.dispose();
-  const insights = document.createElement('section'); insights.className = 'saved-plans'; v.appendChild(insights);
-  practiceInsightsCleanup = mountPracticeInsights(insights, { profileId, isCurrent: () => profileId === activeProfile });
-  loadSchoolContext().then(() => {
-    if (host.isConnected && profileId === activeProfile) instance.updateCourses(CANVAS.snapshot?.courses || []);
-  });
+  canvasBackgroundRefresh = () => {
+    if (host.isConnected && profileId === activeProfile) {
+      instance.updateCourses(portalCourses()); instance.updateCanvasItems?.(portalStudyItems());
+    }
+  };
+  loadSchoolContext().then(() => canvasBackgroundRefresh?.());
+}
+
+async function viewStudentStudy(planId = null, stepId = null, courseId = null) {
+  const profileId = activeProfile;
+  const v = mountView('<h1>Study</h1><p>Choose a course or pick up a saved plan.</p><div id="student-study-slot"></div><details class="portal-tools-details"><summary>More ways to study</summary><div class="portal-tools"><a href="' + independentPracticeHref() + '">Choose practice topics</a><a href="#/library">Lessons</a><a href="#/review">Review</a><a href="#/build">Explore models and questions</a></div></details><div id="student-study-models"></div><div id="student-study-practice"></div>', { breadcrumb: ['Home', 'Study'], nav: 'study' });
+  const host = $('#student-study-slot', v);
+  let practiceGeneration = 0, practiceLoading = false, studyPaused = false;
+  try {
+    const { mountStudentStudy } = await import('/student-study.js');
+    if (!host.isConnected || profileId !== activeProfile) return;
+    const clearStudyActivities = () => {
+      practiceGeneration += 1; practiceLoading = false;
+      mixedCleanup?.(); mixedCleanup = null; activeMixedQuestion = null;
+      spatialCleanup?.(); spatialCleanup = null;
+      for (const cleanup of questionModelCleanups) cleanup();
+      questionModelCleanups.clear();
+      $('#student-study-models', v)?.replaceChildren();
+    };
+    const selectContext = meta => {
+      if (!host.isConnected || profileId !== activeProfile) return;
+      if (selectedStudyContext?.planId !== meta?.planId || selectedStudyContext?.stepId !== (meta?.stepId || null) || Boolean(meta?.paused) !== studyPaused || coachCanvasReference) clearStudyActivities();
+      studyPaused = Boolean(meta?.paused);
+      if (studyPaused) pageCoachCleanup?.pause?.();
+      selectedStudyContext = meta?.planId ? { planId: meta.planId, stepId: meta.stepId || null,
+        selectedCourseId: meta.courseId || null, subject: meta.subject || 'all' } : null;
+      coachCanvasReference = null;
+      pageCoachCleanup?.refresh();
+    };
+    const selectCourseContext = meta => {
+      if (!host.isConnected || profileId !== activeProfile) return false;
+      if (!meta) {
+        if (coachCanvasReference) { clearStudyActivities(); coachCanvasReference = null; pageCoachCleanup?.refresh(); }
+        return false;
+      }
+      const course = portalCourses().find(item => String(item.id) === String(meta.courseId));
+      if (!course) { selectContext(null); return false; }
+      const activity = ['explain', 'practice', 'guide', 'flashcards'].includes(meta.learningActivity) ? meta.learningActivity
+        : ({ question: 'practice', example: 'explain', guide: 'guide', flashcards: 'flashcards' })[meta.kind] || 'explain';
+      const item = portalCourseItems().find(item => item.courseId === String(course.id) && item.id === String(meta.itemId));
+      const next = { subject: 'all', canvasCourse: true, selectedCourseId: String(course.id), termIds: [],
+        itemId: item?.id || null, learningActivity: activity,
+        learningTopic: typeof meta.topic === 'string' ? meta.topic.trim().slice(0, 500) : '', title: course.name };
+      if (selectedStudyContext || JSON.stringify(next) !== JSON.stringify(coachCanvasReference)) clearStudyActivities();
+      studyPaused = false; selectedStudyContext = null; coachCanvasReference = next;
+      pageCoachCleanup?.refresh();
+      return true;
+    };
+    const instance = mountStudentStudy(host, {
+      profileId, selectedPlanId: planId, selectedStepId: stepId, selectedCourseId: courseId, renderMath,
+      courses: portalCourses(), canvasItems: portalStudyItems(), courseItems: portalCourseItems(),
+      isCurrent: () => profileId === activeProfile && host.isConnected,
+      onSelection: selectContext,
+      onCourseSelection: selectCourseContext,
+      onCourseGenerate(prompt, meta) {
+        if (!selectCourseContext(meta)) return false;
+        ensurePageCoach();
+        const started = pageCoachCleanup?.ask(prompt);
+        $('#page-coach-slot').scrollIntoView({ block: 'start' });
+        return started !== false;
+      },
+      onAskAstra(message, meta) {
+        selectContext(meta); ensurePageCoach(); pageCoachCleanup?.ask(message);
+        $('#page-coach-slot').scrollIntoView({ block: 'start' });
+      },
+      async onPractice(meta) {
+        if (!host.isConnected || profileId !== activeProfile) return;
+        selectContext(meta);
+        if (studyPaused) return;
+        if (!['sat', 'algebra', 'physics', 'calculus-ab', 'calculus-bc'].includes(meta?.subject)) {
+          ensurePageCoach();
+          pageCoachCleanup?.ask(`Use my selected course and saved plan step to create ${meta?.activity === 'test' ? 'a short practice test' : 'practice questions'}. Ask one question at a time, wait for my answer, and explain what I need next. Treat these as learning questions, not official grades. ${meta?.request || ''}`.slice(0, 2000));
+          $('#page-coach-slot').scrollIntoView({ block: 'start' });
+          return;
+        }
+        const practice = $('#student-study-practice', v);
+        if (!mixedCleanup && !practiceLoading) {
+          practiceLoading = true; const generation = ++practiceGeneration;
+          const { mountMixedStudy } = await import('/mixed-study.js');
+          if (!host.isConnected || profileId !== activeProfile || generation !== practiceGeneration) return;
+          practiceLoading = false;
+          mixedCleanup = mountMixedStudy(practice, { profileId, renderMath, workspaceId: `${meta.planId}:${meta.stepId || 'plan'}`,
+            initialSubject: meta?.subject === 'all' ? null : meta?.subject,
+            onQuestionContext(context) {
+              if (!host.isConnected || profileId !== activeProfile) return;
+              activeMixedQuestion = context ? { ...context, container: practice } : null;
+              pageCoachCleanup?.refresh();
+            },
+            onAskCoach(message) { if (host.isConnected && profileId === activeProfile) pageCoachCleanup?.ask(message); },
+          });
+        }
+        practice.scrollIntoView({ block: 'start' });
+      },
+      onPlan(meta) { if (host.isConnected && profileId === activeProfile) location.hash = meta?.planId ? '#/plans/' + encodeURIComponent(meta.planId) : '#/plans'; },
+      async onModel(meta) {
+        selectContext(meta);
+        if (studyPaused) return;
+        const models = $('#student-study-models', v);
+        if (!models.childElementCount) {
+          const scope = JSON.stringify(selectedStudyContext);
+          const { PRACTICE_MODEL_CHOICES } = await import('/practice-builder.js');
+          if (!host.isConnected || profileId !== activeProfile || studyPaused || scope !== JSON.stringify(selectedStudyContext)) return;
+          models.innerHTML = '<section class="card"><h2>Choose a learning model</h2><p>Explore an example from the model library, then ask Astra how it connects to your topic.</p><label class="portal-model-label">Model <select class="portal-model-select">' + PRACTICE_MODEL_CHOICES.map(choice => '<option value="' + esc(choice.id) + '">' + esc(choice.label) + '</option>').join('') + '</select></label><div class="portal-model-preview"></div><button type="button" class="secondary portal-model-ask">Ask Astra about this model</button></section>';
+          const select = $('.portal-model-select', models);
+          select.value = meta.subject === 'physics' ? 'spring' : ['calculus-ab', 'calculus-bc'].includes(meta.subject) ? 'solid' : 'linear';
+          let previewCleanup = null;
+          const renderModel = () => {
+            previewCleanup?.(); if (previewCleanup) questionModelCleanups.delete(previewCleanup);
+            const choice = PRACTICE_MODEL_CHOICES.find(choice => choice.id === select.value);
+            const preview = $('.portal-model-preview', models); preview.replaceChildren();
+            if (choice) { previewCleanup = mountQuestionModel(preview, { question: choice.question, motion: document.documentElement.dataset.motion }); questionModelCleanups.add(previewCleanup); }
+          };
+          select.addEventListener('change', renderModel); renderModel();
+          $('.portal-model-ask', models).addEventListener('click', () => {
+            if (!models.isConnected || studyPaused || scope !== JSON.stringify(selectedStudyContext)) return;
+            const choice = PRACTICE_MODEL_CHOICES.find(choice => choice.id === select.value);
+            if (choice) { ensurePageCoach(); pageCoachCleanup?.ask(choice.request + ' Explain how this independent example relates to my saved plan, and say if a different model is more appropriate.'); $('#page-coach-slot').scrollIntoView({ block: 'start' }); }
+          });
+          mountSpatialSection(models);
+        }
+        models.scrollIntoView({ block: 'start' });
+      },
+    });
+    studentStudyCleanup = instance;
+    canvasBackgroundRefresh = () => {
+      if (host.isConnected && profileId === activeProfile) instance.updateSources({ courses: portalCourses(), canvasItems: portalStudyItems(), courseItems: portalCourseItems() });
+    };
+    loadSchoolContext().then(() => canvasBackgroundRefresh?.());
+  } catch {
+    if (host.isConnected && profileId === activeProfile) host.innerHTML = '<p>Your plans could not load. You can still <a href="#/mixed">choose practice topics</a> or <a href="#/plans">open Plan</a>.</p>';
+  }
 }
 
 function viewLibrary() {
@@ -875,7 +1081,7 @@ function viewLibrary() {
 }
 
 async function viewMixedStudy(initialSubject = null) {
-  const v = mountView('<div id="mixed-study-slot"><h1>Mixed practice</h1><p>Opening your topic choices.</p></div>', { breadcrumb: ['Home', 'Mixed practice'], nav: 'mixed' });
+  const v = mountView('<div id="mixed-study-slot"><h1>Study</h1><p>Opening your topic choices.</p></div><details class="portal-tools-details"><summary>More ways to study</summary><div class="portal-tools"><a href="#/library">Lessons</a><a href="#/review">Review</a><a href="#/build">Create with Astra</a></div></details>', { breadcrumb: ['Home', 'Study'], nav: 'mixed' });
   const host = $('#mixed-study-slot', v), profileId = activeProfile;
   try {
     const { mountMixedStudy } = await import('/mixed-study.js');
@@ -1033,7 +1239,7 @@ function viewUnit(requestedId) {
         ? `<div class="btn-row"><a class="btn" href="#/mastery/${unitId}">${passed ? 'Retake' : 'Start'} the Mastery Check</a></div>`
         : `<p>The separate mastery bank for this course is incomplete or could not load. Lessons and practice stay open.</p>`}
     </div>
-  `, { breadcrumb: ['Home', `Unit ${unit.number}: ${unit.title}`], nav: 'home' });
+  `, { breadcrumb: ['Home', `Unit ${unit.number}: ${unit.title}`], nav: 'study' });
 
   // Explorers are visible immediately; motion settings control playback.
   const slots = $('#explorer-slots');
@@ -1088,7 +1294,7 @@ function viewLesson(requestedUnitId, requestedLessonId) {
         ${next ? `<a class="btn quiet" href="#/lesson/${unitId}/${next.id}">Next lesson: ${esc(next.title)}</a>` : ''}
       </div>
     </div>
-  `, { breadcrumb: ['Home', `Unit ${unit.number}`, lesson.title], nav: 'home' });
+  `, { breadcrumb: ['Home', `Unit ${unit.number}`, lesson.title], nav: 'study' });
 
   // Mount checkpoint questions in place, one after another within each slot.
   lesson.sections.forEach((sec, i) => {
@@ -1132,7 +1338,7 @@ function viewPractice(requestedId) {
     <p class="session-progress" id="set-progress">A set is ${setSize} questions. Hints are allowed; solving without hints counts fully toward mastery.</p>
     <div id="timer-slot" class="btn-row"></div>
     <div id="q-slot"></div>
-  `, { breadcrumb: ['Home', `Unit ${unit.number}`, 'Practice'], nav: 'home' });
+  `, { breadcrumb: ['Home', `Unit ${unit.number}`, 'Practice'], nav: 'study' });
   startTimerIfEnabled($('#timer-slot', v));
 
   const slot = $('#q-slot', v);
@@ -1192,7 +1398,7 @@ function viewMastery(requestedId) {
   if (!E.masteryCheckEligible(S, unit)) {
     return mountView(`<h1>Mastery question bank unavailable</h1>
       <p>The separate question bank could not supply a complete check for this view. Reload to try loading it again. <a href="#/unit/${unitId}">Back to the unit</a>.</p>`,
-      { breadcrumb: ['Home', `Unit ${unit.number}`, 'Mastery Check'], nav: 'home' });
+      { breadcrumb: ['Home', `Unit ${unit.number}`, 'Mastery Check'], nav: 'study' });
   }
   const { questionCount, passCount } = unit.masteryCheck;
 
@@ -1214,7 +1420,7 @@ function viewMastery(requestedId) {
     </div>
     <div id="timer-slot" class="btn-row"></div>
     <div id="q-slot"></div>
-  `, { breadcrumb: ['Home', `Unit ${unit.number}`, 'Mastery Check'], nav: 'home' });
+  `, { breadcrumb: ['Home', `Unit ${unit.number}`, 'Mastery Check'], nav: 'study' });
 
   $('#start-check', v).addEventListener('click', () => {
     $('#start-check', v).closest('.card').remove();
@@ -1293,7 +1499,7 @@ function viewDiagnostic() {
       <div class="btn-row"><button type="button" id="diag-start">Begin with Unit 1</button><a class="btn secondary" href="#/home">Not now</a></div>
     </div>
     <div id="q-slot"></div>
-  `, { breadcrumb: ['Home', 'Placement check'], nav: 'home' });
+  `, { breadcrumb: ['Home', 'Placement check'], nav: 'study' });
 
   $('#diag-start', v).addEventListener('click', () => {
     $('#diag-start', v).closest('.card').remove();
@@ -1565,12 +1771,13 @@ function viewSettings() {
 // is kept in S, localStorage, or the progress export, so exporting Calc
 // Coach progress can never expose Canvas data. Course and assignment names
 // are external data and are shown as Canvas reports them.
-const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, connectionSource: '', secretName: '', secretConfigured: false, secretDisabled: false, secretBaseUrl: '', secretIssue: '', snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' };
+const CANVAS = { checked: false, connected: false, user: null, host: '', remembered: false, connectionSource: '', secretName: '', secretConfigured: false, secretDisabled: false, secretBaseUrl: '', secretIssue: '', snapshot: null, insights: null, terms: [], termIds: null, prefs: null, prefsError: '', assessment: null, selectedCourseId: null, note: '' };
 let canvasGeneration = 0;
 const staleCanvasRequest = (error) => error?.name === 'StaleCanvasRequest';
 function resetCanvas() {
   canvasGeneration++;
-  Object.assign(CANVAS, { checked: false, connected: false, user: null, host: '', remembered: false, connectionSource: '', secretName: '', secretConfigured: false, secretDisabled: false, secretBaseUrl: '', secretIssue: '', snapshot: null, insights: null, terms: [], termIds: null, prefs: null, assessment: null, selectedCourseId: null, note: '' });
+  planPrefill = null;
+  Object.assign(CANVAS, { checked: false, connected: false, user: null, host: '', remembered: false, connectionSource: '', secretName: '', secretConfigured: false, secretDisabled: false, secretBaseUrl: '', secretIssue: '', snapshot: null, insights: null, terms: [], termIds: null, prefs: null, prefsError: '', assessment: null, selectedCourseId: null, note: '' });
 }
 
 function applyCanvasConnection(data) {
@@ -1596,7 +1803,6 @@ async function loadSchoolContext(force = false) {
     if (generation !== canvasGeneration) return;
     const pace = $('#school-pace');
     if (pace) pace.innerHTML = canvasPaceHtml();
-    refreshHomeClasses();
     // Canvas pages already watch this shared load. Refresh their data region
     // without replacing the page shell, learner menu, or focused heading.
     canvasBackgroundRefresh?.();
@@ -1609,40 +1815,69 @@ const canvasDateOnly = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { date
 // One consistent lens: the insights are always built from the snapshot plus
 // the current term selection (null = every term), the subject rule, and the
 // learner's remembered show/hide choices.
+function portalCourses() {
+  return CANVAS.prefs ? visiblePortalCourses(CANVAS.snapshot?.courses || [], CANVAS.prefs.courseOverrides) : [];
+}
+
 function canvasRebuildInsights() {
-  CANVAS.insights = CI.buildInsights(CANVAS.snapshot, Date.now(), {
-    termIds: CANVAS.termIds || [],
-    subjectFilter: true,
-    selectedSubject: S.settings.subject,
-    selectedCourseId: CANVAS.selectedCourseId,
-    courseOverrides: (CANVAS.prefs && CANVAS.prefs.courseOverrides) || {},
+  const overrides = CANVAS.prefs?.courseOverrides || {};
+  const snapshot = CANVAS.snapshot ? { ...CANVAS.snapshot, courses: portalCourses(),
+    missingSubmissions: (CANVAS.snapshot.missingSubmissions || []).filter(item => overrides[String(item.courseId)] !== 'hidden') } : null;
+  CANVAS.insights = CI.buildInsights(snapshot, Date.now(), {
+    termIds: CANVAS.termIds || [], selectedSubject: 'all',
+    selectedCourseId: CANVAS.selectedCourseId, courseOverrides: overrides,
   });
 }
 
 async function canvasEnsurePrefs() {
-  if (CANVAS.prefs) return;
+  if (CANVAS.prefs) return true;
   try {
     const { res, data } = await canvasApi('/api/canvas/prefs');
-    CANVAS.prefs = res.ok && data && data.courseOverrides ? { courseOverrides: data.courseOverrides } : { courseOverrides: {} };
+    if (!res.ok || !data?.courseOverrides || typeof data.courseOverrides !== 'object' || Array.isArray(data.courseOverrides)) throw new Error('Saved course choices could not load.');
+    CANVAS.prefs = { courseOverrides: data.courseOverrides };
+    CANVAS.prefsError = '';
+    return true;
   } catch (error) {
-    if (staleCanvasRequest(error)) return;
-    CANVAS.prefs = { courseOverrides: {} };
+    if (staleCanvasRequest(error)) return false;
+    CANVAS.prefsError = 'Your saved course choices could not load. Refresh courses to try again.';
+    return false;
   }
 }
 
-// Records one show/hide choice, saves it on the server (survives restarts
-// and disconnects), and rebuilds the lens.
-async function canvasSetCourseOverride(courseId, value) {
-  const overrides = { ...((CANVAS.prefs && CANVAS.prefs.courseOverrides) || {}) };
-  overrides[String(courseId)] = value;
-  CANVAS.prefs = { courseOverrides: overrides };
-  try {
-    await canvasApi('/api/canvas/prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(CANVAS.prefs) });
-  } catch (error) {
-    if (staleCanvasRequest(error)) return;
-    console.warn('Canvas preference save failed; the choice still applies until this page is reloaded.');
-  }
-  canvasRebuildInsights();
+let canvasPreferenceQueue = Promise.resolve();
+function canvasSetCourseOverride(courseId, value) {
+  const generation = canvasGeneration;
+  const current = () => {
+    if (generation !== canvasGeneration || accountGateActive) {
+      const error = new Error('The student workspace changed.'); error.name = 'StaleCanvasRequest'; throw error;
+    }
+  };
+  const saveChoice = async () => {
+    current();
+    await canvasEnsurePrefs(); current();
+    if (!CANVAS.prefs) throw new Error(CANVAS.prefsError || 'Course choices could not load.');
+    const overrides = { ...CANVAS.prefs.courseOverrides, [String(courseId)]: value };
+    try {
+      const { res, data } = await canvasApi('/api/canvas/prefs', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ courseOverrides: overrides }) });
+      current();
+      if (!res.ok || data?.saved === false || !data?.courseOverrides) throw new Error(data?.error || 'This course choice could not be saved. Try again.');
+      CANVAS.prefs = { courseOverrides: data.courseOverrides }; CANVAS.prefsError = '';
+      CANVAS.assessment = null;
+      if (value === 'hidden' && CANVAS.selectedCourseId === String(courseId)) CANVAS.selectedCourseId = null;
+      if (value === 'hidden' && coachCanvasReference?.selectedCourseId === String(courseId)) coachCanvasReference = null;
+      canvasRebuildInsights(); pageCoachCleanup?.refresh();
+    } catch (error) {
+      current();
+      // An interrupted response may already have saved. Reload authoritative
+      // choices before another full-map write instead of undoing that choice.
+      CANVAS.prefs = null;
+      CANVAS.prefsError = 'Course choices need to be reloaded before saving another change.';
+      throw error;
+    }
+  };
+  const pending = canvasPreferenceQueue.catch(() => {}).then(saveChoice);
+  canvasPreferenceQueue = pending;
+  return pending;
 }
 
 async function canvasApi(path, options) {
@@ -1721,7 +1956,7 @@ async function fetchCanvasSnapshot() {
       CANVAS.termIds = current.length ? current : null;
     }
     canvasRebuildInsights();
-    CANVAS.note = '';
+    CANVAS.note = CANVAS.prefsError;
     return true;
   } catch (error) {
     if (staleCanvasRequest(error)) return false;
@@ -1734,30 +1969,16 @@ const canvasNoteHtml = () => (CANVAS.note ? `<p class="canvas-note">${esc(CANVAS
 
 function canvasTabsHtml(active) {
   const tab = (href, key, label) => `<a class="canvas-tab${active === key ? ' active' : ''}" href="${href}">${label}</a>`;
-  return `<nav class="canvas-tabs" aria-label="Canvas pages">${tab('#/canvas', 'overview', 'Overview')}${tab('#/canvas/plan', 'plan', 'The plan')}${tab('#/canvas/grades', 'grades', 'Grades')}${tab('#/canvas/assessment', 'assessment', 'Assessment')}</nav>`;
+  return `<nav class="canvas-tabs" aria-label="Canvas pages">${tab('#/canvas', 'overview', 'Courses')}${tab('#/canvas/plan', 'plan', 'Assignments')}${tab('#/canvas/grades', 'grades', 'Grades')}${tab('#/canvas/assessment', 'assessment', 'Study advice')}</nav>`;
 }
 
 function canvasHeadHtml() {
-  const name = CANVAS.user && CANVAS.user.name ? CANVAS.user.name : 'Canvas learner';
-  const selectedCourse = CANVAS.snapshot?.courses.find((course) => course.id === CANVAS.selectedCourseId);
-  const selectionLabel = selectedCourse?.name || (CANVAS.selectedCourseId === 'all' ? 'All Canvas courses' : subjectLabel());
-  const asOf = CANVAS.snapshot ? ` · Data as of ${esc(canvasDateTime(CANVAS.snapshot.fetchedAt) || CANVAS.snapshot.fetchedAt)}.` : '';
-  const source = CANVAS.connectionSource === 'secret' ? `Replit secret (${CANVAS.secretName})`
-    : CANVAS.remembered ? 'Saved on this server' : 'Temporary server session';
-  return `<div class="canvas-head">
-    <h2>${esc(selectionLabel)}</h2>
-    <p class="canvas-meta">${esc(S.settings.name || profiles.find((profile) => profile.id === activeProfile)?.name || 'This learner')}’s workspace · Connected to ${esc(CANVAS.host)} as ${esc(name)}.</p>
-    <p class="canvas-meta">Connection source: ${esc(source)}${asOf || '.'}</p>
-    <div class="btn-row">
-      <button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh Canvas data' : 'Load Canvas data'}</button>
-      <a class="btn secondary" href="#/settings">Update Canvas token in Settings</a>
-      <button type="button" class="quiet canvas-disconnect">Disconnect</button>
-    </div>
-  </div>`;
+  const updated = CANVAS.snapshot?.fetchedAt ? canvasDateTime(CANVAS.snapshot.fetchedAt) : null;
+  return `<div class="canvas-head portal-canvas-head"><p class="canvas-meta">${updated ? `Updated ${esc(updated)}` : 'Load your classes to begin.'}</p><div class="btn-row"><button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh courses' : 'Load courses'}</button><a href="#/settings">Connection settings</a></div></div>`;
 }
 
 function canvasTermsHtml() {
-  const selection = `<div class="card course-switcher"><label>Canvas course <select id="canvas-course" class="course-select"><option value="subject" ${CANVAS.selectedCourseId === null ? 'selected' : ''}>Match studying: ${esc(subjectLabel())}</option><option value="all" ${CANVAS.selectedCourseId === 'all' ? 'selected' : ''}>All Canvas courses</option>${(CANVAS.snapshot?.courses || []).map((c) => `<option value="${esc(c.id)}" ${CANVAS.selectedCourseId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><p class="canvas-meta">Choose the school class for your plan, grades, and assessment. The Studying menu above chooses your learning modules.</p></div>`;
+  const selection = `<div class="card course-switcher"><label>Canvas course <select id="canvas-course" class="course-select"><option value="subject" ${CANVAS.selectedCourseId === null ? 'selected' : ''}>All my courses</option>${portalCourses().map((c) => `<option value="${esc(c.id)}" ${CANVAS.selectedCourseId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label><p class="canvas-meta">Choose a class to focus on.</p></div>`;
   if (!CANVAS.terms.length) return selection;
   const boxes = CANVAS.terms.map((t) => {
     const checked = CANVAS.termIds === null || CANVAS.termIds.includes(t.id) ? ' checked' : '';
@@ -2018,7 +2239,7 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
     await canvasEnsureSession();
     if (generation !== canvasGeneration || !body.isConnected) return;
     if (hasRendered && renderedSnapshot === CANVAS.snapshot && renderedConnected === CANVAS.connected) return;
-    if (hasRendered && body.contains(document.activeElement)) {
+    if (hasRendered && (body.contains(document.activeElement))) {
       pendingRefresh = true;
       return;
     }
@@ -2027,8 +2248,7 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
     renderedSnapshot = CANVAS.snapshot;
     renderedConnected = CANVAS.connected;
     if (!CANVAS.connected) {
-      body.innerHTML = canvasConnectHtml();
-      wireCanvasConnect(body, rerender);
+      body.innerHTML = `${canvasNoteHtml()}<section class="card"><h2>Connect your classes</h2><p>Connect Canvas to see your courses and make study materials from them.</p><a class="btn" href="#/settings">Connect Canvas</a></section>`;
       CANVAS.note = '';
       return;
     }
@@ -2039,7 +2259,8 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
       CANVAS.note = '';
       return;
     }
-    body.innerHTML = `${canvasTabsHtml(activeTab)}${canvasHeadHtml()}${canvasTermsHtml()}${canvasNoteHtml()}${bodyBuilder()}`;
+    const filters = activeTab === 'overview' ? '' : `<details class="portal-tools-details"><summary>Choose course or term</summary>${canvasTermsHtml()}</details>`;
+    body.innerHTML = `${canvasTabsHtml(activeTab)}${canvasHeadHtml()}${filters}${canvasNoteHtml()}${bodyBuilder()}`;
     wireCanvasControls(body, rerender);
     if (wire) wire(body);
     body.querySelectorAll('.canvas-ask-instructions').forEach(button => button.addEventListener('click', () => {
@@ -2064,57 +2285,40 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
 
 function viewCanvas() {
   canvasPage(() => {
-    const ins = CANVAS.insights;
-    const snap = CANVAS.snapshot;
-    const notes = [];
-    if (snap.coursesTruncated) notes.push('Canvas returned more active courses than could be loaded; the first 15 by name are shown.');
-    if (snap.missingSubmissionsError) notes.push(snap.missingSubmissionsError);
-    if (snap.missingSubmissionsTruncated) notes.push('Canvas returned more missing-assignment entries than could be loaded; that list is incomplete.');
-    const courseRows = ins.perCourse.map((row) => {
-      const score = row.score === null ? 'No current score' : `Current score ${row.score}${row.grade ? ` (${esc(row.grade)})` : ''}`;
-      return `<div class="canvas-course-row">
-        <a class="canvas-course" href="#/canvas/course/${esc(row.courseId)}">
-          <span><strong>${esc(row.courseName)}</strong><small>${esc(row.courseCode || 'Canvas course')}</small></span>
-          <span class="canvas-meta">${score} · ${row.submitted} of ${row.totalAssignments} submitted</span>
-        </a>
-        <button type="button" class="quiet canvas-focus" data-course-id="${esc(row.courseId)}">Study this course</button>
-      </div>`;
-    }).join('');
-    const hidden = ins.hiddenCourses.length ? `<details class="explorer-details"><summary>Other courses (${ins.hiddenCourses.length})</summary>
-      <div class="explorer-body">
-        <p class="canvas-meta">These courses are outside your current selection. Choose any one below or choose All Canvas courses in the dropdown.</p>
-        <div class="canvas-list">${ins.hiddenCourses.map((c) => `<div class="canvas-item">
-          <div><strong>${esc(c.name)}</strong><span class="canvas-meta">Outside the selected view</span></div>
-          <div class="canvas-item-side"><button type="button" class="secondary canvas-focus" data-course-id="${esc(c.id)}">Study this course</button></div>
-        </div>`).join('')}</div>
-      </div></details>` : '';
-    const stale = ins.staleCourses.length ? `<details class="explorer-details"><summary>Courses not shown (${ins.staleCourses.length})</summary>
-      <div class="explorer-body"><p class="canvas-meta">A course is left out when every dated assignment in it was due more than ${CI.STALE_MONTHS} months ago. These courses are still in Canvas; Students4AI only hides them here.</p>
-      <ul>${ins.staleCourses.map((c) => `<li>${esc(c.name)} <button type="button" class="quiet canvas-inspect-course" data-course-id="${esc(c.id)}">Inspect course materials</button></li>`).join('')}</ul></div></details>` : '';
-    const otherTerms = ins.otherTermCourses.length ? `<details class="explorer-details"><summary>Courses in other terms (${ins.otherTermCourses.length})</summary>
-      <div class="explorer-body"><p class="canvas-meta">These courses are in terms that are not selected under Terms shown. Select their term above to include them.</p>
-      <ul>${ins.otherTermCourses.map((c) => `<li>${esc(c.name)} — ${esc(c.termName)}</li>`).join('')}</ul></div></details>` : '';
-    return `
-      <div class="card">
-        <h2>Right now</h2>
-        <p>${canvasCountsLine(ins)}.</p>
-        <p><a href="#/canvas/plan">Open the plan</a> for the full prioritized list, or <a href="#/canvas/grades">open Grades</a> for scores as Canvas reports them.</p>
-        ${notes.map((n) => `<p class="canvas-meta">${esc(n)}</p>`).join('')}
-      </div>
-      <div class="card">
-        <h2>Your courses (${ins.perCourse.length})</h2>
-        <p class="canvas-meta">Open a course to see its modules, assignments, and statuses. Use the dropdown above to focus the planner on your current work.</p>
-        <div class="canvas-list">${courseRows}</div>
-        ${hidden}
-        ${otherTerms}
-        ${stale}
-      </div>`;
-  }, ['Canvas'], 'overview', (body) => {
-    const rerender = () => { if ((location.hash || '').startsWith('#/canvas')) router(); };
-    body.querySelectorAll('.canvas-focus').forEach((b) => b.addEventListener('click', () => {
-      selectCanvasCourse(b.dataset.courseId);
-      rerender();
-    }));
+    if (!CANVAS.prefs) return `<p class="canvas-note">${esc(CANVAS.prefsError || 'Your course choices are still loading. Refresh courses to try again.')}</p>`;
+    const groups = homeCourseGroups(CANVAS.snapshot, Date.now());
+    const card = course => {
+      const selected = CANVAS.prefs.courseOverrides[String(course.id)] !== 'hidden';
+      return `<article class="card portal-course-card"><div class="portal-course-heading"><h3><a href="#/canvas/course/${esc(course.id)}">${esc(course.name)}</a></h3><span class="tag">${selected ? 'In Plan' : 'Not in Plan'}</span></div>
+        ${course.term?.name ? `<p class="canvas-meta">${esc(course.term.name)}</p>` : ''}
+        ${course.assignmentsError ? `<p class="canvas-note">${esc(course.assignmentsError)}</p>` : ''}
+        <div class="btn-row">${selected ? `<a class="btn secondary" href="#/plans/course/${esc(course.id)}">Plan this course</a>` : ''}<button type="button" class="${selected ? 'quiet' : 'secondary'} course-plan-toggle" data-course-id="${esc(course.id)}" data-selected="${selected}" aria-label="${selected ? 'Remove' : 'Add'} ${esc(course.name)} ${selected ? 'from' : 'to'} Plan">${selected ? 'Remove from Plan' : 'Add to Plan'}</button></div>
+        <p class="course-choice-status" role="status"></p></article>`;
+    };
+    const current = [...groups.current, ...groups.unknown];
+    const extra = [...groups.past, ...groups.upcoming];
+    return `<section class="portal-courses"><h2>Your courses</h2><p>Choose the courses you want in Plan. Your school’s Canvas stays unchanged.</p>
+      ${CANVAS.snapshot.coursesTruncated ? '<p class="canvas-note">Some courses could not be included in this load.</p>' : ''}
+      <div class="portal-course-grid">${current.length ? current.map(card).join('') : '<p>No current courses were returned by Canvas.</p>'}</div>
+      ${extra.length ? `<details class="portal-tools-details"><summary>Other school years and upcoming courses (${extra.length})</summary><div class="portal-course-grid">${extra.map(card).join('')}</div></details>` : ''}
+      <div class="portal-tools"><a class="btn" href="#/plans">Go to Plan</a></div></section>`;
+  }, ['Canvas'], 'overview', body => {
+    const profileId = activeProfile;
+    for (const button of body.querySelectorAll('.course-plan-toggle')) button.addEventListener('click', async () => {
+      const status = $('.course-choice-status', button.closest('.portal-course-card'));
+      const remove = button.dataset.selected === 'true';
+      button.disabled = true; status.textContent = 'Saving your course choice.';
+      try {
+        await canvasSetCourseOverride(button.dataset.courseId, remove ? 'hidden' : 'shown');
+        if (!body.isConnected || profileId !== activeProfile) return;
+        CANVAS.note = remove ? 'Course removed from Plan. Saved work is kept.' : 'Course added to Plan.';
+        router();
+      } catch (error) {
+        if (!body.isConnected || profileId !== activeProfile || staleCanvasRequest(error)) return;
+        status.textContent = error.message || 'The course choice could not be saved. Try again.';
+        button.disabled = false;
+      }
+    });
   });
 }
 
@@ -2382,6 +2586,8 @@ function router() {
   else if (route === 'diagnostic') viewDiagnostic();
   else if (route === 'review') viewReview();
   else if (route === 'focus') viewFocus();
+  else if (route === 'study' && a === 'course' && b && /^[0-9]{1,20}$/.test(b)) viewStudentStudy(null, null, b);
+  else if (route === 'study') viewStudentStudy(a || null, b || null);
   else if (route === 'mixed') viewMixedStudy(['sat', 'algebra'].includes(a) ? a : null);
   else if (route === 'canvas' && a === 'plan') viewCanvasPlan();
   else if (route === 'canvas' && a === 'grades') viewCanvasGrades();
@@ -2394,18 +2600,49 @@ function router() {
 }
 
 function ensurePageCoach() {
+  updateStudentHeader();
   if (pageCoachCleanup) { pageCoachCleanup.refresh(); return; }
   pageCoachCleanup = mountPageCoach($('#page-coach-slot'), {
+    profileId: activeProfile,
     context: () => ({ route: location.hash || '#/home', subject: activeMixedQuestion?.subject || S.settings.subject,
       selectedCourseId: CANVAS.selectedCourseId, termIds: CANVAS.termIds || [],
       questionId: activeMixedQuestion?.questionId || activeQuestionCoach?.q.id, unitId: activeQuestionCoach?.unit.id,
       sessionId: activeMixedQuestion?.sessionId,
       questionPhase: activeMixedQuestion?.phase || activeQuestionCoach?.ctx.phase,
+      ...selectedStudyContext,
       ...coachCanvasReference,
       title: coachCanvasReference ? coachCanvasReference.title || 'Canvas instructions' : activeMixedQuestion?.title || $('h1', viewEl())?.textContent,
     }),
     renderMath,
-    mountNotes: ACCOUNT?.authRequired ? (root) => mountStudentMemos(root, { profileId: activeProfile }) : undefined,
+    onPlan({ text, request, pageContext }) {
+      const courseId = String(pageContext?.selectedCourseId || CANVAS.selectedCourseId || '');
+      planPrefill = { profileId: activeProfile, courseId: portalCourses().some(course => String(course.id) === courseId) ? courseId : null,
+        goal: `${request || 'Study this with Astra'}\n\nAstra suggested:\n${text || ''}`.slice(0, 1800),
+        activity: /\btest|quiz\b/i.test(request || '') ? 'test' : /\bmodel|3d\b/i.test(request || '') ? 'model' : 'guide' };
+      if (location.hash === '#/plans') viewStudyPlans(); else location.hash = '#/plans';
+    },
+    audio: {
+      transcribe: async (payload, { signal }) => {
+        const profile = activeProfile;
+        const response = await apiFetch(`/api/coach/transcribe?profile=${encodeURIComponent(profile)}`, {
+          method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok || data.error || profile !== activeProfile || signal.aborted) throw new Error('The recording could not be transcribed.');
+        return data;
+      },
+      synthesize: async (payload, { signal }) => {
+        const profile = activeProfile;
+        const response = await apiFetch(`/api/coach/speech?profile=${encodeURIComponent(profile)}`, {
+          method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        if (!response.ok || profile !== activeProfile || signal.aborted || !response.headers.get('content-type')?.startsWith('audio/')) throw new Error('The reply could not be read aloud.');
+        const audio = await response.blob();
+        if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
+        return audio;
+      },
+    },
+    mountNotes: ACCOUNT?.authRequired ? (root) => mountStudentMemos(root, { profileId: activeProfile, compact: true }) : undefined,
     saveMemo: ACCOUNT?.authRequired ? async (memo) => {
       const profile = activeProfile;
       const result = await saveStudentMemo(profile, memo);
@@ -2414,18 +2651,19 @@ function ensurePageCoach() {
     } : undefined,
     request: async (payload, { signal }) => {
       const profile = activeProfile;
+      const coachFailure = (data, fallback) => Object.assign(new Error(data.error || fallback), { memoryWrites: data.memoryWrites, code: data.code });
       const question = activeQuestionCoach?.container.isConnected ? activeQuestionCoach : null;
       const mixedQuestion = activeMixedQuestion?.container.isConnected ? activeMixedQuestion : null;
       // The persistent coach uses the verified question handler and hint-credit
       // callback, including assisted mastery and placement checks.
-      const asksForSchool = /\b(?:canvas|due|deadline|schedule|school)\b/i.test(payload.message);
+      const asksForSchool = Boolean(payload.attachments?.length) || coachRequestTarget(payload.message, { hasQuestion: Boolean(question || mixedQuestion), hasCourseReference: Boolean(coachCanvasReference) }) === 'study';
       if (mixedQuestion && !asksForSchool) {
         const response = await apiFetch(`/api/mixed/tutor?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId,
-          followUp: payload.message, transcript: payload.transcript,
+          followUp: payload.message, transcript: payload.transcript, attachments: payload.attachments,
         }) });
         const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.error || 'The question coach could not answer.');
+        if (!response.ok || data.error) throw coachFailure(data, 'The question coach could not answer.');
         if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
         if (data.assisted && activeMixedQuestion?.questionId === mixedQuestion.questionId) mixedCleanup?.markAssisted(data);
         return data;
@@ -2435,22 +2673,22 @@ function ensurePageCoach() {
         const response = await apiFetch(`/api/tutor?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           unitId: unit.id, questionId: q.id, phase: ctx.phase || 'before-answer',
           learnerAnswer: ctx.learnerAnswer, chosenIndex: ctx.chosenIndex, history: ctx.history,
-          followUp: payload.message, transcript: payload.transcript,
+          followUp: payload.message, transcript: payload.transcript, attachments: payload.attachments,
         }) });
         const data = await response.json();
-        if (!response.ok || data.error) throw new Error(data.error || 'The question coach could not answer.');
+        if (!response.ok || data.error) throw coachFailure(data, 'The question coach could not answer.');
         if (profile !== activeProfile || signal.aborted) throw new Error('The learner workspace changed.');
         if (data.text && data.available !== false && !data.refusal) ctx.onHelp?.();
         return data;
       }
-      const schoolPayload = mixedQuestion ? { ...payload, pageContext: { ...payload.pageContext, subject: mixedQuestion.subject, selectedCourseId: null } } : payload;
+      const schoolPayload = mixedQuestion && !coachCanvasReference ? { ...payload, pageContext: { ...payload.pageContext, subject: mixedQuestion.subject, selectedCourseId: null } } : payload;
       const { res, data } = await canvasApi('/api/canvas/coach', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(schoolPayload) });
-      if (!res.ok || data.error) throw new Error(data.error || 'The study coach could not answer.');
+      if (!res.ok || data.error) throw coachFailure(data, 'The study coach could not answer.');
       const receivedHelp = Boolean(data.text && data.available !== false && !data.refusal);
       if (question && receivedHelp && profile === activeProfile && !signal.aborted) question.ctx.onHelp?.();
       if (mixedQuestion && receivedHelp && mixedQuestion.phase === 'before-answer' && profile === activeProfile && !signal.aborted) {
         const marked = await apiFetch(`/api/mixed/assisted?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId }) });
-        if (!marked.ok) throw new Error('The coach replied, but assisted practice could not be recorded. Try again before checking this answer.');
+        if (!marked.ok) throw coachFailure(data, 'The coach replied, but assisted practice could not be recorded. Try again before checking this answer.');
         const assistance = await marked.json();
         if (activeMixedQuestion?.questionId === mixedQuestion.questionId) mixedCleanup?.markAssisted({ ...assistance, questionId: mixedQuestion.questionId });
       }
@@ -2462,6 +2700,10 @@ function ensurePageCoach() {
 async function boot() {
   try {
     captureEnrollment();
+    setupStudentHeaderMenu();
+    updateStudentHeader();
+    setInterval(() => { if (!document.hidden) updateStudentHeader(); }, 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) updateStudentHeader(); });
     const refreshVisibleSchool = () => { if (!document.hidden) loadSchoolContext(); };
     setInterval(refreshVisibleSchool, 300000);
     document.addEventListener('visibilitychange', refreshVisibleSchool);

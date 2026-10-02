@@ -716,5 +716,33 @@ html[data-motion="reduced"] *, html[data-motion="off"] * { animation: none !impo
   .focus-checklist { padding-left: 1.2rem; }
   .focus-checklist label { padding: 0.7rem; }
   .focus-entry { flex-direction: column; align-items: stretch; }
-  .focus-entry > .btn { align-self: flex-start; }
+  .focus-entry > .btn { align-self: stretch; text-align: center; }
+
+  /* Home stays a readable vertical sequence on phones. Scope these action
+     stacks to landing content so question and study controls keep their layout. */
+  .dashboard-hero .btn-row, .home-class-card .btn-row {
+    flex-direction: column; align-items: stretch;
+  }
+  .dashboard-hero .btn-row > .btn,
+  .home-class-card .btn-row > .btn, .home-class-card .btn-row > button,
+  .home-classes > .btn, .home-classes > .home-refresh,
+  #home-saved-plans > .btn, #home-saved-plans .saved-topic-card > .btn {
+    width: 100%; min-width: 0; min-height: 44px;
+    text-align: center; white-space: normal;
+  }
+  .home-classes .unit-grid, #home-saved-plans .saved-topic-grid {
+    grid-template-columns: minmax(0, 1fr); gap: 0.8rem;
+  }
+  .home-class-card, #home-saved-plans .saved-topic-card {
+    min-width: 0; margin: 0.4rem 0; overflow-wrap: anywhere;
+  }
+  .home-course-group > summary { min-height: 44px; padding: 0.55rem 0; }
+  #view .home-study-tools {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.55rem;
+  }
+  .home-study-tools > a {
+    display: flex; align-items: center; min-height: 44px; padding: 0.55rem 0.75rem;
+    border: 1px solid var(--border); border-radius: 9px;
+    background: var(--surface-2); text-decoration: none; overflow-wrap: anywhere;
+  }
 }

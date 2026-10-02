@@ -1,0 +1,106 @@
+/* The first choice on Home: real destinations, generous touch targets, and no
+   invented activity or progress. Supporting classes and plans stay below. */
+.home-welcome { margin: 1.25em 0 2.5em; min-width: 0; }
+.home-welcome-heading { margin: 0 0 1.5em; }
+.home-welcome-heading h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.8em, 4vw, 2.5em);
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -.035em;
+  overflow-wrap: anywhere;
+}
+.home-welcome-heading > p { margin: .5em 0 0; color: var(--muted); font-size: 1.125em; line-height: 1.6; }
+.home-action-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1em; }
+.home-welcome .home-action-tile {
+  --home-tile-bg: #eef4ff;
+  --home-tile-border: #d4e1ff;
+  --home-tile-icon: #265bc7;
+  --home-tile-icon-bg: #dce8ff;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 1em;
+  min-width: 0;
+  min-height: 12em;
+  width: 100%;
+  margin: 0;
+  padding: 1.35em;
+  border: 1px solid var(--home-tile-border);
+  border-radius: 18px;
+  color: var(--text);
+  background: var(--home-tile-bg);
+  box-shadow: 0 3px 8px rgb(44 62 106 / 4%);
+  font: inherit;
+  line-height: 1.5;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.home-welcome .home-action-astra { --home-tile-bg: #edf2ff; --home-tile-border: #cfdafe; --home-tile-icon: #4f46d0; --home-tile-icon-bg: #dce3ff; }
+.home-welcome .home-action-practice { --home-tile-bg: #f4eeff; --home-tile-border: #e1d4fa; --home-tile-icon: #7442be; --home-tile-icon-bg: #e9ddfc; }
+.home-welcome .home-action-plans { --home-tile-bg: #ecf6ff; --home-tile-border: #cfe5f9; --home-tile-icon: #2869b0; --home-tile-icon-bg: #d9ebfc; }
+.home-welcome .home-action-classes { --home-tile-bg: #f1efff; --home-tile-border: #ddd8fa; --home-tile-icon: #6151bb; --home-tile-icon-bg: #e3def9; }
+.home-welcome .home-action-lessons { --home-tile-bg: #edf6fa; --home-tile-border: #d0e5ef; --home-tile-icon: #277491; --home-tile-icon-bg: #d7edf4; }
+.home-welcome .home-action-session { --home-tile-bg: #f7f0fb; --home-tile-border: #e8d9f2; --home-tile-icon: #81509e; --home-tile-icon-bg: #eddff5; }
+.home-action-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 3.25em;
+  height: 3.25em;
+  border-radius: 15px;
+  color: var(--home-tile-icon);
+  background: var(--home-tile-icon-bg);
+}
+.home-action-icon svg { width: 1.75em; height: 1.75em; }
+.home-action-copy { display: flex; flex-direction: column; gap: .4em; min-width: 0; padding-inline-end: 1.1em; }
+.home-action-title { color: var(--text); font-size: 1.05em; font-weight: 650; line-height: 1.45; }
+.home-action-description { max-width: 29ch; color: var(--muted); font-size: .8125em; font-weight: 400; line-height: 1.65; }
+.home-action-arrow { position: absolute; inset-inline-end: 1.25em; top: 1.5em; color: var(--home-tile-icon); }
+.home-action-arrow svg { width: 1.25em; height: 1.25em; }
+.home-welcome .home-action-tile:hover { border-color: var(--home-tile-icon); box-shadow: 0 6px 16px rgb(44 62 106 / 10%); filter: none; }
+.home-welcome .home-action-tile:active { box-shadow: inset 0 0 0 1px var(--home-tile-icon); }
+.home-welcome .home-action-tile:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; border-radius: 18px; }
+
+html[data-theme="dark"] .home-welcome .home-action-tile { --home-tile-bg: #1c2d4a; --home-tile-border: #354d73; --home-tile-icon: #aac9ff; --home-tile-icon-bg: #2b4267; box-shadow: 0 3px 8px rgb(0 0 0 / 12%); }
+html[data-theme="dark"] .home-welcome .home-action-practice { --home-tile-bg: #2c2446; --home-tile-border: #4f3c72; --home-tile-icon: #d3b7ff; --home-tile-icon-bg: #45335f; }
+html[data-theme="dark"] .home-welcome .home-action-plans { --home-tile-bg: #1a3044; --home-tile-border: #31516a; --home-tile-icon: #a7d2fc; --home-tile-icon-bg: #28465f; }
+html[data-theme="dark"] .home-welcome .home-action-classes { --home-tile-bg: #282747; --home-tile-border: #494672; --home-tile-icon: #c4beff; --home-tile-icon-bg: #3e3a60; }
+html[data-theme="dark"] .home-welcome .home-action-lessons { --home-tile-bg: #1b303d; --home-tile-border: #355366; --home-tile-icon: #a8dbea; --home-tile-icon-bg: #2a4757; }
+html[data-theme="dark"] .home-welcome .home-action-session { --home-tile-bg: #32263e; --home-tile-border: #554168; --home-tile-icon: #e0b9f2; --home-tile-icon-bg: #483552; }
+
+@media (max-width: 900px) {
+  .home-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .home-welcome { margin-top: 1em; }
+  .home-welcome-heading { margin-bottom: 1.25em; }
+  .home-welcome-heading h1 { font-size: 1.9em; }
+  .home-welcome-heading > p { font-size: 1em; }
+  .home-action-grid { grid-template-columns: minmax(0, 1fr); gap: .75em; }
+  .home-welcome .home-action-tile { flex-direction: row; align-items: center; gap: 1em; min-height: 7.25em; padding: 1.1em; border-radius: 16px; }
+  .home-action-copy { flex: 1 1 auto; padding-inline-end: 0; }
+  .home-action-title { font-size: 1em; }
+  .home-action-description { max-width: none; }
+  .home-action-arrow { position: static; display: flex; flex: 0 0 auto; }
+  .home-welcome .home-action-tile:focus-visible { border-radius: 16px; }
+}
+
+@media (prefers-contrast: more) {
+  .home-welcome .home-action-tile { border-color: var(--text); }
+  .home-action-description { color: var(--text); }
+}
+@media (forced-colors: active) {
+  .home-welcome .home-action-tile { color: LinkText; background: Canvas; border: 1px solid ButtonText; box-shadow: none; }
+  .home-action-icon { color: LinkText; background: Canvas; border: 1px solid ButtonText; }
+  .home-action-title, .home-action-arrow { color: LinkText; }
+  .home-action-description { color: CanvasText; }
+  .home-welcome .home-action-tile:focus-visible { outline-color: Highlight; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-welcome *, .home-welcome *::before, .home-welcome *::after { animation: none !important; transition: none !important; }
+}

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildPracticeRequest, practiceBuilderDefaults, PRACTICE_VARIATIONS, PRACTICE_MODEL_CHOICES } from '../public/practice-builder.js';
+import { buildPracticeRequest, practiceBuilderDefaults, practiceBuilderCourseOptions, PRACTICE_VARIATIONS, PRACTICE_MODEL_CHOICES } from '../public/practice-builder.js';
 import { getQuestionModel } from '../public/question-models.js';
 
 test('requests wait for the learner, identify original practice and do not promise grading credit', () => {
@@ -57,4 +57,31 @@ test('course aliases, Algebra and all-course requests use subject-appropriate na
   assert.match(prompt, /Help me practice Algebra/);
   assert.match(prompt, /linear function graph/);
   assert.doesNotMatch(prompt, /solid-of-revolution|my selected course/);
+});
+
+test('Canvas course options retain real IDs even when two different classes have the same display name', () => {
+  const options = practiceBuilderCourseOptions({ subject: 'all', selectedCourseId: '202', courseName: 'English', courses: [
+    { id: 101, name: 'English' }, { id: '202', name: 'English' }, { id: '202', name: 'Duplicate ID' },
+    { id: 'not-a-canvas-id', name: 'Rejected' }, { id: '303', name: '' },
+  ] });
+  assert.deepEqual(options, [
+    { id: 'current', label: 'All courses', courseId: null },
+    { id: '101', label: 'English', courseId: '101' },
+    { id: '202', label: 'English', courseId: '202' },
+  ]);
+  assert.deepEqual(practiceBuilderCourseOptions({ courseName: 'Independent reading', courses: null }), [
+    { id: 'current', label: 'Independent reading', courseId: null },
+  ]);
+});
+
+test('prepared practice requests fit the canonical Coach limit for every supported choice', () => {
+  for (const goal of ['question', 'set', 'model']) {
+    for (const variation of PRACTICE_VARIATIONS) {
+      for (const model of PRACTICE_MODEL_CHOICES) {
+        const prompt = buildPracticeRequest({ goal, variation: variation.id, model: model.id, courseName: 'A'.repeat(160), topic: 'B'.repeat(500) });
+        assert.ok(prompt.length <= 2000, `${goal}/${variation.id}/${model.id}: ${prompt.length}`);
+        assert.match(prompt, /no official exam score or automatic mastery credit/);
+      }
+    }
+  }
 });

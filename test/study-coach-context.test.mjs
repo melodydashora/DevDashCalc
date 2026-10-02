@@ -1,8 +1,61 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadStudyCoachContext, STUDY_CONTEXT_LIMITS } from '../study-coach-context.js';
+import { loadStudyCoachContext, studyPageContext, visibleCoachCourses, STUDY_CONTEXT_LIMITS } from '../study-coach-context.js';
 
 const NOW = '2026-09-14T18:00:00.000Z';
+
+test('current lesson context is reconstructed from authored content without private checkpoint answers', () => {
+  const unit = { id: 'unit-01', title: 'Limits', overview: 'Study approaching values.', skills: [{ id: 'limit', name: 'Limits' }],
+    lessons: [{ id: 'u1-l1', title: 'One-sided limits', sections: [
+      { type: 'concept', html: '<p>Compare the left and right limits.</p>' },
+      { type: 'worked-example', title: 'A visible example', steps: [{ text: 'Compare both sides.', math: 'L=R' }] },
+      { type: 'checkpoint', questionIds: ['u1-q001'] },
+    ] }], questions: [{ id: 'u1-q001', answerIndex: 2, solution: [{ text: 'PRIVATE ANSWER SENTINEL' }], hints: ['PRIVATE HINT'] }] };
+  const page = studyPageContext({ route: '#/lesson/unit-01/u1-l1', title: 'FORGED PAGE TITLE', unitId: 'unit-10', questionId: 'u1-q001' }, unit);
+  assert.equal(page.title, 'One-sided limits');
+  assert.equal(page.unitId, 'unit-01');
+  assert.equal(page.lessonId, 'u1-l1');
+  assert.equal(page.questionId, 'u1-q001');
+  assert.equal(page.curriculum.lesson.sections[0].text, 'Compare the left and right limits.');
+  assert.equal(page.curriculum.lesson.sections[1].steps[0].math, 'L=R');
+  assert.doesNotMatch(JSON.stringify(page), /PRIVATE ANSWER|PRIVATE HINT|answerIndex|FORGED/);
+  assert.equal(studyPageContext({ route: '#/lesson/unit-01/not-a-lesson' }, unit).curriculum.state, 'unavailable');
+  assert.equal(studyPageContext({ route: '#/lesson/unit-02/u2-l1' }, unit).curriculum.state, 'unavailable');
+});
+
+test('general Coach course selection respects hidden choices while explicit course requests remain readable', () => {
+  const snapshot = { courses: [{ id: '11', name: 'Current class' }, { id: '22', name: 'Removed old class' }],
+    missingSubmissions: [{ courseId: '11', name: 'Current task' }, { courseId: '22', name: 'Old task' }] };
+  const original = JSON.stringify(snapshot);
+  for (const selection of [null, 'all']) {
+    const visible = visibleCoachCourses(snapshot, { '22': 'hidden' }, selection);
+    assert.deepEqual(visible.courses.map(course => course.id), ['11']);
+    assert.deepEqual(visible.missingSubmissions.map(item => item.name), ['Current task']);
+  }
+  assert.deepEqual(visibleCoachCourses(snapshot, { '22': 'hidden' }, '22').courses.map(course => course.id), ['11', '22']);
+  assert.equal(JSON.stringify(snapshot), original);
+});
+
+test('course learning retains the student topic on follow-ups and prioritizes its instructional material', async () => {
+  const course = { id: '42', name: 'Biology', courseCode: 'BIO', assignments: Array.from({ length: 8 }, (_, i) => ({ id: String(100 + i), name: 'Missing practice assignment', submission: { missing: true } })),
+    modules: [{ id: '8', name: 'Cell energy', items: [{ id: '9', type: 'Page', contentId: '70', pageUrl: 'photosynthesis', title: 'Photosynthesis: light reactions' }] }],
+    pages: [{ id: '71', pageUrl: 'class-calendar', title: 'Weekly study schedule' }] };
+  const calls = [];
+  const result = await loadStudyCoachContext({ snapshot: { fetchedAt: NOW, courses: [course] },
+    pageContext: { route: '#/study', selectedCourseId: '42', selectedSubject: 'all', learningActivity: 'practice', learningTopic: 'Photosynthesis' },
+    message: 'Can I study another example?', readCanvasDetail: async ref => {
+      calls.push(ref);
+      return { ...ref, body: ref.id === '70' ? 'Light energy drives the reactions in this chapter.' : 'Unrelated class work.', contentStatus: 'available', readAt: NOW };
+    } });
+  assert.equal(calls[0].pageUrl, 'photosynthesis', 'the topic remains relevant after a short follow-up');
+  assert.equal(result.context.learningRequest.activity, 'practice');
+  assert.equal(result.context.learningRequest.course.name, 'Biology');
+  assert.deepEqual(result.context.learningRequest.topic, { text: 'Photosynthesis', source: 'Student-selected topic; not a verified teacher requirement.' });
+  assert.equal(result.context.canvas.courses[0].modules[0].title, 'Cell energy');
+  assert.match(result.context.canvas.details[0].body, /Light energy/);
+  assert.equal(calls.length, 4, 'course learning retains the bounded detail-read budget');
+  assert.doesNotMatch(result.limitations.join(' '), /Dates mentioned in instructions/);
+});
 function assignment(id, name, extra = {}) {
   return { id, name, dueAt: null, dueDateStatus: 'no-date', descriptionHtml: null, submission: null, ...extra };
 }

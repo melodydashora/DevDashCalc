@@ -2,6 +2,7 @@
 // selected by coach-config.js from server environment settings.
 // Model capabilities: https://developers.openai.com/api/docs/models/gpt-6-astra
 // and https://developers.openai.com/api/docs/models/gpt-5.6-sol
+import { coachAttachmentMessages, COACH_ATTACHMENT_SYSTEM } from './coach-attachments.js';
 export const COACH_MODELS = Object.freeze(['gpt-6-astra', 'gpt-5.6-sol']);
 export const COACH_CONFIG = Object.freeze({
   provider: 'openai', reasoningEffort: 'high', maxCompletionTokens: 16_000,
@@ -75,7 +76,7 @@ async function requestModel({ apiKey, model, system, messages, fetchImpl, timeou
  * are final. A nonempty truncated answer is returned with its flag intact.
  * failures contains only locally generated, safe-to-log diagnostic strings.
  */
-export async function completeGPTCoach({ apiKey, system, messages, models = COACH_MODELS, fetchImpl = fetch, timeoutMs = COACH_CONFIG.timeoutMs } = {}) {
+export async function completeGPTCoach({ apiKey, system, messages, attachments, models = COACH_MODELS, fetchImpl = fetch, timeoutMs = COACH_CONFIG.timeoutMs } = {}) {
   const failures = [];
   let model = null, fallback = false;
   const result = (extra = {}) => ({ text: '', model, provider: 'openai', fallback, truncated: false, refusal: false, failures: [...failures], ...extra });
@@ -85,6 +86,13 @@ export async function completeGPTCoach({ apiKey, system, messages, models = COAC
   }
   if (typeof system !== 'string' || !Array.isArray(messages) || typeof fetchImpl !== 'function') {
     failures.push('openai: invalid coaching request');
+    return result();
+  }
+  try {
+    messages = coachAttachmentMessages(messages, attachments);
+    if (attachments?.length) system = `${system}\n${COACH_ATTACHMENT_SYSTEM}`;
+  } catch {
+    failures.push('openai: invalid study attachments');
     return result();
   }
   const budget = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : COACH_CONFIG.timeoutMs;

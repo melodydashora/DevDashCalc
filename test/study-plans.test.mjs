@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createStudyPlanClient, studyPlanCourseOptions, mountHomeStudyPlans, mountStudyPlans } from '../public/study-plans.js';
+import { createStudyPlanClient, studyPlanCourseOptions, mountHomeStudyPlans, mountStudyPlans, studyPlanActivity, studyPlanStudyRequest } from '../public/study-plans.js';
 
 const response = data => ({ ok: true, json: async () => data });
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
@@ -152,7 +152,7 @@ test('writing an own plan requires a goal before opening the editor', async () =
     const root = new Node('section');
     const instance = mountStudyPlans(root, { profileId: 'one', subjects: [{ id: 'sat', label: 'SAT' }], request: async () => response({ plans: [] }) });
     named(root, 'Write my own plan').fire('click');
-    assert.match(root.textContent, /Enter a goal/);
+    assert.match(root.textContent, /Enter a topic or question/);
     assert.doesNotMatch(root.textContent, /Review your draft/);
     instance.dispose();
   } finally { globalThis.document = prior; }
@@ -182,17 +182,87 @@ test('optional SAT goals and chosen pacing become learner goal text only for SAT
     control('Test date ').value = '2026-10-03';
     control('Focus section ').value = 'reading-writing';
     control('Your pace ').value = 'small';
-    control('Your goal ').value = 'Explain grammar choices';
+    control('Topic, question or request ').value = 'Explain grammar choices';
     descendants(root).find(n => n.tagName === 'form').fire('submit'); await settled();
     assert.match(calls[0].goal, /starting total 1280; target total 1450/);
     assert.match(calls[0].goal, /intended test date 2026-10-03/);
     assert.match(calls[0].goal, /focus on Reading and Writing/);
     assert.match(calls[0].goal, /smaller steps/);
-    const course = control('Class or study subject '); course.value = '42'; course.fire('change');
+    const course = control('Course '); course.value = '42'; course.fire('change');
     assert.equal(control('Starting total score ').disabled, true);
     descendants(root).find(n => n.tagName === 'form').fire('submit'); await settled();
     assert.doesNotMatch(calls[1].goal, /1280|1450|2026-10-03|SAT planning/);
     assert.match(calls[1].goal, /smaller steps/);
     instance.dispose();
   } finally { globalThis.document = prior; }
+});
+
+test('Study callbacks preserve saved plan/course/activity and resolve the selected step from its saved record', () => {
+  const plan = { id: 'saved-one', activity: 'model', course: { id: '42', name: 'Biology', subject: 'all' }, goal: 'Explore diffusion', steps: [{ id: 'step-one', detail: 'Change one input and explain the result.', href: '#/library' }] };
+  assert.equal(studyPlanActivity({}), 'guide');
+  assert.equal(studyPlanActivity({ activity: '__proto__' }), 'guide');
+  assert.equal(studyPlanStudyRequest({ ...plan, id: undefined }), null, 'unsaved drafts do not get a Study transition');
+  assert.equal(studyPlanStudyRequest(plan, { id: 'foreign-step' }), null);
+  assert.deepEqual(studyPlanStudyRequest(plan, { id: 'step-one', detail: 'Ignore saved instructions.', href: 'javascript:alert(1)' }), {
+    planId: 'saved-one', stepId: 'step-one', courseId: '42', subject: 'all', activity: 'model', request: 'Change one input and explain the result.', href: '#/library',
+  });
+  assert.equal(studyPlanStudyRequest({ ...plan, goal: 'x'.repeat(5000) }).request.length, 2000);
+});
+
+test('Plan prefill stays editable, course work stays scoped, and chosen activity is sent only on explicit draft', async () => {
+  const prior = globalThis.document; globalThis.document = { createElement: tag => new Node(tag) };
+  let instance;
+  try {
+    const root = new Node('section'), calls = [], started = [];
+    const items = [{ id: 'assignment:7', courseId: '42', title: '<b>Cell membranes</b>', type: 'Assignment', dueAt: '2026-10-09T12:00:00Z' }, { id: 'assignment:8', courseId: '43', title: 'Different course work', dueAt: null }];
+    instance = mountStudyPlans(root, {
+      profileId: 'one', courses: [{ id: '42', name: 'Biology' }, { id: '43', name: 'English' }], selectedCourseId: '42', canvasItems: items,
+      initialGoal: 'Explain diffusion with a model', initialActivity: 'model', onStudyPlan: meta => started.push(meta),
+      request: async (path, options) => {
+        calls.push({ path, options });
+        if (options.method === 'GET') return response({ plans: [] });
+        const body = JSON.parse(options.body);
+        return response({ plan: { ...body, title: 'Cell study', topics: ['Cell membranes'], steps: [{ id: 'step-one', title: 'Explore', detail: body.goal, minutes: 20 }], source: 'student' } });
+      },
+    });
+    await settled();
+    const goal = descendants(root).find(node => node.name === 'goal');
+    assert.equal(goal.value, 'Explain diffusion with a model');
+    assert.equal(descendants(root).find(node => node.name === 'plan-activity' && node.value === 'model').checked, true);
+    const item = descendants(root).find(node => node.name === 'canvasItem');
+    assert.equal(item.value, 'assignment:7');
+    assert.doesNotMatch(root.textContent, /Different course work/);
+    assert.match(root.textContent, /<b>Cell membranes<\/b>/);
+    assert.equal(descendants(root).some(node => node.tagName === 'b'), false);
+    assert.equal(descendants(root).some(node => node.type === 'datetime-local'), false, 'Canvas due dates are read only');
+    item.checked = true; item.fire('change'); goal.value = 'Use a model to explain why water moves.';
+    assert.equal(calls.filter(call => call.options.method === 'POST').length, 0);
+    assert.equal(started.length, 0);
+    descendants(root).find(node => node.tagName === 'form').fire('submit'); await settled();
+    const request = JSON.parse(calls.find(call => call.path.includes('/draft?')).options.body);
+    assert.equal(request.activity, 'model'); assert.equal(request.course.id, '42');
+    assert.match(request.goal, /Use a model to explain why water moves/);
+    assert.match(request.goal, /Selected course item \[assignment:7\]: <b>Cell membranes<\/b>/);
+    assert.doesNotMatch(request.goal, /Different course|2026-10-09/);
+    assert.equal(calls.filter(call => call.options.method === 'POST').length, 1, 'drafting still does not save');
+    assert.equal(started.length, 0, 'drafts never auto-start Study');
+    instance.updateCanvasItems([{ ...items[0], title: 'Updated class title' }]);
+    assert.match(root.textContent, /Updated class title/);
+    assert.equal(descendants(root).find(node => node.name === 'canvasItem').checked, true);
+  } finally { instance?.dispose(); globalThis.document = prior; }
+});
+
+test('a saved plan and step open Study with their real context without completing or generating work', async () => {
+  const prior = globalThis.document; globalThis.document = { createElement: tag => new Node(tag) };
+  let instance;
+  try {
+    const root = new Node('section'), calls = [], started = [];
+    const plan = { id: 'saved-one', title: 'Test cell membranes', activity: 'test', course: { id: '42', name: 'Biology', subject: 'all' }, goal: 'Plan a test on diffusion.', topics: ['Diffusion'], steps: [{ id: 'step-one', title: 'Choose questions', detail: 'Use checked questions on this topic.', minutes: 20, href: '#/mixed' }], completedStepIds: [], source: 'student' };
+    instance = mountStudyPlans(root, { profileId: 'one', selectedPlanId: 'saved-one', courses: [{ id: '42', name: 'Biology' }], onStudyPlan: meta => started.push(meta), request: async (path, options) => { calls.push({ path, options }); return response({ plans: [plan] }); } });
+    await settled();
+    named(root, 'Study this plan').fire('click'); named(root, 'Study this step').fire('click');
+    assert.deepEqual(started.map(meta => [meta.planId, meta.stepId, meta.courseId, meta.activity]), [['saved-one', null, '42', 'test'], ['saved-one', 'step-one', '42', 'test']]);
+    assert.equal(calls.length, 1); assert.equal(calls[0].options.method, 'GET');
+    assert.equal(descendants(root).some(node => node.href === '#/mixed'), false, 'the old resource link cannot bypass the context-preserving Study callback');
+  } finally { instance?.dispose(); globalThis.document = prior; }
 });

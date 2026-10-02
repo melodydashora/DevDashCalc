@@ -1,13 +1,15 @@
 # Learning workspace and persistence
 
-Implementation guide, September 17, 2026. These behaviors describe the code in
+Implementation guide, October 2, 2026. These behaviors describe the code in
 this repository; deployment verification is a separate step.
 
 | Entry | Purpose | Saved state and limits |
 | --- | --- | --- |
-| Home (`#/home`) | Current Canvas classes, topics from explicitly saved plans, and study tools | Course topics come from plans, not invented school assignments. |
+| Home (`#/home`) | Personalized greeting and three touch-friendly destinations: Study, Plan, Canvas | Desktop navigation is horizontal; phones use the right-side menu. Account settings are in the header. |
+| Canvas (`#/canvas`) | Refresh/check school courses and add/remove them from Plan | Existing learner-owned course visibility preferences persist membership. Removing a course does not alter Canvas or erase saved work; it can be added again. Preference-read/write failures remain visible. |
+| Study (`#/study`, `#/study/course/<courseId>`, `#/study/<planId>/<stepId>`) | Choose a course for explanations/practice/guides/flashcards/examples, or work through saved plan steps; view instructor work and use the bottom Coach | Completion uses the owned plan API; only selected IDs and pause choice are stored locally. The server resolves selected plan/step context from owned records. |
 | Course library (`#/library`) | Independent AB/BC lessons/mastery, subject practice, and models | Changing subject preserves progress. SAT, Algebra, and Physics practice are not full authored lesson courses. |
-| Study plans (`#/plans`, `#/plans/<id>`) | Choose a course/goal; request or write a draft; edit and explicitly save; reopen and complete steps | Owner-bound, append-only events. 200 plans / 5,000 plan events per workspace; 1–10 topics, 1–12 steps, 1–120 minutes per step and at most 360 minutes total. No delete/archive interface yet. |
+| Plan (`#/plans`, `#/plans/<id>`) | Choose a Canvas course and items, add a topic/question, select Guide/Practice/Test/Model, then review and save steps for Study | Owner-bound, append-only events. 200 plans / 5,000 plan events per workspace; 1–10 topics, 1–12 steps, 1–120 minutes per step and at most 360 minutes total. No delete/archive interface yet. |
 | Mixed practice (`#/mixed`, `#/mixed/sat`, `#/mixed/algebra`) | Verified-key questions, explicit checking, help and adaptive follow-ups | Active sessions last at most six hours / 200 questions and end on server restart. Canonical checked attempts persist separately. |
 | Build with Astra (`#/build`) | Editable request for a question/set/model explanation with a chosen type of variation | Opens the request in the persistent coach draft without sending. Does not save a plan, run generated code, or create verified graded content. |
 | Evidence mysteries (`#/mystery`) | Three original cases, each with evidence, inference and grammar stages | Nine local ungraded stages; explicit Check/Next, hint/explanation, exit anytime. Public keys; page-local progress; no score/mastery. |
@@ -18,7 +20,7 @@ this repository; deployment verification is a separate step.
 The server derives evidence from a checked question: attempt/topic/subject IDs,
 template/variant IDs, difficulty, correctness, assistance, misconception tag,
 original timestamp, and whether it is review. Prompts, choices, keys, and private
-generator parameters are excluded. `/api/practice-history` is a read endpoint;
+generator parameters are excluded. Bounded hashes of checked prompt/problem variants are stored only internally to reduce repetition across sessions; public history omits them. Recent unchecked exposures remain in server memory. Existing alternate question forms are preferred where available; a finite bank can still repeat, with review-only disclosure. `/api/practice-history` is a read endpoint;
 clients cannot write their own correctness or help claims.
 
 Database storage uses `practice-<profile>` and `plans-<profile>` keys in
@@ -71,3 +73,46 @@ activities. They do not award graded-bank credit. A learner can choose new
 scenarios, representations, unknowns, multistep reasoning, explanation/error
 analysis, or wording-only review. Wording alone is explicitly distinguished
 from a new reasoning task.
+
+## Coach inputs and memories
+
+The persistent GPT Coach uses authored lesson context, current verified practice
+questions, owned saved-plan steps, and the student’s scoped Canvas resources.
+Voice input is transcribed into the same text request; optional chunked speech
+reads that response without word highlighting. There is no separate voice brain.
+
+Students can attach two JPEG/PNG/WebP photos or UTF-8 text notes, up to 6 MiB
+combined and 12,000 note characters. Camera/gallery selection is explicit; files
+are removed after a successful reply or workspace/context change. Failed sends
+retain the draft for retry. Upload bytes are request-scoped, excluded from
+transcripts and persistent memories, and sent as real image content to the GPT
+provider. Upload text cannot authorize memory-writing tools. HEIC/PDF files are
+not supported by this first upload path.
+
+Astra can save selective observations from what the learner says, with confirmed
+write receipts. Learners can edit/remove saved notes. Add to Plan on a reply opens
+an editable draft; it does not silently save the response or carry attachments.
+Test requests remain learning activities: only the existing checked bank awards
+practice credit. Interactive models come from the available reviewed library;
+arbitrary generated scripts are not executed.
+
+## Direct course learning
+
+Course mode does not require a saved plan and is not limited to the independent
+SAT/Calculus bank. It uses the learner’s selected Canvas course, optional
+assignment, and topic. Previously submitted assignments remain available for
+review; the instructor panel still shows pending items. Explicit course URLs
+open Course mode even when the device remembers a saved plan.
+
+The server validates course/assignment ownership, removes stale global math
+filters for this mode, and retrieves relevant instructional material. The
+selected topic remains learner-provided context, not a teacher requirement.
+Unreadable material is disclosed; Astra can explain from general subject
+knowledge without claiming to have read that material. Generated questions
+are formative learning activities, not official grades or verified-bank credit.
+
+Explain-to-Practice changes preserve the same conversation. Course, assignment,
+or topic changes isolate the old conversation and pending work. Background
+refresh preserves typed requests and focus. Provider tests inspect actual
+request payloads with fixtures; successful transport tests do not establish the
+quality of a live model’s explanation in every subject.

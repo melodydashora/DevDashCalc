@@ -201,7 +201,8 @@ test('public diagrams include only allowed givens; canonical completed evidence 
   assert.equal(service.attemptEvidence('learner',view.sessionId,q.id),null);
   service.answer('learner',view.sessionId,q.id,1);const evidence=service.attemptEvidence('learner',view.sessionId,q.id);
   assert.equal(evidence.correct,false);assert.equal(evidence.misconceptionTag,'slope');assert.equal(evidence.assisted,false);assert.ok(Number.isFinite(Date.parse(evidence.at)));
-  assert.doesNotMatch(JSON.stringify(evidence),/answerIndex|parameters|numericAnswer|choices|solution|prompt/);
+  assert.doesNotMatch(JSON.stringify(evidence),/"(?:answerIndex|parameters|numericAnswer|choices|solution|prompt)"/);
+  assert.match(evidence.problemHash,/^[a-f0-9]{64}$/);assert.match(evidence.promptHash,/^[a-f0-9]{64}$/);
   service.tutorReceived('learner',view.sessionId,q.id,true);assert.equal(service.attemptEvidence('learner',view.sessionId,q.id).assisted,true);
   assert.throws(()=>service.attemptEvidence('other',view.sessionId,q.id),{code:'SESSION_EXPIRED'});
 });

@@ -2,6 +2,7 @@
 import { readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 const runs = [['scripts/lint-ui.mjs', 'public/app.js', 'public/auth-ui.js', 'public/canvas-account.js', 'public/continuity-ui.js', 'public/viz.js', 'public/study-lab.js', 'public/spatial-lab.js', 'public/focus-planner.js', 'public/page-coach.js', 'public/mixed-study.js', 'public/study-plans.js', 'public/practice-insights.js', 'public/practice-builder.js', 'public/evidence-mystery.js', 'public/question-models.js', 'public/canvas-insights.js']];
+runs[0].push('public/coach-audio.js', 'public/coach-attachments.js', 'public/coach-intent.js', 'public/course-materials.js', 'public/student-study.js');
 for (const file of readdirSync('content').filter((f) => /^unit-\d+\.json$/.test(f))) runs.push(['scripts/qa-tools.mjs', 'lint', file.replace('.json', '')]);
 for (const args of runs) {
   const result = spawnSync(process.execPath, args, { stdio: 'inherit' });
