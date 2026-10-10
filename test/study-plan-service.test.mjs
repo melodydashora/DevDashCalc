@@ -82,3 +82,68 @@ test('same-time cross-instance conflicting completions cannot both report succes
   assert.equal(completions.length, 2);
   assert.equal(completions[0].at, completions[1].at, 'regression specifically exercises equal timestamps');
 });
+
+const schedule = (extra = {}) => ({ startAt: '2026-10-10T12:00:00-05:00', endAt: '2026-10-10T13:00:00-05:00', timeZone: 'America/Chicago', ...extra });
+test('schedules are explicitly saved and model drafts cannot enable schedules or reminders', async () => {
+  const f = fixture(), service = f.make();
+  const generated = parseStudyPlanDraft(JSON.stringify({ ...input(), schedule: schedule({ remindersEnabled: true }) }), course, input().goal, 25);
+  assert.equal(generated.schedule, undefined);
+  const draft = service.draft('dev', generated, { astra: true });
+  assert.deepEqual(await service.list('dev'), []);
+  const saved = await service.create('dev', { ...draft, schedule: schedule() }, { course, requestId: randomUUID() });
+  assert.equal(saved.schedule.startAt, '2026-10-10T17:00:00.000Z');
+  assert.equal(saved.schedule.remindersEnabled, false);
+  assert.deepEqual((await f.make().list('dev'))[0], saved);
+});
+
+test('schedule and completion updates are atomic, replayable and cannot replace other plans or profiles', async () => {
+  const f = fixture(), service = f.make();
+  const original = await service.create('dev', input(), { course, requestId: randomUUID() });
+  const sibling = await service.create('dev', input(), { course, requestId: randomUUID() });
+  const request = { schedule: schedule({ remindersEnabled: true }), completedStepIds: ['step-1'], expectedUpdatedAt: original.updatedAt, requestId: randomUUID() };
+  const changed = await service.update('dev', original.id, request);
+  assert.equal(changed.schedule.remindersEnabled, true); assert.deepEqual(changed.completedStepIds, ['step-1']);
+  assert.deepEqual(await service.update('dev', original.id, request), changed);
+  assert.equal(f.data.get('dev').length, 3);
+  await assert.rejects(service.update('dev', original.id, { ...request, schedule: null }), { status: 409 });
+  await assert.rejects(service.update('dev', original.id, { ...request, requestId: randomUUID() }), { status: 409 });
+  await assert.rejects(service.update('esha', original.id, request), { status: 404 });
+  assert.deepEqual((await service.list('dev')).find(p => p.id === sibling.id), sibling);
+  // Retrying the original creation returns the current plan, never resets it.
+  assert.deepEqual(await service.create('dev', input(), { course, requestId: original.id }), changed);
+  const removed = await service.update('dev', original.id, { schedule: null, expectedUpdatedAt: changed.updatedAt });
+  assert.equal(removed.schedule, undefined); assert.deepEqual(removed.completedStepIds, ['step-1']);
+});
+
+test('scheduling validates versions and preserves records on invalid time or revoked access', async () => {
+  const f = fixture(), service = f.make();
+  const original = await service.create('dev', input(), { course, requestId: randomUUID() });
+  await assert.rejects(service.update('dev', original.id, { schedule: schedule() }), { status: 400 });
+  await assert.rejects(service.update('dev', original.id, { schedule: schedule({ endAt: '2020-01-01T00:00Z' }), expectedUpdatedAt: original.updatedAt }), { status: 400 });
+  await assert.rejects(service.update('dev', original.id, { schedule: schedule(), expectedUpdatedAt: original.updatedAt }, async () => { throw Error('revoked'); }), /revoked/);
+  assert.deepEqual((await service.list('dev'))[0], original);
+  assert.equal(f.data.get('dev').length, 1);
+});
+
+test('same-clock cross-instance schedule and completion conflicts cannot both succeed, even with no-op scheduling', async () => {
+  const f = fixture(), a = f.make(), b = f.make();
+  const p = await a.create('dev', input(), { course, requestId: randomUUID() });
+  const requestId = randomUUID();
+  const results = await Promise.allSettled([
+    a.complete('dev', p.id, { completedStepIds: ['step-1'], expectedUpdatedAt: p.updatedAt }),
+    b.update('dev', p.id, { schedule: null, expectedUpdatedAt: p.updatedAt, requestId }),
+  ]);
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal(results.find(r => r.status === 'rejected').reason.status, 409);
+  await assert.rejects(b.update('dev', p.id, { schedule: null, expectedUpdatedAt: p.updatedAt, requestId }), { status: 409 });
+});
+
+test('different workspaces can update the same plan IDs and request IDs independently', async () => {
+  const f = fixture(), a = f.make(), b = f.make(), id = randomUUID(), requestId = randomUUID();
+  const [dev, esha] = await Promise.all(['dev', 'esha'].map(profile => a.create(profile, input(), { course, requestId: id })));
+  const [first, second] = await Promise.all([
+    a.update('dev', id, { schedule: schedule(), expectedUpdatedAt: dev.updatedAt, requestId }),
+    b.update('esha', id, { schedule: schedule({ remindersEnabled: true }), expectedUpdatedAt: esha.updatedAt, requestId }),
+  ]);
+  assert.equal(first.schedule.remindersEnabled, false); assert.equal(second.schedule.remindersEnabled, true);
+});

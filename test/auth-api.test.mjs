@@ -126,7 +126,7 @@ globalThis.fetch = async (input, options = {}) => {
 };`;
 let sandbox, fixture;
 const children = new Set();
-const serverFixtureFiles = ['server.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
+const serverFixtureFiles = ['server.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'canvas-sync.js', 'canvas-documents.js', 'public/canvas-deadlines.js', 'public/plan-schedule.js', 'public/time-context.js',
   'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'mixed-sat-bank.js', 'mixed-ap-variants.js', 'study-plans.js', 'practice-history.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
 async function start(extra = {}, directory = sandbox) {
   const socket = createServer();
@@ -206,7 +206,7 @@ test('signed-out requests never touch private routes, saved Canvas secrets, or p
     ['/api/canvas/session?profile=profile-a', 'GET'], ['/api/canvas/snapshot', 'GET'],
     ['/api/canvas/coach', 'POST'], ['/api/canvas/assessment', 'POST'], ['/api/canvas/prefs', 'PUT'],
     ['/api/mixed/topics', 'GET'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'GET'], ['/api/tutor', 'POST'],
-    ['/api/continuity', 'GET'], ['/api/continuity', 'POST'],
+    ['/api/time', 'GET'], ['/api/continuity', 'GET'], ['/api/continuity', 'POST'],
     ['/api/study-plans', 'GET'], ['/api/study-plans', 'POST'], ['/api/study-plans/draft', 'POST'], ['/api/study-plans/example', 'PATCH'],
   ]) {
     const result = await fixture.api(path, { method, ...(method === 'GET' ? {} : { body: {} }) });
@@ -227,6 +227,12 @@ test('login projects safe account data, sets an expiring HttpOnly cookie, and de
   assert.ok(Date.parse(result.data.expiresAt) > Date.now());
   assert.equal(result.data.token, undefined); assert.equal(result.data.sessionId, undefined);
   assert.match(result.response.headers.get('set-cookie'), /Path=\/; Max-Age=\d+; HttpOnly; SameSite=Lax/);
+  const beforeTime = Date.now();
+  const clock = await fixture.api('/api/time?timeZone=America%2FChicago', { cookie: result.cookie });
+  assert.equal(clock.status, 200);
+  assert.equal(clock.data.timeZone, 'America/Chicago');
+  assert.ok(Date.parse(clock.data.now) >= beforeTime && Date.parse(clock.data.now) <= Date.now());
+  assert.equal(clock.response.headers.get('cache-control'), 'no-store');
   const value = { savedAt: 200, attempts: ['Alice private progress'], profileId: 'profile-b' };
   assert.equal((await fixture.api('/api/progress', { method: 'PUT', cookie: result.cookie, body: value })).data.saved, true);
   assert.deepEqual((await fixture.api('/api/progress', { cookie: result.cookie })).data, value);
@@ -237,7 +243,7 @@ test('login projects safe account data, sets an expiring HttpOnly cookie, and de
     assert.equal((await fixture.api(`/api/progress?profile=${query}`, { cookie: result.cookie })).status, 403);
   }
   assert.equal((await fixture.api('/api/progress?profile=profile-a&profile=profile-b', { cookie: result.cookie })).status, 403);
-  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans']) {
+  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans', '/api/time']) {
     assert.equal((await fixture.api(`${path}?profile=profile-b`, { cookie: result.cookie })).status, 403);
   }
 });

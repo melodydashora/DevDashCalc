@@ -1,4 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
+import { normalizePlanSchedule } from './public/plan-schedule.js';
 
 export class StudyPlanError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -12,6 +13,10 @@ const uuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]
 const clone = value => JSON.parse(JSON.stringify(value));
 const signature = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const safeHref = value => typeof value === 'string' && /^#\/(?:library|build|plans|mixed(?:\/(?:sat|algebra))?|focus|canvas(?:\/plan|\/course\/[0-9]{1,30})?|(?:unit|practice)\/unit-0[1-9]|(?:unit|practice)\/unit-10)$/.test(value) ? value : undefined;
+const normalizeSchedule = value => {
+  try { return normalizePlanSchedule(value); }
+  catch (error) { throw new StudyPlanError(400, error.message); }
+};
 
 // This is a plan, not executable model output or a new question/answer key.
 export function normalizeStudyPlan(input, course) {
@@ -24,8 +29,9 @@ export function normalizeStudyPlan(input, course) {
     return { id: `step-${index + 1}`, title: text(step.title, 160, 'a step title'), detail: text(step.detail, 2000, 'step instructions'), minutes: step.minutes, ...(href ? { href } : {}) };
   });
   if (steps.reduce((sum, step) => sum + step.minutes, 0) > 360) fail('Keep one study plan within 360 suggested minutes.');
+  const schedule = normalizeSchedule(input.schedule);
   return { title: text(input.title, 160, 'a plan title'), course: { id: text(course?.id, 64, 'a course'), name: text(course?.name, 200, 'a course name'), subject: text(course?.subject, 32, 'a subject') },
-    goal: text(input.goal, 2000, 'a goal'), topics: [...new Set(input.topics.map(topic => text(topic, 160, 'a topic')))], steps };
+    goal: text(input.goal, 2000, 'a goal'), topics: [...new Set(input.topics.map(topic => text(topic, 160, 'a topic')))], steps, ...(schedule ? { schedule } : {}) };
 }
 
 export function starterStudyPlan({ course, goal, minutes = 20 }) {
@@ -45,7 +51,8 @@ export function parseStudyPlanDraft(raw, course, goal, minutes) {
   let input;
   try { input = JSON.parse(cleaned); } catch { fail('The coach draft was not a valid plan.'); }
   // The selected course and learner goal stay authoritative over model labels.
-  const plan = normalizeStudyPlan({ ...input, goal }, course);
+  // A generated draft cannot enroll the learner into schedules or reminders.
+  const plan = normalizeStudyPlan({ ...input, goal, schedule: undefined }, course);
   const total = plan.steps.reduce((sum, step) => sum + step.minutes, 0);
   if (total !== minutes) fail('The coach draft did not fit the chosen study time.');
   return plan;
@@ -62,12 +69,19 @@ export function projectStudyPlans(events) {
   const plans = new Map();
   for (const event of events) {
     if (event?.type === 'create' && uuid(event.plan?.id) && !plans.has(event.plan.id)) plans.set(event.plan.id, clone(event.plan));
-    if (event?.type === 'complete' && plans.has(event.planId)) {
+    if (['complete', 'update'].includes(event?.type) && plans.has(event.planId)) {
       const plan = plans.get(event.planId);
       if (event.expectedUpdatedAt && event.expectedUpdatedAt !== plan.updatedAt) continue;
-      const allowed = new Set(plan.steps.map(step => step.id));
-      plan.completedStepIds = [...new Set((event.completedStepIds || []).filter(id => allowed.has(id)))];
+      if (event.type === 'complete' || Object.hasOwn(event, 'completedStepIds')) {
+        const allowed = new Set(plan.steps.map(step => step.id));
+        plan.completedStepIds = [...new Set((event.completedStepIds || []).filter(id => allowed.has(id)))];
+      }
+      if (event.type === 'update' && Object.hasOwn(event, 'schedule')) {
+        const schedule = normalizeSchedule(event.schedule);
+        if (schedule) plan.schedule = schedule; else delete plan.schedule;
+      }
       plan.updatedAt = event.at;
+      if (event.eventId) plan.revision = event.eventId;
     }
   }
   return [...plans.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -84,6 +98,48 @@ export function createStudyPlanService({ readEvents, appendEvents, now = Date.no
     return run;
   };
   const list = async profile => { scoped(profile); return projectStudyPlans(await readEvents(profile)); };
+  const update = (profile, id, input, assertCurrent = async () => {}, completionOnly = false) => queue(profile, async () => {
+    if (!uuid(id)) fail('Choose a saved plan.');
+    if (!input || Array.isArray(input) || typeof input !== 'object') fail('Provide a plan update.');
+    const hasCompletion = Object.hasOwn(input, 'completedStepIds'), hasSchedule = !completionOnly && Object.hasOwn(input, 'schedule');
+    if (!hasCompletion && !hasSchedule) fail('Choose steps or a schedule to update.');
+    if (input.requestId !== undefined && !uuid(input.requestId)) fail('Provide a valid update request ID.');
+    const events = await readEvents(profile), plan = projectStudyPlans(events).find(item => item.id === id);
+    if (!plan) throw new StudyPlanError(404, 'That plan is not in this workspace.');
+    const changes = {};
+    if (hasCompletion) {
+      if (!Array.isArray(input.completedStepIds) || input.completedStepIds.length > plan.steps.length || input.completedStepIds.some(id => !plan.steps.some(step => step.id === id))) fail('Choose steps from this plan.');
+      changes.completedStepIds = [...new Set(input.completedStepIds)].sort();
+    }
+    if (hasSchedule) {
+      if (typeof input.expectedUpdatedAt !== 'string' || !input.expectedUpdatedAt) fail('Reload this plan before changing its schedule.');
+      changes.schedule = normalizeSchedule(input.schedule);
+    }
+    const requestSignature = signature({ planId: id, ...changes });
+    if (input.requestId) {
+      const index = events.findIndex(event => event.eventId === input.requestId);
+      if (index >= 0) {
+        const prior = events[index];
+        if (prior.requestSignature !== requestSignature) throw new StudyPlanError(409, 'This update request was already used for a different change.');
+        const accepted = projectStudyPlans(events.slice(0, index + 1)).find(item => item.id === id)?.revision === input.requestId;
+        if (!accepted) throw new StudyPlanError(409, 'This plan changed on another screen. Reload it before updating.');
+        await assertCurrent();
+        return plan;
+      }
+    }
+    if (events.length >= 5000) throw new StudyPlanError(409, 'This workspace has reached its saved-plan update limit.');
+    if (input.expectedUpdatedAt && input.expectedUpdatedAt !== plan.updatedAt) throw new StudyPlanError(409, 'This plan changed on another screen. Reload it before updating.');
+    const at = new Date(Math.max(now(), Date.parse(plan.updatedAt) + 1)).toISOString(), eventId = input.requestId || randomUUID();
+    await assertCurrent();
+    const rows = await appendEvents(profile, [{ type: hasSchedule ? 'update' : 'complete', eventId, requestSignature, planId: id, expectedUpdatedAt: plan.updatedAt, ...changes, at }]);
+    const saved = projectStudyPlans(rows).find(item => item.id === id);
+    // Event identity distinguishes equal-clock updates, even across processes
+    // and across different change types. A rejected event cannot claim success.
+    const index = rows.findIndex(event => event.eventId === eventId);
+    if (index < 0 || rows[index].requestSignature !== requestSignature
+      || projectStudyPlans(rows.slice(0, index + 1)).find(item => item.id === id)?.revision !== eventId) throw new StudyPlanError(409, 'This plan changed on another screen. Reload it before updating.');
+    return saved;
+  });
   return {
     list,
     draft(profile, plan, { model, astra = false } = {}) {
@@ -101,7 +157,9 @@ export function createStudyPlanService({ readEvents, appendEvents, now = Date.no
         const normalized = normalizeStudyPlan(input, course), events = await readEvents(profile);
         const plans = projectStudyPlans(events), old = plans.find(plan => plan.id === requestId);
         if (old) {
-          if (signature(normalizeStudyPlan(old, old.course)) !== signature(normalized)) throw new StudyPlanError(409, 'This save request was already used for a different plan.');
+          const original = events.find(event => event.type === 'create' && event.plan?.id === requestId).plan;
+          if (signature(normalizeStudyPlan(original, original.course)) !== signature(normalized)) throw new StudyPlanError(409, 'This save request was already used for a different plan.');
+          await assertCurrent();
           return old;
         }
         if (plans.length >= 200 || events.length >= 5000) throw new StudyPlanError(409, 'This workspace has reached its saved-plan limit. Existing plans remain available.');
@@ -110,31 +168,15 @@ export function createStudyPlanService({ readEvents, appendEvents, now = Date.no
         const at = new Date(now()).toISOString();
         const plan = { ...normalized, id: requestId, createdAt: at, updatedAt: at, completedStepIds: [], source: matched ? draft.source : 'student', ...(matched && draft.model ? { model: draft.model } : {}) };
         await assertCurrent();
-        const saved = projectStudyPlans(await appendEvents(profile, [{ type: 'create', plan }]));
+        const savedEvents = await appendEvents(profile, [{ type: 'create', plan }]);
+        const saved = projectStudyPlans(savedEvents);
         const actual = saved.find(row => row.id === requestId);
-        if (!actual || signature(normalizeStudyPlan(actual, actual.course)) !== signature(normalized)) throw new StudyPlanError(409, 'This save request was already used. Reload your saved plans.');
+        const original = savedEvents.find(event => event.type === 'create' && event.plan?.id === requestId)?.plan;
+        if (!actual || !original || signature(normalizeStudyPlan(original, original.course)) !== signature(normalized)) throw new StudyPlanError(409, 'This save request was already used. Reload your saved plans.');
         return actual;
       });
     },
-    complete(profile, id, input, assertCurrent = async () => {}) {
-      return queue(profile, async () => {
-        if (!uuid(id)) fail('Choose a saved plan.');
-        const events = await readEvents(profile), plan = projectStudyPlans(events).find(item => item.id === id);
-        if (!plan) throw new StudyPlanError(404, 'That plan is not in this workspace.');
-        if (events.length >= 5000) throw new StudyPlanError(409, 'This workspace has reached its saved-plan update limit.');
-        if (input?.expectedUpdatedAt && input.expectedUpdatedAt !== plan.updatedAt) throw new StudyPlanError(409, 'This plan changed on another screen. Reload it before updating.');
-        if (!Array.isArray(input?.completedStepIds) || input.completedStepIds.length > plan.steps.length || input.completedStepIds.some(id => !plan.steps.some(step => step.id === id))) fail('Choose steps from this plan.');
-        const completedStepIds = [...new Set(input.completedStepIds)];
-        const at = new Date(Math.max(now(), Date.parse(plan.updatedAt) + 1)).toISOString();
-        await assertCurrent();
-        const rows = await appendEvents(profile, [{ type: 'complete', eventId: randomUUID(), planId: id, expectedUpdatedAt: plan.updatedAt, completedStepIds, at }]);
-        const saved = projectStudyPlans(rows).find(item => item.id === id);
-        // Separate server instances can calculate the same timestamp. Confirm
-        // the requested completion state as well, not just the clock value.
-        if (saved?.updatedAt !== at || saved.completedStepIds.length !== completedStepIds.length
-          || completedStepIds.some(stepId => !saved.completedStepIds.includes(stepId))) throw new StudyPlanError(409, 'This plan changed on another screen. Reload it before updating.');
-        return saved;
-      });
-    },
+    update,
+    complete: (profile, id, input, assertCurrent) => update(profile, id, input, assertCurrent, true),
   };
 }

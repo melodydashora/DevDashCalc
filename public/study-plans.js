@@ -1,6 +1,9 @@
 // Explicit drafts and saved plans. Model text is always rendered as text.
 import { apiFetch } from './auth-ui.js';
 import { homePlanTopics } from './student-home.js';
+import { mountPlanSchedule } from './plan-schedule-ui.js';
+import { createAppClock } from './time-context.js';
+import { planProgress } from './plan-schedule.js';
 
 const PLAN_ID = /^[a-z0-9-]{1,64}$/;
 const text = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
@@ -49,6 +52,7 @@ export function createStudyPlanClient({ profileId, request = apiFetch, isCurrent
     list: () => call(),
     draft: body => call('/draft', 'POST', body),
     save: (plan, requestId) => call('', 'POST', { plan, requestId }),
+    schedule: (plan, schedule) => call('/' + encodeURIComponent(plan.id), 'PATCH', { schedule, expectedUpdatedAt: plan.updatedAt }),
     complete: (plan, completedStepIds) => call('/' + encodeURIComponent(plan.id), 'PATCH', { completedStepIds, expectedUpdatedAt: plan.updatedAt }),
     dispose() { disposed = true; for (const controller of controllers) controller.abort(); controllers.clear(); },
   };
@@ -107,9 +111,11 @@ export function mountHomeStudyPlans(container, { profileId, isCurrent = () => tr
 }
 
 export function mountStudyPlans(container, {
-  profileId, courses = [], subjects = [], selectedCourseId = null, subject = 'all', selectedPlanId = null,
+  profileId, clock = createAppClock(), courses = [], subjects = [], selectedCourseId = null, subject = 'all', selectedPlanId = null,
   isCurrent = () => true, request = apiFetch, onOpenPlan = id => { location.hash = '#/plans/' + id; },
 } = {}) {
+  let scheduleCleanup = null, detailDisabled = new Map();
+  const plansChanged = () => globalThis.dispatchEvent?.(new Event('students4ai-plans-changed'));
   let disposed = false, busy = false, plans = [], planRevision = 0, draft = null, draftRequestId = null, editorValues = null;
   const current = () => !disposed && container.isConnected && isCurrent();
   const client = createStudyPlanClient({ profileId, request, isCurrent: current });
@@ -210,6 +216,13 @@ export function mountStudyPlans(container, {
     busy = value;
     for (const control of form.querySelectorAll('input, textarea, select, button')) control.disabled = value;
     for (const control of editor.querySelectorAll('input, textarea, button')) control.disabled = value;
+    if (value) {
+      detailDisabled = new Map([...detail.querySelectorAll('input, textarea, select, button')].map(control => [control, control.disabled]));
+      for (const control of detailDisabled.keys()) control.disabled = true;
+    } else {
+      for (const [control, disabled] of detailDisabled) if (control.isConnected !== false) control.disabled = disabled;
+      detailDisabled.clear();
+    }
     showCourseFields();
   }
   async function run(work) {
@@ -224,7 +237,7 @@ export function mountStudyPlans(container, {
     const course = chosenCourse(); if (!course || !validGoal() || !form.reportValidity()) return;
     run(async () => {
       status.textContent = 'Astra is preparing a draft. It has not been saved.';
-      const result = await client.draft({ course, goal: planGoal(), minutes: Number(minutes.value) });
+      const result = await client.draft({ course, goal: planGoal(), minutes: Number(minutes.value), timeZone: clock.read().timeZone });
       if (!current()) return;
       if (!result.plan) throw new Error('A draft was not returned. You can write your own plan.');
       showDraft(result.plan, result.notice || (result.available === false ? 'Astra is unavailable. Review and edit this starter plan before saving.' : 'Review the Astra draft below. It has not been saved.'));
@@ -279,6 +292,7 @@ export function mountStudyPlans(container, {
       if (!result.plan?.id) throw new Error('The saved plan could not be confirmed. Try saving again.');
       plans = [result.plan, ...plans.filter(plan => plan.id !== result.plan.id)];
       planRevision += 1;
+      plansChanged();
       draft = null; editor.replaceChildren(); renderSaved();
       status.textContent = 'Plan saved. You can reopen it from Study plans or Home.';
       onOpenPlan(result.plan.id);
@@ -288,6 +302,7 @@ export function mountStudyPlans(container, {
   }
 
   function renderDetail(plan) {
+    scheduleCleanup?.(); scheduleCleanup = null;
     detail.replaceChildren(); if (!plan) return;
     const card = element('article', 'card saved-plan-open');
     card.append(element('span', 'kicker', text(plan.course?.name, 200)), element('h2', '', text(plan.title, 160)), element('p', '', text(plan.goal)), element('p', 'canvas-meta', sourceLabel(plan)));
@@ -311,6 +326,7 @@ export function mountStudyPlans(container, {
             if (!current()) return;
             plans = plans.map(item => item.id === plan.id ? result.plan : item);
             planRevision += 1;
+            plansChanged();
             renderSaved(); status.textContent = 'Completed steps saved.';
           } finally { if (current()) for (const input of list.querySelectorAll('input')) input.disabled = false; }
         });
@@ -318,6 +334,25 @@ export function mountStudyPlans(container, {
       list.appendChild(row);
     }
     card.appendChild(list); detail.appendChild(card);
+    const scheduleHost = element('section', 'plan-schedule'); card.appendChild(scheduleHost);
+    const schedulePanel = mountPlanSchedule(scheduleHost, { plan, clock, profileId, remindersManagedExternally: true, onUpdate: async schedule => {
+      if (busy) throw new Error('Wait for the current plan save to finish, then try again.');
+      if (!current()) throw aborted();
+      setBusy(true);
+      try {
+        const result = await client.schedule(plan, schedule);
+        if (!current()) throw aborted();
+        plans = plans.map(item => item.id === plan.id ? result.plan : item);
+        planRevision += 1;
+        // Existing checkbox handlers close over this updated revision. Keep
+        // the panel mounted so its confirmed-save message and fields survive.
+        plan = result.plan;
+        plansChanged();
+        status.textContent = schedule ? 'Schedule saved.' : 'Schedule removed.';
+        return result.plan;
+      } finally { if (current()) setBusy(false); }
+    } });
+    scheduleCleanup = () => schedulePanel.dispose();
   }
   function renderSaved() {
     saved.replaceChildren(element('h2', '', 'Your saved plans'));
@@ -325,7 +360,7 @@ export function mountStudyPlans(container, {
     const grid = element('div', 'saved-plan-grid');
     for (const plan of plans) {
       const card = element('article', 'card saved-plan-summary');
-      card.append(element('span', 'kicker', text(plan.course?.name, 200)), element('h3', '', text(plan.title, 160)), element('p', '', text(plan.goal, 300)), element('p', 'canvas-meta', (plan.completedStepIds?.length || 0) + ' of ' + (plan.steps?.length || 0) + ' steps complete'), planLink(plan));
+      card.append(element('span', 'kicker', text(plan.course?.name, 200)), element('h3', '', text(plan.title, 160)), element('p', '', text(plan.goal, 300)), element('p', 'canvas-meta', (plan.completedStepIds?.length || 0) + ' of ' + (plan.steps?.length || 0) + ' steps complete · ' + planProgress(plan, clock.read().epochMs).completionPercent + '% complete'), planLink(plan));
       grid.appendChild(card);
     }
     saved.appendChild(grid);
@@ -340,5 +375,5 @@ export function mountStudyPlans(container, {
     renderSaved();
   } })
     .catch(error => { if (current() && error.name !== 'AbortError') { saved.replaceChildren(element('h2', '', 'Your saved plans'), element('p', '', error.message)); } });
-  return { updateCourses, dispose() { disposed = true; client.dispose(); } };
+  return { updateCourses, dispose() { disposed = true; scheduleCleanup?.(); client.dispose(); } };
 }

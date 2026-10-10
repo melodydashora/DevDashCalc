@@ -25,6 +25,7 @@
   <header class="app-header">
     <div class="header-inner">
       <a class="brand" href="#/home"><span aria-hidden="true">{∫}</span> Students4AI</a>
+      <time id="app-clock" class="canvas-meta header-clock" aria-label="Current time"></time>
       <nav aria-label="Main navigation">
         <a href="#/home" data-nav="home">Home</a>
         <a href="#/plans" data-nav="plans">Study plans</a>
@@ -43,6 +44,7 @@
     <div id="study-controls" class="course-switcher" aria-label="Learning workspace"></div>
     <p id="save-notice" class="card save-notice" role="status" hidden></p>
     <p id="focus-status" class="session-progress" hidden><a href="#/focus">Study session running · return to your plan</a></p>
+    <section id="plan-reminders" class="card plan-reminders" hidden aria-label="Study reminders"></section>
     <div id="breadcrumb" class="breadcrumb" aria-label="You are here"></div>
     <div id="view" class="view"></div>
     <div id="page-coach-slot"></div>
