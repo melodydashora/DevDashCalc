@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStudyPlanClient, studyPlanCourseOptions, mountHomeStudyPlans, mountStudyPlans } from '../public/study-plans.js';
+import { timeContext } from '../public/time-context.js';
 
 const response = data => ({ ok: true, json: async () => data });
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
@@ -25,6 +26,21 @@ test('API operations remain owner-scoped and completion includes the expected ve
   assert.deepEqual(JSON.parse(calls[2].options.body), { plan: { id: 'plan-one', draftId: 'draft-token', source: 'astra' }, requestId: 'request-one' });
   assert.deepEqual(JSON.parse(calls[3].options.body), { completedStepIds: ['step-one'], expectedUpdatedAt: '2026-09-17T00:00:00Z' });
   client.dispose();
+});
+
+test('schedule patches stay owner-scoped, carry the saved revision, and can explicitly clear the schedule', async () => {
+  const calls = [], client = createStudyPlanClient({ profileId: 'student-two', request: async (path, options) => {
+    calls.push({ path, options }); return response({ plan: { id: 'plan-two', updatedAt: 'new-version' } });
+  } });
+  try {
+    const schedule = { startAt: '2026-10-11T14:00:00Z', endAt: '2026-10-11T15:00:00Z', timeZone: 'America/Chicago', remindersEnabled: true, reminderLeadMinutes: [15] };
+    await client.schedule({ id: 'plan-two', updatedAt: 'old-version' }, schedule);
+    await client.schedule({ id: 'plan-two', updatedAt: 'new-version' }, null);
+    assert.deepEqual(calls.map(call => call.path), ['/api/study-plans/plan-two?profile=student-two', '/api/study-plans/plan-two?profile=student-two']);
+    assert.ok(calls.every(call => call.options.method === 'PATCH' && call.options.cache === 'no-store'));
+    assert.deepEqual(JSON.parse(calls[0].options.body), { schedule, expectedUpdatedAt: 'old-version' });
+    assert.deepEqual(JSON.parse(calls[1].options.body), { schedule: null, expectedUpdatedAt: 'new-version' });
+  } finally { client.dispose(); }
 });
 
 test('late replies cannot return another learner workspace data after switching', async () => {
@@ -64,6 +80,72 @@ class Node {
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
 function named(root, label) { return descendants(root).find(node => node.text === label); }
 const settled = () => new Promise(resolve => setImmediate(resolve));
+
+test('saving a schedule then checking a step uses the canonical schedule revision and preserves its dates', async () => {
+  const priorDocument = globalThis.document, priorDispatch = globalThis.dispatchEvent;
+  globalThis.document = { createElement: tag => new Node(tag) };
+  let events = 0, instance;
+  globalThis.dispatchEvent = event => { if (event.type === 'students4ai-plans-changed') events++; };
+  try {
+    let stored = { id: 'scheduled-one', title: 'Review formulas', goal: 'Explain formulas', course: { id: 'sat', name: 'SAT', subject: 'sat' },
+      topics: ['Equations'], steps: [{ id: 'one', title: 'Review equations', detail: 'Explain two examples.', minutes: 20 }], completedStepIds: [], source: 'student', updatedAt: 'revision-1' };
+    const calls = [];
+    const request = async (path, options) => {
+      if (options.method === 'GET') return response({ plans: [stored] });
+      const body = JSON.parse(options.body); calls.push(body);
+      assert.equal(path, '/api/study-plans/scheduled-one?profile=learner');
+      assert.equal(body.expectedUpdatedAt, stored.updatedAt);
+      stored = { ...stored, ...('schedule' in body ? { schedule: body.schedule } : { completedStepIds: body.completedStepIds }), updatedAt: 'revision-' + (calls.length + 1) };
+      return response({ plan: stored });
+    };
+    const root = new Node('section'), now = Date.parse('2026-10-10T17:00:00Z');
+    instance = mountStudyPlans(root, { profileId: 'learner', selectedPlanId: 'scheduled-one', subjects: [{ id: 'sat', label: 'SAT' }], request,
+      clock: { now: () => now, read: () => timeContext(now, 'America/Chicago') } });
+    await settled();
+    const input = name => descendants(root).find(node => node.name === name);
+    input('plan-start').value = '2026-10-11T09:00'; input('plan-end').value = '2026-10-11T10:00'; input('plan-reminders').checked = true;
+    descendants(root).find(node => node.tagName === 'form' && descendants(node).some(child => child.name === 'plan-start')).fire('submit');
+    await settled();
+    assert.equal(calls[0].expectedUpdatedAt, 'revision-1');
+    assert.equal(stored.schedule.startAt, '2026-10-11T14:00:00.000Z');
+    assert.equal(stored.schedule.endAt, '2026-10-11T15:00:00.000Z');
+    assert.equal(stored.schedule.remindersEnabled, true);
+    assert.match(root.textContent, /Schedule saved/);
+    const check = descendants(root).find(node => node.type === 'checkbox' && !node.name);
+    check.checked = true; check.fire('change'); await settled();
+    assert.equal(calls[1].expectedUpdatedAt, 'revision-2');
+    assert.deepEqual(stored.completedStepIds, ['one']);
+    assert.equal(stored.schedule.startAt, '2026-10-11T14:00:00.000Z');
+    assert.match(root.textContent, /1 of 1 steps complete · 100%/);
+    assert.equal(events, 2);
+  } finally { instance?.dispose(); globalThis.document = priorDocument; globalThis.dispatchEvent = priorDispatch; }
+});
+
+test('closing the learner plan during a schedule save aborts it and suppresses late rendering and reminder events', async () => {
+  const priorDocument = globalThis.document, priorDispatch = globalThis.dispatchEvent;
+  globalThis.document = { createElement: tag => new Node(tag) };
+  let instance, events = 0, signal; globalThis.dispatchEvent = () => { events++; };
+  const gate = deferred();
+  try {
+    const plan = { id: 'old-learner-plan', title: 'Old learner plan', goal: 'Review', course: { id: 'sat', name: 'SAT', subject: 'sat' }, topics: ['Equations'],
+      steps: [{ id: 'one', title: 'Review', detail: 'Explain an equation.', minutes: 10 }], completedStepIds: [], source: 'student', updatedAt: 'revision-1' };
+    const root = new Node('section');
+    instance = mountStudyPlans(root, { profileId: 'old-learner', selectedPlanId: plan.id, subjects: [{ id: 'sat', label: 'SAT' }], request: async (_, options) => {
+      if (options.method === 'GET') return response({ plans: [plan] });
+      signal = options.signal; return gate.promise;
+    } });
+    await settled();
+    descendants(root).find(node => node.name === 'plan-start').value = '2026-10-11T09:00';
+    descendants(root).find(node => node.name === 'plan-end').value = '2026-10-11T10:00';
+    descendants(root).find(node => node.tagName === 'form' && descendants(node).some(child => child.name === 'plan-start')).fire('submit');
+    instance.dispose(); assert.equal(signal.aborted, true);
+    root.textContent = 'New learner workspace';
+    gate.resolve(response({ plan: { ...plan, updatedAt: 'revision-2', schedule: { startAt: '2026-10-11T14:00:00Z', endAt: '2026-10-11T15:00:00Z', timeZone: 'America/Chicago' } } }));
+    await settled();
+    assert.equal(root.textContent, 'New learner workspace');
+    assert.equal(events, 0);
+  } finally { instance?.dispose(); globalThis.document = priorDocument; globalThis.dispatchEvent = priorDispatch; }
+});
 
 test('Home renders saved topic text inertly and provides plan links without inserting a topic catalogue', async () => {
   const prior = globalThis.document;

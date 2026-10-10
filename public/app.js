@@ -16,6 +16,19 @@ import { mountCanvasAccount } from '/canvas-account.js';
 import { mountStudyPlans, mountHomeStudyPlans } from '/study-plans.js';
 import { getQuestionModel, mountQuestionModel } from '/question-models.js';
 import { mountPracticeInsights } from '/practice-insights.js';
+import { createAppClock, mountHeaderClock } from '/time-context.js';
+import { mountPlanReminders } from '/plan-schedule-ui.js';
+
+const appClock = createAppClock();
+async function synchronizeAppClock() {
+  const sentAt = performance.now();
+  try {
+    const response = await apiFetch('/api/time?timeZone=' + encodeURIComponent(appClock.read().timeZone));
+    if (!response.ok) return;
+    const result = await response.json();
+    appClock.synchronize(result.now, sentAt, performance.now());
+  } catch { appClock.useDeviceTime(); }
+}
 
 // ---------------------------------------------------------------- data & state
 const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [], freeResponse: [] };
@@ -27,6 +40,8 @@ let labCleanup = null;
 let spatialCleanup = null;
 let focusCleanup = null;
 let studyPlansCleanup = null;
+let planRemindersCleanup = null;
+let remindersProfile = null;
 let practiceBuilderCleanup = null;
 let evidenceMysteryCleanup = null;
 let practiceInsightsCleanup = null;
@@ -90,6 +105,7 @@ function showAccountGate(notice) {
     if (notice !== undefined) $('#account-message').textContent = notice;
     return;
   }
+  planRemindersCleanup?.(); planRemindersCleanup = null; remindersProfile = null;
   accountGateRoute = route;
   accountGateActive = true;
   clearTimeout(saveTimer);
@@ -276,6 +292,7 @@ async function loadProgress(profile = activeProfile) {
 async function switchProfile(profile) {
   if (switchingProfile || profile === activeProfile || !profiles.some((p) => p.id === profile)) return;
   switchingProfile = true;
+  planRemindersCleanup?.(); planRemindersCleanup = null; remindersProfile = null;
   pageCoachCleanup?.(); pageCoachCleanup = null;
   mountView('<h1>Opening learner workspace</h1><p>Your current progress is being saved.</p>');
   clearTimeout(saveTimer);
@@ -813,7 +830,7 @@ function viewStudyPlans(selectedPlanId = null, courseId = null) {
   const v = mountView('<h1>Study plans</h1><p>Save a useful plan for any class. Open it later, follow its steps, and keep track of what you complete.</p><div id="study-plans-slot"></div>', { breadcrumb: ['Home', 'Study plans'], nav: 'plans' });
   const host = $('#study-plans-slot', v);
   const instance = mountStudyPlans(host, {
-    profileId, courses: CANVAS.snapshot?.courses || [], subjects: STUDY_SUBJECTS,
+    profileId, clock: appClock, courses: CANVAS.snapshot?.courses || [], subjects: STUDY_SUBJECTS,
     selectedCourseId: courseId || CANVAS.selectedCourseId, subject: S.settings.subject, selectedPlanId,
     isCurrent: () => profileId === activeProfile,
   });
@@ -1610,7 +1627,7 @@ const canvasDateOnly = (iso) => (iso ? new Intl.DateTimeFormat(undefined, { date
 // the current term selection (null = every term), the subject rule, and the
 // learner's remembered show/hide choices.
 function canvasRebuildInsights() {
-  CANVAS.insights = CI.buildInsights(CANVAS.snapshot, Date.now(), {
+  CANVAS.insights = CI.buildInsights(CANVAS.snapshot, appClock.now(), {
     termIds: CANVAS.termIds || [],
     subjectFilter: true,
     selectedSubject: S.settings.subject,
@@ -1748,6 +1765,9 @@ function canvasHeadHtml() {
     <h2>${esc(selectionLabel)}</h2>
     <p class="canvas-meta">${esc(S.settings.name || profiles.find((profile) => profile.id === activeProfile)?.name || 'This learner')}’s workspace · Connected to ${esc(CANVAS.host)} as ${esc(name)}.</p>
     <p class="canvas-meta">Connection source: ${esc(source)}${asOf || '.'}</p>
+    ${CANVAS.snapshot?.collection?.notice ? `<p class="canvas-note">${esc(CANVAS.snapshot.collection.notice)}</p>` : ''}
+    ${CANVAS.snapshot?.courses.some(course => course.documentsTruncated) ? '<p class="canvas-note">Some linked course documents have not been read. Refresh continues document collection.</p>' : ''}
+    ${canvasCoverageHtml(selectedCourse)}
     <div class="btn-row">
       <button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh Canvas data' : 'Load Canvas data'}</button>
       <a class="btn secondary" href="#/settings">Update Canvas token in Settings</a>
@@ -1975,10 +1995,26 @@ const canvasCountsLine = (ins) => {
   return `${missing} marked missing in Canvas · ${open} past due and still open · ${upcoming} due in the next 5 days`;
 };
 
+function deadlineEvidenceHtml(deadline) {
+  if (!deadline) return '';
+  const evidence = deadline.status === 'resolved' ? [deadline] : (deadline.evidence || []).slice(0, 3);
+  if (!evidence.length) return '';
+  return `<details class="canvas-meta"><summary>Deadline evidence</summary>${evidence.map(item => `<p>${esc(item.excerpt || 'Check the source for the applicable date.')} ${item.sourceUrl && /^https:\/\//.test(item.sourceUrl) ? `<a href="${esc(item.sourceUrl)}" target="_blank" rel="noopener">Open ${esc(item.source || 'source')}</a>` : ''}</p>`).join('')}</details>`;
+}
+
+function canvasCoverageHtml(course) {
+  if (!course) return '';
+  const sources = Object.entries(course.collection || {});
+  const docs = course.documents || [];
+  return `<details class="canvas-meta"><summary>Collected sources and gaps</summary><ul>${sources.map(([name, state]) => `<li>${esc(name)}: ${esc(state.state)}${Number.isFinite(state.count) ? ' (' + state.count + ')' : ''}</li>`).join('')}${docs.map(doc => `<li>${esc(doc.title || 'Course file')}: ${esc(doc.contentStatus || 'not-read')}${doc.warnings?.length ? ' · ' + esc(doc.warnings.join(' · ')) : ''}</li>`).join('')}</ul><p>Refresh continues unread sources within the collection limits. File or page access depends on your Canvas permissions.</p></details>`;
+}
+
 function canvasItemHtml(item, attention) {
   const side = [];
-  const due = canvasDateTime(item.dueAt);
-  side.push(due ? `Due ${esc(due)}` : 'Due date not reported in this data');
+  const due = item.duePrecision === 'date' && item.dueDate ? item.dueDate + ' (time not specified)' : canvasDateTime(item.dueAt);
+  side.push(due ? `Due ${esc(due)}${item.dueSource && item.dueSource !== 'canvas' ? ' · from ' + esc(item.dueSource) : ''}` : 'Due date not reported in this data');
+  if (item.planningDeadline?.status === 'conflict') side.push('Sources give conflicting dates; check instructions');
+  else if (item.planningDeadline?.status === 'needs-review') side.push('A possible deadline needs review');
   if (item.pointsPossible !== null) side.push(`${esc(String(item.pointsPossible))} points possible`);
   if (item.attemptsRemaining !== null) {
     side.push(item.attemptsRemaining === 1 ? '1 attempt remains' : `${item.attemptsRemaining} attempts remain`);
@@ -1986,13 +2022,14 @@ function canvasItemHtml(item, attention) {
   const tags = [];
   if (item.missing) tags.push('<span class="tag">Marked missing in Canvas</span>');
   if (item.late && item.submittedAt) tags.push('<span class="tag">Submitted late</span>');
+  if (item.sourceTask) tags.push('<span class="tag">Syllabus task · completion unverified</span>');
   if (item.isQuiz) tags.push('<span class="tag">Quiz</span>');
   if (item.lockKind === 'date') tags.push('<span class="tag">Lock date passed</span>');
   else if (item.lockKind === 'other') tags.push('<span class="tag">Locked in Canvas</span>');
   const link = item.htmlUrl ? ` <a href="${esc(item.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas (new tab)</a>` : '';
   return `<div class="canvas-item${attention ? ' attention' : ''}">
     <div><strong>${esc(item.name)}</strong><span class="canvas-meta">${esc(item.courseName)}</span></div>
-    <div class="canvas-item-side"><span class="canvas-meta">${side.join(' · ')}</span>${tags.join(' ')}${link}<button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(item.courseId)}" data-item-id="${esc(item.assignmentId)}">Find instructions</button></div>
+    <div class="canvas-item-side"><span class="canvas-meta">${side.join(' · ')}</span>${tags.join(' ')}${deadlineEvidenceHtml(item.planningDeadline)}${link}${item.sourceTask ? '' : `<button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(item.courseId)}" data-item-id="${esc(item.assignmentId)}">Find instructions</button>`}</div>
   </div>`;
 }
 
@@ -2067,7 +2104,7 @@ function viewCanvas() {
     const ins = CANVAS.insights;
     const snap = CANVAS.snapshot;
     const notes = [];
-    if (snap.coursesTruncated) notes.push('Canvas returned more active courses than could be loaded; the first 15 by name are shown.');
+    if (snap.coursesTruncated) notes.push('Canvas returned more active courses than could be loaded; the current collection is incomplete; Refresh continues the remaining course list.');
     if (snap.missingSubmissionsError) notes.push(snap.missingSubmissionsError);
     if (snap.missingSubmissionsTruncated) notes.push('Canvas returned more missing-assignment entries than could be loaded; that list is incomplete.');
     const courseRows = ins.perCourse.map((row) => {
@@ -2314,14 +2351,15 @@ function viewCanvasCourse(courseId) {
       const remaining = CI.attemptsRemaining(a);
       const side = [];
       const due = canvasDateTime(a.dueAt);
-      side.push(due ? `Due ${esc(due)}` : a.dueDateStatus === 'no-date' ? 'Canvas returned an empty due-date field; check instructions' : 'Due-date field unavailable; check instructions');
+      const sourced = a.planningDeadline?.status === 'resolved' ? a.planningDeadline : null;
+      side.push(due ? `Due ${esc(due)}` : sourced ? `Due ${esc(sourced.dueAt ? canvasDateTime(sourced.dueAt) : sourced.date + ' (time not specified)')} · from ${esc(sourced.source)}` : a.dueDateStatus === 'no-date' ? 'Canvas returned an empty due-date field; check instructions' : 'Due-date field unavailable; check instructions');
       side.push(sub && sub.score !== null
         ? `${sub.score} of ${a.pointsPossible === null ? 'unknown' : a.pointsPossible} points`
         : (a.pointsPossible === null ? 'No points value' : `${a.pointsPossible} points possible`));
       if (remaining !== null) side.push(remaining === 1 ? '1 attempt remains' : `${remaining} attempts remain`);
       const attention = Boolean(sub && sub.missing && !sub.excused);
       return `<div class="canvas-item${attention ? ' attention' : ''}">
-        <div><strong>${esc(a.name)}</strong><span class="canvas-meta">${side.join(' · ')}</span></div>
+        <div><strong>${esc(a.name)}</strong><span class="canvas-meta">${side.join(' · ')}</span>${deadlineEvidenceHtml(a.planningDeadline)}</div>
         <div class="canvas-item-side"><span class="tag">${state}</span>${sub && sub.late && sub.submittedAt ? '<span class="tag">Submitted late</span>' : ''}${a.isQuiz ? '<span class="tag">Quiz</span>' : ''}${a.htmlUrl ? ` <a href="${esc(a.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas</a>` : ''}<button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(course.id)}" data-item-id="${esc(a.id)}">Find instructions</button></div>
       </div>`;
     }).join('');
@@ -2333,6 +2371,8 @@ function viewCanvasCourse(courseId) {
       ${course.modulesError ? `<p class="canvas-note">${esc(course.modulesError)}</p>` : ''}
       ${course.assignmentsTruncated ? '<p class="canvas-meta">Canvas returned more assignments than could be loaded; the list below is incomplete.</p>' : ''}
       ${course.modulesTruncated ? '<p class="canvas-meta">Canvas returned more modules or module items than could be loaded; the module list below is incomplete.</p>' : ''}
+      ${canvasCoverageHtml(course)}
+      ${course.deadlineReview?.length ? '<p class="canvas-note">Some instructor dates need review or differ from Canvas. Canvas dates remain authoritative; use Find instructions to compare sources.</p>' : ''}
       ${stats}
       ${modules}
       <h3>Assignments (${course.assignments.length})</h3>
@@ -2364,6 +2404,7 @@ function router() {
   if (ACCOUNT?.authRequired && isSignupRoute()) { showAccountGate(); return; }
   if (ACCOUNT?.authRequired && (!ACCOUNT.authenticated || accountGateActive)) { showAccountGate(); return; }
   if (switchingProfile) return;
+  ensurePlanReminders();
   const hash = location.hash || '#/home';
   const parts = hash.slice(2).split('/');
   let [route, a, b] = parts;
@@ -2393,10 +2434,50 @@ function router() {
   ensurePageCoach();
 }
 
+function ensurePlanReminders() {
+  if (remindersProfile === activeProfile && planRemindersCleanup) return;
+  planRemindersCleanup?.();
+  const profile = activeProfile, host = document.getElementById('plan-reminders');
+  let disposed = false, plans = [], controller = null, reminderError = null;
+  remindersProfile = profile;
+  const current = () => !disposed && activeProfile === profile && !switchingProfile && (!ACCOUNT?.authRequired || ACCOUNT.authenticated);
+  const monitor = mountPlanReminders(host, { getPlans: () => { if (reminderError) throw reminderError; return current() ? plans : []; }, clock: appClock, profileId: profile });
+  const refresh = async () => {
+    if (!current()) return;
+    controller?.abort(); controller = new AbortController();
+    const requestController = controller;
+    try {
+      const response = await apiFetch('/api/study-plans?profile=' + encodeURIComponent(profile), { signal: requestController.signal, cache: 'no-store' });
+      const result = await response.json();
+      if (!current() || requestController.signal.aborted) return;
+      if (!response.ok || !Array.isArray(result.plans)) throw new Error('Plan reminders could not be refreshed. Open Study plans to try again.');
+      reminderError = null; plans = result.plans; monitor.refresh();
+    } catch {
+      if (current() && !requestController.signal.aborted) {
+        // Do not notify from stale completion or schedule data after a failed
+        // refresh. Resume only when this workspace can be read again.
+        reminderError = new Error('Study reminders could not be refreshed. They will resume after the next successful refresh. Open Study plans to review your saved work.');
+        plans = []; monitor.refresh();
+      }
+    }
+  };
+  const visibleRefresh = () => { if (!document.hidden) refresh(); };
+  const timer = setInterval(visibleRefresh, 60000);
+  window.addEventListener('students4ai-plans-changed', refresh);
+  document.addEventListener('visibilitychange', visibleRefresh);
+  planRemindersCleanup = () => {
+    disposed = true; controller?.abort(); clearInterval(timer); monitor.dispose();
+    host.replaceChildren(); host.hidden = true;
+    window.removeEventListener('students4ai-plans-changed', refresh);
+    document.removeEventListener('visibilitychange', visibleRefresh);
+  };
+  refresh();
+}
+
 function ensurePageCoach() {
   if (pageCoachCleanup) { pageCoachCleanup.refresh(); return; }
   pageCoachCleanup = mountPageCoach($('#page-coach-slot'), {
-    context: () => ({ route: location.hash || '#/home', subject: activeMixedQuestion?.subject || S.settings.subject,
+    context: () => ({ route: location.hash || '#/home', timeZone: appClock.read().timeZone, subject: activeMixedQuestion?.subject || S.settings.subject,
       selectedCourseId: CANVAS.selectedCourseId, termIds: CANVAS.termIds || [],
       questionId: activeMixedQuestion?.questionId || activeQuestionCoach?.q.id, unitId: activeQuestionCoach?.unit.id,
       sessionId: activeMixedQuestion?.sessionId,
@@ -2462,7 +2543,8 @@ function ensurePageCoach() {
 async function boot() {
   try {
     captureEnrollment();
-    const refreshVisibleSchool = () => { if (!document.hidden) loadSchoolContext(); };
+    mountHeaderClock(document.getElementById('app-clock'), appClock);
+    const refreshVisibleSchool = () => { if (!document.hidden) { synchronizeAppClock(); loadSchoolContext(); } };
     setInterval(refreshVisibleSchool, 300000);
     document.addEventListener('visibilitychange', refreshVisibleSchool);
     window.addEventListener('focus', refreshVisibleSchool);
@@ -2477,6 +2559,7 @@ async function boot() {
       showAccountGate();
       return;
     }
+    synchronizeAppClock();
     if (ACCOUNT.authRequired) applyAccountWorkspaces();
     subscribeFocusSession(({ profileId, status }) => {
       if (profileId !== activeProfile) return;

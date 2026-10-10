@@ -33,6 +33,12 @@ jobs:
           node --check scripts/check-tutor-models.mjs
           node --check ai-record-coach.js
           node --check coach-records.js
+          node --check canvas-sync.js
+          node --check canvas-documents.js
+          node --check public/canvas-deadlines.js
+          node --check public/plan-schedule.js
+          node --check public/plan-schedule-ui.js
+          node --check public/time-context.js
           node --check canvas-retrieval.js
           node --check study-coach-context.js
           node --check linked-documents.js

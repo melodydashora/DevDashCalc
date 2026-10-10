@@ -319,3 +319,80 @@ test('large rubrics and many instruction links remain bounded', async () => {
   assert.equal(out.context.canvas.instructionLinks.length, STUDY_CONTEXT_LIMITS.linksPerSource);
   assert.match(out.limitations.join(' '), /first 12 instruction links/);
 });
+
+test('collected pages, assignments, and extracted documents are reused without redundant requests', async () => {
+  const googleUrl = 'https://docs.google.com/document/d/calendar123456/edit';
+  const fileUrl = 'https://school.example/courses/11/files/703';
+  const snapshot = linkedFixture(`<a href="${googleUrl}">Assessment calendar</a><a href="${fileUrl}">Syllabus PDF</a>`);
+  const course = snapshot.courses[0];
+  course.collection = { assignments: { readAt: NOW }, pages: { readAt: NOW } };
+  course.pages = [{ id: '701', pageUrl: 'directions', title: 'Directions', bodyHtml: '<p>Explain each step.</p>', updatedAt: NOW }];
+  course.modules = [{ id: '1', items: [{ id: '503', type: 'File', contentId: '703', title: 'Syllabus PDF', htmlUrl: fileUrl }] }];
+  course.documents = [
+    { id: '703', source: 'canvas-file', title: 'Syllabus PDF', url: fileUrl, text: 'Read chapter 2 before class.', contentStatus: 'available', readAt: NOW,
+      provenance: [{ type: 'assignment', id: '101', title: 'Chapter homework', url: course.assignments[0].htmlUrl }] },
+    { id: 'calendar123456', source: 'google-document', title: 'Assessment calendar', url: googleUrl, body: 'Chapter homework is due 2026-09-18.', contentStatus: 'available', readAt: NOW },
+  ];
+  const before = JSON.stringify(snapshot), calls = [];
+  const out = await loadStudyCoachContext({ snapshot, message: 'Find Chapter homework instructions', pageContext: { selectedCourseId: '11', assignmentId: '101' },
+    readCanvasDetail: async ref => { calls.push(ref); }, readLinkedDocument: async ref => { calls.push(ref); } });
+  assert.deepEqual(calls, [], 'already collected bodies do not spend the network budget');
+  assert.match(out.context.canvas.details.find(row => row.type === 'file').body, /chapter 2/);
+  assert.match(out.context.canvas.details.find(row => row.type === 'document').body, /2026-09-18/);
+  assert.equal(out.context.canvas.details.find(row => row.type === 'page').readAt, NOW);
+  assert.ok(out.context.canvas.details.every(row => row.untrustedData));
+  assert.equal(out.sources.find(row => row.href === googleUrl).sourceState, 'available');
+  assert.doesNotMatch(out.limitations.join(' '), /metadata only|Assessment calendar.*contents were not read/);
+  assert.equal(JSON.stringify(snapshot), before);
+});
+
+test('collected document status and course scope prevent inaccessible or foreign text from entering context', async () => {
+  const snapshot = linkedFixture(null);
+  snapshot.courses[0].assignments = [];
+  snapshot.courses[0].documents = [
+    { id: 'locked123456', source: 'google-document', url: 'https://docs.google.com/document/d/locked123456/edit', title: 'Locked calendar', contentStatus: 'restricted', text: 'PRIVATE LOCKED TEXT', readAt: null },
+    { id: '703', source: 'canvas-file', url: 'https://school.example/courses/11/files/703', title: 'Partly extracted PDF', contentStatus: 'partial', text: 'Visible text only.', readAt: NOW, warnings: ['Scanned pages were not read.'], token: 'PRIVATE TOKEN' },
+    { id: '704', courseId: '22', source: 'canvas-file', title: 'Foreign file', contentStatus: 'available', text: 'FOREIGN CONTENT' },
+  ];
+  snapshot.courses.push({ id: '22', name: 'Foreign course', documents: [{ id: '1', title: 'OTHER ACCOUNT TEXT', contentStatus: 'available', text: 'OTHER ACCOUNT TEXT' }] });
+  const out = await loadStudyCoachContext({ snapshot, pageContext: { selectedCourseId: '11' }, readCanvasDetail: async () => assert.fail('No fallback should reread collected documents') });
+  assert.doesNotMatch(JSON.stringify(out), /PRIVATE LOCKED|PRIVATE TOKEN|FOREIGN CONTENT|OTHER ACCOUNT/);
+  const locked = out.context.canvas.details.find(row => row.title === 'Locked calendar');
+  assert.equal(locked.body, null); assert.equal(locked.contentStatus, 'restricted'); assert.equal(locked.readAt, null);
+  const partial = out.context.canvas.details.find(row => row.title === 'Partly extracted PDF');
+  assert.equal(partial.contentStatus, 'partial'); assert.deepEqual(partial.warnings, ['Scanned pages were not read.']);
+  assert.match(out.limitations.join(' '), /Only part of Partly extracted PDF/);
+  assert.ok(out.sources.every(row => row.courseId === '11'));
+});
+
+test('sourced planning dates stay distinct from official dates and unresolved evidence remains unconfirmed', async () => {
+  const snapshot = linkedFixture('<p>Read the course calendar.</p>'), course = snapshot.courses[0];
+  course.collection = { assignments: { readAt: NOW } };
+  const planning = { status: 'resolved', date: '2026-09-18', dueAt: null, precision: 'date', source: 'document',
+    sourceUrl: 'https://school.example/courses/11/files/703', excerpt: 'Chapter homework due September 18, 2026.',
+    evidence: [{ status: 'candidate', date: '2026-09-18', source: 'document', excerpt: 'Chapter homework due September 18, 2026.' }], secret: 'UNTRUSTED EXTRA' };
+  course.assignments[0].planningDeadline = planning;
+  course.assignments.push(assignment('102', 'Ambiguous homework', { descriptionHtml: '', planningDeadline: { ...planning, status: 'conflict' } }));
+  course.assignments.push(assignment('103', 'Other section homework', { descriptionHtml: '', planningDeadline: { ...planning, sourceUrl: 'https://school.example/courses/22/files/703' } }));
+  const out = await loadStudyCoachContext({ snapshot, message: 'When is the homework due?', pageContext: { selectedCourseId: '11', assignmentId: '101' } });
+  const first = out.context.canvas.details.find(row => row.id === '101');
+  assert.deepEqual(first.officialDueDate, { state: 'not_reported', dueAt: null });
+  assert.equal(first.planningDeadline.date, '2026-09-18'); assert.equal(first.planningDeadline.dueAt, null);
+  assert.equal(first.planningDeadline.precision, 'date'); assert.equal(first.planningDeadline.sourceUrl, planning.sourceUrl);
+  assert.equal(out.context.canvas.details.find(row => row.id === '102').planningDeadline.date, null);
+  assert.equal(out.context.canvas.details.find(row => row.id === '103').planningDeadline.status, 'needs-review');
+  assert.match(out.context.evidenceRules.join(' '), /resolved planningDeadline.*separate from the official/);
+  assert.doesNotMatch(JSON.stringify(out), /UNTRUSTED EXTRA|courses\/22/);
+});
+
+test('collected document passages and detail counts remain bounded while late matching text is usable', async () => {
+  const snapshot = linkedFixture(null), course = snapshot.courses[0];
+  course.assignments = [];
+  course.documents = Array.from({ length: 25 }, (_, index) => ({ id: String(index + 1), source: 'canvas-file', title: `Course document ${index}`,
+    url: `https://school.example/courses/11/files/${index + 1}`, text: 'Background reading. '.repeat(1500) + '\nUnique integration preparation directions.', contentStatus: 'available', readAt: NOW }));
+  const out = await loadStudyCoachContext({ snapshot, message: 'Unique integration preparation', pageContext: { selectedCourseId: '11' } });
+  assert.equal(out.context.canvas.details.length, STUDY_CONTEXT_LIMITS.relevant);
+  assert.ok(out.context.canvas.details.every(row => row.body.length <= STUDY_CONTEXT_LIMITS.text && row.contextTruncated));
+  assert.ok(out.context.canvas.details.every(row => row.body.includes('Unique integration preparation directions')));
+  assert.match(out.limitations.join(' '), /not an exhaustive course review/);
+});
