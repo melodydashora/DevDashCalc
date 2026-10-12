@@ -746,3 +746,10 @@ html[data-motion="reduced"] *, html[data-motion="off"] * { animation: none !impo
     background: var(--surface-2); text-decoration: none; overflow-wrap: anywhere;
   }
 }
+
+/* A shared clock fits above navigation without changing the pending UX theme. */
+.header-inner { flex-wrap: wrap; }
+.header-clock { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 0.82rem; }
+.app-header nav { flex-basis: 100%; }
+.plan-schedule progress { display: block; width: 100%; max-width: 28rem; }
+@media (max-width: 640px) { .header-clock { margin-left: 0; } }

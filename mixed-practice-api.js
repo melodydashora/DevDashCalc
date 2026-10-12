@@ -46,7 +46,7 @@ export function createMixedPracticeApi({ service, readBody, sendJson, complete, 
       if (!isConfigured()) return sendJson(res, 200, { available: false, assisted: context.assisted,
         text: 'The AI coach is unavailable on this server. The built-in hints and checked solution remain available.' });
       const response = await complete({ ...mixedTutorRequest(context, { followUp, transcript: body.transcript }),
-        attachments, memoryMessage: originalFollowUp,
+        attachments, studyTiming: body.studyTiming, memoryMessage: originalFollowUp,
         assertCurrent: () => { service.tutorContext(profileId, sessionId, questionId); },
       }, req, res);
       // A known closed connection means the learner canceled or left before

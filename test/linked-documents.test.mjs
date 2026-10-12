@@ -25,3 +25,20 @@ test('oversized document bodies are bounded and explicitly shortened',async()=>{
   const out=await readLinkedDocument({href},{maxBytes:8,fetchImpl:async()=>new Response('abcdefghijklmnop',{headers:{'content-type':'text/plain'}})});
   assert.equal(out.body,'abcdefgh'); assert.equal(out.contentStatus,'truncated');
 });
+test('linked document failures distinguish access, empty, unsupported and failed reads without exposing response text',async()=>{
+  const cases = [
+    ['locked', () => new Response('private access message', {status:403})],
+    ['locked', () => new Response(null, {status:302,headers:{location:'https://accounts.google.com/signin'}})],
+    ['empty', () => new Response('  ', {headers:{'content-type':'text/plain'}})],
+    ['not_provided', () => new Response('<html>private content</html>', {headers:{'content-type':'text/html'}})],
+    ['read_failed', () => new Response('internal provider details', {status:500})],
+    ['read_failed', () => { throw new Error('secret network address'); }],
+  ];
+  for (const [sourceState, response] of cases) {
+    await assert.rejects(readLinkedDocument({href}, {fetchImpl:async()=>response()}), error => {
+      assert.equal(error.sourceState,sourceState);
+      assert.doesNotMatch(error.message,/private|internal provider|secret network/);
+      return true;
+    });
+  }
+});

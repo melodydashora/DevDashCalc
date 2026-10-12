@@ -734,3 +734,47 @@ test('the plan bucket cutoffs are the exported spec constants', () => {
     'due within 4 hours, 12 hours, 24 hours, 3 days, 5 days'
   );
 });
+
+test('full course normalization preserves instructors, syllabus and learner section scope', () => {
+  const course = CI.normalizeCourse({ id: 8, name: 'English', time_zone: 'America/Chicago', locale: 'en-US', syllabus_body: '<p>Read the syllabus.</p>', teachers: [{ id: 9, display_name: 'Instructor' }], enrollments: [{ type: 'teacher', computed_current_score: 99 }, { type: 'student', course_section_id: 12, computed_current_score: 0, computed_current_grade: '0' }], apply_assignment_group_weights: false });
+  assert.equal(course.timeZone, 'America/Chicago'); assert.equal(course.locale, 'en-US');
+  assert.equal(course.syllabusBody, '<p>Read the syllabus.</p>');
+  assert.deepEqual(course.teachers, [{ id: '9', name: 'Instructor' }]);
+  assert.deepEqual(course.enrollmentSectionIds, ['12']);
+  assert.equal(course.score, 0, 'zero student score wins over another enrollment type');
+  assert.equal(course.grade, '0');
+  assert.equal(CI.normalizeCourse({ time_zone: 'not-a-timezone' }).timeZone, null);
+  assert.equal(CI.normalizeCourse({}).applyGroupWeights, null);
+});
+
+test('module and group organization is retained without inventing completion or recomputing grades', () => {
+  const group = CI.normalizeGroup({ id: 3, position: 2, group_weight: 0, rules: { drop_lowest: 0, drop_highest: 1, never_drop: [17] } });
+  assert.equal(group.groupWeight, 0); assert.equal(group.position, 2);
+  assert.deepEqual(group.rules, { dropLowest: 0, dropHighest: 1, neverDrop: ['17'] });
+  const module = CI.normalizeModule({ id: 2, position: 1, prerequisite_module_ids: [5], require_sequential_progress: false, items_count: 0 }, []);
+  assert.deepEqual(module.prerequisiteModuleIds, ['5']);
+  assert.equal(module.requireSequentialProgress, false); assert.equal(module.itemsCount, 0);
+  assert.equal(CI.normalizeModuleItem({ completion_requirement: {} }).completionRequirement.completed, null);
+  assert.deepEqual(CI.normalizeModuleProgress({}), { requirementCount: null, requirementCompletedCount: null, completedAt: null });
+  const item = CI.normalizeModuleItem({ type: 'ExternalUrl', external_url: 'https://example.com/course', new_tab: false });
+  assert.equal(item.externalUrl, 'https://example.com/course'); assert.equal(item.newTab, false);
+});
+
+test('assignment relationships and unknown booleans survive normalization', () => {
+  const a = CI.normalizeAssignment({ id: 1, quiz_id: 4, course_id: 5, discussion_topic: { id: 6 }, published: false, omit_from_final_grade: false, only_visible_to_overrides: true, external_tool_tag_attributes: { url: 'https://example.com/tool', resource_link_id: 7, new_tab: false }, submission: {} });
+  assert.equal(a.quizId, '4'); assert.equal(a.courseId, '5'); assert.equal(a.discussionId, '6');
+  assert.equal(a.published, false); assert.equal(a.omitFromFinalGrade, false); assert.equal(a.onlyVisibleToOverrides, true);
+  assert.deepEqual(a.externalTool, { url: 'https://example.com/tool', resourceLinkId: '7', newTab: false });
+  assert.equal(a.lockedForUser, null); assert.equal(a.submission.excused, null); assert.equal(a.isQuiz, null);
+});
+
+test('Canvas submitted state is completed without a timestamp; unrelated completed state is not assumed', () => {
+  const out = CI.buildInsights(makeSnapshot([makeCourse({ assignments: [
+    makeAssignment({ id: 'submitted', submission: makeSubmission({ workflowState: 'submitted' }) }),
+    makeAssignment({ id: 'graded', submission: makeSubmission({ workflowState: 'graded', score: 0 }) }),
+    makeAssignment({ id: 'unsupported', submission: makeSubmission({ workflowState: 'completed' }) }),
+    makeAssignment({ id: 'review', submission: makeSubmission({ workflowState: 'pending_review' }) }),
+  ] })]), NOW);
+  assert.deepEqual(allPlanItems(out).map(a => a.assignmentId).sort(), ['review', 'unsupported']);
+  assert.equal(out.perCourse[0].submitted, 2);
+});

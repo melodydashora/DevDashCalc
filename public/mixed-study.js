@@ -105,8 +105,10 @@ function workspaceKey(profile, workspaceId) {
  * the server remains authoritative. Cleanup pauses this in-memory workspace.
  * workspaceId optionally isolates local pause/resume by saved plan UUID and
  * optional :stepId. Requests retain the original authenticated profileId.
+ * onSessionState(status) emits setup/running/paused/complete initially and on
+ * transitions, then inactive on cleanup. No learner or question data is sent.
  */
-export function mountMixedStudy(container, { profileId = 'learner', workspaceId, renderMath, onQuestionContext, onAskCoach, request, initialSubject, initialTopicIds, motion } = {}) {
+export function mountMixedStudy(container, { profileId = 'learner', workspaceId, renderMath, onQuestionContext, onSessionState, onAskCoach, request, initialSubject, initialTopicIds, motion } = {}) {
   const profile = String(profileId); const viewId = `mixed-${++nextViewId}`;
   const key = workspaceKey(profile, workspaceId);
   if (!workspaces.has(key)) workspaces.set(key, newWorkspace());
@@ -127,6 +129,7 @@ export function mountMixedStudy(container, { profileId = 'learner', workspaceId,
   }
   const disabledBeforeRequest = new WeakMap();
   let disposed = false; let busy = false; let generation = 0; let pending = null; let retry = null;
+  let lastSessionState = null;
   let shell; let region; let status; let toolbar; let topicEditor = null;
   let modelCleanup = null;
   const openedModels = new Set();
@@ -155,6 +158,10 @@ export function mountMixedStudy(container, { profileId = 'learner', workspaceId,
       learnerAnswer: state.answer, title: 'Study question' };
   }
   const notifyContext = () => { if (!disposed) onQuestionContext?.(context()); };
+  function notifySessionState(next = ['question', 'feedback'].includes(state.phase) ? 'running' : state.phase) {
+    if (disposed && next !== 'inactive' || next === lastSessionState) return;
+    lastSessionState = next; onSessionState?.(next);
+  }
   function setBusy(value) {
     busy = value;
     shell.setAttribute('aria-busy', String(value));
@@ -494,6 +501,7 @@ export function mountMixedStudy(container, { profileId = 'learner', workspaceId,
     else if (state.phase === 'complete') renderComplete();
     else renderQuestion();
     notifyContext();
+    notifySessionState();
   }
   render();
   if (!state.topics.length) operation(async (signal) => {
@@ -523,6 +531,7 @@ export function mountMixedStudy(container, { profileId = 'learner', workspaceId,
     modelCleanup?.(); modelCleanup = null;
     if (['question', 'feedback'].includes(state.phase)) { state.resumePhase = state.phase; state.phase = 'paused'; }
     onQuestionContext?.(null); container.replaceChildren();
+    notifySessionState('inactive');
   };
   cleanup.markAssisted = (result = {}) => {
     if (disposed || !state.question || result.assisted === false || result.questionId && result.questionId !== state.question.id) return;

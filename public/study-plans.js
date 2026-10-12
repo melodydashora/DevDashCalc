@@ -1,6 +1,11 @@
 // Explicit drafts and saved plans. Model text is always rendered as text.
 import { apiFetch } from './auth-ui.js';
 import { homePlanTopics } from './student-home.js';
+import { safeTutorHref } from './tutor-text.js';
+import { coachSourceDetail } from './page-coach.js';
+import { mountPlanSchedule } from './plan-schedule-ui.js';
+import { createAppClock } from './time-context.js';
+import { planProgress } from './plan-schedule.js';
 
 const PLAN_ID = /^[a-z0-9-]{1,64}$/;
 const text = (value, max = 2000) => typeof value === 'string' ? value.slice(0, max) : '';
@@ -14,6 +19,34 @@ const ACTIVITIES = {
 
 export function studyPlanActivity(plan) {
   return Object.hasOwn(ACTIVITIES, plan?.activity || '') ? plan.activity : 'guide';
+}
+
+export function studyPlanSourceRefs(plan) {
+  if (!/^[0-9]{1,20}$/.test(String(plan?.course?.id || ''))) return [];
+  const seen = new Set();
+  return (Array.isArray(plan?.sourceRefs) ? plan.sourceRefs : []).filter(ref => {
+    if (ref?.type !== 'assignment' || typeof ref.id !== 'string' || !/^[0-9]{1,20}$/.test(ref.id) || seen.has(ref.id)) return false;
+    seen.add(ref.id); return true;
+  }).slice(0, 10).map(ref => ({ type: 'assignment', id: ref.id }));
+}
+
+export function studyCourseworkDate(item, timeZone) {
+  const instant = value => typeof value === 'string' && /T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) && Number.isFinite(Date.parse(value));
+  const formatTime = value => {
+    try { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', ...(timeZone ? { timeZone } : {}) }).format(new Date(value)); }
+    catch { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)); }
+  };
+  if (instant(item?.dueAt)) return 'Due ' + formatTime(item.dueAt);
+  if (item?.dueAt != null) return 'Due date unavailable';
+  const planning = item?.planningDeadline;
+  if (planning?.status === 'resolved') {
+    if (instant(planning.dueAt)) return 'Planning time: ' + formatTime(planning.dueAt) + ' · Official due date not supplied';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(planning.date || '')) {
+      const date = new Date(planning.date + 'T12:00:00Z');
+      if (Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === planning.date) return 'Planning date: ' + date.toLocaleDateString(undefined, { dateStyle: 'medium', timeZone: 'UTC' }) + ' · Time not supplied';
+    }
+  }
+  return planning ? 'Planning date needs review · Official due date not supplied' : 'No due date supplied';
 }
 
 export function studyPlanStudyRequest(plan, step = null) {
@@ -68,6 +101,7 @@ export function createStudyPlanClient({ profileId, request = apiFetch, isCurrent
     list: () => call(),
     draft: body => call('/draft', 'POST', body),
     save: (plan, requestId) => call('', 'POST', { plan, requestId }),
+    schedule: (plan, schedule) => call('/' + encodeURIComponent(plan.id), 'PATCH', { schedule, expectedUpdatedAt: plan.updatedAt }),
     complete: (plan, completedStepIds) => call('/' + encodeURIComponent(plan.id), 'PATCH', { completedStepIds, expectedUpdatedAt: plan.updatedAt }),
     dispose() { disposed = true; for (const controller of controllers) controller.abort(); controllers.clear(); },
   };
@@ -129,11 +163,13 @@ export function mountHomeStudyPlans(container, { profileId, isCurrent = () => tr
 }
 
 export function mountStudyPlans(container, {
-  profileId, courses = [], subjects = [], selectedCourseId = null, subject = 'all', selectedPlanId = null,
+  profileId, clock = createAppClock(), courses = [], subjects = [], selectedCourseId = null, subject = 'all', selectedPlanId = null,
   canvasItems = [], selectedCanvasItemIds = [], initialGoal = '', initialActivity = 'guide', onStudyPlan,
   isCurrent = () => true, request = apiFetch, onOpenPlan = id => { location.hash = '#/plans/' + id; },
 } = {}) {
-  let disposed = false, busy = false, plans = [], planRevision = 0, draft = null, draftRequestId = null, editorValues = null;
+  let scheduleCleanup = null, detailDisabled = new Map();
+  const plansChanged = () => globalThis.dispatchEvent?.(new Event('students4ai-plans-changed'));
+  let disposed = false, busy = false, plans = [], planRevision = 0, draft = null, draftEvidence = null, draftRequestId = null, editorValues = null;
   const current = () => !disposed && container.isConnected && isCurrent();
   const client = createStudyPlanClient({ profileId, request, isCurrent: current });
   const form = element('form', 'card study-plan-form');
@@ -193,8 +229,8 @@ export function mountStudyPlans(container, {
     const course = chosenCourse(); if (!course || !validGoal() || !form.reportValidity()) return;
     const request = planGoal();
     const topic = goal.value.trim() || chosenItems().map(item => item.title).join(', ');
-    showDraft({ title: text(topic, 160) || 'Study ' + course.name, course, activity, goal: request, topics: [text(topic, 160)],
-      steps: [{ id: 'step-1', title: ACTIVITIES[activity].label + ': ' + text(topic, 150), detail: request, minutes: Number(minutes.value) || 20 }], completedStepIds: [], source: 'student' }, 'Review the topics and steps before saving.');
+    showDraft({ title: text(topic, 160) || 'Study ' + course.name, course, activity, goal: request, sourceRefs: chosenSourceRefs(), topics: [text(topic, 160)],
+      steps: [{ id: 'step-1', title: ACTIVITIES[activity].label + ': ' + text(topic, 150), detail: request, minutes: Number(minutes.value) || 20 }], completedStepIds: [], source: 'student' }, 'Review the topics and steps before saving.', selectedSourceEvidence());
   });
   actions.append(ask, own);
   const status = element('p', 'plan-status'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
@@ -227,22 +263,39 @@ export function mountStudyPlans(container, {
     for (const input of satFields.querySelectorAll('input, select')) input.disabled = busy || satFields.hidden;
     renderCourseItems();
   }
-  function chosenItems() {
-    return availableItems.filter(item => String(item?.courseId) === courseSelect.value && typeof item?.title === 'string' && /^[a-zA-Z0-9_.:-]{1,120}$/.test(String(item?.id)) && selectedItems.has(String(item?.id)));
+  function availableCourseItems() {
+    if (!courseOptions.some(course => course.id === courseSelect.value && course.kind === 'canvas')) return [];
+    const seen = new Set();
+    return availableItems.filter(item => {
+      const id = String(item?.id ?? '');
+      const supported = item?.sourceTask === true ? /^source-task-[a-z0-9_-]{1,100}$/i.test(id)
+        : /^[0-9]{1,20}$/.test(id) && (!item.type || /^(assignment|quiz)$/i.test(item.type));
+      if (String(item?.courseId) !== courseSelect.value || typeof item?.title !== 'string' || !supported || seen.has(id)) return false;
+      seen.add(id); return true;
+    });
+  }
+  function chosenItems() { return availableCourseItems().filter(item => selectedItems.has(String(item.id))); }
+  function chosenSourceRefs() { return chosenItems().filter(item => item.sourceTask !== true).map(item => ({ type: 'assignment', id: String(item.id) })); }
+  function selectedSourceEvidence() {
+    return { sources: chosenItems().map(item => ({ label: text(item.title, 200), href: item.htmlUrl || item.sourceUrl || item.href, detail: 'Selected for this plan; contents not read here.' })), limitations: [] };
   }
   function renderCourseItems() {
     courseItems.replaceChildren();
     courseItems.hidden = !courseOptions.some(course => course.id === courseSelect.value && course.kind === 'canvas');
     if (courseItems.hidden) return;
     courseItems.appendChild(element('legend', '', 'Course work'));
-    const items = availableItems.filter(item => String(item?.courseId) === courseSelect.value && typeof item?.title === 'string' && /^[a-zA-Z0-9_.:-]{1,120}$/.test(String(item?.id)));
+    const items = availableCourseItems();
     if (!items.length) courseItems.appendChild(element('p', 'canvas-meta', 'No course items are available here yet. You can still enter a topic or question below.'));
     for (const item of items.slice(0, 60)) {
       const label = element('label', 'plan-course-item'); const input = element('input'); input.type = 'checkbox'; input.name = 'canvasItem'; input.value = String(item.id); input.checked = selectedItems.has(String(item.id)); input.disabled = busy;
-      input.addEventListener('change', () => { if (input.checked) selectedItems.add(String(item.id)); else selectedItems.delete(String(item.id)); });
+      input.addEventListener('change', () => {
+        if (input.checked) {
+          selectedItems.add(String(item.id));
+          if (chosenItems().length > 10) { selectedItems.delete(String(item.id)); input.checked = false; status.textContent = 'Choose up to 10 course items for one plan.'; }
+        } else selectedItems.delete(String(item.id));
+      });
       const copy = element('span'); copy.appendChild(element('strong', '', text(item.title, 200)));
-      const date = item.dueAt ? new Date(item.dueAt) : null;
-      const metadata = [text(item.type, 60), date && Number.isFinite(date.getTime()) ? 'Due ' + date.toLocaleString() : 'No due date supplied'].filter(Boolean).join(' · ');
+      const metadata = [item.sourceTask ? 'Syllabus task · Completion unverified' : text(item.type, 60), studyCourseworkDate(item, clock.read().timeZone)].filter(Boolean).join(' · ');
       copy.appendChild(element('small', '', metadata)); label.append(input, copy); courseItems.appendChild(label);
     }
     if (items.length > 60) courseItems.appendChild(element('p', 'canvas-meta', 'Showing the first 60 items for this course. Use Canvas to see the rest.'));
@@ -257,13 +310,14 @@ export function mountStudyPlans(container, {
     return { id: selected.id, name: selected.id === 'custom' ? customName.value.trim() : selected.name, subject: selected.subject };
   }
   function validGoal() {
+    if (chosenItems().length > 10) { status.textContent = 'Choose up to 10 course items for one plan.'; return false; }
     if (!goal.value.trim() && !chosenItems().length) { status.textContent = 'Enter a topic or question, or select course work for this plan.'; goal.focus(); return false; }
     if (planGoal().length > 2000) { status.textContent = 'Shorten your request or select fewer course items so this plan stays focused.'; return false; }
     return true;
   }
   function planGoal() {
     const lines = [goal.value.trim() || 'Work on the selected course items.', 'Requested activity: ' + ACTIVITIES[activity].label + '. ' + ACTIVITIES[activity].request];
-    for (const item of chosenItems()) lines.push('Selected course item [' + String(item.id) + ']: ' + text(item.title, 180));
+    for (const item of chosenItems()) lines.push('Course work: ' + text(item.title, 180));
     if (pace.value === 'small') lines.push('Pace: use smaller steps, time to think, and an optional hint before increasing difficulty.');
     else if (pace.value === 'challenge') lines.push('Pace: move briskly when I show understanding and deepen the reasoning instead of repeating a template.');
     if (courseSelect.value === 'sat') {
@@ -282,6 +336,13 @@ export function mountStudyPlans(container, {
     busy = value;
     for (const control of form.querySelectorAll('input, textarea, select, button')) control.disabled = value;
     for (const control of editor.querySelectorAll('input, textarea, button')) control.disabled = value;
+    if (value) {
+      detailDisabled = new Map([...detail.querySelectorAll('input, textarea, select, button')].map(control => [control, control.disabled]));
+      for (const control of detailDisabled.keys()) control.disabled = true;
+    } else {
+      for (const [control, disabled] of detailDisabled) if (control.isConnected !== false) control.disabled = disabled;
+      detailDisabled.clear();
+    }
     showCourseFields();
   }
   async function run(work) {
@@ -294,17 +355,22 @@ export function mountStudyPlans(container, {
   form.addEventListener('submit', event => {
     event.preventDefault();
     const course = chosenCourse(); if (!course || !validGoal() || !form.reportValidity()) return;
+    const input = { course, goal: planGoal(), minutes: Number(minutes.value), activity, sourceRefs: chosenSourceRefs(), timeZone: clock.read().timeZone };
+    const selectedEvidence = selectedSourceEvidence();
     run(async () => {
       status.textContent = 'Astra is preparing a draft. It has not been saved.';
-      const result = await client.draft({ course, goal: planGoal(), minutes: Number(minutes.value), activity });
+      const result = await client.draft(input);
       if (!current()) return;
       if (!result.plan) throw new Error('A draft was not returned. You can write your own plan.');
-      showDraft(result.plan, result.notice || (result.available === false ? 'Astra is unavailable. Review and edit this starter plan before saving.' : 'Review the Astra draft below. It has not been saved.'));
+      showDraft({ ...result.plan, sourceRefs: result.plan.sourceRefs ?? input.sourceRefs }, result.notice || (result.available === false ? 'Astra is unavailable. Review and edit this starter plan before saving.' : 'Review the Astra draft below. It has not been saved.'), {
+        sources: result.sources ?? selectedEvidence.sources, limitations: result.limitations,
+      });
     });
   });
 
-  function showDraft(value, notice) {
-    draft = value; draftRequestId = crypto.randomUUID(); editorValues = null;
+  function showDraft(value, notice, evidence = {}) {
+    draft = { ...value, ...(Array.isArray(value.sourceRefs) ? { sourceRefs: value.sourceRefs.map(ref => ({ ...ref })) } : {}) };
+    draftEvidence = evidence; draftRequestId = crypto.randomUUID(); editorValues = null;
     status.textContent = notice;
     renderEditor();
   }
@@ -312,6 +378,25 @@ export function mountStudyPlans(container, {
     editor.replaceChildren(); if (!draft) return;
     const card = element('div', 'card study-plan-draft');
     card.append(element('h2', '', 'Review your draft'), element('p', 'canvas-meta', text(draft.course?.name, 200) + ' · ' + sourceLabel(draft)));
+    const sources = (Array.isArray(draftEvidence?.sources) ? draftEvidence.sources : []).filter(source => typeof source?.label === 'string' && source.label.trim()).slice(0, 30);
+    const limitations = (Array.isArray(draftEvidence?.limitations) ? draftEvidence.limitations : []).filter(value => typeof value === 'string' && value.trim()).slice(0, 12);
+    if (sources.length || limitations.length || studyPlanSourceRefs(draft).length) {
+      const materials = element('details', 'plan-preferences plan-course-materials');
+      materials.appendChild(element('summary', '', 'Course materials'));
+      const list = element('ul', 'plan-topic-list');
+      for (const source of sources) {
+        const row = element('li'), href = safeTutorHref(source.href);
+        const label = element(href ? 'a' : 'span', '', text(source.label, 200));
+        if (href) { label.href = href; if (!href.startsWith('#/')) { label.target = '_blank'; label.rel = 'noopener noreferrer'; } }
+        row.append(label);
+        row.appendChild(element('p', 'canvas-meta', coachSourceDetail(source.detail) || 'Read status not supplied.'));
+        list.appendChild(row);
+      }
+      if (sources.length) materials.appendChild(list);
+      else if (studyPlanSourceRefs(draft).length) materials.appendChild(element('p', 'canvas-meta', 'Selected coursework is attached to this plan. Its contents have not been confirmed here.'));
+      for (const limit of limitations) materials.appendChild(element('p', 'canvas-meta', text(limit, 700)));
+      card.appendChild(materials);
+    }
     const title = element('input'); title.type = 'text'; title.maxLength = 160; title.value = text(draft.title, 160); title.required = true;
     const topics = element('textarea'); topics.rows = 3; topics.maxLength = 4000; topics.value = (Array.isArray(draft.topics) ? draft.topics : []).filter(t => typeof t === 'string').join('\n');
     card.append(field('Plan title ', title), field('Topics to save, one per line (1 to 10) ', topics));
@@ -351,6 +436,7 @@ export function mountStudyPlans(container, {
       if (!result.plan?.id) throw new Error('The saved plan could not be confirmed. Try saving again.');
       plans = [result.plan, ...plans.filter(plan => plan.id !== result.plan.id)];
       planRevision += 1;
+      plansChanged();
       draft = null; editor.replaceChildren(); renderSaved();
       status.textContent = 'Plan saved. Open it in Study when you are ready.';
       onOpenPlan(result.plan.id);
@@ -367,6 +453,7 @@ export function mountStudyPlans(container, {
     }, step ? 'secondary plan-study-step' : 'plan-study-start');
   }
   function renderDetail(plan) {
+    scheduleCleanup?.(); scheduleCleanup = null;
     detail.replaceChildren(); if (!plan) return;
     const card = element('article', 'card saved-plan-open');
     card.append(element('span', 'kicker', text(plan.course?.name, 200)), element('h2', '', text(plan.title, 160)), element('p', '', readableGoal(plan.goal)), element('p', 'canvas-meta', sourceLabel(plan)));
@@ -392,6 +479,7 @@ export function mountStudyPlans(container, {
             if (!current()) return;
             plans = plans.map(item => item.id === plan.id ? result.plan : item);
             planRevision += 1;
+            plansChanged();
             renderSaved(); status.textContent = 'Completed steps saved.';
           } finally { if (current()) for (const input of list.querySelectorAll('input')) input.disabled = false; }
         });
@@ -399,6 +487,25 @@ export function mountStudyPlans(container, {
       list.appendChild(row);
     }
     card.appendChild(list); detail.appendChild(card);
+    const scheduleHost = element('section', 'plan-schedule'); card.appendChild(scheduleHost);
+    const schedulePanel = mountPlanSchedule(scheduleHost, { plan, clock, profileId, remindersManagedExternally: true, onUpdate: async schedule => {
+      if (busy) throw new Error('Wait for the current plan save to finish, then try again.');
+      if (!current()) throw aborted();
+      setBusy(true);
+      try {
+        const result = await client.schedule(plan, schedule);
+        if (!current()) throw aborted();
+        plans = plans.map(item => item.id === plan.id ? result.plan : item);
+        planRevision += 1;
+        // Existing checkbox handlers close over this updated revision. Keep
+        // the panel mounted so its confirmed-save message and fields survive.
+        plan = result.plan;
+        plansChanged();
+        status.textContent = schedule ? 'Schedule saved.' : 'Schedule removed.';
+        return result.plan;
+      } finally { if (current()) setBusy(false); }
+    } });
+    scheduleCleanup = () => schedulePanel.dispose();
   }
   function renderSaved() {
     saved.replaceChildren(element('h2', '', 'Your saved plans'));
@@ -406,7 +513,7 @@ export function mountStudyPlans(container, {
     const grid = element('div', 'saved-plan-grid');
     for (const plan of plans) {
       const card = element('article', 'card saved-plan-summary');
-      card.append(element('span', 'kicker', text(plan.course?.name, 200)), element('h3', '', text(plan.title, 160)), element('p', '', readableGoal(plan.goal, 300)), element('p', 'canvas-meta', (plan.completedStepIds?.length || 0) + ' of ' + (plan.steps?.length || 0) + ' steps complete'), planLink(plan));
+      card.append(element('span', 'kicker', text(plan.course?.name, 200)), element('h3', '', text(plan.title, 160)), element('p', '', readableGoal(plan.goal, 300)), element('p', 'canvas-meta', (plan.completedStepIds?.length || 0) + ' of ' + (plan.steps?.length || 0) + ' steps complete · ' + planProgress(plan, clock.read().epochMs).completionPercent + '% complete'), planLink(plan));
       if (typeof onStudyPlan === 'function') card.appendChild(studyAction(plan));
       grid.appendChild(card);
     }
@@ -422,5 +529,5 @@ export function mountStudyPlans(container, {
     renderSaved();
   } })
     .catch(error => { if (current() && error.name !== 'AbortError') { saved.replaceChildren(element('h2', '', 'Your saved plans'), element('p', '', error.message)); } });
-  return { updateCourses, updateCanvasItems, dispose() { disposed = true; client.dispose(); } };
+  return { updateCourses, updateCanvasItems, dispose() { disposed = true; scheduleCleanup?.(); client.dispose(); } };
 }

@@ -10,6 +10,7 @@
 // grader for practice questions.
 
 import { courseMatchesSubject } from './courses.js';
+import { assignmentPlanningTiming, validTimeZone } from './canvas-deadlines.js';
 
 export const HOUR_MS = 60 * 60 * 1000;
 export const DAY_MS = 24 * HOUR_MS;
@@ -78,7 +79,9 @@ const integerOrNull = (value, min) => {
   const number = numOrNull(value);
   return Number.isSafeInteger(number) && number >= min ? number : null;
 };
-const booleanOrNull = (value) => typeof value === 'boolean' ? value : null;
+const booleanOrNull = (value) => typeof value === 'boolean' ? value : value === 1 ? true : value === 0 ? false : null;
+const ids = (value) => Array.isArray(value) ? value.map(idOrNull).filter(value => value !== null) : [];
+const objects = (value) => Array.isArray(value) ? value.filter(item => item && typeof item === 'object' && !Array.isArray(item)) : [];
 const dueDateStatus = (raw) => {
   if (!raw || !Object.prototype.hasOwnProperty.call(raw, 'due_at') || raw.due_at === undefined) return 'not-provided';
   if (raw.due_at === null) return 'no-date';
@@ -128,14 +131,23 @@ export function normalizeCanvasPage(raw) {
     bodyHtml: boundedText(raw?.body, CANVAS_CONTENT_LIMITS.html),
     bodyTruncated: textWasTruncated(raw?.body, CANVAS_CONTENT_LIMITS.html),
     updatedAt: isoOrNull(raw?.updated_at), published: booleanOrNull(raw?.published),
+    createdAt: isoOrNull(raw?.created_at), frontPage: booleanOrNull(raw?.front_page),
+    editingRoles: boundedText(raw?.editing_roles, 200),
     lockedForUser: booleanOrNull(raw?.locked_for_user),
     lockExplanation: boundedText(raw?.lock_explanation, CANVAS_CONTENT_LIMITS.explanation),
   };
 }
 
 export function normalizeCanvasDiscussion(raw) {
+  const sectionRows = raw?.specific_sections ?? raw?.section_list ?? raw?.section_ids;
   return {
     id: idOrNull(raw?.id), assignmentId: idOrNull(raw?.assignment_id),
+    isAnnouncement: booleanOrNull(raw?.is_announcement),
+    discussionType: boundedText(raw?.discussion_type, 100),
+    postedAt: isoOrNull(raw?.posted_at), delayedPostAt: isoOrNull(raw?.delayed_post_at),
+    sectionIds: ids(Array.isArray(sectionRows) ? sectionRows.map(item => item && typeof item === 'object' ? item.id : item) : []),
+    isSectionSpecific: booleanOrNull(raw?.is_section_specific),
+    author: raw?.author && typeof raw.author === 'object' ? { id: idOrNull(raw.author.id), name: boundedText(raw.author.display_name, 300) } : null,
     title: boundedText(raw?.title, CANVAS_CONTENT_LIMITS.explanation),
     htmlUrl: referenceUrlOrNull(raw?.html_url),
     bodyHtml: boundedText(raw?.message, CANVAS_CONTENT_LIMITS.html),
@@ -190,11 +202,22 @@ export function parseLinkNext(header) {
 // numbers checked with Number.isFinite, dates checked with Date.parse.
 // Raw Canvas objects never reach the views.
 export function normalizeCourse(raw) {
-  const enr = Array.isArray(raw?.enrollments) ? raw.enrollments[0] : null;
+  const enrollments = objects(raw?.enrollments);
+  const enr = enrollments.find(item => item.type === 'student' || item.role === 'StudentEnrollment') || enrollments[0] || null;
   return {
     id: str(raw?.id),
     name: str(raw?.name) || str(raw?.course_code) || 'Untitled course',
     courseCode: str(raw?.course_code),
+    htmlUrl: referenceUrlOrNull(raw?.html_url),
+    timeZone: validTimeZone(raw?.time_zone),
+    locale: boundedText(raw?.locale, 50),
+    defaultView: boundedText(raw?.default_view, 100),
+    workflowState: boundedText(raw?.workflow_state, 100),
+    startAt: isoOrNull(raw?.start_at), endAt: isoOrNull(raw?.end_at),
+    restrictEnrollmentsToCourseDates: booleanOrNull(raw?.restrict_enrollments_to_course_dates),
+    enrollmentSectionIds: [...new Set(enrollments.map(item => idOrNull(item.course_section_id)).filter(Boolean))],
+    teachers: objects(raw?.teachers).map(item => ({ id: idOrNull(item.id), name: boundedText(item.display_name || item.name, 300) })),
+    ...(Object.prototype.hasOwnProperty.call(raw || {}, 'syllabus_body') ? { syllabusBody: boundedText(raw.syllabus_body, CANVAS_CONTENT_LIMITS.html), syllabusTruncated: textWasTruncated(raw.syllabus_body, CANVAS_CONTENT_LIMITS.html) } : {}),
     term: raw?.term && typeof raw.term === 'object'
       ? {
           id: str(raw.term.id),
@@ -203,7 +226,7 @@ export function normalizeCourse(raw) {
           endAt: isoOrNull(raw.term.end_at),
         }
       : null,
-    applyGroupWeights: Boolean(raw?.apply_assignment_group_weights),
+    applyGroupWeights: booleanOrNull(raw?.apply_assignment_group_weights),
     score: numOrNull(enr?.computed_current_score),
     grade: enr?.computed_current_grade ? str(enr.computed_current_grade) : null,
   };
@@ -258,6 +281,8 @@ export function normalizeGroup(raw) {
     id: str(raw?.id),
     name: str(raw?.name) || 'Assignments',
     groupWeight: numOrNull(raw?.group_weight),
+    position: integerOrNull(raw?.position, 1),
+    rules: raw?.rules && typeof raw.rules === 'object' ? { dropLowest: integerOrNull(raw.rules.drop_lowest, 0), dropHighest: integerOrNull(raw.rules.drop_highest, 0), neverDrop: ids(raw.rules.never_drop) } : null,
   };
 }
 
@@ -270,6 +295,14 @@ export function normalizeAssignment(raw, groupId = '') {
   return {
     id: str(raw?.id),
     groupId: str(groupId || raw?.assignment_group_id),
+    position: integerOrNull(raw?.position, 1),
+    courseId: idOrNull(raw?.course_id),
+    quizId: idOrNull(raw?.quiz_id), discussionId: idOrNull(raw?.discussion_topic?.id),
+    published: booleanOrNull(raw?.published),
+    gradingType: boundedText(raw?.grading_type, 100),
+    omitFromFinalGrade: booleanOrNull(raw?.omit_from_final_grade),
+    onlyVisibleToOverrides: booleanOrNull(raw?.only_visible_to_overrides),
+    externalTool: raw?.external_tool_tag_attributes && typeof raw.external_tool_tag_attributes === 'object' ? { url: referenceUrlOrNull(raw.external_tool_tag_attributes.url), resourceLinkId: idOrNull(raw.external_tool_tag_attributes.resource_link_id), newTab: booleanOrNull(raw.external_tool_tag_attributes.new_tab) } : null,
     name: str(raw?.name) || 'Untitled assignment',
     dueAt: isoOrNull(raw?.due_at),
     // dueAt remains Canvas's effective date for the requesting learner. The
@@ -289,11 +322,11 @@ export function normalizeAssignment(raw, groupId = '') {
       })),
     lockAt: isoOrNull(raw?.lock_at),
     unlockAt: isoOrNull(raw?.unlock_at),
-    lockedForUser: Boolean(raw?.locked_for_user),
+    lockedForUser: booleanOrNull(raw?.locked_for_user),
     allowedAttempts: numOrNull(raw?.allowed_attempts),
     pointsPossible: numOrNull(raw?.points_possible),
-    isQuiz: Boolean(raw?.is_quiz_assignment) || types.includes('online_quiz'),
-    htmlUrl: str(raw?.html_url) || null,
+    isQuiz: types.includes('online_quiz') ? true : booleanOrNull(raw?.is_quiz_assignment),
+    htmlUrl: referenceUrlOrNull(raw?.html_url),
     descriptionHtml: boundedText(raw?.description, CANVAS_CONTENT_LIMITS.html),
     descriptionTruncated: textWasTruncated(raw?.description, CANVAS_CONTENT_LIMITS.html),
     submissionTypes: types.filter((type) => typeof type === 'string' && type.length <= 100).slice(0, 20),
@@ -307,9 +340,9 @@ export function normalizeAssignment(raw, groupId = '') {
           attempt: numOrNull(sub.attempt),
           score: numOrNull(sub.score),
           grade: sub.grade === null || sub.grade === undefined ? null : str(sub.grade),
-          late: Boolean(sub.late),
-          missing: Boolean(sub.missing),
-          excused: Boolean(sub.excused),
+          late: booleanOrNull(sub.late),
+          missing: booleanOrNull(sub.missing),
+          excused: booleanOrNull(sub.excused),
           workflowState: str(sub.workflow_state),
         }
       : null,
@@ -329,6 +362,8 @@ export function normalizeModuleItem(raw) {
     contentId: raw?.content_id === null || raw?.content_id === undefined ? null : str(raw.content_id),
     moduleId: idOrNull(raw?.module_id),
     pageUrl: locatorOrNull(raw?.page_url),
+    externalUrl: referenceUrlOrNull(raw?.external_url), newTab: booleanOrNull(raw?.new_tab),
+    published: booleanOrNull(raw?.published),
     htmlUrl: referenceUrlOrNull(raw?.html_url),
     position: integerOrNull(raw?.position, 1),
     indent: integerOrNull(raw?.indent, 0),
@@ -342,7 +377,7 @@ export function normalizeModuleItem(raw) {
       ? {
           type: str(req.type),
           minScore: numOrNull(req.min_score),
-          completed: Boolean(req.completed),
+          completed: booleanOrNull(req.completed),
         }
       : null,
   };
@@ -353,6 +388,12 @@ export function normalizeModule(raw, items) {
     id: str(raw?.id),
     name: str(raw?.name) || 'Untitled module',
     state: raw?.state ? str(raw.state) : null,
+    position: integerOrNull(raw?.position, 1),
+    prerequisiteModuleIds: ids(raw?.prerequisite_module_ids),
+    requireSequentialProgress: booleanOrNull(raw?.require_sequential_progress),
+    unlockAt: isoOrNull(raw?.unlock_at), completedAt: isoOrNull(raw?.completed_at),
+    published: booleanOrNull(raw?.published),
+    itemsCount: integerOrNull(raw?.items_count, 0),
     items: Array.isArray(items) ? items.map(normalizeModuleItem) : null,
   };
 }
@@ -360,8 +401,8 @@ export function normalizeModule(raw, items) {
 export function normalizeModuleProgress(raw) {
   if (!raw || typeof raw !== 'object') return null;
   return {
-    requirementCount: numOrNull(raw.requirement_count) || 0,
-    requirementCompletedCount: numOrNull(raw.requirement_completed_count) || 0,
+    requirementCount: integerOrNull(raw.requirement_count, 0),
+    requirementCompletedCount: integerOrNull(raw.requirement_completed_count, 0),
     completedAt: isoOrNull(raw.completed_at),
   };
 }
@@ -373,7 +414,7 @@ export function normalizeMissingSubmission(raw) {
     name: str(raw?.name) || 'Untitled assignment',
     dueAt: isoOrNull(raw?.due_at),
     pointsPossible: numOrNull(raw?.points_possible),
-    htmlUrl: str(raw?.html_url) || null,
+    htmlUrl: referenceUrlOrNull(raw?.html_url),
   };
 }
 
@@ -392,8 +433,8 @@ export function attemptsRemaining(assignment) {
 // Deterministic ordering for every list: due date ascending with no due
 // date last, then course name, then assignment name, then assignment id.
 function compareItems(a, b) {
-  const ta = timeOf(a.dueAt);
-  const tb = timeOf(b.dueAt);
+  const ta = a.dueDate ? Date.parse(`${a.dueDate}T00:00:00Z`) : timeOf(a.dueAt);
+  const tb = b.dueDate ? Date.parse(`${b.dueDate}T00:00:00Z`) : timeOf(b.dueAt);
   if (ta !== tb) {
     if (ta === null) return 1;
     if (tb === null) return -1;
@@ -401,17 +442,26 @@ function compareItems(a, b) {
   }
   if (a.courseName !== b.courseName) return a.courseName < b.courseName ? -1 : 1;
   if (a.name !== b.name) return a.name < b.name ? -1 : 1;
-  return a.assignmentId < b.assignmentId ? -1 : a.assignmentId > b.assignmentId ? 1 : 0;
+  const aid = a.assignmentId || a.sourceTaskId || '';
+  const bid = b.assignmentId || b.sourceTaskId || '';
+  return aid < bid ? -1 : aid > bid ? 1 : 0;
 }
 
-function planItem(course, a) {
+function planItem(course, a, now) {
   const sub = a.submission;
+  const timing = assignmentPlanningTiming(a, course, now);
   return {
     courseId: course.id,
     courseName: course.name,
     assignmentId: a.id,
     name: a.name,
-    dueAt: a.dueAt,
+    dueAt: timing.dueAt,
+    officialDueAt: a.dueAt,
+    dueDate: timing.date,
+    duePrecision: timing.precision,
+    dueSource: timing.source,
+    dueTimeZone: course.timeZone || null,
+    planningDeadline: a.planningDeadline || null,
     pointsPossible: a.pointsPossible,
     attemptsRemaining: attemptsRemaining(a),
     htmlUrl: a.htmlUrl,
@@ -487,11 +537,12 @@ export function buildInsights(snapshot, now, opts = {}) {
     const assignments = Array.isArray(course.assignments) ? course.assignments : [];
     let lastDueAt = null;
     let lastDueMs = null;
-    for (const a of assignments) {
-      const t = timeOf(a.dueAt);
+    for (const a of [...assignments, ...(Array.isArray(course.planningTasks) ? course.planningTasks : [])]) {
+      const timing = assignmentPlanningTiming(a, course, now);
+      const t = timing.dueAt ? timeOf(timing.dueAt) : timing.date ? Date.parse(`${timing.date}T00:00:00Z`) : null;
       if (t !== null && (lastDueMs === null || t > lastDueMs)) {
         lastDueMs = t;
-        lastDueAt = a.dueAt;
+        lastDueAt = timing.dueAt || timing.date;
       }
     }
     if (lastDueMs !== null && lastDueMs < now - STALE_MS) {
@@ -541,8 +592,8 @@ export function buildInsights(snapshot, now, opts = {}) {
       const sub = a.submission;
       if (sub && sub.excused) continue; // excused work is never flagged anywhere
 
-      const item = planItem(course, a);
-      const due = timeOf(a.dueAt);
+      const item = planItem(course, a, now);
+      const timing = assignmentPlanningTiming(a, course, now);
       const lockTime = timeOf(a.lockAt);
       // Canvas sets locked_for_user for several causes (a passed lock date,
       // module prerequisites, a future unlock date). Only a passed lock date
@@ -551,13 +602,15 @@ export function buildInsights(snapshot, now, opts = {}) {
       const lockDatePassed = lockTime !== null && lockTime <= now;
       const closed = a.lockedForUser || lockDatePassed;
       const missingFlag = Boolean(sub && sub.missing) || missingIdSet.has(a.id);
-      const done = Boolean(sub && sub.submittedAt) || (sub && sub.workflowState === 'graded');
+      // These are Canvas submission states, independent of module/quiz states.
+      // Do not treat pending_review as graded or elapsed time as completion.
+      const done = Boolean(sub && sub.submittedAt) || Boolean(sub && ['graded', 'submitted'].includes(sub.workflowState));
 
-      if (sub && sub.submittedAt) row.submitted += 1;
+      if (done) row.submitted += 1;
 
       // The plan: each assignment lands in at most one section.
       if (!done) {
-        if ((due !== null && due < now) || missingFlag) {
+        if (timing.overdue || missingFlag) {
           if (closed) {
             plan.overdueClosed.push({ ...item, lockKind: lockDatePassed ? 'date' : 'other' });
             row.overdueClosed += 1;
@@ -565,11 +618,12 @@ export function buildInsights(snapshot, now, opts = {}) {
             plan.overdueOpen.push(item);
             row.overdueOpen += 1;
           }
-        } else if (due === null) {
+        } else if (timing.delta === null) {
           plan.noDueDate.push(item);
         } else {
-          const delta = due - now;
-          const bucket = buckets.find((b) => delta <= b.ms);
+          const delta = timing.delta;
+          // A day-only deadline never claims hour-level urgency.
+          const bucket = buckets.find((b) => (timing.precision !== 'date' || b.ms >= DAY_MS) && delta <= b.ms);
           if (bucket) {
             bucket.items.push(item);
             row.upcoming += 1;
@@ -598,6 +652,26 @@ export function buildInsights(snapshot, now, opts = {}) {
           ...item,
           ratio: Math.round((sub.score / a.pointsPossible) * 100) / 100,
         });
+      }
+    }
+
+    // Syllabus-only work is separate from Canvas assignments and grades. Its
+    // completion is unverified; merely passing its date never completes it.
+    const sourceTasks = Array.isArray(course.planningTasks) ? course.planningTasks : [];
+    if (sourceTasks.length) row.sourceTasks = sourceTasks.length;
+    for (const task of sourceTasks) {
+      const timing = assignmentPlanningTiming(task, course, now);
+      const item = {
+        ...planItem(course, { ...task, id: null, dueAt: null, pointsPossible: null, allowedAttempts: null, htmlUrl: task.sourceUrl, submission: null }, now),
+        assignmentId: null, sourceTask: true, sourceTaskId: task.sourceTaskId,
+        completionStatus: 'unverified', missing: false, late: false,
+      };
+      if (timing.overdue) { plan.overdueOpen.push(item); row.overdueOpen += 1; }
+      else if (timing.delta === null) plan.noDueDate.push(item);
+      else {
+        const bucket = buckets.find(b => (timing.precision !== 'date' || b.ms >= DAY_MS) && timing.delta <= b.ms);
+        if (bucket) { bucket.items.push(item); row.upcoming += 1; }
+        else plan.later.push(item);
       }
     }
 

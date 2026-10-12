@@ -11,13 +11,27 @@ import { activateFocusProfile, pauseFocusSessions, subscribeFocusSession } from 
 import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
 import { apiFetch, captureEnrollment, isSignupRoute, accountGateKey, getAccountSession, mountAccountGate } from '/auth-ui.js';
 import { mountStudentMemos, saveStudentMemo } from '/continuity-ui.js';
-import { homeCourseGroups, currentHomeTermIds, canvasRefreshDue } from '/student-home.js';
+import { homeCourseGroups, currentHomeTermIds, canvasRefreshDue, studentGreeting } from '/student-home.js';
+import { createStudyTimeTracker } from '/study-time.js';
 import { mountCanvasAccount } from '/canvas-account.js';
 import { mountStudyPlans } from '/study-plans.js';
 import { visiblePortalCourses } from '/course-materials.js';
 import { coachRequestTarget } from '/coach-intent.js';
 import { getQuestionModel, mountQuestionModel } from '/question-models.js';
 import { mountPracticeInsights } from '/practice-insights.js';
+import { createAppClock } from '/time-context.js';
+import { mountPlanReminders } from '/plan-schedule-ui.js';
+
+const appClock = createAppClock();
+async function synchronizeAppClock() {
+  const sentAt = performance.now();
+  try {
+    const response = await apiFetch('/api/time?timeZone=' + encodeURIComponent(appClock.read().timeZone));
+    if (!response.ok) return;
+    const result = await response.json();
+    appClock.synchronize(result.now, sentAt, performance.now());
+  } catch { appClock.useDeviceTime(); }
+}
 
 // ---------------------------------------------------------------- data & state
 const CONTENT = { manifest: null, units: new Map(), byNumber: new Map(), failed: [], freeResponse: [] };
@@ -29,6 +43,8 @@ let labCleanup = null;
 let spatialCleanup = null;
 let focusCleanup = null;
 let studyPlansCleanup = null;
+let planRemindersCleanup = null;
+let remindersProfile = null;
 let practiceBuilderCleanup = null;
 let evidenceMysteryCleanup = null;
 let practiceInsightsCleanup = null;
@@ -52,6 +68,12 @@ let memosCleanup = null;
 let canvasAccountCleanup = null;
 let activeProfile = 'learner';
 let switchingProfile = false;
+const studyTime = createStudyTimeTracker({ now: appClock.now, monotonicNow: () => performance.now() });
+let studyTimePaused = false;
+let mixedTimePaused = false;
+let mixedTimeScope = null;
+let focusTimeStatus = 'idle';
+let coachEngaged = false;
 let profiles = [{ id: 'learner', name: 'My workspace' }];
 try {
   const stored = JSON.parse(localStorage.getItem('students4ai-profiles') || 'null');
@@ -96,6 +118,7 @@ function showAccountGate(notice) {
     if (notice !== undefined) $('#account-message').textContent = notice;
     return;
   }
+  planRemindersCleanup?.(); planRemindersCleanup = null; remindersProfile = null;
   accountGateRoute = route;
   accountGateActive = true;
   clearTimeout(saveTimer);
@@ -165,13 +188,35 @@ async function signOut(withoutSync = false) {
 const $ = (sel, root = document) => root.querySelector(sel);
 const viewEl = () => $('#view');
 
+function studentDisplayName() {
+  return [S?.settings.name, profiles.find(profile => profile.id === activeProfile)?.name,
+    ACCOUNT?.user?.displayName, ACCOUNT?.user?.username]
+    .filter(value => typeof value === 'string').map(value => value.trim())
+    .find(value => value && !['my workspace', 'student workspace', 'student sign-in', 'learner'].includes(value.toLowerCase())) || '';
+}
+
+// A tab-local estimate, separate from progress, grading, and saved focus timers.
+function syncStudyTime() {
+  const available = Boolean(S && !accountGateActive && !switchingProfile && (!ACCOUNT?.authRequired || ACCOUNT.authenticated));
+  const route = (location.hash || '#/home').split('/')[1];
+  const studying = /^(study|mixed|unit|lesson|practice|mastery|diagnostic|review|library|build|mystery|focus)$/.test(route);
+  const scope = selectedStudyContext ? ['plan', selectedStudyContext.planId, selectedStudyContext.stepId]
+    : coachCanvasReference ? ['course', coachCanvasReference.selectedCourseId, coachCanvasReference.itemId, coachCanvasReference.moduleItemId, coachCanvasReference.learningTopic]
+      : mixedTimeScope ? mixedTimeScope
+        : activeQuestionCoach ? ['question', activeQuestionCoach.unit.id, activeQuestionCoach.q.skillId]
+          : [location.hash || '#/home', S?.settings.subject];
+  studyTime.setContext({ profileId: available ? activeProfile : null, scopeKey: JSON.stringify(scope),
+    isStudy: available && (studying || coachEngaged), paused: studyTimePaused || mixedTimePaused || (route === 'focus' && focusTimeStatus === 'paused') });
+}
+
 function updateStudentHeader(signedOut = accountGateActive) {
   const canNavigate = !signedOut && S && (!ACCOUNT?.authRequired || ACCOUNT.authenticated);
+  const now = new Date(appClock.now());
   const name = $('#student-header-name');
-  const displayName = canNavigate
-    ? S.settings.name || profiles.find(profile => profile.id === activeProfile)?.name || ACCOUNT?.user?.displayName || ACCOUNT?.user?.username || 'Student workspace'
-    : 'Student sign-in';
+  const displayName = canNavigate ? studentGreeting(studentDisplayName(), now) : 'Student sign-in';
   if (name && name.textContent !== displayName) name.textContent = displayName;
+  const greeting = $('#home-greeting');
+  if (canNavigate && greeting && greeting.textContent !== displayName) greeting.textContent = displayName;
   const accountLink = $('#student-header-account');
   if (accountLink) accountLink.hidden = !canNavigate;
   const menuToggle = $('#student-header-menu-toggle');
@@ -190,7 +235,6 @@ function updateStudentHeader(signedOut = accountGateActive) {
     navigationSlot.hidden = !canNavigate || !desktopNavigation;
   }
   if (menuToggle) menuToggle.hidden = !canNavigate || desktopNavigation;
-  const now = new Date();
   const date = $('#student-header-date');
   const time = $('#student-header-time');
   if (date) {
@@ -202,6 +246,8 @@ function updateStudentHeader(signedOut = accountGateActive) {
   if (time) {
     const label = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
     const stamp = new Date(Math.floor(now.getTime() / 1000) * 1000).toISOString();
+    const clock = appClock.read();
+    time.title = clock.source === 'server' ? 'Time synchronized with the server' : 'Device time; synchronization unavailable';
     if (time.textContent !== label) time.textContent = label;
     if (time.dateTime !== stamp) time.dateTime = stamp;
   }
@@ -285,6 +331,7 @@ function mountTutor(container, unit, q, ctx) {
   const activate = () => {
     activeQuestionCoach = { container, unit, q, ctx };
     coachCanvasReference = null;
+    syncStudyTime();
     pageCoachCleanup?.refresh();
   };
   if (/^#\/(?:practice|mastery|diagnostic)(?:\/|$)/.test(location.hash)
@@ -370,6 +417,7 @@ async function loadProgress(profile = activeProfile) {
 async function switchProfile(profile) {
   if (switchingProfile || profile === activeProfile || !profiles.some((p) => p.id === profile)) return;
   switchingProfile = true;
+  planRemindersCleanup?.(); planRemindersCleanup = null; remindersProfile = null;
   pageCoachCleanup?.(); pageCoachCleanup = null;
   mountView('<h1>Opening learner workspace</h1><p>Your current progress is being saved.</p>');
   clearTimeout(saveTimer);
@@ -411,7 +459,7 @@ function studyControls() {
     S.settings.subject = normalizeSubjectId(e.target.value);
     CANVAS.selectedCourseId = null;
     CANVAS.assessment = null;
-    const current = currentHomeTermIds(CANVAS.terms, Date.now());
+    const current = currentHomeTermIds(CANVAS.terms, appClock.now());
     CANVAS.termIds = current.length ? current : null;
     if (CANVAS.snapshot) canvasRebuildInsights();
     save();
@@ -519,6 +567,8 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   if (labCleanup) { labCleanup(); labCleanup = null; }
   if (spatialCleanup) { spatialCleanup(); spatialCleanup = null; }
   if (focusCleanup) { focusCleanup(); focusCleanup = null; }
+  studyTimePaused = false; mixedTimePaused = false; mixedTimeScope = null; coachEngaged = false;
+  syncStudyTime();
   studyControls();
   const v = viewEl();
   v.innerHTML = html;
@@ -795,10 +845,6 @@ function mountSpatialSection(parent) {
 }
 
 function viewHome() {
-  const studentName = [S.settings.name, profiles.find(profile => profile.id === activeProfile)?.name,
-    ACCOUNT?.user?.displayName, ACCOUNT?.user?.username]
-    .filter(value => typeof value === 'string').map(value => value.trim())
-    .find(value => value && !['my workspace', 'student workspace', 'student sign-in', 'learner'].includes(value.toLowerCase()));
   // A direct navigation choice requested by the students.
   // lint-ui: allow
   const choicePrompt = 'What do you want to do first?';
@@ -814,7 +860,7 @@ function viewHome() {
     <span class="home-action-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${action.icon}</svg></span>
     <span class="home-action-copy"><strong class="home-action-title">${esc(action.label)}</strong><span class="home-action-description" id="home-action-description-${index}">${esc(action.description)}</span></span>
     <span class="home-action-arrow" aria-hidden="true">→</span></a>`).join('');
-  mountView(`<section class="home-welcome" aria-labelledby="home-greeting"><div class="home-welcome-heading"><h1 id="home-greeting">${studentName ? `Hello, ${esc(studentName)}` : 'Hello'}</h1><p>${choicePrompt}</p></div><div class="home-action-grid">${tiles}</div></section>`,
+  mountView(`<section class="home-welcome" aria-labelledby="home-greeting"><div class="home-welcome-heading"><h1 id="home-greeting">${esc(studentGreeting(studentDisplayName(), new Date(appClock.now())))}</h1><p>${choicePrompt}</p></div><div class="home-action-grid">${tiles}</div></section>`,
     { breadcrumb: ['Home'], nav: 'home' });
   loadSchoolContext();
   S.lastLocation = '#/home'; save();
@@ -865,9 +911,10 @@ async function viewEvidenceMystery() {
 }
 
 function portalCourseItems() {
-  return portalCourses().flatMap(course => (course.assignments || []).map(item => ({
-    id: String(item.id), courseId: String(course.id), title: item.name,
-    dueAt: item.dueAt || null, htmlUrl: item.htmlUrl, type: item.isQuiz ? 'quiz' : 'assignment',
+  return portalCourses().flatMap(course => [...(course.assignments || []), ...(course.planningTasks || [])].map(item => ({
+    id: String(item.sourceTask ? item.sourceTaskId : item.id), courseId: String(course.id), title: item.name,
+    sourceTask: item.sourceTask === true, planningDeadline: item.planningDeadline || null,
+    dueAt: item.dueAt || null, htmlUrl: item.htmlUrl || item.sourceUrl, type: item.sourceTask ? 'source-task' : item.isQuiz ? 'quiz' : 'assignment',
     submitted: Boolean(item.submission?.submittedAt || ['submitted', 'graded'].includes(item.submission?.workflowState)),
     excused: Boolean(item.submission?.excused),
   })));
@@ -883,7 +930,7 @@ function viewStudyPlans(selectedPlanId = null, courseId = null) {
   const v = mountView('<h1>Plan</h1><p>Choose a course and make a plan for tonight.</p><div id="study-plans-slot"></div><div class="portal-tools"><a href="#/canvas">Choose courses in Canvas</a><a href="#/focus">Session timer</a></div>', { breadcrumb: ['Home', 'Plan'], nav: 'plans' });
   const host = $('#study-plans-slot', v);
   const instance = mountStudyPlans(host, {
-    profileId, courses: portalCourses(), subjects: STUDY_SUBJECTS, canvasItems: portalStudyItems(),
+    profileId, clock: appClock, courses: portalCourses(), subjects: STUDY_SUBJECTS, canvasItems: portalStudyItems(),
     selectedCourseId: courseId || prefill?.courseId || CANVAS.selectedCourseId,
     subject: S.settings.subject, selectedPlanId, initialGoal: prefill?.goal || '', initialActivity: prefill?.activity || 'guide',
     isCurrent: () => profileId === activeProfile && host.isConnected,
@@ -912,6 +959,7 @@ async function viewStudentStudy(planId = null, stepId = null, courseId = null) {
     const clearStudyActivities = () => {
       practiceGeneration += 1; practiceLoading = false;
       mixedCleanup?.(); mixedCleanup = null; activeMixedQuestion = null;
+      mixedTimePaused = false; mixedTimeScope = null;
       spatialCleanup?.(); spatialCleanup = null;
       for (const cleanup of questionModelCleanups) cleanup();
       questionModelCleanups.clear();
@@ -925,12 +973,14 @@ async function viewStudentStudy(planId = null, stepId = null, courseId = null) {
       selectedStudyContext = meta?.planId ? { planId: meta.planId, stepId: meta.stepId || null,
         selectedCourseId: meta.courseId || null, subject: meta.subject || 'all' } : null;
       coachCanvasReference = null;
+      studyTimePaused = studyPaused;
+      syncStudyTime();
       pageCoachCleanup?.refresh();
     };
     const selectCourseContext = meta => {
       if (!host.isConnected || profileId !== activeProfile) return false;
       if (!meta) {
-        if (coachCanvasReference) { clearStudyActivities(); coachCanvasReference = null; pageCoachCleanup?.refresh(); }
+        if (coachCanvasReference) { clearStudyActivities(); coachCanvasReference = null; syncStudyTime(); pageCoachCleanup?.refresh(); }
         return false;
       }
       const course = portalCourses().find(item => String(item.id) === String(meta.courseId));
@@ -943,11 +993,13 @@ async function viewStudentStudy(planId = null, stepId = null, courseId = null) {
         learningTopic: typeof meta.topic === 'string' ? meta.topic.trim().slice(0, 500) : '', title: course.name };
       if (selectedStudyContext || JSON.stringify(next) !== JSON.stringify(coachCanvasReference)) clearStudyActivities();
       studyPaused = false; selectedStudyContext = null; coachCanvasReference = next;
+      studyTimePaused = false;
+      syncStudyTime();
       pageCoachCleanup?.refresh();
       return true;
     };
     const instance = mountStudentStudy(host, {
-      profileId, selectedPlanId: planId, selectedStepId: stepId, selectedCourseId: courseId, renderMath,
+      profileId, clock: appClock, selectedPlanId: planId, selectedStepId: stepId, selectedCourseId: courseId, renderMath,
       courses: portalCourses(), canvasItems: portalStudyItems(), courseItems: portalCourseItems(),
       isCurrent: () => profileId === activeProfile && host.isConnected,
       onSelection: selectContext,
@@ -984,7 +1036,15 @@ async function viewStudentStudy(planId = null, stepId = null, courseId = null) {
             onQuestionContext(context) {
               if (!host.isConnected || profileId !== activeProfile) return;
               activeMixedQuestion = context ? { ...context, container: practice } : null;
+              if (context) mixedTimeScope = ['mixed', context.sessionId, context.subject, context.topicId];
+              syncStudyTime();
               pageCoachCleanup?.refresh();
+            },
+            onSessionState(status) {
+              if (!host.isConnected || profileId !== activeProfile) return;
+              mixedTimePaused = status === 'paused';
+              if (['setup', 'complete', 'inactive'].includes(status)) mixedTimeScope = null;
+              syncStudyTime();
             },
             onAskCoach(message) { if (host.isConnected && profileId === activeProfile) pageCoachCleanup?.ask(message); },
           });
@@ -1091,7 +1151,15 @@ async function viewMixedStudy(initialSubject = null) {
       onQuestionContext(context) {
         if (!host.isConnected || profileId !== activeProfile) return;
         activeMixedQuestion = context ? { ...context, container: host } : null;
+        if (context) mixedTimeScope = ['mixed', context.sessionId, context.subject, context.topicId];
+        syncStudyTime();
         pageCoachCleanup?.refresh();
+      },
+      onSessionState(status) {
+        if (!host.isConnected || profileId !== activeProfile) return;
+        mixedTimePaused = status === 'paused';
+        if (['setup', 'complete', 'inactive'].includes(status)) mixedTimeScope = null;
+        syncStudyTime();
       },
       onAskCoach(message) {
         if (host.isConnected && profileId === activeProfile) pageCoachCleanup?.ask(message);
@@ -1799,7 +1867,7 @@ async function loadSchoolContext(force = false) {
   try {
     await canvasEnsureSession();
     if (generation !== canvasGeneration) return;
-    if (CANVAS.connected && (force || canvasRefreshDue(CANVAS.snapshot?.fetchedAt, Date.now()))) await canvasLoadSnapshot();
+    if (CANVAS.connected && (force || canvasRefreshDue(CANVAS.snapshot?.fetchedAt, appClock.now()))) await canvasLoadSnapshot();
     if (generation !== canvasGeneration) return;
     const pace = $('#school-pace');
     if (pace) pace.innerHTML = canvasPaceHtml();
@@ -1823,7 +1891,7 @@ function canvasRebuildInsights() {
   const overrides = CANVAS.prefs?.courseOverrides || {};
   const snapshot = CANVAS.snapshot ? { ...CANVAS.snapshot, courses: portalCourses(),
     missingSubmissions: (CANVAS.snapshot.missingSubmissions || []).filter(item => overrides[String(item.courseId)] !== 'hidden') } : null;
-  CANVAS.insights = CI.buildInsights(snapshot, Date.now(), {
+  CANVAS.insights = CI.buildInsights(snapshot, appClock.now(), {
     termIds: CANVAS.termIds || [], selectedSubject: 'all',
     selectedCourseId: CANVAS.selectedCourseId, courseOverrides: overrides,
   });
@@ -1952,7 +2020,7 @@ async function fetchCanvasSnapshot() {
     const validIds = new Set(CANVAS.terms.map((t) => t.id));
     if (CANVAS.termIds) CANVAS.termIds = CANVAS.termIds.filter((id) => validIds.has(id));
     if (!CANVAS.termIds || !CANVAS.termIds.length) {
-      const current = currentHomeTermIds(CANVAS.terms, Date.now());
+      const current = currentHomeTermIds(CANVAS.terms, appClock.now());
       CANVAS.termIds = current.length ? current : null;
     }
     canvasRebuildInsights();
@@ -1974,7 +2042,13 @@ function canvasTabsHtml(active) {
 
 function canvasHeadHtml() {
   const updated = CANVAS.snapshot?.fetchedAt ? canvasDateTime(CANVAS.snapshot.fetchedAt) : null;
-  return `<div class="canvas-head portal-canvas-head"><p class="canvas-meta">${updated ? `Updated ${esc(updated)}` : 'Load your classes to begin.'}</p><div class="btn-row"><button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh courses' : 'Load courses'}</button><a href="#/settings">Connection settings</a></div></div>`;
+  const collection = CANVAS.snapshot?.collection;
+  const collectionNotice = collection?.capacityCount ? 'Some course materials could not be included in this collection. Open a course to review the gaps.'
+    : collection?.pendingCount ? 'Some course materials are still being collected. Refresh courses to continue.'
+      : collection?.unavailableCount ? 'Some course materials are unavailable to this account. Open a course to review the gaps.' : '';
+  return `<div class="canvas-head portal-canvas-head"><p class="canvas-meta">${updated ? `Updated ${esc(updated)}` : 'Load your classes to begin.'}</p><div class="btn-row"><button type="button" class="secondary canvas-refresh">${CANVAS.snapshot ? 'Refresh courses' : 'Load courses'}</button><a href="#/settings">Connection settings</a></div>
+    ${collectionNotice ? `<p class="canvas-note">${collectionNotice}</p>` : ''}
+    ${CANVAS.snapshot?.courses.some(course => course.documentsTruncated) ? '<p class="canvas-note">Some linked documents have not been read yet. Refresh courses to continue.</p>' : ''}</div>`;
 }
 
 function canvasTermsHtml() {
@@ -2060,7 +2134,7 @@ function wireCanvasControls(root, rerender) {
 function selectCanvasCourse(value) {
   CANVAS.selectedCourseId = value === 'subject' ? null : value;
   const course = CANVAS.snapshot?.courses.find((item) => item.id === value);
-  const termIds = value === 'subject' ? currentHomeTermIds(CANVAS.terms, Date.now()) : course?.term?.id ? [course.term.id] : [];
+  const termIds = value === 'subject' ? currentHomeTermIds(CANVAS.terms, appClock.now()) : course?.term?.id ? [course.term.id] : [];
   CANVAS.termIds = termIds.length ? termIds : null;
   CANVAS.assessment = null;
   canvasRebuildInsights();
@@ -2196,10 +2270,26 @@ const canvasCountsLine = (ins) => {
   return `${missing} marked missing in Canvas · ${open} past due and still open · ${upcoming} due in the next 5 days`;
 };
 
+function deadlineEvidenceHtml(deadline) {
+  if (!deadline) return '';
+  const evidence = deadline.status === 'resolved' ? [deadline] : (deadline.evidence || []).slice(0, 3);
+  if (!evidence.length) return '';
+  return `<details class="canvas-meta"><summary>Deadline evidence</summary>${evidence.map(item => `<p>${esc(item.excerpt || 'Check the source for the applicable date.')} ${item.sourceUrl && /^https:\/\//.test(item.sourceUrl) ? `<a href="${esc(item.sourceUrl)}" target="_blank" rel="noopener">Open ${esc(item.source || 'source')}</a>` : ''}</p>`).join('')}</details>`;
+}
+
+function canvasCoverageHtml(course) {
+  if (!course) return '';
+  const sources = Object.entries(course.collection || {});
+  const docs = course.documents || [];
+  return `<details class="canvas-meta"><summary>Collected sources and gaps</summary><ul>${sources.map(([name, state]) => `<li>${esc(name)}: ${esc(state.state)}${Number.isFinite(state.count) ? ' (' + state.count + ')' : ''}</li>`).join('')}${docs.map(doc => `<li>${esc(doc.title || 'Course file')}: ${esc(doc.contentStatus || 'not-read')}${doc.warnings?.length ? ' · ' + esc(doc.warnings.join(' · ')) : ''}</li>`).join('')}</ul><p>Refresh continues unread sources within the collection limits. File or page access depends on your Canvas permissions.</p></details>`;
+}
+
 function canvasItemHtml(item, attention) {
   const side = [];
-  const due = canvasDateTime(item.dueAt);
-  side.push(due ? `Due ${esc(due)}` : 'Due date not reported in this data');
+  const due = item.duePrecision === 'date' && item.dueDate ? item.dueDate + ' (time not specified)' : canvasDateTime(item.dueAt);
+  side.push(due ? `Due ${esc(due)}${item.dueSource && item.dueSource !== 'canvas' ? ' · from ' + esc(item.dueSource) : ''}` : 'Due date not reported in this data');
+  if (item.planningDeadline?.status === 'conflict') side.push('Sources give conflicting dates; check instructions');
+  else if (item.planningDeadline?.status === 'needs-review') side.push('A possible deadline needs review');
   if (item.pointsPossible !== null) side.push(`${esc(String(item.pointsPossible))} points possible`);
   if (item.attemptsRemaining !== null) {
     side.push(item.attemptsRemaining === 1 ? '1 attempt remains' : `${item.attemptsRemaining} attempts remain`);
@@ -2207,13 +2297,14 @@ function canvasItemHtml(item, attention) {
   const tags = [];
   if (item.missing) tags.push('<span class="tag">Marked missing in Canvas</span>');
   if (item.late && item.submittedAt) tags.push('<span class="tag">Submitted late</span>');
+  if (item.sourceTask) tags.push('<span class="tag">Syllabus task · completion unverified</span>');
   if (item.isQuiz) tags.push('<span class="tag">Quiz</span>');
   if (item.lockKind === 'date') tags.push('<span class="tag">Lock date passed</span>');
   else if (item.lockKind === 'other') tags.push('<span class="tag">Locked in Canvas</span>');
   const link = item.htmlUrl ? ` <a href="${esc(item.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas (new tab)</a>` : '';
   return `<div class="canvas-item${attention ? ' attention' : ''}">
     <div><strong>${esc(item.name)}</strong><span class="canvas-meta">${esc(item.courseName)}</span></div>
-    <div class="canvas-item-side"><span class="canvas-meta">${side.join(' · ')}</span>${tags.join(' ')}${link}<button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(item.courseId)}" data-item-id="${esc(item.assignmentId)}">Find instructions</button></div>
+    <div class="canvas-item-side"><span class="canvas-meta">${side.join(' · ')}</span>${tags.join(' ')}${deadlineEvidenceHtml(item.planningDeadline)}${link}${item.sourceTask ? '' : `<button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(item.courseId)}" data-item-id="${esc(item.assignmentId)}">Find instructions</button>`}</div>
   </div>`;
 }
 
@@ -2286,7 +2377,7 @@ function canvasPage(bodyBuilder, breadcrumbTail, activeTab, wire) {
 function viewCanvas() {
   canvasPage(() => {
     if (!CANVAS.prefs) return `<p class="canvas-note">${esc(CANVAS.prefsError || 'Your course choices are still loading. Refresh courses to try again.')}</p>`;
-    const groups = homeCourseGroups(CANVAS.snapshot, Date.now());
+    const groups = homeCourseGroups(CANVAS.snapshot, appClock.now());
     const card = course => {
       const selected = CANVAS.prefs.courseOverrides[String(course.id)] !== 'hidden';
       return `<article class="card portal-course-card"><div class="portal-course-heading"><h3><a href="#/canvas/course/${esc(course.id)}">${esc(course.name)}</a></h3><span class="tag">${selected ? 'In Plan' : 'Not in Plan'}</span></div>
@@ -2298,7 +2389,7 @@ function viewCanvas() {
     const current = [...groups.current, ...groups.unknown];
     const extra = [...groups.past, ...groups.upcoming];
     return `<section class="portal-courses"><h2>Your courses</h2><p>Choose the courses you want in Plan. Your school’s Canvas stays unchanged.</p>
-      ${CANVAS.snapshot.coursesTruncated ? '<p class="canvas-note">Some courses could not be included in this load.</p>' : ''}
+      ${CANVAS.snapshot.coursesTruncated ? '<p class="canvas-note">Some courses are still loading. Refresh courses to continue.</p>' : ''}
       <div class="portal-course-grid">${current.length ? current.map(card).join('') : '<p>No current courses were returned by Canvas.</p>'}</div>
       ${extra.length ? `<details class="portal-tools-details"><summary>Other school years and upcoming courses (${extra.length})</summary><div class="portal-course-grid">${extra.map(card).join('')}</div></details>` : ''}
       <div class="portal-tools"><a class="btn" href="#/plans">Go to Plan</a></div></section>`;
@@ -2518,14 +2609,15 @@ function viewCanvasCourse(courseId) {
       const remaining = CI.attemptsRemaining(a);
       const side = [];
       const due = canvasDateTime(a.dueAt);
-      side.push(due ? `Due ${esc(due)}` : a.dueDateStatus === 'no-date' ? 'Canvas returned an empty due-date field; check instructions' : 'Due-date field unavailable; check instructions');
+      const sourced = a.planningDeadline?.status === 'resolved' ? a.planningDeadline : null;
+      side.push(due ? `Due ${esc(due)}` : sourced ? `Due ${esc(sourced.dueAt ? canvasDateTime(sourced.dueAt) : sourced.date + ' (time not specified)')} · from ${esc(sourced.source)}` : a.dueDateStatus === 'no-date' ? 'Canvas returned an empty due-date field; check instructions' : 'Due-date field unavailable; check instructions');
       side.push(sub && sub.score !== null
         ? `${sub.score} of ${a.pointsPossible === null ? 'unknown' : a.pointsPossible} points`
         : (a.pointsPossible === null ? 'No points value' : `${a.pointsPossible} points possible`));
       if (remaining !== null) side.push(remaining === 1 ? '1 attempt remains' : `${remaining} attempts remain`);
       const attention = Boolean(sub && sub.missing && !sub.excused);
       return `<div class="canvas-item${attention ? ' attention' : ''}">
-        <div><strong>${esc(a.name)}</strong><span class="canvas-meta">${side.join(' · ')}</span></div>
+        <div><strong>${esc(a.name)}</strong><span class="canvas-meta">${side.join(' · ')}</span>${deadlineEvidenceHtml(a.planningDeadline)}</div>
         <div class="canvas-item-side"><span class="tag">${state}</span>${sub && sub.late && sub.submittedAt ? '<span class="tag">Submitted late</span>' : ''}${a.isQuiz ? '<span class="tag">Quiz</span>' : ''}${a.htmlUrl ? ` <a href="${esc(a.htmlUrl)}" target="_blank" rel="noopener">Open in Canvas</a>` : ''}<button type="button" class="quiet canvas-ask-instructions" data-course-id="${esc(course.id)}" data-item-id="${esc(a.id)}">Find instructions</button></div>
       </div>`;
     }).join('');
@@ -2537,6 +2629,8 @@ function viewCanvasCourse(courseId) {
       ${course.modulesError ? `<p class="canvas-note">${esc(course.modulesError)}</p>` : ''}
       ${course.assignmentsTruncated ? '<p class="canvas-meta">Canvas returned more assignments than could be loaded; the list below is incomplete.</p>' : ''}
       ${course.modulesTruncated ? '<p class="canvas-meta">Canvas returned more modules or module items than could be loaded; the module list below is incomplete.</p>' : ''}
+      ${canvasCoverageHtml(course)}
+      ${course.deadlineReview?.length ? '<p class="canvas-note">Some instructor dates need review or differ from Canvas. Canvas dates remain authoritative; use Find instructions to compare sources.</p>' : ''}
       ${stats}
       ${modules}
       <h3>Assignments (${course.assignments.length})</h3>
@@ -2568,6 +2662,7 @@ function router() {
   if (ACCOUNT?.authRequired && isSignupRoute()) { showAccountGate(); return; }
   if (ACCOUNT?.authRequired && (!ACCOUNT.authenticated || accountGateActive)) { showAccountGate(); return; }
   if (switchingProfile) return;
+  ensurePlanReminders();
   const hash = location.hash || '#/home';
   const parts = hash.slice(2).split('/');
   let [route, a, b] = parts;
@@ -2599,12 +2694,53 @@ function router() {
   ensurePageCoach();
 }
 
+function ensurePlanReminders() {
+  if (remindersProfile === activeProfile && planRemindersCleanup) return;
+  planRemindersCleanup?.();
+  const profile = activeProfile, host = document.getElementById('plan-reminders');
+  let disposed = false, plans = [], controller = null, reminderError = null;
+  remindersProfile = profile;
+  const current = () => !disposed && activeProfile === profile && !switchingProfile && (!ACCOUNT?.authRequired || ACCOUNT.authenticated);
+  const monitor = mountPlanReminders(host, { getPlans: () => { if (reminderError) throw reminderError; return current() ? plans : []; }, clock: appClock, profileId: profile });
+  const refresh = async () => {
+    if (!current()) return;
+    controller?.abort(); controller = new AbortController();
+    const requestController = controller;
+    try {
+      const response = await apiFetch('/api/study-plans?profile=' + encodeURIComponent(profile), { signal: requestController.signal, cache: 'no-store' });
+      const result = await response.json();
+      if (!current() || requestController.signal.aborted) return;
+      if (!response.ok || !Array.isArray(result.plans)) throw new Error('Plan reminders could not be refreshed. Open Study plans to try again.');
+      reminderError = null; plans = result.plans; monitor.refresh();
+    } catch {
+      if (current() && !requestController.signal.aborted) {
+        // Do not notify from stale completion or schedule data after a failed
+        // refresh. Resume only when this workspace can be read again.
+        reminderError = new Error('Study reminders could not be refreshed. They will resume after the next successful refresh. Open Study plans to review your saved work.');
+        plans = []; monitor.refresh();
+      }
+    }
+  };
+  const visibleRefresh = () => { if (!document.hidden) refresh(); };
+  const timer = setInterval(visibleRefresh, 60000);
+  window.addEventListener('students4ai-plans-changed', refresh);
+  document.addEventListener('visibilitychange', visibleRefresh);
+  planRemindersCleanup = () => {
+    disposed = true; controller?.abort(); clearInterval(timer); monitor.dispose();
+    host.replaceChildren(); host.hidden = true;
+    window.removeEventListener('students4ai-plans-changed', refresh);
+    document.removeEventListener('visibilitychange', visibleRefresh);
+  };
+  refresh();
+}
+
 function ensurePageCoach() {
   updateStudentHeader();
+  syncStudyTime();
   if (pageCoachCleanup) { pageCoachCleanup.refresh(); return; }
   pageCoachCleanup = mountPageCoach($('#page-coach-slot'), {
     profileId: activeProfile,
-    context: () => ({ route: location.hash || '#/home', subject: activeMixedQuestion?.subject || S.settings.subject,
+    context: () => ({ route: location.hash || '#/home', timeZone: appClock.read().timeZone, subject: activeMixedQuestion?.subject || S.settings.subject,
       selectedCourseId: CANVAS.selectedCourseId, termIds: CANVAS.termIds || [],
       questionId: activeMixedQuestion?.questionId || activeQuestionCoach?.q.id, unitId: activeQuestionCoach?.unit.id,
       sessionId: activeMixedQuestion?.sessionId,
@@ -2651,6 +2787,9 @@ function ensurePageCoach() {
     } : undefined,
     request: async (payload, { signal }) => {
       const profile = activeProfile;
+      coachEngaged = true;
+      syncStudyTime(); studyTime.activity();
+      const studyTiming = studyTime.snapshot();
       const coachFailure = (data, fallback) => Object.assign(new Error(data.error || fallback), { memoryWrites: data.memoryWrites, code: data.code });
       const question = activeQuestionCoach?.container.isConnected ? activeQuestionCoach : null;
       const mixedQuestion = activeMixedQuestion?.container.isConnected ? activeMixedQuestion : null;
@@ -2660,7 +2799,7 @@ function ensurePageCoach() {
       if (mixedQuestion && !asksForSchool) {
         const response = await apiFetch(`/api/mixed/tutor?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId,
-          followUp: payload.message, transcript: payload.transcript, attachments: payload.attachments,
+          followUp: payload.message, transcript: payload.transcript, attachments: payload.attachments, studyTiming,
         }) });
         const data = await response.json();
         if (!response.ok || data.error) throw coachFailure(data, 'The question coach could not answer.');
@@ -2673,7 +2812,7 @@ function ensurePageCoach() {
         const response = await apiFetch(`/api/tutor?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           unitId: unit.id, questionId: q.id, phase: ctx.phase || 'before-answer',
           learnerAnswer: ctx.learnerAnswer, chosenIndex: ctx.chosenIndex, history: ctx.history,
-          followUp: payload.message, transcript: payload.transcript, attachments: payload.attachments,
+          followUp: payload.message, transcript: payload.transcript, attachments: payload.attachments, studyTiming,
         }) });
         const data = await response.json();
         if (!response.ok || data.error) throw coachFailure(data, 'The question coach could not answer.');
@@ -2682,7 +2821,7 @@ function ensurePageCoach() {
         return data;
       }
       const schoolPayload = mixedQuestion && !coachCanvasReference ? { ...payload, pageContext: { ...payload.pageContext, subject: mixedQuestion.subject, selectedCourseId: null } } : payload;
-      const { res, data } = await canvasApi('/api/canvas/coach', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(schoolPayload) });
+      const { res, data } = await canvasApi('/api/canvas/coach', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...schoolPayload, studyTiming }) });
       if (!res.ok || data.error) throw coachFailure(data, 'The study coach could not answer.');
       const receivedHelp = Boolean(data.text && data.available !== false && !data.refusal);
       if (question && receivedHelp && profile === activeProfile && !signal.aborted) question.ctx.onHelp?.();
@@ -2701,10 +2840,16 @@ async function boot() {
   try {
     captureEnrollment();
     setupStudentHeaderMenu();
+    studyTime.visibility(!document.hidden);
+    const studyActivity = event => { if (event.isTrusted) { syncStudyTime(); studyTime.activity(); } };
+    for (const type of ['pointerdown', 'keydown', 'wheel', 'touchstart']) document.addEventListener(type, studyActivity, { passive: true });
+    document.addEventListener('visibilitychange', () => studyTime.visibility(!document.hidden));
+    window.addEventListener('pagehide', () => studyTime.visibility(false));
+    window.addEventListener('pageshow', () => studyTime.visibility(!document.hidden));
     updateStudentHeader();
     setInterval(() => { if (!document.hidden) updateStudentHeader(); }, 1000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) updateStudentHeader(); });
-    const refreshVisibleSchool = () => { if (!document.hidden) loadSchoolContext(); };
+    const refreshVisibleSchool = () => { if (!document.hidden) { synchronizeAppClock(); loadSchoolContext(); } };
     setInterval(refreshVisibleSchool, 300000);
     document.addEventListener('visibilitychange', refreshVisibleSchool);
     window.addEventListener('focus', refreshVisibleSchool);
@@ -2719,9 +2864,11 @@ async function boot() {
       showAccountGate();
       return;
     }
+    synchronizeAppClock();
     if (ACCOUNT.authRequired) applyAccountWorkspaces();
     subscribeFocusSession(({ profileId, status }) => {
       if (profileId !== activeProfile) return;
+      focusTimeStatus = status; syncStudyTime();
       const indicator = $('#focus-status');
       indicator.hidden = status !== 'running';
     });

@@ -761,6 +761,18 @@ header; lessons, review, and other tools are available from Study.
 The Refresh control is reserved and disabled until its behavior is defined.
 Signed-out screens never show the previous student's name.
 
+Home and the header greet the learner by name and device-local time of day.
+Each Coach request supplies the browser's IANA time zone; the server derives
+the current local date/time from its own clock. An in-memory, per-learner
+estimate counts foreground study activity, continuous time since a break, and
+time on the current topic. Hidden tabs, explicit pauses, and inactivity beyond
+five minutes are excluded. These are browser estimates, not proof of attention,
+fatigue, sleep, or total study across devices; reloads start fresh. The counters
+are not saved as memories or added to grades. Astra can offer a brief, optional
+break or stopping-point suggestion when useful, without repeatedly nagging,
+assuming a bedtime, or interrupting the student's question. Timing alone never
+triggers a model request.
+
 The Vecto-style Astra study-coach card sits below every screen, with quick
 requests to pick a next step, find instructions, and explain the current page.
 Replies identify the actual configured GPT model that answered, link to

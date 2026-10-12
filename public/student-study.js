@@ -1,6 +1,6 @@
 // Study executes saved plans. Completion belongs to the versioned plan API;
 // this browser stores only the selected IDs and the learner's pause choice.
-import { createStudyPlanClient, studyPlanActivity, studyPlanStudyRequest } from './study-plans.js';
+import { createStudyPlanClient, studyPlanActivity, studyPlanStudyRequest, studyPlanSourceRefs, studyCourseworkDate } from './study-plans.js';
 import { safeTutorHref } from './tutor-text.js';
 import { mountCourseMaterials, visiblePortalCourses } from './course-materials.js';
 
@@ -39,14 +39,16 @@ export function studyCourseItems(canvasItems, courseId) {
   const rows = [];
   for (const item of Array.isArray(canvasItems) ? canvasItems : []) {
     const id = String(item?.id ?? '');
-    if (String(item?.courseId ?? '') !== selected || !/^[0-9]{1,20}$/.test(id) || seen.has(id)) continue;
+    const sourceTask = item?.sourceTask === true;
+    if (String(item?.courseId ?? '') !== selected || !(sourceTask ? /^source-task-[a-z0-9_-]{1,100}$/i : /^[0-9]{1,20}$/).test(id) || seen.has(id)) continue;
     const title = text(item.title || item.name, 250);
     if (!title) continue;
     seen.add(id);
     const dueTime = typeof item.dueAt === 'string' ? Date.parse(item.dueAt) : NaN;
     rows.push({ id, courseId: selected, title, dueAt: Number.isFinite(dueTime) ? item.dueAt : null,
       dueStatus: Number.isFinite(dueTime) ? 'reported' : item.dueAt == null ? 'not-supplied' : 'unavailable',
-      href: safeTutorHref(item.htmlUrl || item.href), type: text(item.type, 40) });
+      href: safeTutorHref(item.htmlUrl || item.sourceUrl || item.href), type: text(item.type, 40),
+      ...(sourceTask ? { sourceTask: true } : {}), ...(item.planningDeadline ? { planningDeadline: item.planningDeadline } : {}) });
   }
   return rows.sort((a, b) => (a.dueAt ? Date.parse(a.dueAt) : Infinity) - (b.dueAt ? Date.parse(b.dueAt) : Infinity)
     || a.title.localeCompare(b.title) || a.id.localeCompare(b.id));
@@ -82,7 +84,7 @@ export function mountStudentStudy(root, {
   profileId, selectedPlanId = null, selectedStepId = null, courses = [], canvasItems = [], courseItems = canvasItems,
   isCurrent = () => true, request, onAskAstra, onPractice, onPlan, onModel, onSelection,
   selectedCourseId = null, selectedItemId = null, onCourseSelection, onCourseGenerate,
-  renderMath, storage = browserStorage(),
+  renderMath, clock, storage = browserStorage(),
 } = {}) {
   let separateCourseItems = courseItems !== canvasItems;
   courses = Array.isArray(courses) ? courses : [];
@@ -296,6 +298,7 @@ export function mountStudentStudy(root, {
       const saved = usablePlans([result.plan]).find(item => item.id === plan.id);
       if (!saved || !text(saved.updatedAt, 100) || saved.completedStepIds.includes(step.id) === wasComplete) throw new Error('Unconfirmed completion');
       plans = plans.map(item => item.id === plan.id ? saved : item);
+      globalThis.dispatchEvent?.(new Event('students4ai-plans-changed'));
       status.textContent = wasComplete ? 'This step is marked not complete.' : 'Step complete. Choose the next step when you are ready.';
     } catch (error) {
       if (current() && error.name !== 'AbortError') status.textContent = 'The completion change was not confirmed. Reload saved plans before trying again.';
@@ -305,30 +308,57 @@ export function mountStudentStudy(root, {
   }
   function renderInstructor(plan) {
     const items = plan ? studyCourseItems(canvasItems, plan.course.id) : [];
-    const version = JSON.stringify([plan?.id, items]);
+    const refs = studyPlanSourceRefs(plan), sourceIds = new Set(refs.map(ref => ref.id));
+    const verified = plan?.canvasSourcesVerified === true;
+    const unconfirmed = mode === 'plan' && /^[0-9]{1,20}$/.test(plan?.course?.id || '') && !verified;
+    const selectedItems = verified && refs.length ? studyCourseItems(courseItems, plan.course.id).filter(item => !item.sourceTask && sourceIds.has(item.id)) : [];
+    const otherItems = verified && refs.length ? items.filter(item => item.sourceTask || !sourceIds.has(item.id)) : items;
+    const version = JSON.stringify([plan?.id, refs, verified, unconfirmed, selectedItems, otherItems]);
     if (version === instructorVersion) return;
     if (instructor.contains?.(document.activeElement)) { pendingInstructorRefresh = true; return; }
     pendingInstructorRefresh = false;
     instructorVersion = version;
-    instructor.replaceChildren(node('h2', '', 'Instructor work for this course'));
+    instructor.replaceChildren(node('h2', '', refs.length ? 'Course materials' : unconfirmed ? 'Current Canvas course work' : 'Instructor work for this course'));
     if (!plan) { instructor.hidden = true; return; }
     instructor.hidden = false;
-    if (!items.length) {
-      instructor.append(node('p', 'canvas-meta', 'No instructor items are available here for this course. Open Canvas to check your current work.'));
+    if (unconfirmed && !refs.length) instructor.append(node('p', 'canvas-meta', 'This current Canvas list has not been confirmed as the source for your saved plan. Your saved study steps are still available.'));
+    function itemList(rows) {
+      const list = node('ul', 'student-study-instructor-list');
+      for (const item of rows.slice(0, 30)) {
+        const row = node('li');
+        const title = node('a', '', item.title);
+        title.href = item.href || '#/canvas/course/' + item.courseId;
+        if (item.href && !item.href.startsWith('#/')) { title.target = '_blank'; title.rel = 'noopener noreferrer'; }
+        const due = item.dueStatus === 'unavailable' ? 'Due date unavailable' : studyCourseworkDate(item, clock?.read().timeZone);
+        row.append(title, node('span', 'canvas-meta', due));
+        if (item.sourceTask) row.append(node('span', 'canvas-meta', 'Syllabus task · Completion unverified'));
+        list.append(row);
+      }
+      return list;
+    }
+    if (refs.length) {
+      const selected = node('section', 'student-study-selected-sources');
+      selected.append(node('h3', '', 'Selected coursework'));
+      if (!verified) selected.append(node('p', 'canvas-meta', 'The selected coursework has not been confirmed against your current Canvas connection. Open Canvas and reload saved plans to check it.'));
+      else {
+        if (selectedItems.length) selected.append(itemList(selectedItems), node('p', 'canvas-meta', 'These are the selected items in your current Canvas list. Open an item to read its instructions.'));
+        const missing = refs.length - selectedItems.length;
+        if (missing) selected.append(node('p', 'canvas-meta', `${missing} selected ${missing === 1 ? 'item is' : 'items are'} unavailable in the current Canvas list. Open Canvas to check the work and due dates.`));
+      }
+      instructor.append(selected);
+      if (otherItems.length) instructor.append(node('h3', '', verified ? 'Other instructor work' : 'Current Canvas course work'));
+      if (!verified && otherItems.length) instructor.append(node('p', 'canvas-meta', 'This current list is separate from the unconfirmed sources for your saved plan.'));
+    }
+    if (!otherItems.length) {
+      if (!refs.length) instructor.append(node('p', 'canvas-meta', unconfirmed ? 'No current Canvas items are available here. Open Canvas to check your current work.' : 'No instructor items are available here for this course. Open Canvas to check your current work.'));
       return;
     }
-    const list = node('ul', 'student-study-instructor-list');
-    for (const item of items.slice(0, 30)) {
-      const row = node('li');
-      const title = node('a', '', item.title);
-      title.href = item.href || '#/canvas/course/' + item.courseId;
-      if (item.href && !item.href.startsWith('#/')) { title.target = '_blank'; title.rel = 'noopener noreferrer'; }
-      let due = item.dueStatus === 'unavailable' ? 'Due date unavailable' : 'Due date not supplied';
-      if (item.dueAt) due = 'Due ' + new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(item.dueAt));
-      row.append(title, node('span', 'canvas-meta', due)); list.append(row);
-    }
-    instructor.append(list);
-    if (items.length > 30) instructor.append(node('p', 'canvas-meta', `${items.length - 30} more instructor items are available in Canvas.`));
+    instructor.append(itemList(otherItems));
+    if (otherItems.length > 30) instructor.append(node('p', 'canvas-meta', `${otherItems.length - 30} more instructor items are available in Canvas.`));
+  }
+  function courseForPlan(plan) {
+    if (/^[0-9]{1,20}$/.test(plan.course.id) && plan.canvasSourcesVerified !== true) return plan.course;
+    return courses.find(item => String(item.id) === plan.course.id) || plan.course;
   }
   function render() {
     if (!current()) return;
@@ -340,7 +370,7 @@ export function mountStudentStudy(root, {
     select.replaceChildren();
     const placeholder = node('option', '', plans.length ? 'Choose a saved plan' : loading ? 'Loading saved plans' : loadFailed ? 'Plans unavailable' : 'No saved plans yet'); placeholder.value = ''; select.append(placeholder);
     for (const plan of plans) {
-      const course = (Array.isArray(courses) ? courses : []).find(item => String(item.id) === plan.course.id);
+      const course = courseForPlan(plan);
       const option = node('option', '', `${text(course?.name || plan.course.name, 200)} · ${text(plan.title, 160)}`);
       option.value = plan.id; select.append(option);
     }
@@ -372,7 +402,7 @@ export function mountStudentStudy(root, {
     });
     aside.append(steps);
     const detail = node('article', 'card student-study-current');
-    const course = (Array.isArray(courses) ? courses : []).find(item => String(item.id) === plan.course.id);
+    const course = courseForPlan(plan);
     currentCourseLabel = node('span', 'kicker', text(course?.name || plan.course.name, 200));
     detail.append(currentCourseLabel, node('h2', '', text(step.title, 160)));
     detail.append(node('p', 'student-study-instructions', text(step.detail)), node('p', 'canvas-meta', `${Number.isInteger(step.minutes) ? step.minutes : 0} suggested minutes.`));
@@ -467,11 +497,11 @@ export function mountStudentStudy(root, {
       for (const option of select.children) {
         const optionPlan = plans.find(item => item.id === option.value);
         if (!optionPlan) continue;
-        const course = courses.find(item => String(item.id) === optionPlan.course.id);
+        const course = courseForPlan(optionPlan);
         option.textContent = `${text(course?.name || optionPlan.course.name, 200)} · ${text(optionPlan.title, 160)}`;
       }
       if (plan && currentCourseLabel) {
-        const course = courses.find(item => String(item.id) === plan.course.id);
+        const course = courseForPlan(plan);
         currentCourseLabel.textContent = text(course?.name || plan.course.name, 200);
       }
       renderCourse();

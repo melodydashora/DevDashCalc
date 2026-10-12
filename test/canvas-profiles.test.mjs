@@ -35,6 +35,11 @@ globalThis.fetch = async (url, options = {}) => {
   const address = new URL(String(url));
   if (address.href === 'https://api.openai.com/v1/chat/completions') {
     const payload = JSON.parse(options.body);
+    if (payload.messages[0]?.content.includes('Return ONLY JSON with') && payload.messages.some(message => typeof message.content === 'string' && message.content.includes('fixture-source-plan'))) {
+      process.send({ planCapture: payload.messages });
+      const plan = { title: 'Source-grounded fixture plan', topics: ['Limits'], sourceRefs: [{ type: 'assignment', id: '999999' }], steps: [{ title: 'Read the selected task', detail: 'Explain its directions.', minutes: 5 }, { title: 'Try an example', detail: 'Compare two limits.', minutes: 15 }] };
+      return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(plan) } }] }), { status: 200 });
+    }
     if (payload.messages.some(message => message.content === 'fixture-study-refusal')) return new Response(JSON.stringify({ choices: [{ finish_reason: 'stop', message: { refusal: 'This fixture refuses the request.', content: null } }] }), { status: 200 });
     if (payload.messages.some(message => message.content === 'coach-reply-gate')) await waitForTest('coach-reply-gate');
     if (payload.messages.some(message => typeof message.content === 'string' && message.content.includes('study-plan-draft-gate'))) {
@@ -78,8 +83,10 @@ globalThis.fetch = async (url, options = {}) => {
   if (endpoint === 'users/self' && ['test-slow-connect-secret', 'test-slow-stored-secret'].includes(token)) await waitForTest(token);
   if (endpoint === 'users/self') return answer(user);
   if (['1000', '1100'].includes(user.id)) {
+    const biologyAssignment = { id: '7', name: 'Photosynthesis lab', ...(user.id === '1000' ? { description: '<p>Compare oxygen production in light and dark conditions.</p>' } : {}), due_at: null };
     if (endpoint === 'courses') return answer([{ id: '99', name: 'Honors Biology', course_code: 'BIO', term: { id: '11' } }]);
-    if (endpoint === 'courses/99/assignment_groups') return answer([{ id: '1', name: 'Biology work', assignments: [{ id: '7', name: 'Photosynthesis lab', description: '<p>Compare oxygen production in light and dark conditions.</p>', due_at: null }] }]);
+    if (endpoint === 'courses/99/assignment_groups') return answer([{ id: '1', name: 'Biology work', assignments: [biologyAssignment] }]);
+    if (endpoint === 'courses/99/assignments') return answer([biologyAssignment]);
     if (endpoint === 'courses/99/modules') return answer([{ id: '8', name: 'Cell energy', items: [] }]);
     if (user.id === '1100' && (endpoint.startsWith('courses/99/pages') || endpoint === 'courses/99/front_page' || endpoint === 'courses/99' || endpoint === 'courses/99/assignments/7')) return answer({ message: 'Material cannot be read' }, 403);
     if (endpoint === 'courses/99/pages') return answer([{ page_id: '70', url: 'photosynthesis', title: 'Photosynthesis light reactions' }]);
@@ -96,17 +103,24 @@ globalThis.fetch = async (url, options = {}) => {
   if (endpoint === 'courses') return answer([{ id: '99', name: user.name + ' calculus course', course_code: 'CALC-BC', term: { id: '11', name: 'Fixture term' }, enrollments: [{ computed_current_score: Number(user.id) / 10 }] }]);
   if (endpoint === 'users/self/missing_submissions') return answer([]);
   if (endpoint === 'courses/99/assignment_groups') return answer([{ id: '1', name: 'Work', assignments: Array.from({ length: user.id === '900' ? 6 : 1 }, (_, i) => ({ id: String(7 + i), name: user.name + ' assignment' + (user.id === '900' ? ' ' + (i + 1) : ''), points_possible: 10, submission: { workflow_state: 'unsubmitted' } })) }]);
+  if (endpoint === 'courses/99/assignments') return answer(Array.from({ length: user.id === '900' ? 6 : 1 }, (_, i) => ({
+    id: String(7 + i), assignment_group_id: '1', name: user.name + ' assignment' + (user.id === '900' ? ' ' + (i + 1) : ''),
+    description: '<p>' + user.name + ' instructions: read chapter 2 before the class on Friday.</p>', due_at: null,
+    html_url: 'https://school.example/courses/99/assignments/' + (7 + i), points_possible: 10, submission: { workflow_state: 'unsubmitted' },
+  })));
   if (endpoint === 'courses/99/assignments/7') return answer({ id:'7', name:user.name + ' assignment', description:'<p>' + user.name + ' instructions: read chapter 2 before the class on Friday.</p>', due_at:null, html_url:'https://school.example/courses/99/assignments/7' });
   if (user.id === '900' && ['8','9','10','11','12'].some(id => endpoint === 'courses/99/assignments/' + id)) return answer({ id:endpoint.split('/').pop(), name:user.name + ' assignment', description:'<p>Review this assignment.</p>', due_at:null });
   if (endpoint === 'courses/99/pages' && user.id === '900') return answer({ message: 'Page list is unavailable' }, 404);
   if (endpoint === 'courses/99/pages') return answer([{page_id:'12',url:'weekly-plan',title:user.name + ' weekly schedule',html_url:'https://school.example/courses/99/pages/weekly-plan'}]);
-  if (endpoint === 'courses/99/pages/weekly-plan') return answer({page_id:'12',url:'weekly-plan',title:user.name + ' weekly schedule',body:'<p>Read the limits instructions before class.</p>'});
+  if (endpoint === 'courses/99/pages/weekly-plan' || endpoint === 'courses/99/pages/page_id:12') return answer({page_id:'12',url:'weekly-plan',title:user.name + ' weekly schedule',body:'<p>Read the limits instructions before class.</p>'});
   if (endpoint === 'courses/99/front_page') return answer({page_id:'13',url:'welcome',title:user.name + ' front page',body:user.id === '900'
     ? '<p>Use these current resources.</p><a href="https://docs.google.com/document/d/fixtureassessmentplan/edit">Current assessment plan</a><a href="https://docs.google.com/document/d/fixtureprivatecalendar/edit">Current calendar</a>'
     : '<p>Read the current assessment plan before class.</p>',html_url:'https://school.example/courses/99/pages/welcome'});
   if (endpoint === 'courses/99') return answer({id:'99',syllabus_body:'<p>Use the weekly schedule for reading dates.</p>'});
   if (endpoint === 'courses/99/modules') return answer([{ id: '8', name: user.name + ' module', items: [] }]);
   if (endpoint === 'courses/99/users/self/progress') return answer({ requirement_count: 3, requirement_completed_count: 1 });
+  if (['courses/99/discussion_topics', 'courses/99/quizzes', 'courses/99/files', 'courses/99/folders', 'courses/99/students/submissions', 'courses/99/grading_periods', 'calendar_events'].includes(endpoint)
+    || address.pathname === '/api/quiz/v1/courses/99/quizzes') return answer([]);
   throw new Error('Unexpected Canvas endpoint ' + endpoint);
 };`;
 
@@ -181,7 +195,7 @@ before(async () => {
   await mkdir(join(sandbox, 'public'));
   await mkdir(join(sandbox, 'data'));
   await writeFile(join(sandbox, 'package.json'), '{"type":"module"}');
-  for (const file of ['server.js', 'coach-audio.js', 'coach-memory.js', 'coach-attachments.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-plans.js', 'practice-history.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
+  for (const file of ['server.js', 'coach-audio.js', 'coach-memory.js', 'coach-attachments.js', 'coach-study-time.js', 'store.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-plans.js', 'practice-history.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'canvas-sync.js', 'canvas-documents.js', 'public/canvas-deadlines.js', 'public/plan-schedule.js', 'public/time-context.js', 'mixed-practice.js', 'mixed-practice-api.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js']) {
     await copyFile(new URL(`../${file}`, import.meta.url), join(sandbox, file));
   }
   await copyFile(new URL('../store.js', import.meta.url), join(sandbox, 'store-real.js'));
@@ -260,8 +274,10 @@ test('page coach reads typed source instructions, distinguishes missing dates an
   assert.match(result.data.text,/reproduce the full supplied timestamp verbatim, including its Z or numeric timezone offset/);
   assert.ok(result.data.sources.some(source => /T.*Z$/.test(source.readAt) && result.data.text.includes(source.readAt)));
   assert.ok(result.data.sources.some(s=>s.href==='https://school.example/courses/99/assignments/7'));
-  assert.ok(result.data.rulesAdded >= 3, 'instruction, syllabus and front-page discoveries are retained');
   const first = JSON.parse(await readFile(join(sandbox,'data/cv-rule-learner.json'),'utf8'));
+  assert.deepEqual(first.filter(entry => entry?.canvasIdentity === 'https://school.example|100').map(entry => `${entry.type}:${entry.id}`).sort(),
+    ['assignment:7', 'page:12', 'page:13', 'syllabus:99'], 'instruction, full page, syllabus and front-page discoveries are retained');
+  assert.equal(result.data.rulesAdded, 4);
   const again = await api('coach',{method:'POST',cookie:original.cookie,body:request});
   assert.equal(again.data.rulesAdded,0);
   assert.deepEqual(JSON.parse(await readFile(join(sandbox,'data/cv-rule-learner.json'),'utf8')),first);
@@ -397,6 +413,75 @@ test('unread Biology materials remain explicit while the owned course can still 
   assert.ok(result.data.sources.some(source => source.id === '7' && source.sourceState === 'read_failed'));
 });
 
+test('plan drafts and saved Study share selected assignment evidence while connection changes cannot reuse colliding IDs', async () => {
+  const profile = 'plan-source-identity', connected = await connect(profile, originalToken, false);
+  let captured = null;
+  const capture = message => { if (message.planCapture) captured = message.planCapture; };
+  child.on('message', capture);
+  const planApi = async (path, body, cookie = connected.cookie, method = 'POST') => {
+    const response = await fetch(`${base}/api/study-plans${path}?profile=${profile}`, { method,
+      headers: { 'content-type': 'application/json', cookie }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    return { status: response.status, data: await response.json() };
+  };
+  try {
+    const sourceRefs = [{ type: 'assignment', id: '7' }];
+    const fallback = await planApi('/draft', { course: { id: '99' }, goal: 'Read my selected assignment', minutes: 20, sourceRefs });
+    assert.equal(fallback.status, 200); assert.equal(fallback.data.available, false);
+    assert.deepEqual(fallback.data.plan.sourceRefs, sourceRefs);
+    assert.ok(fallback.data.sources.some(source => source.id === '7'));
+    const drafted = await planApi('/draft', { course: { id: '99', name: 'FORGED COURSE' }, goal: 'fixture-source-plan', minutes: 20, sourceRefs });
+    assert.equal(drafted.status, 200); assert.equal(drafted.data.available, true);
+    assert.deepEqual(drafted.data.plan.sourceRefs, sourceRefs, 'invented model reference was discarded');
+    assert.equal(drafted.data.plan.canvasSourcesVerified, true);
+    assert.ok(drafted.data.sources.some(source => source.id === '7' && source.courseId === '99'));
+    assert.ok(Array.isArray(drafted.data.limitations));
+    assert.ok(captured);
+    const prompt = JSON.parse(captured.at(-1).content);
+    assert.deepEqual(prompt.sourceRefs, sourceRefs);
+    assert.match(JSON.stringify(prompt.courseContext), /Original learner instructions/);
+    assert.doesNotMatch(JSON.stringify(prompt), /FORGED COURSE|canvasSourceBinding|test-original-secret/);
+    const requestId = '00000000-0000-4000-8000-000000000177';
+    const saved = await planApi('', { requestId, plan: { ...drafted.data.plan, canvasSourceBinding: 'forged-client-binding' } });
+    assert.equal(saved.status, 201); assert.equal(saved.data.plan.source, 'astra');
+    assert.equal(saved.data.plan.canvasSourcesVerified, true);
+    assert.equal(saved.data.plan.canvasSourceBinding, undefined);
+    const eventsFile = join(sandbox, `data/plans-${profile}.json`), events = JSON.parse(await readFile(eventsFile, 'utf8'));
+    assert.match(events[0].plan.canvasSourceBinding, /^[a-f0-9]{64}$/);
+    const coached = await api('coach', { profile, method: 'POST', cookie: connected.cookie, body: {
+      pageContext: { route: '#/study', planId: requestId, stepId: 'step-1', sourceRefs: [{ type: 'assignment', id: '999999' }] }, message: 'Explain this saved plan step.',
+    } });
+    assert.equal(coached.status, 200); assert.match(coached.data.text, /Original learner instructions/);
+    assert.doesNotMatch(coached.data.text, /999999|canvasSourceBinding/);
+    for (const refs of [[{ type: 'assignment', id: '888' }], [{ type: 'assignment', id: '7', courseId: '88' }]]) {
+      assert.equal((await planApi('/draft', { course: { id: '99' }, goal: 'fixture-source-plan', sourceRefs: refs })).status, 400);
+      assert.equal((await planApi('', { requestId: '00000000-0000-4000-8000-000000000188', plan: { ...saved.data.plan, sourceRefs: refs } })).status, 400);
+    }
+    const replacement = await connect(profile, 'test-other-secret', false);
+    const afterSwitch = await api('coach', { profile, method: 'POST', cookie: replacement.cookie, body: {
+      pageContext: { route: '#/study', planId: requestId, stepId: 'step-1' }, message: 'Help me continue the saved goal.',
+    } });
+    assert.equal(afterSwitch.status, 200);
+    assert.match(afterSwitch.data.text, /Source-grounded fixture plan/);
+    assert.doesNotMatch(afterSwitch.data.text, /Other learner instructions|Original learner instructions|canvasSourceBinding/);
+    assert.match(afterSwitch.data.limitations.join(' '), /source connection is not verified/);
+    assert.equal(afterSwitch.data.sources.length, 0);
+    assert.equal((await planApi('', undefined, replacement.cookie, 'GET')).data.plans[0].canvasSourcesVerified, false);
+    assert.equal((await planApi('', { requestId, plan: saved.data.plan }, replacement.cookie)).status, 409);
+    assert.equal((await planApi('', { requestId: '00000000-0000-4000-8000-000000000199', plan: drafted.data.plan }, replacement.cookie)).status, 409);
+    assert.deepEqual(JSON.parse(await readFile(eventsFile, 'utf8')), events, 'failed saves and source mismatch never mutate the original plan');
+    const legacyId = '00000000-0000-4000-8000-000000000166';
+    const legacy = { ...events[0].plan, id: legacyId, title: 'Legacy saved goal' };
+    delete legacy.canvasSourceBinding; delete legacy.sourceRefs;
+    await writeFile(eventsFile, JSON.stringify([...events, { type: 'create', plan: legacy }]));
+    const oldPlan = await api('coach', { profile, method: 'POST', cookie: replacement.cookie, body: {
+      pageContext: { route: '#/study', planId: legacyId }, message: 'Help me with this legacy goal.',
+    } });
+    assert.equal(oldPlan.status, 200); assert.match(oldPlan.data.text, /Legacy saved goal/);
+    assert.match(oldPlan.data.limitations.join(' '), /source connection is not verified/);
+    assert.doesNotMatch(oldPlan.data.text, /Other learner instructions/);
+  } finally { child.off('message', capture); }
+});
+
 test('a readable front page finds linked instructions despite page-index failure while a private calendar remains unread', async () => {
   const profile = 'coach-front-page';
   const connected = await connect(profile, 'test-page-index-denied-secret', false);
@@ -408,10 +493,10 @@ test('a readable front page finds linked instructions despite page-index failure
   assert.match(result.data.text, /prepare the product and quotient rules for September 15/);
   assert.doesNotMatch(result.data.text, /Calendar confidential contents/);
   assert.ok(result.data.sources.some(source => source.href === 'https://docs.google.com/document/d/fixtureassessmentplan/edit' && source.sourceState === 'available'));
-  assert.ok(result.data.sources.some(source => source.href === 'https://docs.google.com/document/d/fixtureprivatecalendar/edit' && source.sourceState === 'read_failed'));
+  assert.ok(result.data.sources.some(source => source.href === 'https://docs.google.com/document/d/fixtureprivatecalendar/edit' && source.sourceState === 'unavailable' && source.readAt === null));
   assert.ok(result.data.sources.some(source => source.discovery === 'front-page' && source.sourceState === 'available'));
   assert.match(result.data.limitations.join(' '), /page index/);
-  assert.match(result.data.limitations.join(' '), /calendar could not be read/i);
+  assert.match(result.data.limitations.join(' '), /calendar has no readable collected content/i);
   const history = JSON.parse(await readFile(join(sandbox, `data/cv-rule-${profile}.json`), 'utf8'));
   assert.ok(history.some(entry => entry.type === 'page' && entry.id === '13'));
   assert.ok(history.some(entry => entry.type === 'syllabus' && entry.id === '99'));
@@ -434,7 +519,7 @@ test('the next-step quick button and common planning questions retrieve current 
     assert.match(result.data.text, /prepare the product and quotient rules for September 15/, message);
     assert.ok(result.data.sources.some(source => source.discovery === 'front-page' && source.sourceState === 'available'), message);
     assert.ok(result.data.sources.some(source => source.href === 'https://docs.google.com/document/d/fixtureassessmentplan/edit' && source.sourceState === 'available'), message);
-    assert.ok(result.data.sources.some(source => source.href === 'https://docs.google.com/document/d/fixtureprivatecalendar/edit' && source.sourceState === 'read_failed'), message);
+    assert.ok(result.data.sources.some(source => source.href === 'https://docs.google.com/document/d/fixtureprivatecalendar/edit' && source.sourceState === 'unavailable' && source.readAt === null), message);
     assert.doesNotMatch(result.data.text, /Calendar confidential contents/, message);
   }
 });
@@ -678,7 +763,10 @@ test('slow durable source saves cannot replace an earlier addition during an acc
     const first = api('coach', { profile, method: 'POST', cookie: original.cookie, body: request });
     await reached;
     const firstLocal = JSON.parse(await readFile(join(sandbox, `data/${key}.json`), 'utf8'));
-    assert.equal(firstLocal.length, prior.length + 1, 'the original addition is safe locally before the slow DB write');
+    assert.deepEqual(firstLocal.slice(0, prior.length), prior, 'existing versions and null occurrences survive locally');
+    assert.deepEqual(firstLocal.slice(prior.length).map(entry => `${entry.type}:${entry.id}`).sort(),
+      ['assignment:7', 'page:12', 'page:13', 'syllabus:99'], 'all collected source additions are safe locally before the slow DB write');
+    assert.ok(firstLocal.slice(prior.length).every(entry => entry.canvasIdentity === 'https://school.example|100'));
     const replacement = await connect(profile, eshaToken, false);
     const second = api('coach', { profile, method: 'POST', cookie: replacement.cookie, body: request });
     await new Promise(done => setTimeout(done, 25));
@@ -689,7 +777,8 @@ test('slow durable source saves cannot replace an earlier addition during an acc
     const database = (await fixtureDatabase({})).get(key);
     assert.deepEqual(local.slice(0, firstLocal.length), firstLocal, 'no earlier version, null occurrence, or UUID was replaced');
     assert.deepEqual(database, local, 'both replicas retain both account additions');
-    assert.equal(local.length, prior.length + 2);
+    assert.deepEqual(local.slice(firstLocal.length).map(entry => `${entry.type}:${entry.id}`).sort(), ['assignment:7', 'page:12', 'page:13', 'syllabus:99']);
+    assert.ok(local.slice(firstLocal.length).every(entry => entry.canvasIdentity === 'https://school.example|200'));
   } finally {
     child.send({ release: 'source-write-gate' });
     await fixtureDatabase({ enabled: false, failWrites: false, nextGate: null, rows: [] });
@@ -706,9 +795,10 @@ test('a failed database append survives restart and is repaired even without a n
     const connection = await connect(profile, originalToken, false);
     const first = await api('coach', { profile, method: 'POST', cookie: connection.cookie, body: request });
     assert.equal(first.status, 200);
-    assert.equal(first.data.rulesAdded, 1);
+    assert.equal(first.data.rulesAdded, 4);
     assert.match(first.data.limitations.join(' '), /saved on this server only/);
     const local = JSON.parse(await readFile(join(sandbox, `data/${key}.json`), 'utf8'));
+    assert.deepEqual(local.slice(prior.length).map(entry => `${entry.type}:${entry.id}`).sort(), ['assignment:7', 'page:12', 'page:13', 'syllabus:99']);
     assert.deepEqual((await fixtureDatabase({})).get(key), prior, 'fabricated failed database still has the older history');
     await stopServer(); await startServer();
     await fixtureDatabase({ enabled: true, rows: [[key, prior]], failWrites: false });
@@ -884,11 +974,11 @@ test('missing secret tokens still expose a safe configured URL and temporary out
     assert.equal(unavailable.data.secretDisabled, false);
     assert.match(unavailable.data.secretIssue, /could not be verified/);
     await api('session', { profile }); await api('session', { profile });
-    assert.equal(await canvasRequestCount('test-unavailable-env-secret'), 1, 'temporary errors have a one-minute retry cooldown');
+    assert.equal(await canvasRequestCount('test-unavailable-env-secret'), 3, 'the initial request makes three bounded attempts; repeated GETs respect the one-minute cooldown');
     const manual = await connect(profile, originalToken);
     const failed = await api('session', { profile, method: 'POST', body: { useServerSecret: true } });
     assert.equal(failed.status, 502);
-    assert.equal(await canvasRequestCount('test-unavailable-env-secret'), 2, 'explicit retry remains available');
+    assert.equal(await canvasRequestCount('test-unavailable-env-secret'), 6, 'explicit retry permits one more bounded group of three attempts');
     assert.equal((await api('session', { profile, cookie: manual.cookie })).data.user.name, 'Original learner');
     assert.equal((await api('session', { profile })).data.user.name, 'Original learner');
   });

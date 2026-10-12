@@ -69,6 +69,12 @@ class Node {
   focus() { document.activeElement = this; }
 }
 function descendants(node) { return [node, ...node.children.flatMap(descendants)]; }
+function capturePlanEvents(t) {
+  const previous = globalThis.dispatchEvent, events = [];
+  globalThis.dispatchEvent = event => { events.push(event.type); return true; };
+  t.after(() => { if (previous === undefined) delete globalThis.dispatchEvent; else globalThis.dispatchEvent = previous; });
+  return events;
+}
 function fixture(t, options = {}) {
   const old = globalThis.document;
   globalThis.document = { createElement: tag => new Node(tag), activeElement: null };
@@ -102,6 +108,71 @@ test('Study opens the selected saved step, shows instructor work and keeps text 
   assert.equal(asked[0][0], plan.steps[1].detail);
   assert.equal(asked[0][1].planId, plan.id);
   assert.equal(asked[0][1].stepId, 'step-2');
+});
+
+test('verified saved coursework stays separate from other instructor work and missing selected items are disclosed', async t => {
+  const plan = makePlan({ sourceRefs: [{ type: 'assignment', id: '9' }, { type: 'assignment', id: '10' }], canvasSourcesVerified: true });
+  const selectedItem = { id: '9', courseId: '42', title: '<b>Selected lab</b>', dueAt: null, htmlUrl: 'javascript:alert(1)', submitted: true };
+  const otherItem = { id: '8', courseId: '42', title: 'Upcoming worksheet', dueAt: '2026-10-13T12:00:00Z' };
+  const f = fixture(t, { request: async () => response({ plans: [plan] }),
+    canvasItems: [otherItem], courseItems: [selectedItem, otherItem, { id: '10', courseId: '43', title: 'Another course source' }] });
+  await tick();
+  const selected = f.byClass('student-study-selected-sources');
+  assert.match(selected.textContent, /Selected coursework/); assert.match(selected.textContent, /<b>Selected lab<\/b>/);
+  assert.match(selected.textContent, /1 selected item is unavailable/);
+  assert.match(selected.textContent, /No due date supplied/);
+  assert.doesNotMatch(selected.textContent, /Upcoming worksheet|Another course source|Read successfully/);
+  const selectedLink = descendants(selected).find(node => node.tagName === 'a');
+  assert.equal(selectedLink.href, '#/canvas/course/42');
+  assert.equal(descendants(selected).some(node => node.tagName === 'b'), false);
+  assert.match(f.root.textContent, /Other instructor work/); assert.match(f.root.textContent, /Upcoming worksheet/);
+  f.instance.updateSources({ courseItems: [selectedItem, { id: '10', courseId: '42', title: 'Second selected lab' }], canvasItems: [otherItem] });
+  assert.match(f.byClass('student-study-selected-sources').textContent, /Second selected lab/);
+  assert.doesNotMatch(f.byClass('student-study-selected-sources').textContent, /unavailable/);
+});
+
+test('matching numeric IDs cannot verify saved sources after a Canvas connection change', async t => {
+  let verified = false;
+  const plan = makePlan({ course: { id: '42', name: 'Saved school physics', subject: 'physics' }, sourceRefs: [{ type: 'assignment', id: '9' }] });
+  const f = fixture(t, { request: async () => response({ plans: [{ ...plan, canvasSourcesVerified: verified }] }),
+    courses: [{ id: '42', name: 'New school biology' }], canvasItems: [{ id: '9', courseId: '42', title: 'Same number in new school' }] });
+  await tick();
+  const selected = f.byClass('student-study-selected-sources');
+  assert.match(selected.textContent, /has not been confirmed against your current Canvas connection/);
+  assert.doesNotMatch(selected.textContent, /Same number in new school/);
+  assert.match(f.byClass('card student-study-current').textContent, /Saved school physics/);
+  assert.doesNotMatch(f.byClass('card student-study-current').textContent, /New school biology/);
+  assert.match(f.root.textContent, /Current Canvas course work/);
+  assert.match(f.root.textContent, /separate from the unconfirmed sources/);
+  verified = true; f.find('Reload saved plans').fire('click'); await tick();
+  assert.match(f.byClass('student-study-selected-sources').textContent, /Same number in new school/);
+  assert.doesNotMatch(f.byClass('student-study-selected-sources').textContent, /has not been confirmed/);
+});
+
+test('legacy Canvas plans without source refs retain their saved course identity and separate the unconfirmed current list', async t => {
+  const f = fixture(t, { courses: [{ id: '42', name: 'New school biology' }],
+    request: async () => response({ plans: [makePlan({ course: { id: '42', name: 'Saved school physics', subject: 'physics' } })] }),
+    canvasItems: [{ id: '9', courseId: '42', title: 'Current school essay' }] });
+  await tick();
+  assert.match(f.byClass('card student-study-current').textContent, /Saved school physics/);
+  assert.doesNotMatch(f.byClass('card student-study-current').textContent, /New school biology/);
+  const instructor = f.byClass('card student-study-instructor');
+  assert.match(instructor.textContent, /Current Canvas course work/);
+  assert.match(instructor.textContent, /has not been confirmed as the source for your saved plan/);
+  assert.match(instructor.textContent, /Current school essay/);
+  f.instance.updateSources({ courses: [{ id: '42', name: 'Another current name' }] });
+  assert.match(f.byClass('card student-study-current').textContent, /Saved school physics/);
+});
+
+test('Study retains syllabus-only instructor tasks with a planning date and no claimed Canvas assignment identity', async t => {
+  const f = fixture(t, { canvasItems: [{ id: 'source-task-abc123', sourceTask: true, courseId: '42', title: 'Source-only essay',
+    sourceUrl: 'https://school.example/syllabus', planningDeadline: { status: 'resolved', date: '2026-10-14', precision: 'date' } }] });
+  await tick();
+  assert.match(f.root.textContent, /Source-only essay/);
+  assert.match(f.root.textContent, /Planning date:.*Time not supplied/);
+  assert.match(f.root.textContent, /Syllabus task · Completion unverified/);
+  assert.equal(f.find('Source-only essay').href, 'https://school.example/syllabus');
+  assert.equal(f.byClass('student-study-selected-sources'), undefined, 'current source tasks do not invent saved assignment bindings');
 });
 
 test('practice and model actions carry the saved plan subject and activity instead of a global course', async t => {
@@ -139,6 +210,7 @@ test('a course without a supported question bank offers Astra practice without c
 });
 
 test('completion uses the canonical versioned API, waits for confirmation, and never advances the step', async t => {
+  const events = capturePlanEvents(t);
   const gate = deferred(), calls = [];
   let plan = makePlan();
   const f = fixture(t, { request: async (path, options) => {
@@ -153,6 +225,7 @@ test('completion uses the canonical versioned API, waits for confirmation, and n
   assert.deepEqual(JSON.parse(calls[1].options.body), { completedStepIds: ['step-1'], expectedUpdatedAt: plan.updatedAt });
   assert.match(f.root.textContent, /0 of 2 complete/);
   assert.equal(f.find('Mark step complete').disabled, true);
+  assert.deepEqual(events, [], 'pending changes do not refresh reminders as if completion were saved');
   plan = { ...plan, completedStepIds: ['step-1'], updatedAt: '2026-10-02T01:00:01Z' };
   gate.resolve(response({ plan }));
   await tick();
@@ -160,9 +233,11 @@ test('completion uses the canonical versioned API, waits for confirmation, and n
   assert.ok(f.find('Mark not complete'));
   assert.equal(f.instance.selection().stepId, 'step-1');
   assert.match(f.root.textContent, /Choose the next step when you are ready/);
+  assert.deepEqual(events, ['students4ai-plans-changed']);
 });
 
 test('failed completion preserves the old state and reload reconciles a competing saved version', async t => {
+  const events = capturePlanEvents(t);
   let plan = makePlan();
   const f = fixture(t, { request: async (_path, options) => {
     if (options.method === 'GET') return response({ plans: [plan] });
@@ -176,6 +251,7 @@ test('failed completion preserves the old state and reload reconciles a competin
   f.find('Reload saved plans').fire('click'); await tick();
   assert.match(f.root.textContent, /1 of 2 complete/);
   assert.equal(f.instance.selection().stepId, 'step-1');
+  assert.deepEqual(events, [], 'failed completion must not claim a saved plan change');
 });
 
 test('pause and selected step survive remount for that learner without writing completion', async t => {
@@ -214,7 +290,7 @@ test('an owned route selection replaces the remembered place only after its plan
 });
 
 test('Canvas refresh preserves workspace controls, active focus, and selected step', async t => {
-  const f = fixture(t, { courses: [{ id: '42', name: 'Old course label' }] });
+  const f = fixture(t, { courses: [{ id: '42', name: 'Old course label' }], request: async () => response({ plans: [makePlan({ canvasSourcesVerified: true })] }) });
   await tick();
   const workspace = f.byClass('student-study-workspace');
   const detail = f.byClass('card student-study-current');
@@ -265,6 +341,7 @@ test('late plan loads are aborted on disposal and cannot update a different work
 });
 
 test('a completion reply after leaving Study cannot render or announce the old learner state', async t => {
+  const events = capturePlanEvents(t);
   const gate = deferred();
   let signal;
   const plan = makePlan();
@@ -283,6 +360,7 @@ test('a completion reply after leaving Study cannot render or announce the old l
   await tick();
   assert.equal(f.root.children.length, 0);
   assert.equal(f.selected.length, selectionCount);
+  assert.deepEqual(events, [], 'a stale owner response never refreshes another learner’s reminders');
 });
 
 test('an unknown explicit plan does not silently open another saved plan', async t => {

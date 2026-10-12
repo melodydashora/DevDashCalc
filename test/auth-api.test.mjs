@@ -152,7 +152,7 @@ globalThis.fetch = async (input, options = {}) => {
 };`;
 let sandbox, fixture;
 const children = new Set();
-const serverFixtureFiles = ['server.js', 'coach-audio.js', 'coach-memory.js', 'coach-attachments.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js',
+const serverFixtureFiles = ['server.js', 'coach-audio.js', 'coach-memory.js', 'coach-attachments.js', 'coach-study-time.js', 'tutor-service.js', 'coach-config.js', 'anthropic-coach.js', 'ai-coach.js', 'ai-record-coach.js', 'coach-records.js', 'study-coach-context.js', 'canvas-retrieval.js', 'linked-documents.js', 'canvas-sync.js', 'canvas-documents.js', 'public/canvas-deadlines.js', 'public/plan-schedule.js', 'public/time-context.js',
   'mixed-practice.js', 'mixed-practice-api.js', 'mixed-question-bank.js', 'mixed-sat-bank.js', 'mixed-ap-variants.js', 'study-plans.js', 'practice-history.js', 'public/engine.js', 'public/courses.js', 'public/student-home.js', 'public/canvas-insights.js'];
 async function start(extra = {}, directory = sandbox) {
   const socket = createServer();
@@ -235,6 +235,7 @@ test('signed-out requests never touch private routes, saved Canvas secrets, or p
     ['/api/mixed/topics', 'GET'], ['/api/mixed/session', 'POST'], ['/api/tutor', 'GET'], ['/api/tutor', 'POST'],
     ['/api/continuity', 'GET'], ['/api/continuity', 'POST'], ['/api/continuity', 'PATCH'], ['/api/continuity', 'DELETE'],
     ['/api/coach/audio', 'GET'], ['/api/coach/speech', 'POST'], ['/api/coach/transcribe', 'POST'],
+    ['/api/time', 'GET'],
     ['/api/study-plans', 'GET'], ['/api/study-plans', 'POST'], ['/api/study-plans/draft', 'POST'], ['/api/study-plans/example', 'PATCH'],
   ]) {
     const result = await fixture.api(path, { method, ...(method === 'GET' ? {} : { body: {} }) });
@@ -255,6 +256,12 @@ test('login projects safe account data, sets an expiring HttpOnly cookie, and de
   assert.ok(Date.parse(result.data.expiresAt) > Date.now());
   assert.equal(result.data.token, undefined); assert.equal(result.data.sessionId, undefined);
   assert.match(result.response.headers.get('set-cookie'), /Path=\/; Max-Age=\d+; HttpOnly; SameSite=Lax/);
+  const beforeTime = Date.now();
+  const clock = await fixture.api('/api/time?timeZone=America%2FChicago', { cookie: result.cookie });
+  assert.equal(clock.status, 200);
+  assert.equal(clock.data.timeZone, 'America/Chicago');
+  assert.ok(Date.parse(clock.data.now) >= beforeTime && Date.parse(clock.data.now) <= Date.now());
+  assert.equal(clock.response.headers.get('cache-control'), 'no-store');
   const value = { savedAt: 200, attempts: ['Alice private progress'], profileId: 'profile-b' };
   assert.equal((await fixture.api('/api/progress', { method: 'PUT', cookie: result.cookie, body: value })).data.saved, true);
   assert.deepEqual((await fixture.api('/api/progress', { cookie: result.cookie })).data, value);
@@ -265,7 +272,7 @@ test('login projects safe account data, sets an expiring HttpOnly cookie, and de
     assert.equal((await fixture.api(`/api/progress?profile=${query}`, { cookie: result.cookie })).status, 403);
   }
   assert.equal((await fixture.api('/api/progress?profile=profile-a&profile=profile-b', { cookie: result.cookie })).status, 403);
-  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans', '/api/coach/audio']) {
+  for (const path of ['/api/canvas/session', '/api/mixed/topics', '/api/tutor', '/api/study-plans', '/api/coach/audio', '/api/time']) {
     assert.equal((await fixture.api(`${path}?profile=profile-b`, { cookie: result.cookie })).status, 403);
   }
 });
@@ -945,4 +952,68 @@ test('direct course learning cannot borrow another account Canvas connection or 
   assert.equal(own.status, 404);
   assert.doesNotMatch(JSON.stringify(own.data), /Private fixture course|Photosynthesis/);
   assert.equal(fixture.calls.length, before, 'unavailable owner course context never touches a foreign Canvas connection or the model');
+});
+
+test('general, canonical and mixed Coach requests receive fresh local clock context without carrying timing across owners', async () => {
+  const bob = await login('bob'), alice = await login();
+  const unit = JSON.parse(await readFile(new URL('../content/unit-01.json', import.meta.url), 'utf8'));
+  const started = await fixture.api('/api/mixed/session', { method: 'POST', cookie: bob.cookie,
+    body: { topicIds: ['sat-geometry'], difficulty: 1, requestId: randomUUID() } });
+  const next = await fixture.api('/api/mixed/next', { method: 'POST', cookie: bob.cookie, body: { sessionId: started.data.sessionId } });
+  assert.equal(next.status, 200);
+  const canonical = { unitId: unit.id, questionId: unit.questions[0].id, phase: 'before-answer', followUp: 'Explain this notation.' };
+  const requests = [
+    ['/api/canvas/coach', { message: 'Help me understand my next study step.', pageContext: { route: '#/study' } }],
+    ['/api/tutor', canonical],
+    ['/api/mixed/tutor', { sessionId: started.data.sessionId, questionId: next.data.question.id, followUp: 'Explain one useful step.' }],
+  ];
+  const readTiming = text => JSON.parse(text.match(/Current study timing context: ([^\n]+)/)[1]);
+  for (const [path, body] of requests) {
+    const sentAt = Date.now();
+    const studyTiming = { timeZone: 'America/New_York', localDateTime: '2001-01-01T00:00:00Z', profileId: 'profile-a',
+      session: { activeSeconds: 6000, continuousSeconds: 3600, topicSeconds: 1200, status: 'active', observedAt: new Date(sentAt).toISOString(), learnerName: 'FORGED TIMING NAME' } };
+    const callsBefore = fixture.calls.length;
+    assert.equal((await fixture.api(`${path}?profile=profile-a`, { method: 'POST', cookie: bob.cookie, body: { ...body, studyTiming } })).status, 403);
+    assert.equal(fixture.calls.length, callsBefore);
+    const result = await fixture.api(path, { method: 'POST', cookie: bob.cookie, body: { ...body, studyTiming } });
+    assert.equal(result.status, 200, path);
+    const timing = readTiming(result.data.text);
+    assert.equal(timing.clock.timeZone, 'America/New_York');
+    assert.ok(Date.parse(timing.clock.serverTime) >= sentAt && Date.parse(timing.clock.serverTime) <= Date.now());
+    assert.equal(Math.floor(Date.parse(timing.clock.localDateTime) / 1000), Math.floor(Date.parse(timing.clock.serverTime) / 1000));
+    assert.equal(timing.session.activeSeconds, 6000);
+    assert.equal(timing.session.continuousSeconds, 3600);
+    assert.match(result.data.text, /not proof of attention/);
+    assert.match(result.data.text, /Do not repeatedly remind or nag/);
+    assert.match(result.data.text, /Never block learning/);
+    assert.doesNotMatch(result.data.text, /FORGED TIMING NAME|2001-01-01/);
+  }
+  const anotherOwner = await fixture.api('/api/tutor', { method: 'POST', cookie: alice.cookie, body: canonical });
+  assert.equal(anotherOwner.status, 200);
+  assert.equal(readTiming(anotherOwner.data.text).clock.state, 'unavailable');
+  assert.equal(readTiming(anotherOwner.data.text).session.state, 'unavailable');
+  const stale = await fixture.api('/api/tutor', { method: 'POST', cookie: bob.cookie, body: { ...canonical,
+    studyTiming: { timeZone: 'Asia/Tokyo', session: { activeSeconds: 9000, continuousSeconds: 7000, topicSeconds: 1000,
+      status: 'active', observedAt: new Date(Date.now() - 600000).toISOString() } } } });
+  assert.equal(stale.status, 200);
+  assert.equal(readTiming(stale.data.text).clock.timeZone, 'Asia/Tokyo');
+  assert.equal(readTiming(stale.data.text).session.state, 'unavailable');
+  const invalidZone = await fixture.api('/api/tutor', { method: 'POST', cookie: bob.cookie, body: { ...canonical,
+    studyTiming: { timeZone: 'Invalid/Local_Zone' } } });
+  assert.equal(invalidZone.status, 200);
+  assert.equal(readTiming(invalidZone.data.text).clock.state, 'unavailable');
+});
+
+test('plan assignment references require the authenticated owned Canvas course and never attach to independent plans', async () => {
+  const bob = await login('bob'), before = fixture.calls.length;
+  const sourceRefs = [{ type: 'assignment', id: '7' }];
+  const body = { course: { id: '99' }, goal: 'Read my assignment', sourceRefs };
+  assert.equal((await fixture.api('/api/study-plans/draft', { method: 'POST', body })).status, 401);
+  assert.equal((await fixture.api('/api/study-plans/draft?profile=profile-a', { method: 'POST', cookie: bob.cookie, body })).status, 403);
+  assert.equal((await fixture.api('/api/study-plans/draft', { method: 'POST', cookie: bob.cookie, body })).status, 400);
+  for (const course of [{ id: 'custom', name: 'Biology' }, { id: 'sat' }]) {
+    const result = await fixture.api('/api/study-plans/draft', { method: 'POST', cookie: bob.cookie, body: { ...body, course } });
+    assert.equal(result.status, 400); assert.match(result.data.error, /Canvas course/);
+  }
+  assert.equal(fixture.calls.length, before);
 });

@@ -1,6 +1,6 @@
 # Learning workspace and persistence
 
-Implementation guide, October 2, 2026. These behaviors describe the code in
+Implementation guide, updated October 12, 2026. These behaviors describe the code in
 this repository; deployment verification is a separate step.
 
 | Entry | Purpose | Saved state and limits |
@@ -81,6 +81,17 @@ questions, owned saved-plan steps, and the student’s scoped Canvas resources.
 Voice input is transcribed into the same text request; optional chunked speech
 reads that response without word highlighting. There is no separate voice brain.
 
+The greeting uses the shared server-synchronized clock in the device's local
+timezone, with device-time fallback. All three Coach request paths
+also send a validated time zone and fresh foreground-study estimates. The
+server uses its own clock for the local date/time; invalid zones and stale or
+malformed estimates remain unavailable. Counters exclude hidden/paused time
+and stop five minutes after the last interaction. A topic change resets topic
+time; a learner change or reload resets every counter. They live only in tab
+memory and never infer a sleep schedule or affect grading. Astra may suggest
+a brief break or stopping point in a requested reply, with no scheduled calls,
+forced cutoff, or repeated reminders.
+
 Students can attach two JPEG/PNG/WebP photos or UTF-8 text notes, up to 6 MiB
 combined and 12,000 note characters. Camera/gallery selection is explicit; files
 are removed after a successful reply or workspace/context change. Failed sends
@@ -116,3 +127,41 @@ or topic changes isolate the old conversation and pending work. Background
 refresh preserves typed requests and focus. Provider tests inspect actual
 request payloads with fixtures; successful transport tests do not establish the
 quality of a live model’s explanation in every subject.
+
+## Canvas, Plan, and Study continuity
+
+The approved three-destination Home and bottom Coach now use the broader
+[Canvas collection and scheduling implementation](canvas-coverage-and-planning.md).
+Course pages disclose collected sources and gaps in a collapsed section. Plan
+and Study keep official Canvas deadlines separate from sourced planning dates;
+date-only evidence never acquires an invented time. Syllabus-only work remains
+a separate task with unverified completion.
+
+A new Canvas plan can retain up to ten selected assignment references. Draft
+and save validate them against the owned, current course. Model output cannot
+replace the selection. The reviewed draft keeps its own selection even if the
+learner changes the course picker. Source-only tasks contribute their human
+titles to the request, not fabricated assignment IDs.
+
+Saved plans carry a server-only Canvas identity binding. The public
+`canvasSourcesVerified` flag means that binding, course, and assignment IDs
+match a current session and a snapshot less than a minute old; it does not
+claim every source body was read. Without that match, saved goals and steps
+remain usable, while current Canvas work is shown separately. Reconnecting to
+another account with coincidentally identical IDs cannot authorize old-plan
+source lookup. Legacy plans are not silently rebound. Selected assignment
+retrieval and linked documents share the existing four-follow-up-read budget.
+
+Schedules, checked steps, and reminder preferences use the append-only plan
+events and revision checks. Reminders require the app to remain open. New
+Quiz instructions retain a distinct source identity from classic quizzes;
+quiz item banks and unseen answers are not collected.
+
+The OneDrive Canvas business case and September handoff notes informed this
+integration: consolidate instructor materials, preserve missing/locked source
+states, distinguish grading-group weights from assignment points, and keep
+outside-tool links visible. Those notes are design evidence, not credentials
+or proof of live integration. Private third-party systems such as Edpuzzle,
+Lingco, Nearpod, or myPLTW still need a supported connection before Astra can
+claim to read their protected content. Raw private notes are not part of this
+repository.

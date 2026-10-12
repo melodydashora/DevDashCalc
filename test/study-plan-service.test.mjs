@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createStudyPlanService, normalizeStudyPlan, starterStudyPlan, parseStudyPlanDraft, projectStudyPlans } from '../study-plans.js';
+import { createStudyPlanService, normalizeStudyPlan, starterStudyPlan, parseStudyPlanDraft, projectStudyPlans, normalizePlanSourceRefs } from '../study-plans.js';
 const course = { id: 'custom', name: 'Biology', subject: 'all' };
 const input = () => starterStudyPlan({ course, goal: 'Explain diffusion using a diagram', minutes: 25 });
 function fixture() {
@@ -107,4 +107,125 @@ test('legacy saved plans default to Guide without rewriting their stored events'
   assert.equal(normalizeStudyPlan(plan, course).activity, 'guide');
   assert.equal(projectStudyPlans([{ type: 'create', plan }])[0].activity, 'guide');
   assert.equal(Object.hasOwn(plan, 'activity'), false);
+});
+
+const schedule = (extra = {}) => ({ startAt: '2026-10-10T12:00:00-05:00', endAt: '2026-10-10T13:00:00-05:00', timeZone: 'America/Chicago', ...extra });
+test('schedules are explicitly saved and model drafts cannot enable schedules or reminders', async () => {
+  const f = fixture(), service = f.make();
+  const generated = parseStudyPlanDraft(JSON.stringify({ ...input(), schedule: schedule({ remindersEnabled: true }) }), course, input().goal, 25);
+  assert.equal(generated.schedule, undefined);
+  const draft = service.draft('dev', generated, { astra: true });
+  assert.deepEqual(await service.list('dev'), []);
+  const saved = await service.create('dev', { ...draft, schedule: schedule() }, { course, requestId: randomUUID() });
+  assert.equal(saved.schedule.startAt, '2026-10-10T17:00:00.000Z');
+  assert.equal(saved.schedule.remindersEnabled, false);
+  assert.deepEqual((await f.make().list('dev'))[0], saved);
+});
+
+test('schedule and completion updates are atomic, replayable and cannot replace other plans or profiles', async () => {
+  const f = fixture(), service = f.make();
+  const original = await service.create('dev', input(), { course, requestId: randomUUID() });
+  const sibling = await service.create('dev', input(), { course, requestId: randomUUID() });
+  const request = { schedule: schedule({ remindersEnabled: true }), completedStepIds: ['step-1'], expectedUpdatedAt: original.updatedAt, requestId: randomUUID() };
+  const changed = await service.update('dev', original.id, request);
+  assert.equal(changed.schedule.remindersEnabled, true); assert.deepEqual(changed.completedStepIds, ['step-1']);
+  assert.deepEqual(await service.update('dev', original.id, request), changed);
+  assert.equal(f.data.get('dev').length, 3);
+  await assert.rejects(service.update('dev', original.id, { ...request, schedule: null }), { status: 409 });
+  await assert.rejects(service.update('dev', original.id, { ...request, requestId: randomUUID() }), { status: 409 });
+  await assert.rejects(service.update('esha', original.id, request), { status: 404 });
+  assert.deepEqual((await service.list('dev')).find(p => p.id === sibling.id), sibling);
+  // Retrying the original creation returns the current plan, never resets it.
+  assert.deepEqual(await service.create('dev', input(), { course, requestId: original.id }), changed);
+  const removed = await service.update('dev', original.id, { schedule: null, expectedUpdatedAt: changed.updatedAt });
+  assert.equal(removed.schedule, undefined); assert.deepEqual(removed.completedStepIds, ['step-1']);
+});
+
+test('scheduling validates versions and preserves records on invalid time or revoked access', async () => {
+  const f = fixture(), service = f.make();
+  const original = await service.create('dev', input(), { course, requestId: randomUUID() });
+  await assert.rejects(service.update('dev', original.id, { schedule: schedule() }), { status: 400 });
+  await assert.rejects(service.update('dev', original.id, { schedule: schedule({ endAt: '2020-01-01T00:00Z' }), expectedUpdatedAt: original.updatedAt }), { status: 400 });
+  await assert.rejects(service.update('dev', original.id, { schedule: schedule(), expectedUpdatedAt: original.updatedAt }, async () => { throw Error('revoked'); }), /revoked/);
+  assert.deepEqual((await service.list('dev'))[0], original);
+  assert.equal(f.data.get('dev').length, 1);
+});
+
+test('same-clock cross-instance schedule and completion conflicts cannot both succeed, even with no-op scheduling', async () => {
+  const f = fixture(), a = f.make(), b = f.make();
+  const p = await a.create('dev', input(), { course, requestId: randomUUID() });
+  const requestId = randomUUID();
+  const results = await Promise.allSettled([
+    a.complete('dev', p.id, { completedStepIds: ['step-1'], expectedUpdatedAt: p.updatedAt }),
+    b.update('dev', p.id, { schedule: null, expectedUpdatedAt: p.updatedAt, requestId }),
+  ]);
+  assert.equal(results.filter(r => r.status === 'fulfilled').length, 1);
+  assert.equal(results.find(r => r.status === 'rejected').reason.status, 409);
+  await assert.rejects(b.update('dev', p.id, { schedule: null, expectedUpdatedAt: p.updatedAt, requestId }), { status: 409 });
+});
+
+test('different workspaces can update the same plan IDs and request IDs independently', async () => {
+  const f = fixture(), a = f.make(), b = f.make(), id = randomUUID(), requestId = randomUUID();
+  const [dev, esha] = await Promise.all(['dev', 'esha'].map(profile => a.create(profile, input(), { course, requestId: id })));
+  const [first, second] = await Promise.all([
+    a.update('dev', id, { schedule: schedule(), expectedUpdatedAt: dev.updatedAt, requestId }),
+    b.update('esha', id, { schedule: schedule({ remindersEnabled: true }), expectedUpdatedAt: esha.updatedAt, requestId }),
+  ]);
+  assert.equal(first.schedule.remindersEnabled, false); assert.equal(second.schedule.remindersEnabled, true);
+});
+
+test('assignment sources are bounded, canonical and unavailable for independent plans', () => {
+  const canvasCourse = { id: '99', name: 'Biology', subject: 'all' };
+  const refs = [{ type: 'assignment', id: '7' }, { type: 'assignment', id: '7' }, { type: 'assignment', id: '8' }];
+  assert.deepEqual(normalizePlanSourceRefs(refs, canvasCourse), [refs[0], refs[2]]);
+  for (const invalid of [[{ type: 'file', id: '7' }], [{ type: 'assignment', id: '../7' }], [{ type: 'assignment', id: '7', courseId: '999' }],
+    [{ type: 'assignment', id: '7', url: 'https://foreign.example' }], Array.from({ length: 11 }, (_, i) => ({ type: 'assignment', id: String(i) }))]) {
+    assert.throws(() => normalizePlanSourceRefs(invalid, canvasCourse), { status: 400 });
+  }
+  assert.throws(() => normalizePlanSourceRefs(refs, course), { status: 400 });
+  const starter = starterStudyPlan({ course: canvasCourse, goal: 'Read this task', minutes: 20, sourceRefs: refs });
+  const drafted = parseStudyPlanDraft(JSON.stringify({ ...starter, sourceRefs: [{ type: 'assignment', id: '999' }] }), canvasCourse, starter.goal, 20, 'guide', starter.sourceRefs);
+  assert.deepEqual(drafted.sourceRefs, [refs[0], refs[2]], 'model output cannot replace the chosen references');
+});
+
+test('source references and the server-only connection binding participate in attribution and safe retries', async () => {
+  const f = fixture(), service = f.make(), canvasCourse = { id: '99', name: 'Biology', subject: 'all' };
+  const refs = [{ type: 'assignment', id: '7' }], binding = 'a'.repeat(64), otherBinding = 'b'.repeat(64);
+  const plan = starterStudyPlan({ course: canvasCourse, goal: 'Explain a task', sourceRefs: refs });
+  const draft = service.draft('dev', plan, { astra: true, canvasSourceBinding: binding });
+  const id = randomUUID();
+  const saved = await service.create('dev', { ...draft, canvasSourceBinding: otherBinding }, { course: canvasCourse, requestId: id, canvasSourceBinding: binding });
+  assert.equal(saved.canvasSourceBinding, binding, 'browser data cannot overwrite the server binding');
+  assert.equal(saved.source, 'astra');
+  assert.deepEqual((await f.make().list('dev'))[0].sourceRefs, refs);
+  await assert.rejects(service.create('dev', draft, { course: canvasCourse, requestId: randomUUID(), canvasSourceBinding: otherBinding }), { status: 409 });
+  await assert.rejects(service.create('dev', draft, { course: canvasCourse, requestId: id, canvasSourceBinding: otherBinding }), { status: 409 });
+  await assert.rejects(service.create('dev', { ...draft, sourceRefs: [{ type: 'assignment', id: '8' }] }, { course: canvasCourse, requestId: id, canvasSourceBinding: binding }), { status: 409 });
+  await assert.rejects(service.create('dev', draft, { course: canvasCourse, requestId: randomUUID() }), { status: 400 });
+  const changed = await service.update('dev', id, { schedule: schedule(), completedStepIds: ['step-1'], expectedUpdatedAt: saved.updatedAt });
+  assert.deepEqual(changed.sourceRefs, refs); assert.equal(changed.canvasSourceBinding, binding);
+  assert.deepEqual(await service.create('dev', draft, { course: canvasCourse, requestId: id, canvasSourceBinding: binding }), changed);
+});
+
+test('legacy plan projection supplies empty refs without mutating or binding old events', () => {
+  const plan = { ...input(), id: randomUUID(), createdAt: '2026-10-10T00:00:00Z', updatedAt: '2026-10-10T00:00:00Z', completedStepIds: [] };
+  delete plan.sourceRefs;
+  const events = [{ type: 'create', plan }], before = JSON.stringify(events);
+  const projected = projectStudyPlans(events)[0];
+  assert.deepEqual(projected.sourceRefs, []); assert.equal(projected.canvasSourceBinding, undefined);
+  assert.equal(JSON.stringify(events), before);
+});
+
+test('expired or restarted Canvas drafts cannot silently rebind reused course and assignment IDs', async () => {
+  const f = fixture(), service = f.make(), canvasCourse = { id: '99', name: 'Biology', subject: 'all' }, binding = 'a'.repeat(64), changedBinding = 'b'.repeat(64);
+  const plan = starterStudyPlan({ course: canvasCourse, goal: 'Work on this task', sourceRefs: [{ type: 'assignment', id: '7' }] });
+  const draft = service.draft('dev', plan, { canvasSourceBinding: binding });
+  const requestId = randomUUID();
+  const saved = await service.create('dev', draft, { course: canvasCourse, requestId, canvasSourceBinding: binding });
+  await assert.rejects(f.make().create('dev', draft, { course: canvasCourse, requestId: randomUUID(), canvasSourceBinding: changedBinding }), { status: 409 });
+  f.advance();
+  await assert.rejects(service.create('dev', draft, { course: canvasCourse, requestId: randomUUID(), canvasSourceBinding: changedBinding }), { status: 409 });
+  await assert.rejects(service.create('dev', draft, { course: canvasCourse, requestId: randomUUID(), canvasSourceBinding: binding }), { status: 409 });
+  assert.deepEqual(await f.make().create('dev', draft, { course: canvasCourse, requestId, canvasSourceBinding: binding }), saved, 'already-saved retries remain valid after restart');
+  assert.equal(f.data.get('dev').length, 1);
 });

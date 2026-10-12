@@ -117,12 +117,13 @@ async function withStudy(request, run) {
   const storage = new Map();
   globalThis.document = { createElement: tag => new StudyNode(tag), createTextNode: text => new StudyNode('#text', text), activeElement: null };
   globalThis.sessionStorage = { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) };
-  const root = new StudyNode(), calls = [], contexts = [], coachDrafts = [];
+  const root = new StudyNode(), calls = [], contexts = [], coachDrafts = [], sessionStates = [];
   let cleanup;
   try {
     cleanup = mountMixedStudy(root, {
       profileId: `study-fixture-${++nextStudyFixture}`, initialSubject: 'algebra',
       onQuestionContext: context => contexts.push(context), onAskCoach: message => coachDrafts.push(message),
+      onSessionState: state => sessionStates.push(state),
       request: async (path, body, options) => {
         calls.push({ path, body, options });
         if (path === '/api/mixed/topics' && !body) return { topics: studyTopics };
@@ -130,7 +131,7 @@ async function withStudy(request, run) {
       },
     });
     await settleStudy();
-    await run({ root, cleanup, calls, contexts, coachDrafts });
+    await run({ root, cleanup, calls, contexts, coachDrafts, sessionStates });
   } finally { cleanup?.(); Object.assign(globalThis, old); }
 }
 
@@ -217,6 +218,52 @@ test('a saved-history read failure stays visible through question and pause with
     notice = root.querySelector('.mixed-session-notice');
     assert.equal(notice.textContent, historyNotice);
     assert.ok(studyButton(root, 'Resume session'));
+  });
+});
+
+test('practice reports status-only start, pause, resume, finish and cleanup transitions without counting feedback twice', async () => {
+  await withStudy(async path => {
+    if (path === '/api/mixed/session') return { sessionId: 'session-status-123' };
+    if (path === '/api/mixed/answer') return { correct: false, answerIndex: 0, chosenIndex: 1, solution: ['Subtract 2.'], summary: { attempted: 1 } };
+    return { topicIds: ['linear'], question: studyQuestion };
+  }, async ({ root, cleanup, sessionStates }) => {
+    assert.deepEqual(sessionStates, ['setup']);
+    root.querySelector('.mixed-topic-form').requestSubmit(); await settleStudy();
+    assert.deepEqual(sessionStates, ['setup', 'running']);
+    const answer = root.querySelectorAll('input[name="mixed-answer"]')[1];
+    answer.checked = true; answer.dispatch('change'); studyButton(root, 'Check answer').click(); await settleStudy();
+    assert.deepEqual(sessionStates, ['setup', 'running'], 'feedback continues the existing running period');
+    studyButton(root, 'Pause session').click();
+    assert.equal(sessionStates.at(-1), 'paused');
+    studyButton(root, 'Resume session').click(); await settleStudy();
+    assert.equal(sessionStates.at(-1), 'running');
+    studyButton(root, 'Finish session').click();
+    assert.equal(sessionStates.at(-1), 'complete');
+    cleanup(); cleanup();
+    assert.deepEqual(sessionStates, ['setup', 'running', 'paused', 'running', 'complete', 'inactive']);
+  });
+});
+
+test('pending or failed resume stays paused and a late response cannot restart a detached practice timer', async () => {
+  let restoreCount = 0, resolveRestore;
+  await withStudy(async path => {
+    if (path === '/api/mixed/session') return { sessionId: 'session-status-late' };
+    if (path.startsWith('/api/mixed/session?')) {
+      if (++restoreCount === 1) throw new Error('Session could not be read.');
+      return new Promise(resolve => { resolveRestore = resolve; });
+    }
+    return { question: studyQuestion };
+  }, async ({ root, cleanup, sessionStates }) => {
+    root.querySelector('.mixed-topic-form').requestSubmit(); await settleStudy();
+    studyButton(root, 'Pause session').click();
+    studyButton(root, 'Resume session').click(); await settleStudy();
+    assert.match(root.querySelector('.mixed-status').textContent, /could not be read/);
+    assert.deepEqual(sessionStates, ['setup', 'running', 'paused']);
+    studyButton(root, 'Try again').click(); await settleStudy();
+    assert.equal(sessionStates.at(-1), 'paused');
+    cleanup();
+    resolveRestore({ topicIds: ['linear'], question: studyQuestion }); await settleStudy();
+    assert.deepEqual(sessionStates, ['setup', 'running', 'paused', 'inactive']);
   });
 });
 
