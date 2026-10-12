@@ -89,6 +89,36 @@ test('assignment instructions are linked by ID and do not need to repeat their t
   assert.equal(out.status, 'resolved'); assert.equal(out.source, 'assignment');
 });
 
+test('New Quiz instruction dates belong to their assignment and retain distinct source identity and canonical links', () => {
+  const htmlUrl = 'https://school.example/canvas/courses/10/assignments/22';
+  const out = resolve({ assignments: [assignment('11', 'Classic quiz assignment'), assignment('22', 'New quiz assignment')],
+    quizzes: [{ id: '3', assignmentId: '11', bodyHtml: 'Due October 15, 2026.', htmlUrl: 'https://school.example/canvas/courses/10/quizzes/3' }],
+    newQuizzes: [{ type: 'new-quiz', id: '3', assignmentId: '22', bodyHtml: 'Due October 16, 2026.', contentStatus: 'available', htmlUrl,
+      readAt: '2026-10-10T12:00:00Z', updatedAt: '2026-10-09T12:00:00Z' }],
+  });
+  assert.deepEqual(out.assignments.map(item => [item.planningDeadline.source, item.planningDeadline.date]), [
+    ['quiz', '2026-10-15'], ['new-quiz', '2026-10-16'],
+  ]);
+  const planned = out.assignments[1].planningDeadline;
+  assert.equal(planned.sourceUrl, htmlUrl); assert.equal(planned.evidence[0].sourceId, '3');
+  assert.equal(planned.evidence[0].assignmentId, '22');
+  assert.equal(planned.evidence[0].readAt, '2026-10-10T12:00:00Z');
+  assert.equal(out.assignments[1].dueAt, null, 'inferred instruction date cannot overwrite an official no-date field');
+});
+
+test('New Quiz locked or missing instructions stay unread, truncated dates require review, and official dates remain authoritative', () => {
+  const quiz = { id: '1', assignmentId: '1', bodyHtml: 'Due October 16, 2026.', contentStatus: 'available' };
+  for (const extra of [{ lockedForUser: true }, { published: false }, { contentStatus: 'not_provided' }, { bodyHtml: null }]) {
+    assert.equal(planned({ newQuizzes: [{ ...quiz, ...extra }] }), undefined);
+  }
+  assert.equal(planned({ newQuizzes: [{ ...quiz, bodyTruncated: true, contentStatus: 'truncated' }] }).status, 'needs-review');
+  const dueAt = '2026-10-17T12:00:00Z';
+  const out = resolve({ assignments: [assignment('1', 'Research essay', { dueAt, dueDateStatus: 'dated' })], newQuizzes: [quiz] });
+  assert.equal(out.assignments[0].dueAt, dueAt); assert.equal(out.assignments[0].planningDeadline, undefined);
+  assert.equal(out.deadlineReview[0].status, 'official-conflict');
+  assert.equal(out.deadlineReview[0].evidence[0].source, 'new-quiz');
+});
+
 test('pages, home page, announcement and readable documents can carry source-backed dates', () => {
   for (const [field, value] of [
     ['pages', [{ id: 3, bodyHtml: 'Research essay due October 16, 2026', htmlUrl: 'https://school.example/pages/schedule' }]],

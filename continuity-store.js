@@ -1,6 +1,7 @@
-// Explicitly saved study notes only. The HTTP boundary must authorize the
-// workspace and derive createdByUserId from the signed-in account. Never pass
-// cookies, credentials, whole transcripts, or an unreviewed model output here.
+// Durable learning memories. The HTTP boundary must authorize the workspace
+// and derive createdByUserId from the signed-in account. Never pass cookies,
+// credentials, or whole transcripts here. Editing/removing a memory is an
+// explicit student action; removal retains only an idempotency tombstone.
 import { randomUUID } from 'node:crypto';
 import { pgQuery, parseDatabaseUrl } from './store.js';
 
@@ -8,7 +9,7 @@ const PROFILE = /^[a-z0-9-]{1,55}$/;
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const TYPES = new Set(['student_note', 'coach_note']);
 const KINDS = new Set(['settings', 'study-coach', 'question-coach']);
-const SUBJECTS = new Set(['calculus-bc', 'calculus-ab', 'physics', 'all']);
+const SUBJECTS = new Set(['calculus-bc', 'calculus-ab', 'physics', 'sat', 'algebra', 'all']);
 const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS s4ai_student_memos (
     id uuid PRIMARY KEY, profile_id text NOT NULL REFERENCES s4ai_workspaces(profile_id),
@@ -17,9 +18,12 @@ const SCHEMA = [
     memo_type text NOT NULL CHECK (memo_type IN ('student_note','coach_note')),
     source jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(source)='object'),
     created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(profile_id,client_request_id))`,
+  'ALTER TABLE s4ai_student_memos ADD COLUMN IF NOT EXISTS updated_at timestamptz',
+  'ALTER TABLE s4ai_student_memos ADD COLUMN IF NOT EXISTS deleted_at timestamptz',
   'CREATE INDEX IF NOT EXISTS s4ai_student_memos_recent_idx ON s4ai_student_memos(profile_id,created_at DESC,id DESC)',
+  'CREATE INDEX IF NOT EXISTS s4ai_student_memos_active_recent_idx ON s4ai_student_memos(profile_id,(COALESCE(updated_at,created_at)) DESC,id DESC) WHERE deleted_at IS NULL',
 ];
-const COLUMNS = 'id::text,profile_id,memo_text,memo_type,source::text,created_at::text,created_by_user_id::text';
+const COLUMNS = 'id::text,profile_id,memo_text,memo_type,source::text,created_at::text,created_by_user_id::text,COALESCE(updated_at,created_at)::text';
 
 export class ContinuityStoreError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
@@ -36,6 +40,11 @@ function profile(value) {
   if (typeof value !== 'string' || !PROFILE.test(value)) throw invalid('A valid learner workspace is required.');
   return value;
 }
+function noteId(value) {
+  if (typeof value !== 'string' || !UUID.test(value)) throw invalid('A valid learning-note ID is required.');
+  return value;
+}
+const missing = () => new ContinuityStoreError(404, 'CONTINUITY_NOT_FOUND', 'This learning note is no longer available.');
 function cleanSource(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw invalid('The note source must be an object.');
   const result = {};
@@ -64,7 +73,7 @@ function cleanText(value) {
 }
 function record(row) {
   return { id: row[0], profileId: row[1], text: row[2], type: row[3], source: cleanSource(JSON.parse(row[4])),
-    createdAt: new Date(row[5]).toISOString(), createdByUserId: row[6] };
+    createdAt: new Date(row[5]).toISOString(), createdByUserId: row[6], updatedAt: new Date(row[7] || row[5]).toISOString() };
 }
 
 export function createContinuityStore({ query } = {}) {
@@ -98,10 +107,35 @@ export function createContinuityStore({ query } = {}) {
         // INSERT DO NOTHING + SELECT CTE can miss it under READ COMMITTED.
         const existing = await execute(`SELECT ${COLUMNS} FROM s4ai_student_memos
           WHERE profile_id=$1 AND client_request_id=$2::uuid AND memo_text=$3
-          AND memo_type=$4 AND source=$5::jsonb AND created_by_user_id=$6::uuid`,
+          AND memo_type=$4 AND source=$5::jsonb AND created_by_user_id=$6::uuid AND deleted_at IS NULL`,
         [profileId, clientRequestId, note, type, metadata, createdByUserId]);
         if (!existing[0]) throw new ContinuityStoreError(409, 'CONTINUITY_CONFLICT', 'This save request already belongs to a different note. Start a new save request.');
         return { ...record(existing[0]), replayed: true };
+      });
+    },
+    async update({ profileId, id, text } = {}) {
+      return safe(async () => {
+        profile(profileId); noteId(id);
+        const note = cleanText(text);
+        const rows = await execute(`UPDATE s4ai_student_memos SET
+          updated_at=CASE WHEN memo_text IS DISTINCT FROM $3 THEN now() ELSE updated_at END,memo_text=$3
+          WHERE profile_id=$1 AND id=$2::uuid AND deleted_at IS NULL RETURNING ${COLUMNS}`, [profileId, id, note]);
+        if (!rows[0]) throw missing();
+        return record(rows[0]);
+      });
+    },
+    async remove({ profileId, id } = {}) {
+      return safe(async () => {
+        profile(profileId); noteId(id);
+        // Keep the UUID/request uniqueness so a delayed save retry can never
+        // recreate a removed note. Its text and source are removed as well.
+        const rows = await execute(`UPDATE s4ai_student_memos SET
+          memo_text='[Removed learning note]',source='{}'::jsonb,
+          updated_at=CASE WHEN deleted_at IS NULL THEN now() ELSE updated_at END,
+          deleted_at=COALESCE(deleted_at,now())
+          WHERE profile_id=$1 AND id=$2::uuid RETURNING id::text`, [profileId, id]);
+        if (!rows[0]) throw missing();
+        return { deleted: true, id: rows[0][0] };
       });
     },
     async list({ profileId, limit = 30, offset = 0 } = {}) {
@@ -111,10 +145,11 @@ export function createContinuityStore({ query } = {}) {
           throw invalid('Use a positive note limit and an offset from 0 to 100,000.');
         }
         const rows = await execute(`SELECT
-          (SELECT count(*) FROM s4ai_student_memos WHERE profile_id=$1)::text,
-          COALESCE((SELECT jsonb_agg(jsonb_build_array(id::text,profile_id,memo_text,memo_type,source::text,created_at::text,created_by_user_id::text)
-            ORDER BY created_at DESC,id DESC) FROM (
-              SELECT * FROM s4ai_student_memos WHERE profile_id=$1 ORDER BY created_at DESC,id DESC LIMIT $2::integer OFFSET $3::integer
+          (SELECT count(*) FROM s4ai_student_memos WHERE profile_id=$1 AND deleted_at IS NULL)::text,
+          COALESCE((SELECT jsonb_agg(jsonb_build_array(id::text,profile_id,memo_text,memo_type,source::text,created_at::text,created_by_user_id::text,COALESCE(updated_at,created_at)::text)
+            ORDER BY COALESCE(updated_at,created_at) DESC,id DESC) FROM (
+              SELECT * FROM s4ai_student_memos WHERE profile_id=$1 AND deleted_at IS NULL
+              ORDER BY COALESCE(updated_at,created_at) DESC,id DESC LIMIT $2::integer OFFSET $3::integer
             ) recent),'[]'::jsonb)::text`, [profileId, Math.min(limit, 30), offset]);
         const totalCount = Number(rows[0]?.[0] || 0);
         const notes = JSON.parse(rows[0]?.[1] || '[]').map(record);

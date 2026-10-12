@@ -56,8 +56,11 @@ Official Instructure Canvas API references were checked for course includes, opt
 
 ## Recommended next changes
 
-1. Integrate the separately prepared UX once its actual branch/commit is available, preserving the shared clock and source labels.
-2. Add a learner review screen for ambiguous/source-only tasks and explicit corrections with provenance.
-3. Move large pulls into durable resumable jobs, with incremental revisions and deployment metrics.
-4. Add opt-in OCR and supported private-document integrations, with equally explicit read/partial states.
-5. Add push infrastructure only if reminders must arrive after the browser closes.
+The October 12 integration retains the approved Home/Coach interface and
+connects Canvas selections to saved Plan and Study context. See
+[Learning workspace](learning-workspace.md#canvas-plan-and-study-continuity).
+
+1. Add a learner review screen for ambiguous/source-only tasks and explicit corrections with provenance.
+2. Move large pulls into durable resumable jobs, with incremental revisions and deployment metrics.
+3. Add opt-in OCR and supported private-document integrations, with equally explicit read/partial states.
+4. Add push infrastructure only if reminders must arrive after the browser closes.

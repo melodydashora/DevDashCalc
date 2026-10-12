@@ -61,6 +61,61 @@ test('untrusted links cannot discover another course, arbitrary hosts, local URL
   }
 });
 
+test('deployment prefixes survive document discovery, provenance and tokenless downloads', async () => {
+  const deployed = `${baseUrl}/school/canvas`;
+  const input = course({ syllabusBody: [
+    '<a href="/school/canvas/courses/42/files/9/download?verifier=private">Syllabus</a>',
+    '<a href="/school/canvas/api/v1/courses/42/files/9">Same document</a>',
+    '<a href="courses/42/files/9">Relative deployment link</a>',
+    '<a href="/courses/42/files/10">Outside deployment</a>',
+    '<a href="/school/canvas-other/files/11">Sibling installation</a>',
+    '<a href="/school/canvas/courses/99/files/12">Other course</a>',
+  ].join('') });
+  const discovered = discoverCourseDocuments(input, { baseUrl: `${deployed}/` });
+  assert.equal(discovered.references.length, 1);
+  assert.equal(discovered.references[0].url, `${deployed}/courses/42/files/9`);
+  assert.equal(discovered.references[0].provenance[0].url, `${deployed}/courses/42/assignments/syllabus`);
+  let reads = 0;
+  const out = await enrichCourseDocuments(input, { baseUrl: `${deployed}/`, now,
+    getFileMetadata: async ref => { assert.equal(ref.courseId, '42'); assert.equal(ref.fileId, '9'); return file({ url: `${deployed}/files/9/download?verifier=private` }); },
+    fetchImpl: async (url, options) => {
+      reads++; assert.equal(url, `${deployed}/files/9/download?verifier=private`);
+      assert.equal(options.credentials, 'omit'); assert.equal(options.headers.authorization, undefined);
+      return textResponse();
+    },
+  });
+  assert.equal(reads, 1); assert.equal(out.documents[0].contentStatus, 'available');
+  assert.equal(out.documents[0].url, `${deployed}/courses/42/files/9`);
+  assert.doesNotMatch(JSON.stringify(out.documents), /private|verifier/);
+});
+
+test('New Quiz instructions discover documents with separate assignment-backed provenance and unchanged read budgets', async () => {
+  const deployed = `${baseUrl}/canvas`;
+  const instructions = '<a href="/canvas/courses/42/files/9">Quiz study guide</a>';
+  const input = course({ syllabusBody: null,
+    quizzes: [{ id: '5', title: 'Classic quiz', bodyHtml: instructions }],
+    newQuizzes: [{ id: '5', assignmentId: '55', title: 'New quiz', bodyHtml: instructions },
+      { id: '6', assignmentId: '56', title: 'Other instructions', instructions: '<a href="/canvas/files/10">Second guide</a>' },
+      { id: '7', lockedForUser: true, bodyHtml: '<a href="/canvas/files/11">Unread guide</a>' }],
+  });
+  const discovered = discoverCourseDocuments(input, { baseUrl: deployed });
+  assert.equal(discovered.references.length, 2);
+  const guide = discovered.references.find(ref => ref.id === '9');
+  assert.deepEqual(guide.provenance.map(source => [source.type, source.id, source.url]), [
+    ['quiz', '5', `${deployed}/courses/42/quizzes/5`],
+    ['new-quiz', '5', `${deployed}/courses/42/assignments/55`],
+  ]);
+  const metadataReads = [];
+  const out = await enrichCourseDocuments(input, { baseUrl: deployed, now, maxDocuments: 1,
+    getFileMetadata: async ref => { metadataReads.push(ref.fileId); return file({ url: `${deployed}/files/9/download` }); },
+    fetchImpl: async () => textResponse(),
+  });
+  assert.deepEqual(metadataReads, ['9']);
+  assert.equal(out.documentCollection.attempted, 1); assert.equal(out.documents.length, 2);
+  assert.equal(out.documents.find(doc => doc.id === '10').contentStatus, 'not-read');
+  assert.equal(out.documents.find(doc => doc.id === '9').provenance[1].type, 'new-quiz');
+});
+
 test('locked pages do not disclose links; discovered files remain indexed when the read budget is reached', async () => {
   const input = course({
     pages: [{ id: '1', title: 'Locked', lockedForUser: true, bodyHtml: '<a href="/files/8">Restricted</a>' }],

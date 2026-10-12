@@ -185,6 +185,161 @@ test('a retried create request reuses its session and a lost create response can
   assert.throws(() => service.create('learner', { ...input, topicIds: ['bc-derivatives'] }), { code: 'REQUEST_CONFLICT' });
 });
 
+function varietyFixture({ sequence = ['A', 'B', 'C'], variants = {}, ...options } = {}) {
+  let calls = 0;
+  const requests = [];
+  const generateQuestion = request => {
+    requests.push(request);
+    const label = sequence[Math.min(calls++, sequence.length - 1)];
+    return { topicId: request.topicId, subject: topics.find(topic => topic.id === request.topicId).subject,
+      difficulty: request.difficulty, id: `generated-${calls}`, type: 'mc', prompt: `<p>Verified fixture ${label}</p>`,
+      templateId: request.templateId || 'fixture-concept', variantId: variants[label] || 'fixture-form',
+      focusedTemplate: Boolean(request.templateId), parameters: { label }, choices: ['Key', 'Distractor'], answerIndex: 0,
+      hints: [], solution: [], misconceptions: [null, 'Check the given relation.'], misconceptionTags: [null, 'relation'] };
+  };
+  const { service, setClock } = fixture({ generateQuestion, limits: { ...MIXED_SESSION_LIMITS, variationAttempts: 4 }, ...options });
+  return { service, requests, setClock };
+}
+
+test('ordinary next prefers a different verified form and searches beyond a same-form fresh candidate', () => {
+  const { service, requests } = varietyFixture({ sequence: ['A', 'B', 'C'], variants: { A: 'direct', B: 'direct', C: 'inverse' } });
+  const first = start(service, ['physics-energy']);
+  service.answer('learner', first.sessionId, first.question.id, 0);
+  const next = service.next('learner', first.sessionId);
+  assert.equal(requests[1].avoidVariantId, 'direct');
+  assert.equal(requests.length, 3); assert.match(next.question.prompt, /fixture C/);
+  assert.equal(next.question.reviewOnly, false); assert.equal(next.question.difficulty, 1);
+  assert.deepEqual(service.next('learner', first.sessionId), next, 'retrying next preserves the unanswered question');
+  assert.equal(requests.length, 3, 'retrying next must not consume or record more candidates');
+});
+
+test('ordinary next uses the existing alternate AP forms without changing the requested difficulty', () => {
+  let serial = 0;
+  const service = createMixedPracticeService({ topics: MIXED_TOPICS, generateQuestion: generateMixedQuestion, randomSeed: () => `alternate-${++serial}` });
+  for (const [topicId, difficulty] of [['physics-kinematics', 1], ['physics-energy', 2], ['bc-chain-rule', 1],
+    ['bc-integration', 2], ['bc-differential-equations', 2], ['bc-taylor', 1]]) {
+    const first = start(service, [topicId], difficulty);
+    const original = service.tutorContext('learner', first.sessionId, first.question.id).question;
+    service.answer('learner', first.sessionId, first.question.id, original.answerIndex);
+    const next = service.next('learner', first.sessionId);
+    const alternate = service.tutorContext('learner', next.sessionId, next.question.id).question;
+    assert.notEqual(alternate.variantId, original.variantId, topicId);
+    assert.equal(alternate.difficulty, difficulty); assert.equal(next.question.reviewOnly, false);
+    service.close('learner', first.sessionId);
+  }
+});
+
+test('same-form fresh givens outrank a repeated other form and retries stay within the sampling cap', () => {
+  const { service, requests } = varietyFixture({ sequence: ['A', 'B', 'C', 'A'], variants: { A: 'inverse', B: 'direct', C: 'direct' } });
+  const first = start(service, ['physics-energy']);
+  service.close('learner', first.sessionId);
+  const second = start(service, ['physics-energy']);
+  service.answer('learner', second.sessionId, second.question.id, 0);
+  const third = service.next('learner', second.sessionId);
+  assert.match(third.question.prompt, /fixture C/); assert.equal(third.question.reviewOnly, false);
+  assert.equal(requests.length, 6, 'one fresh candidate plus repeated candidates stays within four samples');
+  assert.equal(service.answer('learner', third.sessionId, third.question.id, 0).summary.independentCorrect, 2);
+});
+
+test('closing or expiring a session retains shown questions for that learner without affecting another learner', () => {
+  for (const lifecycle of ['close', 'expire']) {
+    const { service, setClock } = varietyFixture({ sequence: ['A', 'A', 'B'] });
+    const first = start(service, ['physics-energy']);
+    if (lifecycle === 'close') service.close('learner', first.sessionId);
+    else setClock(1000 + MIXED_SESSION_LIMITS.ttlMs);
+    const second = start(service, ['physics-energy']);
+    assert.match(second.question.prompt, /fixture B/, lifecycle);
+    assert.equal(second.question.reviewOnly, false);
+    const foreign = service.create('esha', { topicIds: ['physics-energy'] });
+    const own = service.next('esha', foreign.sessionId);
+    assert.equal(own.question.reviewOnly, false, 'another learner does not inherit seen-question evidence');
+  }
+});
+
+test('new sessions begin with the least recently shown selected topic while preserving canonical difficulty', () => {
+  const { service } = fixture();
+  const first = start(service);
+  assert.equal(first.question.topicId, 'physics-energy');
+  service.close('learner', first.sessionId);
+  const second = start(service);
+  assert.equal(second.question.topicId, 'bc-derivatives'); assert.equal(second.question.difficulty, 1);
+  assert.equal(second.summary.attempted, 0, 'freshness history is not score or difficulty evidence');
+  service.close('learner', second.sessionId);
+  assert.equal(start(service).question.topicId, 'physics-energy');
+});
+
+test('a saved canonical hash excludes a seen problem after restart and old history still guides topic rotation', () => {
+  const original = varietyFixture({ sequence: ['A'] }).service;
+  const first = start(original, ['physics-energy']);
+  original.answer('learner', first.sessionId, first.question.id, 0);
+  const history = [original.attemptEvidence('learner', first.sessionId, first.question.id)];
+  const restarted = varietyFixture({ sequence: ['A', 'B'], variants: { A: 'direct', B: 'inverse' } }).service;
+  const created = restarted.create('learner', { topicIds: ['physics-energy'] }, { history });
+  const next = restarted.next('learner', created.sessionId);
+  assert.match(next.question.prompt, /fixture B/); assert.equal(next.question.reviewOnly, false);
+  assert.equal(next.summary.independentCorrect, 0);
+  assert.doesNotMatch(JSON.stringify(next), /problemHash|promptHash|parameters|answerIndex/);
+  const { problemHash, promptHash, ...legacy } = history[0];
+  assert.ok(problemHash && promptHash);
+  const older = fixture().service;
+  const prior = older.create('learner', { topicIds: ['physics-energy', 'bc-derivatives'] }, { history: [legacy] });
+  assert.equal(older.next('learner', prior.sessionId).question.topicId, 'bc-derivatives');
+});
+
+test('finite repeats across sessions remain reviews and never award new independent evidence', () => {
+  const { service, requests } = varietyFixture({ sequence: ['A'] });
+  const first = start(service, ['physics-energy']);
+  service.close('learner', first.sessionId);
+  const repeat = start(service, ['physics-energy']);
+  assert.equal(requests.length, 5); assert.equal(repeat.question.reviewOnly, true);
+  assert.match(repeat.selectionReason, /previously seen problem/);
+  const feedback = service.answer('learner', repeat.sessionId, repeat.question.id, 0);
+  assert.equal(feedback.summary.independentCorrect, 0); assert.equal(feedback.summary.reviewed, 1);
+  assert.equal(feedback.summary.byTopic[0].cleanStreak, 0); assert.equal(feedback.summary.byTopic[0].difficulty, 1);
+});
+
+test('profile and question cache caps evict old exposures while active sessions retain their current evidence', () => {
+  const limited = { ...MIXED_SESSION_LIMITS, variationAttempts: 2, recentProfiles: 1, recentQuestions: 1 };
+  const { service } = varietyFixture({ sequence: ['A', 'B', 'A'], limits: limited });
+  const first = start(service, ['physics-energy']);
+  service.close('learner', first.sessionId);
+  const second = start(service, ['physics-energy']);
+  service.close('learner', second.sessionId);
+  assert.equal(start(service, ['physics-energy']).question.reviewOnly, false, 'oldest question drops out of the bounded cache');
+  const active = varietyFixture({ sequence: ['A'], limits: limited }).service;
+  const own = start(active, ['physics-energy']);
+  const other = active.create('esha', { topicIds: ['physics-energy'] }); active.next('esha', other.sessionId);
+  active.answer('learner', own.sessionId, own.question.id, 0);
+  assert.equal(active.next('learner', own.sessionId).question.reviewOnly, true, 'profile cache eviction cannot erase active-session evidence');
+  active.close('learner', own.sessionId);
+  active.close('esha', other.sessionId);
+  const another = active.create('third', { topicIds: ['physics-energy'] }); active.next('third', another.sessionId);
+  assert.equal(start(active, ['physics-energy']).question.reviewOnly, false, 'closed profiles are eventually evicted');
+});
+
+test('session HTTP history comes from the bound reader, rejects client history, and discloses read failures', async () => {
+  const original = varietyFixture({ sequence: ['A'] }).service;
+  const first = start(original, ['physics-energy']); original.answer('learner', first.sessionId, first.question.id, 0);
+  const evidence = original.attemptEvidence('learner', first.sessionId, first.question.id);
+  for (const mode of ['saved', 'failed', 'corrupt']) {
+    const { service } = varietyFixture({ sequence: ['A', 'B'] }); const reads = [];
+    const handler = createMixedPracticeApi({ service,
+      readBody: async req => JSON.stringify(req.body), sendJson: (res, status, body) => Object.assign(res, { status, body }),
+      readHistory: async profile => { reads.push(profile); if (mode === 'failed') throw new Error('storage down'); return mode === 'corrupt' ? {} : [evidence]; },
+    });
+    const res = {};
+    await handler({ method: 'POST', body: { topicIds: ['physics-energy'], history: [], profileId: 'another' } }, res,
+      new URL('http://localhost/api/mixed/session?profile=learner'));
+    assert.deepEqual(reads, ['learner']); assert.equal(res.status, 201);
+    const next = service.next('learner', res.body.sessionId);
+    if (mode === 'saved') { assert.match(next.question.prompt, /fixture B/); assert.equal(next.historyNotice, undefined); }
+    else {
+      assert.match(res.body.historyNotice, /could not be read.*earlier questions may repeat/);
+      assert.equal(next.historyNotice, res.body.historyNotice);
+    }
+  }
+});
+
 test('HTTP routes validate answers and profile scope and mark only a received pre-answer coach reply as assisted', async () => {
   const { service } = fixture(); let captured, finish;
   const handler = createMixedPracticeApi({ service, isConfigured: () => true,
@@ -268,4 +423,84 @@ test('a canceled HTTP coach request cannot mark a late unseen explanation as ass
     assert.equal(service.restore('learner', session.sessionId).question.assisted, false);
     assert.equal(service.answer('learner', session.sessionId, session.question.id, 0).summary.independentCorrect, 1);
   } finally { release?.(); server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+});
+
+test('confirmed memory receipts survive mixed-coach refusals, failures, and post-reply session errors', async () => {
+  const memoryWrites = [{ state: 'saved', id: 'memory-one', kind: 'preference', text: 'I prefer short steps.' }];
+  for (const mode of ['refusal', 'failed', 'expired']) {
+    const { service } = fixture(), session = start(service, ['physics-energy']);
+    const handler = createMixedPracticeApi({ service, isConfigured: () => true,
+      readBody: async req => JSON.stringify(req.body), sendJson: (res, status, body) => Object.assign(res, { status, body }),
+      complete: async () => {
+        if (mode === 'expired') service.close('learner', session.sessionId);
+        return { text: mode === 'expired' ? 'A reply after this practice session closed.' : '', refusal: mode === 'refusal', memoryWrites };
+      },
+    });
+    const res = {};
+    await handler({ method: 'POST', body: { sessionId: session.sessionId, questionId: session.question.id, followUp: 'I prefer short steps.' } }, res,
+      new URL('http://localhost/api/mixed/tutor?profile=learner'));
+    assert.equal(res.status, mode === 'refusal' ? 200 : mode === 'failed' ? 502 : 404);
+    assert.deepEqual(res.body.memoryWrites, memoryWrites, mode);
+    if (mode !== 'expired') assert.equal(service.restore('learner', session.sessionId).question.assisted, false);
+  }
+});
+
+test('mixed-coach account revocation withholds memory text and does not mark assistance', async () => {
+  const { service } = fixture(), session = start(service, ['physics-energy']);
+  const handler = createMixedPracticeApi({ service, isConfigured: () => true,
+    readBody: async req => JSON.stringify(req.body), sendJson: (res, status, body) => Object.assign(res, { status, body }),
+    complete: async () => ({ failureKind: 'authorization', text: '', memoryWrites: [{ state: 'saved', text: 'A former account memory.' }] }),
+  });
+  const res = {};
+  await handler({ method: 'POST', body: { sessionId: session.sessionId, questionId: session.question.id } }, res,
+    new URL('http://localhost/api/mixed/tutor?profile=learner'));
+  assert.equal(res.status, 401);
+  assert.equal(Object.hasOwn(res.body, 'memoryWrites'), false);
+  assert.equal(service.restore('learner', session.sessionId).question.assisted, false);
+});
+
+test('mixed memory receives the complete learner message and a fresh practice-session guard', async () => {
+  const { service } = fixture(), session = start(service, ['physics-energy']);
+  const followUp = `I prefer short steps. ${'A longer explanation. '.repeat(100)} Do not remember this.`;
+  assert.ok(followUp.length > 2000);
+  let captured;
+  const handler = createMixedPracticeApi({ service, isConfigured: () => true,
+    readBody: async req => JSON.stringify(req.body), sendJson: (res, status, body) => Object.assign(res, { status, body }),
+    complete: async request => {
+      captured = request;
+      assert.equal(request.memoryMessage, followUp, 'a trailing opt-out cannot be truncated away before memory validation');
+      assert.doesNotThrow(request.assertCurrent);
+      service.close('learner', session.sessionId);
+      assert.throws(request.assertCurrent, { code: 'SESSION_EXPIRED' });
+      return { text: '' };
+    },
+  });
+  const res = {};
+  await handler({ method: 'POST', body: { sessionId: session.sessionId, questionId: session.question.id, followUp } }, res,
+    new URL('http://localhost/api/mixed/tutor?profile=learner'));
+  assert.ok(captured);
+  assert.equal(res.status, 404);
+});
+
+test('a mixed photo request reauthenticates after reading its body before validating files or starting coaching', async () => {
+  const { service } = fixture(), session = start(service, ['physics-energy']);
+  let bodyRead = false, providerCalls = 0;
+  const handler = createMixedPracticeApi({ service, isConfigured: () => true,
+    readBody: async req => { bodyRead = true; return JSON.stringify(req.body); },
+    sendJson: (res, status, body) => Object.assign(res, { status, body }),
+    authorizeTutor: async (_req, res) => {
+      assert.equal(bodyRead, true);
+      Object.assign(res, { status: 401, body: { code: 'authentication_required' } });
+      return false;
+    },
+    complete: async () => { providerCalls++; return { text: 'This should never be generated.' }; },
+  });
+  const res = {};
+  await handler({ method: 'POST', body: { sessionId: session.sessionId, questionId: session.question.id,
+    attachments: [{ mimeType: 'application/pdf', data: 'unsupported' }] } }, res,
+    new URL('http://localhost/api/mixed/tutor?profile=learner'));
+  assert.equal(res.status, 401);
+  assert.equal(res.body.code, 'authentication_required', 'expired ownership takes priority over upload validation');
+  assert.equal(providerCalls, 0);
+  assert.equal(service.restore('learner', session.sessionId).question.assisted, false);
 });

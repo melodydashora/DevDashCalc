@@ -35,7 +35,9 @@ function checkedBase(value) {
     || /(?:^|\.)(?:localhost|local|internal|lan|home|test|invalid)$/i.test(url.hostname)) {
     throw new TypeError('A public HTTPS Canvas origin is required.');
   }
-  return url.origin;
+  // A Canvas installation can live below a deployment prefix such as
+  // /canvas. Preserve it for references while keeping origin checks separate.
+  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
 }
 
 function decodeEntities(value) {
@@ -62,9 +64,10 @@ export function documentHtmlText(value) {
 function sourceOf(type, row, courseId, base) {
   const sourceId = id(row?.id ?? row?.page_id) || label(row?.pageUrl ?? row?.url) || courseId;
   // Source URLs are deliberately canonical, with no downloaded-file tokens.
-  const paths = { assignment: 'assignments', page: 'pages', discussion: 'discussion_topics', announcement: 'discussion_topics', quiz: 'quizzes', file: 'files' };
+  const paths = { assignment: 'assignments', 'new-quiz': 'assignments', page: 'pages', discussion: 'discussion_topics', announcement: 'discussion_topics', quiz: 'quizzes', file: 'files' };
+  const linkId = type === 'new-quiz' ? id(row?.assignmentId ?? row?.assignment_id) || sourceId : sourceId;
   const path = type === 'syllabus' ? 'assignments/syllabus'
-    : `${paths[type] || 'modules/items'}/${encodeURIComponent(sourceId)}`;
+    : `${paths[type] || 'modules/items'}/${encodeURIComponent(linkId)}`;
   return { type, id: sourceId, title: label(row?.title ?? row?.name ?? row?.displayName ?? row?.display_name), url: `${base}/courses/${courseId}/${path}`, updatedAt: date(row?.updatedAt ?? row?.updated_at) };
 }
 
@@ -80,6 +83,7 @@ function fileVersion(file) {
 // does not accept a caller-provided URL to fetch or follow external web links.
 export function discoverCourseDocuments(course, { baseUrl } = {}) {
   const base = checkedBase(baseUrl), courseId = id(course?.id);
+  const deployment = new URL(base), prefix = deployment.pathname.replace(/\/+$/, '');
   if (!courseId) throw new TypeError('A numeric Canvas course ID is required.');
   const refs = new Map();
   let truncated = false, scanned = 0;
@@ -99,12 +103,16 @@ export function discoverCourseDocuments(course, { baseUrl } = {}) {
   }
   function addLink(value, title, source) {
     let url;
-    try { url = new URL(decodeEntities(value), base); } catch { return; }
+    try { url = new URL(decodeEntities(value), `${base}/`); } catch { return; }
     if (url.protocol !== 'https:' || url.username || url.password || url.port) return;
     const google = googleDocumentLink(url.href);
     if (google) { add({ type: 'google-document', id: google.id, title: label(title) || 'Linked Google document', url: google.href }, source); return; }
-    if (url.origin !== base) return;
-    const match = /^(?:\/api\/v1)?\/(?:courses\/([0-9]{1,20})\/)?files\/([0-9]{1,20})(?:\/(?:download|preview))?\/?$/.exec(url.pathname);
+    if (url.origin !== deployment.origin) return;
+    // Strip only the exact deployment prefix; a sibling installation or a
+    // similarly named path must not become a reference in this Canvas course.
+    if (prefix && !url.pathname.startsWith(`${prefix}/`)) return;
+    const pathname = prefix ? url.pathname.slice(prefix.length) : url.pathname;
+    const match = /^(?:\/api\/v1)?\/(?:courses\/([0-9]{1,20})\/)?files\/([0-9]{1,20})(?:\/(?:download|preview))?\/?$/.exec(pathname);
     if (!match || match[1] && match[1] !== courseId) return;
     add({ type: 'canvas-file', id: match[2], title: label(title) || `Course document ${match[2]}`, url: `${base}/courses/${courseId}/files/${match[2]}` }, source);
   }
@@ -131,8 +139,8 @@ export function discoverCourseDocuments(course, { baseUrl } = {}) {
   }
   scan('syllabus', { id: courseId, title: `${label(course.name)} syllabus` }, course.syllabusBody ?? course.syllabusBodyHtml ?? course.syllabus_body);
   if (course.frontPage) scan('page', course.frontPage, course.frontPage.bodyHtml ?? course.frontPage.body);
-  for (const [key, type] of [['pages', 'page'], ['assignments', 'assignment'], ['discussions', 'discussion'], ['announcements', 'announcement'], ['quizzes', 'quiz']]) {
-    for (const row of list(course[key]).slice(0, 10_000)) scan(type, row, row?.bodyHtml ?? row?.descriptionHtml ?? row?.body ?? row?.description ?? row?.message);
+  for (const [key, type] of [['pages', 'page'], ['assignments', 'assignment'], ['discussions', 'discussion'], ['announcements', 'announcement'], ['quizzes', 'quiz'], ['newQuizzes', 'new-quiz']]) {
+    for (const row of list(course[key]).slice(0, 10_000)) scan(type, row, row?.bodyHtml ?? row?.descriptionHtml ?? (type === 'new-quiz' ? row?.instructions : undefined) ?? row?.body ?? row?.description ?? row?.message);
     if (list(course[key]).length > 10_000) truncated = true;
   }
   for (const module of list(course.modules).slice(0, 1000)) for (const item of list(module?.items).slice(0, 1000)) scan('module-item', item, null);
@@ -161,7 +169,7 @@ function downloadUrl(value, base) {
   try { url = new URL(value); } catch { throw fail('blocked', 'Canvas did not provide an allowed HTTPS download location.'); }
   const cdn = /^(?:[a-z0-9-]+\.)?files\.instructure\.com$/i.test(url.hostname)
     || /^(?:cdn\.)?inst-fs-[a-z0-9-]+\.inscloudgate\.net$/i.test(url.hostname);
-  if (url.protocol !== 'https:' || url.username || url.password || url.port || !(url.origin === base || cdn)) {
+  if (url.protocol !== 'https:' || url.username || url.password || url.port || !(url.origin === new URL(base).origin || cdn)) {
     throw fail('blocked', 'The document download location is outside the allowed Canvas file hosts.');
   }
   // Some file URLs legitimately use verifier or CDN token parameters. They are

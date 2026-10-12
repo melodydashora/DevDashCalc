@@ -10,7 +10,7 @@ const enabled = process.env.RUN_CONTINUITY_DB_TESTS === '1' && Boolean(process.e
 test('real PostgreSQL continuity appends, replay protection, pagination and workspace references', { skip: !enabled, timeout: 120_000 }, async t => {
   const prefix = `test_memo_${randomBytes(8).toString('hex')}_`;
   assert.match(prefix, /^test_memo_[0-9a-f]{16}_$/);
-  const names = ['s4ai_users', 's4ai_workspaces', 's4ai_student_memos', 's4ai_student_memos_recent_idx'];
+  const names = ['s4ai_users', 's4ai_workspaces', 's4ai_student_memos', 's4ai_student_memos_recent_idx', 's4ai_student_memos_active_recent_idx'];
   const aliases = Object.fromEntries(names.map(name => [name, prefix + name]));
   for (const name of Object.values(aliases)) assert.ok(name.length <= 63);
   const pattern = new RegExp(`\\b(${names.join('|')})\\b`, 'g');

@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createStudentRecordLookup } from '../coach-records.js';
+import { createStudentRecordLookup, RECORD_SYSTEM } from '../coach-records.js';
+
+test('authenticated learner identity remains available before any progress is saved', async () => {
+  const lookup = createStudentRecordLookup({ profileId: 'student-a', workspaceId: 'owned',
+    learner: { name: 'Current Student', selectedSubject: 'physics', source: 'Current authenticated learner workspace', token: 'never-show' } });
+  assert.equal(lookup.initialContext.name, 'Current Student');
+  assert.equal(lookup.catalog.find(item => item.collection === 'learning_profile').available, true);
+  const page = await lookup.execute('read_student_records', { collection: 'learning_profile', offset: 0 });
+  assert.equal(page.records[0].settings.name, 'Current Student');
+  assert.doesNotMatch(JSON.stringify({ initial: lookup.initialContext, page }), /never-show|token/);
+});
 
 test('saved course plans are owner-bound, paged and exclude arbitrary fields', async () => {
   const calls = [];
@@ -15,6 +25,53 @@ test('saved course plans are owner-bound, paged and exclude arbitrary fields', a
   assert.doesNotMatch(JSON.stringify(page), /never-show|privateKey/);
   const other = createStudentRecordLookup({ profileId: 'dev', readPlans: async () => ({ plans: [{ profileId: 'esha', title: 'Foreign private plan' }] }) });
   assert.equal((await other.execute('read_student_records', { collection: 'study_plans', offset: 0 })).state, 'unavailable');
+});
+
+test('saved plan study windows, activities and selected coursework reach coaching without connection bindings', async () => {
+  const plan = { id: 'plan-1', profileId: 'dev', course: { id: '11', name: 'Biology', subject: 'all' }, activity: 'practice',
+    goal: 'Review cell transport tonight', topics: ['Transport'], steps: [{ id: 'step-1', title: 'Recall', detail: 'Explain diffusion.', minutes: 10 }],
+    completedStepIds: ['step-1'], canvasSourceBinding: 'private-binding', canvasSourcesVerified: true,
+    schedule: { startAt: '2026-10-12T18:00:00-04:00', endAt: '2026-10-12T18:30:00-04:00', timeZone: 'America/New_York',
+      remindersEnabled: true, reminderLeadMinutes: [0, 15, 15], authorization: 'private-schedule-auth', instructorDueAt: 'unverified-date' },
+    sourceRefs: [{ type: 'assignment', id: '101', canvasSourceBinding: 'private-ref-binding' }, { type: 'assignment', id: '101' }, { type: 'assignment', id: '102' }] };
+  const before = JSON.stringify(plan);
+  const lookup = createStudentRecordLookup({ profileId: 'dev', readPlans: async () => ({ plans: [plan] }) });
+  const page = await lookup.execute('read_student_records', { collection: 'study_plans', offset: 0 });
+  assert.equal(page.state, 'available');
+  const record = page.records[0];
+  assert.equal(record.activity, 'practice');
+  assert.equal(record.scheduleState, 'available');
+  assert.deepEqual(record.schedule, { startAt: '2026-10-12T22:00:00.000Z', endAt: '2026-10-12T22:30:00.000Z', timeZone: 'America/New_York',
+    remindersEnabled: true, reminderLeadMinutes: [15, 0] });
+  assert.deepEqual(record.sourceRefs, [{ type: 'assignment', id: '101' }, { type: 'assignment', id: '102' }]);
+  assert.deepEqual(record.completedStepIds, ['step-1']);
+  assert.doesNotMatch(JSON.stringify(page), /private-|Binding|Verified|authorization|instructorDueAt|unverified-date/);
+  assert.equal(JSON.stringify(plan), before, 'read projection never alters the stored plan');
+  plan.schedule.reminderLeadMinutes.push(60); plan.sourceRefs[0].id = '999';
+  assert.deepEqual(record.schedule.reminderLeadMinutes, [15, 0]);
+  assert.equal(record.sourceRefs[0].id, '101');
+  assert.match(RECORD_SYSTEM, /saved study window, not an instructor deadline/);
+  assert.match(RECORD_SYSTEM, /elapsed time does not complete a plan/);
+  assert.match(RECORD_SYSTEM, /do not verify current Canvas access/);
+});
+
+test('malformed or absent saved plan metadata stays unknown and assignment references remain bounded', async () => {
+  const plans = [
+    { id: 'invalid', course: { id: '11' }, activity: 'private-activity', schedule: { startAt: '2026-10-12', endAt: '2026-10-13', timeZone: 'private-zone' },
+      sourceRefs: [{ type: 'quiz', id: '101' }, { type: 'assignment', id: '../private' }, { type: 'assignment', id: 102 }] },
+    { id: 'old-plan', course: { id: '11' } },
+    { id: 'custom-course', course: { id: 'custom' }, sourceRefs: [{ type: 'assignment', id: '101' }] },
+    { id: 'many-refs', activity: 'model', course: { id: '11' }, sourceRefs: Array.from({ length: 12 }, (_, i) => ({ type: 'assignment', id: String(i + 1) })) },
+  ];
+  const lookup = createStudentRecordLookup({ profileId: 'dev', readPlans: async () => ({ plans }) });
+  const page = await lookup.execute('read_student_records', { collection: 'study_plans', offset: 0 });
+  assert.equal(page.state, 'available');
+  assert.equal(page.records[0].schedule, null); assert.equal(page.records[0].scheduleState, 'unavailable');
+  assert.equal(page.records[0].activity, null); assert.deepEqual(page.records[0].sourceRefs, []);
+  assert.equal(page.records[1].schedule, null); assert.equal(page.records[1].scheduleState, 'not-scheduled');
+  assert.deepEqual(page.records[2].sourceRefs, []);
+  assert.equal(page.records[3].sourceRefs.length, 10); assert.equal(page.records[3].activity, 'model');
+  assert.doesNotMatch(JSON.stringify(page), /private-|\.\.\//);
 });
 
 test('learning records are paged, copied, and project only learning fields', async () => {

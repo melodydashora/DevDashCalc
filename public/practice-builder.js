@@ -37,6 +37,21 @@ export function practiceBuilderDefaults(subject) {
   return defaults[id] || { courseName: 'my selected course', model: 'linear', topicPlaceholder: 'Name the course topic or skill you want to practice' };
 }
 
+export function practiceBuilderCourseOptions({ courses = [], courseName, subject, selectedCourseId } = {}) {
+  const defaults = practiceBuilderDefaults(subject);
+  const selectedId = String(selectedCourseId ?? '');
+  const actual = [], seen = new Set();
+  for (const course of Array.isArray(courses) ? courses : []) {
+    const id = String(course?.id ?? '');
+    const label = text(course?.name, 160);
+    if (!/^[0-9]{1,20}$/.test(id) || !label || seen.has(id)) continue;
+    seen.add(id);
+    actual.push({ id, label, courseId: id });
+  }
+  const selected = actual.some(option => option.id === selectedId);
+  return [{ id: 'current', label: selected ? defaults.courseName : text(courseName, 160) || defaults.courseName, courseId: null }, ...actual];
+}
+
 export function buildPracticeRequest({ courseName, subject, topic, goal = 'question', variation = 'scenario', model, count = 5 } = {}) {
   const defaults = practiceBuilderDefaults(subject);
   const course = text(courseName, 160) || defaults.courseName;
@@ -70,44 +85,54 @@ function selectControl(title, options, selected) {
   wrap.append(select); return { wrap, select };
 }
 
-export function mountPracticeBuilder(container, { courseName, subject = 'calculus-bc', courses = [], onAskAstra, renderMath, motion } = {}) {
+export function mountPracticeBuilder(container, { courseName, selectedCourseId, subject = 'calculus-bc', courses = [], onAskAstra, renderMath, motion } = {}) {
   const defaults = practiceBuilderDefaults(subject);
   const root = node('section', 'practice-builder'); container.append(root);
   const listeners = new AbortController(); let disposed = false, previewCleanup = () => {};
-  root.append(node('h2', '', 'Build a request for Astra'), node('p', 'practice-builder-intro', 'Choose what should change, review the request, then open it in Astra. A different situation, representation or unknown practices a different reasoning step.'));
-  const mysteryLink = node('a', 'btn secondary', 'Practice evidence and grammar with a mystery'); mysteryLink.href = '#/mystery'; root.append(mysteryLink);
+  root.append(node('h2', '', 'Build a request for Astra'), node('p', 'practice-builder-intro', 'Choose a course and topic, then prepare a practice request to review with Astra.'));
   const layout = node('div', 'practice-builder-layout'), form = node('div', 'practice-builder-form'), preview = node('aside', 'practice-builder-preview'); layout.append(form, preview); root.append(layout);
-  const options = [{ id: 'current', label: text(courseName, 160) || defaults.courseName }];
-  for (const course of courses) { const name = text(course?.name || course?.title || course?.label, 160); if (name && !options.some((item) => item.label === name)) options.push({ id: `course-${options.length}`, label: name }); }
-  const course = selectControl('Course', options, 'current'); form.append(course.wrap);
+  const options = practiceBuilderCourseOptions({ courses, courseName, subject, selectedCourseId });
+  const selectedId = options.find(option => option.id === String(selectedCourseId ?? ''))?.id || 'current';
+  const course = selectControl('Course', options, selectedId); form.append(course.wrap);
+  let draftCourse = options.find(option => option.id === selectedId);
   const topicLabel = node('label', 'practice-builder-field'); topicLabel.append(node('span', '', 'Topic or skill')); const topic = node('input'); topic.type = 'text'; topic.maxLength = 500; topic.placeholder = defaults.topicPlaceholder; topicLabel.append(topic); form.append(topicLabel);
   const goal = selectControl('What to make', [{ id: 'question', label: 'One new question' }, { id: 'set', label: 'A practice set' }, { id: 'model', label: 'A model exploration' }], 'question'); form.append(goal.wrap);
   const variation = selectControl('How the reasoning should change', PRACTICE_VARIATIONS, 'scenario'); form.append(variation.wrap);
   const count = selectControl('Questions in the set', [{ id: '3', label: '3 questions' }, { id: '5', label: '5 questions' }, { id: '10', label: '10 questions' }], '5'); count.wrap.hidden = true; form.append(count.wrap);
   const model = selectControl('Available model preview', PRACTICE_MODEL_CHOICES, defaults.model); preview.append(model.wrap);
   const scope = node('p', 'practice-builder-scope'); preview.append(scope);
-  preview.append(node('p', 'practice-builder-note', 'These working previews use separate example values. The 3D solid fits volume and cross-section questions; other topics use the representation that explains them. A chat request can ask for a change, but does not execute new model code.'));
+  const previewDetails = node('details', 'practice-builder-about');
+  previewDetails.append(node('summary', '', 'About these examples'), node('p', 'practice-builder-note', 'Previews use separate example values. Choose a representation that fits your topic. Astra can explain a proposed change; the preview itself stays the same.'));
+  preview.append(previewDetails);
   const modelSlot = node('div', 'question-model-slot'); preview.append(modelSlot);
   const updatePreview = () => { previewCleanup(); modelSlot.replaceChildren(); const selected = PRACTICE_MODEL_CHOICES.find((item) => item.id === model.select.value); scope.textContent = selected.scope; previewCleanup = mountQuestionModel(modelSlot, { question: selected.question, motion }); renderMath?.(modelSlot); };
   const write = node('button', 'secondary', 'Write request from these choices'); write.type = 'button'; form.append(write);
-  const requestLabel = node('label', 'practice-builder-field'); requestLabel.append(node('span', '', 'Request you can edit')); const request = node('textarea'); request.rows = 17; request.maxLength = 6000; requestLabel.append(request); form.append(requestLabel);
+  const requestDetails = node('details', 'practice-builder-request'); requestDetails.append(node('summary', '', 'Review or edit the prepared request'));
+  const requestLabel = node('label', 'practice-builder-field'); requestLabel.append(node('span', '', 'Request you can edit')); const request = node('textarea'); request.rows = 6; request.maxLength = 2000; requestLabel.append(request); requestDetails.append(requestLabel); form.append(requestDetails);
   const open = node('button', '', 'Open request in Astra'); open.type = 'button'; open.disabled = typeof onAskAstra !== 'function'; form.append(open);
   const status = node('p', 'practice-builder-status'); status.setAttribute('role', 'status'); form.append(status);
   const regenerate = () => {
-    request.value = buildPracticeRequest({ courseName: options.find((item) => item.id === course.select.value)?.label, subject, topic: topic.value, goal: goal.select.value, variation: variation.select.value, model: model.select.value, count: count.select.value });
+    draftCourse = options.find((item) => item.id === course.select.value) || options[0];
+    request.value = buildPracticeRequest({ courseName: draftCourse.label, subject, topic: topic.value, goal: goal.select.value, variation: variation.select.value, model: model.select.value, count: count.select.value });
     status.textContent = 'Request prepared. Edit it if needed, then open it in Astra.';
   };
   write.addEventListener('click', regenerate, { signal: listeners.signal });
-  const changed = () => { count.wrap.hidden = goal.select.value !== 'set'; variation.wrap.hidden = goal.select.value === 'model'; status.textContent = 'Choices changed. Select Write request to update the text. Your edits are preserved until then.'; };
+  const changed = () => { count.wrap.hidden = goal.select.value !== 'set'; variation.wrap.hidden = goal.select.value === 'model'; status.textContent = `Choices changed. The prepared request still uses ${draftCourse.label}. Select Write request to apply your new choices.`; };
   for (const control of [course.select, topic, goal.select, variation.select, count.select]) control.addEventListener('change', changed, { signal: listeners.signal });
   model.select.addEventListener('change', () => { updatePreview(); changed(); }, { signal: listeners.signal });
   open.addEventListener('click', async () => {
     if (disposed || typeof onAskAstra !== 'function') return;
     const value = request.value.trim(); if (!value) { status.textContent = 'Write or enter a request first.'; request.focus(); return; }
+    if (value.length > 2000) { status.textContent = 'Keep the request within 2000 characters before opening it in Astra.'; requestDetails.open = true; request.focus(); return; }
     open.disabled = true;
-    try { await onAskAstra(value); if (!disposed) status.textContent = 'The request is open in Astra. Review and send it there when ready.'; }
-    catch { if (!disposed) status.textContent = 'Astra could not open the request. Your text is still here to copy or try again.'; }
-    finally { if (!disposed) open.disabled = false; }
+    try {
+      const opened = await onAskAstra(value, { courseId: draftCourse.courseId, courseName: draftCourse.label });
+      if (!disposed && root.isConnected) status.textContent = opened === false
+        ? 'Astra could not open this request. Your text is still here to try again.'
+        : 'The request is open in Astra. Review and send it there when ready.';
+    }
+    catch { if (!disposed && root.isConnected) status.textContent = 'Astra could not open the request. Your text is still here to copy or try again.'; }
+    finally { if (!disposed && root.isConnected) open.disabled = false; }
   }, { signal: listeners.signal });
   updatePreview(); regenerate();
   const cleanup = () => { if (disposed) return; disposed = true; listeners.abort(); previewCleanup(); observer.disconnect(); root.remove(); };

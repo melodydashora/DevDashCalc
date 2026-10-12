@@ -227,9 +227,26 @@ export async function collectCanvasSnapshot({ baseUrl, user, get, list, state = 
     const discussion = raw => ({ ...normalizeCanvasDiscussion(raw), htmlUrl: safe(raw.html_url), bodyHtml: raw.locked_for_user || raw.published === false ? null : text(raw.message), postedAt: date(raw.posted_at), authorId: id(raw.author?.id), authorName: text(raw.author?.display_name, 500), isAnnouncement: Boolean(raw.is_announcement) });
     result.announcements = rawAnnouncements.map(discussion);
     result.discussions = rawDiscussions.filter(raw => !raw.is_announcement).map(discussion);
-    const quiz = raw => ({ id: id(raw.id), assignmentId: id(raw.assignment_id), title: text(raw.title, 4000), bodyHtml: text(raw.description), htmlUrl: safe(raw.html_url), dueAt: date(raw.due_at), unlockAt: date(raw.unlock_at), lockAt: date(raw.lock_at), quizType: text(raw.quiz_type, 100), published: typeof raw.published === 'boolean' ? raw.published : null, bodyTruncated: typeof raw.description === 'string' && raw.description.length > 60000 });
-    result.quizzes = scoped(await read(`${prefix}quizzes`, `${endpoint}/quizzes`)).map(quiz);
-    result.newQuizzes = scoped(await read(`${prefix}newQuizzes`, `${endpoint}/quizzes`, {}, { api: 'quiz/v1' })).map(quiz);
+    const quiz = (raw, type) => {
+      const newQuiz = type === 'new-quiz';
+      // New Quizzes exposes assignment-backed quiz IDs and instructions, not
+      // the Classic Quiz description field or Classic /quizzes/:id page.
+      const quizId = id(raw.id), assignmentId = id(raw.assignment_id) || (newQuiz ? quizId : null);
+      const body = newQuiz ? raw.instructions : raw.description;
+      const locked = raw.locked_for_user === true || raw.hidden_for_user === true || raw.published === false;
+      const truncated = typeof body === 'string' && body.length > CANVAS_CONTENT_LIMITS.html;
+      return { type, id: quizId, assignmentId, title: text(raw.title, 4000),
+        bodyHtml: locked ? null : text(body, CANVAS_CONTENT_LIMITS.html), bodyTruncated: truncated,
+        contentStatus: locked ? 'locked' : typeof body !== 'string' ? 'not_provided' : truncated ? 'truncated' : body.trim() ? 'available' : 'empty',
+        htmlUrl: newQuiz ? assignmentId ? courseLink(courseId, `/assignments/${assignmentId}`) : null : safe(raw.html_url),
+        dueAt: date(raw.due_at), dueDateStatus: !Object.hasOwn(raw, 'due_at') || raw.due_at === undefined ? 'not-provided' : raw.due_at === null ? 'no-date' : date(raw.due_at) ? 'dated' : 'invalid',
+        unlockAt: date(raw.unlock_at), lockAt: date(raw.lock_at), updatedAt: date(raw.updated_at),
+        quizType: text(raw.quiz_type, 100), published: typeof raw.published === 'boolean' ? raw.published : null,
+        lockedForUser: locked ? true : typeof raw.locked_for_user === 'boolean' ? raw.locked_for_user : null,
+        readAt: statuses[`${prefix}${newQuiz ? 'newQuizzes' : 'quizzes'}`]?.readAt || null };
+    };
+    result.quizzes = scoped(await read(`${prefix}quizzes`, `${endpoint}/quizzes`)).map(raw => quiz(raw, 'quiz'));
+    result.newQuizzes = scoped(await read(`${prefix}newQuizzes`, `${endpoint}/quizzes`, {}, { api: 'quiz/v1' })).map(raw => quiz(raw, 'new-quiz'));
     result.files = scoped(await read(`${prefix}files`, `${endpoint}/files`)).map(raw => ({
       id: id(raw.id), folderId: id(raw.folder_id), name: text(raw.display_name ?? raw.filename, 4000), filename: text(raw.filename, 4000),
       contentType: text(raw['content-type'], 200), size: number(raw.size), updatedAt: date(raw.updated_at),

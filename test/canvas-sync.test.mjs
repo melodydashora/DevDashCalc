@@ -126,6 +126,44 @@ test('page bodies get typed fallback; signed file URLs and locked bodies never e
   assert.equal(JSON.stringify(result).includes('secret'), false); assert.equal(course.files[0].htmlUrl, `${baseUrl}/courses/1/files/4`);
 });
 
+test('New Quizzes preserve bounded instructions with assignment links and distinct Classic Quiz source identities', async () => {
+  const now = Date.parse('2026-10-10T16:00:00Z');
+  const instructions = '<p>Due October 16, 2026. Review the instructor study guide.</p>';
+  const f = fixture({ list: async (endpoint, query, options) => {
+    if (!endpoint.endsWith('/quizzes')) return null;
+    return options.api === 'quiz/v1'
+      ? page([{ id: '7', assignment_id: '501', title: 'New quiz', instructions, description: 'Wrong Classic field', due_at: null,
+        html_url: `${baseUrl}/courses/1/quizzes/7`, updated_at: '2026-10-09T12:00:00Z', published: true,
+        items: [{ answer: 'Private quiz answer' }], item_banks: [{ title: 'Private bank' }] },
+      { id: '8', title: 'Assignment-backed ID', instructions: 'Short instructions.', due_at: '2026-10-17T16:00:00Z' },
+      { id: '9', instructions: 'a'.repeat(60001) },
+      { id: '10', instructions: 'Locked private instructions', locked_for_user: true },
+      { id: '11', instructions: 'Unpublished private instructions', published: false },
+      { id: '12', description: 'No New Quiz instructions supplied' }])
+      : page([{ id: '7', assignment_id: '502', title: 'Classic quiz', description: 'Classic instructions.', html_url: `${baseUrl}/courses/1/quizzes/7` }]);
+  } });
+  const result = await collectCanvasSnapshot({ ...f, now }), course = result.courses[0];
+  const item = course.newQuizzes[0];
+  assert.equal(item.type, 'new-quiz'); assert.equal(item.id, '7'); assert.equal(item.assignmentId, '501');
+  assert.equal(item.bodyHtml, instructions); assert.equal(item.contentStatus, 'available');
+  assert.equal(item.htmlUrl, `${baseUrl}/courses/1/assignments/501`);
+  assert.equal(item.dueAt, null); assert.equal(item.dueDateStatus, 'no-date');
+  assert.equal(item.updatedAt, '2026-10-09T12:00:00Z'); assert.equal(item.readAt, new Date(now).toISOString());
+  assert.equal(item.lockedForUser, null, 'missing lock state must remain unknown');
+  assert.equal(course.newQuizzes[1].assignmentId, '8');
+  assert.equal(course.newQuizzes[1].htmlUrl, `${baseUrl}/courses/1/assignments/8`);
+  assert.equal(course.newQuizzes[1].dueDateStatus, 'dated');
+  assert.equal(course.newQuizzes[2].bodyHtml.length, 60000); assert.equal(course.newQuizzes[2].contentStatus, 'truncated');
+  for (const quiz of course.newQuizzes.slice(3, 5)) { assert.equal(quiz.bodyHtml, null); assert.equal(quiz.contentStatus, 'locked'); }
+  assert.equal(course.newQuizzes[5].bodyHtml, null); assert.equal(course.newQuizzes[5].contentStatus, 'not_provided');
+  assert.deepEqual(course.sources.filter(source => source.id === '7').map(source => [source.key, source.htmlUrl]), [
+    ['1:quiz:7', `${baseUrl}/courses/1/quizzes/7`], ['1:new-quiz:7', `${baseUrl}/courses/1/assignments/501`],
+  ]);
+  assert.equal(f.calls.filter(call => call.endpoint.endsWith('/quizzes')).length, 2);
+  assert.ok(f.calls.every(call => !/quizzes\/.+|item_banks|quiz_questions/.test(call.endpoint)), 'only indexes are read, never quiz items or banks');
+  assert.doesNotMatch(JSON.stringify(result), /Wrong Classic field|Private quiz answer|Private bank|Locked private|Unpublished private/);
+});
+
 
 test('403 throttling remains retryable and inaccessible sources keep partial disclosure after collection finishes', async () => {
   const f = fixture({ list: async endpoint => { if (endpoint.endsWith('/files')) throw { status: 403, kind: 'rate' }; if (endpoint.endsWith('/folders')) throw { status: 403, kind: 'forbidden' }; return null; } });

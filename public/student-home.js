@@ -1,3 +1,13 @@
+// Device-local greeting. Return plain text; callers escape it or use textContent.
+export function studentGreeting(name, now = new Date()) {
+  const hour = now.getHours();
+  const greeting = !Number.isFinite(hour) ? 'Hello'
+    : hour >= 5 && hour < 12 ? 'Good morning'
+      : hour >= 12 && hour < 17 ? 'Good afternoon' : 'Good evening';
+  const label = typeof name === 'string' ? name.trim() : '';
+  return label ? `${greeting}, ${label}` : greeting;
+}
+
 // Course timing comes from Canvas, never from the learner's name or diagnosis.
 // Unknown dates stay unknown; a missing assignment deadline does not archive a class.
 export function courseTimeStatus(course, now) {

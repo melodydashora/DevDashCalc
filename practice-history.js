@@ -1,11 +1,14 @@
 // Canonical practice attempts only. No answer keys or client correctness flags.
 const safeId = value => typeof value === 'string' && /^[a-zA-Z0-9:_-]{1,180}$/.test(value);
+const safeHash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 export function normalizePracticeEvidence(input) {
   if (!input || !safeId(input.attemptId) || !safeId(input.topicId) || !safeId(input.subject)
     || typeof input.correct !== 'boolean' || typeof input.assisted !== 'boolean'
     || ![1, 2, 3].includes(input.difficulty) || !Number.isFinite(Date.parse(input.at))) throw new Error('Invalid canonical practice evidence.');
   return { attemptId: input.attemptId, topicId: input.topicId, subject: input.subject,
     templateId: safeId(input.templateId) ? input.templateId : null, variantId: safeId(input.variantId) ? input.variantId : null,
+    ...(safeHash(input.problemHash) ? { problemHash: input.problemHash } : {}),
+    ...(safeHash(input.promptHash) ? { promptHash: input.promptHash } : {}),
     difficulty: input.difficulty, correct: input.correct, assisted: input.assisted,
     misconceptionTag: safeId(input.misconceptionTag) ? input.misconceptionTag : null,
     at: new Date(input.at).toISOString(), isReview: Boolean(input.isReview) };
@@ -41,6 +44,10 @@ export function summarizePracticeHistory(events, now = Date.now()) {
     const reviewAfter = latest ? new Date(Date.parse(latest.at) + delay * 86400000).toISOString() : null;
     return { ...topic, reviewAfter, reviewDue: reviewAfter ? Date.parse(reviewAfter) <= now : false, nextStep: !latest ? 'Try a fresh question to collect independent evidence.' : needsReview ? 'Explain the rule, then try it in a different problem. Revisit it on a later day.' : 'Try a different representation and revisit this topic on a later day.' };
   }).sort((a, b) => Number(b.reviewDue) - Number(a.reviewDue) || b.lastPracticed.localeCompare(a.lastPracticed));
-  return { topics: result, retainedCount: attempts.size, recentAttempts: [...attempts.values()].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 30),
+  // Freshness hashes are internal selection data, not useful learner/Coach
+  // context. Keep the existing public history shape free of those details.
+  const recentAttempts = [...attempts.values()].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 30)
+    .map(({ problemHash, promptHash, ...attempt }) => attempt);
+  return { topics: result, retainedCount: attempts.size, recentAttempts,
     notice: 'These are practice observations, not an official SAT score, a diagnosis, or a promise of mastery. Review dates are adjustable suggestions.' };
 }

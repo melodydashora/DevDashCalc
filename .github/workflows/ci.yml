@@ -24,11 +24,21 @@ jobs:
           node --check public/canvas-account.js
           node --check public/continuity-ui.js
           node --check public/student-home.js
+          node --check public/study-time.js
+          node --check coach-study-time.js
           node --check continuity-store.js
           node --check scripts/create-enrollment.mjs
           node --check ai-coach.js
           node --check coach-config.js
           node --check tutor-service.js
+          node --check coach-attachments.js
+          node --check public/coach-attachments.js
+          node --check public/coach-intent.js
+          node --check public/course-materials.js
+          node --check public/student-study.js
+          node --check coach-audio.js
+          node --check coach-memory.js
+          node --check public/coach-audio.js
           node --check anthropic-coach.js
           node --check scripts/check-tutor-models.mjs
           node --check ai-record-coach.js

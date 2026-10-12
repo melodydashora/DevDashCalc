@@ -11,6 +11,18 @@ test('only bounded canonical observations are retained, with no question key or 
   assert.throws(() => normalizePracticeEvidence(attempt({ at: 'not a date' })));
   assert.throws(() => normalizePracticeEvidence(attempt({ topicId: '../escape' })));
 });
+test('optional freshness hashes survive normalization while malformed hashes and old records stay safe', () => {
+  const hashes = { problemHash: 'a'.repeat(64), promptHash: '9'.repeat(64) };
+  const safe = normalizePracticeEvidence(attempt({ ...hashes, parameters: { private: 4 }, prompt: 'private question' }));
+  assert.equal(safe.problemHash, hashes.problemHash); assert.equal(safe.promptHash, hashes.promptHash);
+  assert.doesNotMatch(JSON.stringify(safe), /private|parameters/);
+  for (const bad of ['answer is 4', 'a'.repeat(65), null, {}]) {
+    const invalid = normalizePracticeEvidence(attempt({ problemHash: bad, promptHash: bad }));
+    assert.equal(Object.hasOwn(invalid, 'problemHash'), false); assert.equal(Object.hasOwn(invalid, 'promptHash'), false);
+  }
+  const summary = summarizePracticeHistory([attempt(), attempt({ attemptId: 'new-hashes', ...hashes })]);
+  assert.equal(summary.retainedCount, 2); assert.doesNotMatch(JSON.stringify(summary), /problemHash|promptHash/);
+});
 test('replayed answers count once and late assistance can only remove independence', () => {
   const events = [attempt(), attempt(), attempt({ assisted: true }), attempt()];
   const result = summarizePracticeHistory(events);

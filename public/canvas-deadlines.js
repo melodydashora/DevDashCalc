@@ -189,6 +189,8 @@ function collectSources(course) {
   add(course.frontPage || course.homePage, 'page');
   for (const page of list(course.pages)) add(page, 'page');
   for (const announcement of list(course.announcements)) add(announcement, 'announcement');
+  for (const quiz of list(course.quizzes)) add(quiz, 'quiz', quiz.assignmentId ?? null);
+  for (const quiz of list(course.newQuizzes)) add(quiz, 'new-quiz', quiz.assignmentId ?? quiz.id ?? null);
   for (const document of [...list(course.documents), ...list(course.contentSources)]) add(document, document.kind || 'document');
   for (const assignment of list(course.assignments)) add({ ...assignment, bodyHtml: assignment.descriptionHtml }, 'assignment', assignment.id);
   return { sources: sources.slice(0, LIST_LIMIT), truncated: sources.length > LIST_LIMIT };
@@ -345,7 +347,7 @@ export function resolveCourseDeadlines(course, { now } = {}) {
   });
   const planningTasks = resolved.filter(task => task.sourceTask).filter(task => task.planningDeadline).map(({ id, dueAt, dueDateStatus, ...task }) => task);
   return { ...course, assignments: resolved.filter(task => !task.sourceTask), planningTasks, deadlineReview,
-    deadlineResolution: { sourceCount: sources.length, sourceLimit: LIST_LIMIT, sourceTaskCount: planningTasks.length, truncated: collected.truncated || sources.some(source => source.truncated) || sourceTasks.size >= LIST_LIMIT, method: 'explicit-source-evidence' } }; 
+    deadlineResolution: { sourceCount: sources.length, sourceLimit: LIST_LIMIT, sourceTaskCount: planningTasks.length, truncated: collected.truncated || sources.some(source => source.truncated) || sourceTasks.size >= LIST_LIMIT, method: 'explicit-source-evidence' } };
 }
 
 // Calendar-day comparison is separate from a timestamp. A date-only deadline

@@ -1,9 +1,11 @@
 // Persistent page-level coaching. The host supplies context and transport;
 // this module stores conversation only in memory and never writes to Canvas.
 import { appendTutorInline, safeTutorHref } from './tutor-text.js';
+import { createCoachAudio, coachAudioSupported } from './coach-audio.js';
+import { createCoachAttachments, COACH_ATTACHMENT_ACCEPT, COACH_ATTACHMENT_PROMPT } from './coach-attachments.js';
 const MAX_MESSAGE = 2000;
 const MAX_REPLY = 24000;
-const QUICK_PROMPTS = ['Help me choose my next step', 'Find my Canvas instructions', 'Explain this page', 'Check missing due dates'];
+const QUICK_PROMPTS = ['Help me choose my next step', 'Find my Canvas instructions', 'Explain this page'];
 let nextCoachId = 0;
 
 export function coachReplyIdentity(model, fallback = false) {
@@ -38,6 +40,9 @@ export function coachConversationScope(context = {}) {
   return JSON.stringify({
     subject: String(context.subject || ''),
     selectedCourseId: String(context.selectedCourseId || ''),
+    planId: String(context.planId || ''),
+    stepId: String(context.stepId || ''),
+    learningTopic: String(context.learningTopic || '').slice(0, 500),
     questionId: String(context.questionId || ''),
     sessionId: context.questionId ? String(context.sessionId || '') : '',
     unitId: context.questionId ? String(context.unitId || '') : '',
@@ -66,6 +71,28 @@ function element(tag, className = '', text = '') {
   if (className) node.className = className;
   if (text) node.textContent = text;
   return node;
+}
+
+// Small, static interface icons. Model replies never enter SVG or HTML markup.
+function coachIcon(name) {
+  const paths = {
+    zap: ['M13 2 3 14h8l-1 8 11-12h-8l1-8Z'],
+    chat: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z'],
+    notes: ['M12 7v14', 'M3 3h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3Z'],
+    send: ['m22 2-7 20-4-9-9-4Z', 'M22 2 11 13'],
+    close: ['m6 6 12 12', 'M18 6 6 18'],
+    'chevron-right': ['m9 6 6 6-6 6'],
+    mic: ['M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z', 'M5 10v2a7 7 0 0 0 14 0v-2', 'M12 19v3', 'M8 22h8'],
+    attach: ['m21 11-8.5 8.5a6 6 0 0 1-8.5-8.5L13 2a4 4 0 0 1 5.7 5.7l-9 9a2 2 0 0 1-2.8-2.8L15 6'],
+    file: ['M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z', 'M14 2v6h6', 'M8 13h8', 'M8 17h6'],
+  };
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  for (const [key, value] of Object.entries({ viewBox: '0 0 24 24', width: '20', height: '20', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.8', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'aria-hidden': 'true', focusable: 'false' })) svg.setAttribute(key, value);
+  for (const d of paths[name]) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d); svg.appendChild(path);
+  }
+  return svg;
 }
 
 function appendInline(node, text) {
@@ -165,6 +192,18 @@ export function appendReply(node, text) {
   }
 }
 
+// Read the visible words, including link labels, without speaking Markdown
+// punctuation or duplicating KaTeX's visual and screen-reader representations.
+function spokenReply(text) {
+  const inline = value => { const node = element('span'); appendInline(node, value); return node.textContent; };
+  return parseCoachMarkdown(text).map(block => {
+    if (block.type === 'list') return block.items.map(inline).join('\n');
+    if (block.type === 'table') return [block.headers, ...block.rows].map(row => row.map(inline).join(', ')).join('\n');
+    if (block.type === 'code') return block.text;
+    return inline(block.text);
+  }).join('\n\n');
+}
+
 /**
  * request({ pageContext, message, transcript }, { signal }) resolves to
  * { text, model?, fallback?, sources?: [{label, href?, detail?}], actions?: [{label, href}] }.
@@ -173,7 +212,7 @@ export function appendReply(node, text) {
  * cleanup.ask(message) is for explicit user actions elsewhere on the page;
  * cleanup.focus(message?) opens a draft without submitting it.
  */
-export function mountPageCoach(container, { context = () => ({}), request, renderMath, saveMemo, mountNotes, signedOut = false } = {}) {
+export function mountPageCoach(container, { context = () => ({}), request, renderMath, saveMemo, mountNotes, audio, onPlan, profileId, signedOut = false } = {}) {
   const id = `page-coach-${++nextCoachId}`;
   let disposed = false;
   let busy = false;
@@ -183,6 +222,10 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   let retryTurn = null;
   let lastScope = null;
   let notesCleanup = null;
+  let audioController = null;
+  let audioPhase = 'idle';
+  let readReplies = false;
+  let lastReply = '';
   const transcript = [];
   const removers = [];
   const on = (target, type, handler) => {
@@ -198,67 +241,263 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
 
   const card = element('section', 'page-coach');
   card.setAttribute('aria-labelledby', `${id}-title`);
-  const header = element('div', 'page-coach-heading');
+  const header = element('header', 'page-coach-heading');
+  const brand = element('div', 'page-coach-brand');
+  const mark = element('span', 'page-coach-mark'); mark.appendChild(coachIcon('zap'));
+  const heading = element('div');
   const title = element('h3', '', 'Astra study coach'); title.id = `${id}-title`;
-  const tag = element('span', 'page-coach-tag', 'ONE NEXT STEP');
-  header.append(title, tag);
-  const intro = element('p', 'page-coach-intro', 'Ask Astra to explain this page, find your school instructions, or help you choose what to do next.');
-  if (signedOut) intro.textContent = 'Sign in to get personalized study help from Astra. Your courses, saved learning notes, and progress stay connected to your account.';
+  heading.append(title, element('p', 'page-coach-subtitle', 'Your AI study assistant'));
+  brand.append(mark, heading);
+  const headerActions = element('div', 'page-coach-header-actions');
+  header.append(brand, headerActions);
+  const voiceSelect = element('select', 'page-coach-voice-select'); voiceSelect.setAttribute('aria-label', 'Coach voice');
+  for (const [value, label] of [['marin', 'Marin'], ['cedar', 'Cedar']]) {
+    const option = element('option', '', label); option.value = value; voiceSelect.appendChild(option);
+  }
+  const voiceBar = element('div', 'page-coach-voicebar');
+  voiceBar.hidden = !audio || signedOut;
+  const voiceState = element('span', 'page-coach-voice-state', 'Read aloud off'); voiceState.setAttribute('role', 'status');
+  const voiceActions = element('div', 'page-coach-voice-actions');
+  const voiceToggle = element('button', 'page-coach-voice-toggle', 'Read replies aloud'); voiceToggle.type = 'button';
+  voiceToggle.setAttribute('aria-pressed', 'false');
+  const stopReading = element('button', 'page-coach-voice-mute', 'Stop reading'); stopReading.type = 'button'; stopReading.hidden = true;
+  const cancelRecording = element('button', 'page-coach-voice-mute', 'Cancel recording'); cancelRecording.type = 'button'; cancelRecording.hidden = true;
+  voiceActions.append(cancelRecording, stopReading, voiceToggle); voiceBar.append(voiceState, voiceActions);
+  const contextBar = element('details', 'page-coach-contextbar');
+  contextBar.appendChild(element('summary', '', 'About this chat'));
+  const intro = element('p', 'page-coach-intro', 'Get an explanation or choose your next step.');
+  if (signedOut) intro.textContent = 'Sign in to study with Astra.';
   const contextLine = element('p', 'page-coach-context');
+  contextBar.append(contextLine, element('p', 'page-coach-context', `This conversation stays in this tab.${saveMemo ? ' Saved learning memories are in Coach Notes, where you can edit or remove them.' : ''}`));
+  const audioNote = element('p', 'page-coach-context', "Spoken replies use an AI-generated voice to read Astra's text."); audioNote.id = `${id}-audio-note`;
+  if (audio && !signedOut) { contextBar.appendChild(audioNote); voiceToggle.setAttribute('aria-describedby', audioNote.id); }
+  const welcome = element('div', 'page-coach-welcome');
+  const welcomeIcon = element('span', 'page-coach-welcome-icon'); welcomeIcon.appendChild(coachIcon('chat'));
   const quickRow = element('div', 'page-coach-quick');
   quickRow.setAttribute('aria-label', 'Quick requests for Astra');
   const quickButtons = QUICK_PROMPTS.map((prompt) => {
     const button = element('button', 'secondary', prompt); button.type = 'button';
     on(button, 'click', () => begin(prompt)); quickRow.appendChild(button); return button;
   });
+  welcome.append(welcomeIcon, element('h4', '', 'Your study coach'), intro, quickRow);
+  const thread = element('div', 'page-coach-thread');
+  thread.tabIndex = 0; thread.setAttribute('role', 'region'); thread.setAttribute('aria-label', 'Coach conversation; scroll to read earlier messages');
   const log = element('div', 'page-coach-log');
   log.setAttribute('role', 'log'); log.setAttribute('aria-live', 'polite'); log.setAttribute('aria-label', 'Conversation with Astra');
+  thread.append(welcome, log);
   const form = element('form', 'page-coach-form');
-  const label = element('label', '', 'Ask Astra'); label.htmlFor = `${id}-input`;
-  const input = element('textarea'); input.id = `${id}-input`; input.rows = 2; input.maxLength = MAX_MESSAGE;
-  input.placeholder = 'Describe your task and the part you want help with.';
+  const label = element('label', 'visually-hidden', 'Ask Astra'); label.htmlFor = `${id}-input`;
+  const input = element('textarea'); input.id = `${id}-input`; input.rows = 1; input.maxLength = MAX_MESSAGE;
+  input.placeholder = 'Ask Astra…';
   input.setAttribute('aria-describedby', `${id}-note`);
+  const composer = element('div', 'page-coach-composer');
+  const send = element('button', 'page-coach-send'); send.type = 'submit'; send.disabled = true;
+  send.setAttribute('aria-label', 'Send message to Astra'); send.title = 'Send message to Astra'; send.appendChild(coachIcon('send'));
+  const record = element('button', 'page-coach-mic'); record.type = 'button'; record.hidden = !audio || signedOut;
+  record.appendChild(coachIcon('mic')); record.setAttribute('aria-label', 'Record a question'); record.title = 'Record a question; up to 2 minutes';
+  const attach = element('button', 'page-coach-attach'); attach.type = 'button';
+  attach.appendChild(coachIcon('attach')); attach.setAttribute('aria-label', 'Attach a photo or note'); attach.title = 'Attach a photo or note';
+  attach.setAttribute('aria-expanded', 'false'); attach.setAttribute('aria-controls', `${id}-attachments-menu`);
+  const attachmentMenu = element('div', 'page-coach-attachment-menu'); attachmentMenu.hidden = true; attachmentMenu.id = `${id}-attachments-menu`;
+  const takePhoto = element('button', 'secondary', 'Take a photo'); takePhoto.type = 'button';
+  const chooseFile = element('button', 'secondary', 'Choose a photo or note'); chooseFile.type = 'button';
+  attachmentMenu.append(takePhoto, chooseFile);
+  const fileInput = element('input', 'page-coach-file-input'); fileInput.type = 'file'; fileInput.hidden = true; fileInput.multiple = true; fileInput.accept = COACH_ATTACHMENT_ACCEPT;
+  const cameraInput = element('input', 'page-coach-camera-input'); cameraInput.type = 'file'; cameraInput.hidden = true; cameraInput.accept = 'image/jpeg,image/png,image/webp'; cameraInput.setAttribute('capture', 'environment');
+  const attachmentList = element('div', 'page-coach-attachments'); attachmentList.hidden = true; attachmentList.setAttribute('aria-label', 'Attached photos and notes');
+  const attachmentStatus = element('p', 'page-coach-attachment-status'); attachmentStatus.setAttribute('role', 'status');
+  const attachments = createCoachAttachments({ onChange: () => { if (!disposed) { renderAttachments(); setBusy(busy); } } });
+  composer.append(attach, input, record, send);
   const actions = element('div', 'page-coach-form-actions');
-  const send = element('button', '', 'Ask Astra'); send.type = 'submit';
   const cancel = element('button', 'secondary', 'Stop waiting'); cancel.type = 'button'; cancel.hidden = true;
   const retry = element('button', 'secondary', 'Try again'); retry.type = 'button'; retry.hidden = true;
   const status = element('span', 'page-coach-status'); status.setAttribute('role', 'status');
-  actions.append(send, cancel, retry, status);
-  form.append(label, input, actions);
-  const note = element('p', 'page-coach-note', `You choose the next action. Suggested links open only when you click them. This conversation stays in this tab.${saveMemo ? ' Save a learning note when you want Astra to remember something for a future session.' : ''}`); note.id = `${id}-note`;
+  actions.append(cancel, retry, status);
+  form.append(label, fileInput, cameraInput, attachmentMenu, attachmentList, attachmentStatus, composer, actions);
+  const note = element('p', 'page-coach-note', 'Enter to send · Shift+Enter for a new line'); note.id = `${id}-note`;
   if (signedOut) {
     quickRow.hidden = true; form.hidden = true; log.hidden = true;
-    note.textContent = 'Create an account or sign in to begin personalized coaching.';
+    note.hidden = true; contextBar.hidden = true;
   }
   const workspace = element('div', 'page-coach-workspace');
   const conversation = element('div', 'page-coach-conversation');
   const notebook = element('aside', 'page-coach-notebook'); notebook.hidden = true;
   notebook.id = `${id}-notebook`; notebook.setAttribute('aria-label', 'Coach Notes');
-  conversation.append(intro, contextLine, quickRow, log, form, note);
-  workspace.append(conversation, notebook);
-  if (typeof mountNotes === 'function' && !signedOut) {
-    const notesButton = element('button', 'secondary', 'Coach Notes'); notesButton.type = 'button';
-    notesButton.setAttribute('aria-controls', notebook.id); notesButton.setAttribute('aria-expanded', 'false');
-    on(notesButton, 'click', () => {
-      notebook.hidden = !notebook.hidden;
-      notesButton.setAttribute('aria-expanded', String(!notebook.hidden));
-      workspace.classList.toggle('notes-open', !notebook.hidden);
-      notesCleanup?.(); notesCleanup = null;
-      if (!notebook.hidden) notesCleanup = mountNotes(notebook);
-    });
-    header.appendChild(notesButton);
+  const notebookHeading = element('header', 'page-coach-notebook-heading');
+  const notesTitle = element('h4'); notesTitle.append(coachIcon('notes'), element('span', '', "Coach's Notes"));
+  const closeNotes = element('button', 'page-coach-notebook-close'); closeNotes.type = 'button';
+  closeNotes.setAttribute('aria-label', 'Close Coach Notes'); closeNotes.appendChild(coachIcon('chevron-right'));
+  const notebookContent = element('div', 'page-coach-notebook-content');
+  notebookHeading.append(notesTitle, closeNotes); notebook.append(notebookHeading, notebookContent);
+  const backdrop = element('button', 'page-coach-backdrop'); backdrop.type = 'button'; backdrop.hidden = true;
+  backdrop.tabIndex = -1; backdrop.setAttribute('aria-label', 'Close Coach Notes');
+  conversation.append(thread, form, note, contextBar);
+  workspace.append(conversation, backdrop, notebook);
+  let notesButton = null;
+  function closeAttachmentMenu(restoreFocus = false) {
+    attachmentMenu.hidden = true; attach.setAttribute('aria-expanded', 'false');
+    if (restoreFocus) attach.focus();
   }
-  card.append(header, workspace);
+  function setNotesOpen(open, restoreFocus = false) {
+    closeAttachmentMenu();
+    notebook.hidden = !open; backdrop.hidden = !open;
+    conversation.inert = open; header.inert = open; voiceBar.inert = open; contextBar.inert = open;
+    if (open) stopAudio();
+    notesButton?.setAttribute('aria-expanded', String(open));
+    workspace.classList.toggle('notes-open', open);
+    notesCleanup?.(); notesCleanup = null; notebookContent.replaceChildren();
+    if (open) { notesCleanup = mountNotes(notebookContent); closeNotes.focus(); }
+    else if (restoreFocus) notesButton?.focus();
+  }
+  if (typeof mountNotes === 'function' && !signedOut) {
+    notesButton = element('button', 'page-coach-notes-toggle'); notesButton.type = 'button';
+    notesButton.setAttribute('aria-label', 'Coach Notes'); notesButton.title = 'Coach Notes'; notesButton.appendChild(coachIcon('notes'));
+    notesButton.setAttribute('aria-controls', notebook.id); notesButton.setAttribute('aria-expanded', 'false');
+    on(notesButton, 'click', () => setNotesOpen(notebook.hidden));
+    on(closeNotes, 'click', () => setNotesOpen(false, true));
+    on(backdrop, 'click', () => setNotesOpen(false, true));
+    on(card, 'keydown', (event) => {
+      if (event.key === 'Escape' && !notebook.hidden) { event.preventDefault(); setNotesOpen(false, true); }
+    });
+    headerActions.appendChild(notesButton);
+  }
+  card.append(header, voiceBar, workspace);
   container.replaceChildren(card);
+
+  function renderAttachments() {
+    attachmentList.replaceChildren();
+    const items = attachments.items;
+    attachmentList.hidden = !items.length;
+    for (const item of items) {
+      const chip = element('div', 'page-coach-attachment');
+      if (item.previewUrl) {
+        const image = element('img'); image.src = item.previewUrl; image.alt = ''; chip.appendChild(image);
+      } else chip.appendChild(coachIcon('file'));
+      chip.appendChild(element('span', 'page-coach-attachment-name', item.name));
+      const remove = element('button', 'page-coach-attachment-remove'); remove.type = 'button'; remove.disabled = busy;
+      remove.setAttribute('aria-label', `Remove ${item.name}`); remove.appendChild(coachIcon('close'));
+      remove.addEventListener('click', () => {
+        if (disposed || busy) return;
+        discardAttachmentRetry();
+        attachments.remove(item.id); attachmentStatus.textContent = 'Attachment removed.';
+        attach.focus();
+      });
+      chip.appendChild(remove); attachmentList.appendChild(chip);
+    }
+  }
+  function discardAttachmentRetry() {
+    if (!retryTurn) return;
+    if (!input.value.trim() && retryTurn.message !== COACH_ATTACHMENT_PROMPT) input.value = retryTurn.message;
+    retryTurn.attachments = []; retryTurn = null; retry.hidden = true; status.textContent = '';
+  }
+  on(attach, 'click', () => {
+    if (signedOut || busy || attachments.loading) return;
+    const open = attachmentMenu.hidden; attachmentMenu.hidden = !open; attach.setAttribute('aria-expanded', String(open));
+    if (open) takePhoto.focus();
+  });
+  on(takePhoto, 'click', () => { closeAttachmentMenu(); cameraInput.click(); });
+  on(chooseFile, 'click', () => { closeAttachmentMenu(); fileInput.click(); });
+  on(card, 'keydown', event => {
+    if (event.key === 'Escape' && !attachmentMenu.hidden) { event.preventDefault(); closeAttachmentMenu(true); }
+  });
+  for (const picker of [fileInput, cameraInput]) on(picker, 'change', async () => {
+    if (disposed || signedOut || busy) { picker.value = ''; return; }
+    refresh();
+    const ownScope = lastScope;
+    const selected = Array.from(picker.files || []); picker.value = '';
+    if (!selected.length) return;
+    attachmentStatus.textContent = 'Adding attachment…';
+    try {
+      const added = await attachments.add(selected);
+      if (disposed || ownScope !== lastScope) return;
+      if (added) {
+        discardAttachmentRetry(); setBusy(busy);
+        attachmentStatus.textContent = '';
+      }
+    } catch (error) {
+      if (!disposed && ownScope === lastScope) attachmentStatus.textContent = error.message || 'This file could not be added. Choose another photo or note.';
+    }
+  });
+
+  function renderAudioState(state) {
+    if (disposed) return;
+    audioPhase = state.phase;
+    const recording = ['requesting-mic', 'recording', 'transcribing'].includes(audioPhase);
+    const playing = ['loading-audio', 'speaking'].includes(audioPhase);
+    const labels = { idle: readReplies ? 'Replies will be read aloud' : 'Read aloud off',
+      'requesting-mic': 'Opening your microphone…', recording: 'Recording · up to 2 minutes. Select Send recording when ready.',
+      transcribing: 'Transcribing your question…', 'loading-audio': 'Preparing audio…', speaking: 'Reading the Coach reply', error: 'Audio unavailable. You can still type.' };
+    const syntheticVoice = playing || (readReplies && audioPhase === 'idle');
+    voiceState.textContent = `${syntheticVoice ? 'AI-generated voice · ' : ''}${state.message || labels[audioPhase]}`;
+    voiceState.setAttribute('data-phase', audioPhase);
+    stopReading.hidden = !playing;
+    cancelRecording.hidden = !recording;
+    record.disabled = ['requesting-mic', 'transcribing'].includes(audioPhase) || !coachAudioSupported();
+    record.setAttribute('aria-label', audioPhase === 'recording' ? 'Send recording' : 'Record a question');
+    record.title = audioPhase === 'recording' ? 'Send recording' : 'Record a question; up to 2 minutes';
+    record.setAttribute('aria-pressed', String(audioPhase === 'recording'));
+    voiceSelect.disabled = playing;
+    voiceToggle.setAttribute('aria-pressed', String(readReplies));
+  }
+
+  function stopAudio(message) {
+    readReplies = false;
+    audioController?.stop();
+    if (!disposed) renderAudioState({ phase: 'idle', message });
+  }
+
+  if (audio && !signedOut) {
+    headerActions.appendChild(voiceSelect);
+    if (notesButton) headerActions.appendChild(notesButton);
+    audioController = createCoachAudio({
+      transcribe: audio.transcribe, synthesize: audio.synthesize,
+      onState: renderAudioState,
+      onTranscript: (text) => {
+        if (disposed || !card.isConnected || document.hidden) { stopAudio(); return; }
+        if (coachConversationScope(readContext()) !== lastScope) { refresh(); return; }
+        if (busy || input.value.trim() || attachments.loading) {
+          const combined = [input.value.trim(), text].filter(Boolean).join('\n');
+          if (combined.length <= MAX_MESSAGE) {
+            input.value = combined; setBusy(busy);
+            status.textContent = 'Your spoken question is in the message box with your draft. Review it and send when ready.';
+          } else {
+            status.textContent = `Your typed draft is still in the message box. This recording is too long to add to it. Recorded question: ${text}`;
+          }
+          return;
+        }
+        begin(text);
+      },
+    });
+    record.disabled = !coachAudioSupported();
+    on(record, 'click', () => {
+      refresh();
+      if (audioPhase === 'recording') audioController.finishRecording();
+      else audioController.startRecording();
+    });
+    on(cancelRecording, 'click', () => audioController.cancelRecording());
+    on(voiceToggle, 'click', () => {
+      readReplies = !readReplies;
+      voiceToggle.setAttribute('aria-pressed', String(readReplies));
+      if (!readReplies) audioController.stopPlayback();
+      else if (lastReply && audioPhase !== 'recording') audioController.speak(lastReply, voiceSelect.value);
+      if (audioPhase === 'idle' || audioPhase === 'error') renderAudioState({ phase: 'idle' });
+    });
+    on(stopReading, 'click', () => { readReplies = false; audioController.stopPlayback(); renderAudioState({ phase: 'idle' }); });
+    on(document, 'visibilitychange', () => { if (document.hidden) stopAudio('Audio stopped while this tab is hidden.'); });
+    on(window, 'pagehide', () => stopAudio());
+  }
 
   function refresh() {
     if (disposed) return;
     const pageContext = readContext();
     const scope = coachConversationScope(pageContext);
     if (lastScope !== null && scope !== lastScope) {
+      stopAudio();
       generation += 1; pendingController?.abort(); pendingController = null;
       pendingTurn = null; retryTurn = null; retry.hidden = true;
-      transcript.length = 0; log.replaceChildren(); input.value = ''; setBusy(false);
+      attachments.clear(); attachmentStatus.textContent = ''; closeAttachmentMenu();
+      transcript.length = 0; lastReply = ''; log.replaceChildren(); input.value = ''; welcome.hidden = false; thread.scrollTop = 0;
+      setNotesOpen(false); setBusy(false);
       status.textContent = 'Started a fresh coach conversation for this study context.';
     }
     lastScope = scope;
@@ -267,16 +506,19 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
 
   function setBusy(value) {
     busy = value;
-    send.disabled = value;
-    for (const button of quickButtons) button.disabled = value;
+    send.disabled = value || attachments.loading || (!input.value.trim() && !attachments.items.length);
+    attach.disabled = value || attachments.loading;
+    for (const button of attachmentList.querySelectorAll('button')) button.disabled = value;
+    for (const button of quickButtons) button.disabled = value || attachments.loading;
     cancel.hidden = !value;
     form.setAttribute('aria-busy', String(value));
   }
 
   function addMessage(role, text, caption, speaker = 'AI coach') {
+    welcome.hidden = true;
     const bubble = element('article', `page-coach-message ${role}`);
     bubble.appendChild(element('p', 'page-coach-who', role === 'user' ? 'You' : speaker));
-    if (caption) bubble.appendChild(element('p', 'page-coach-message-context', caption));
+    if (caption && role !== 'user') bubble.appendChild(element('p', 'page-coach-message-context', caption));
     const content = element('div', 'page-coach-message-content');
     if (role === 'user') content.textContent = text;
     else appendReply(content, text);
@@ -288,11 +530,31 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   }
 
   function addReferences(bubble, result) {
+    const memoryWrites = Array.isArray(result.memoryWrites) ? result.memoryWrites.slice(0, 2) : [];
+    for (const memory of memoryWrites) {
+      if (memory?.state === 'saved' && typeof memory.text === 'string') {
+        const saved = element('div', 'page-coach-memory');
+        saved.append(element('p', 'page-coach-remembered', 'Memory saved'), element('p', '', memory.text.slice(0, 500)));
+        if (notesButton) {
+          const edit = element('button', 'secondary', 'Manage memories'); edit.type = 'button';
+          on(edit, 'click', () => setNotesOpen(true)); saved.appendChild(edit);
+        }
+        bubble.appendChild(saved);
+      } else if (memory?.state === 'unavailable') {
+        bubble.appendChild(element('p', 'page-coach-source-detail', 'A learning memory could not be saved. You can add it in Coach Notes.'));
+      }
+    }
+    if (profileId && memoryWrites.some(memory => memory?.state === 'saved')) {
+      window.dispatchEvent(new CustomEvent('students4ai-memo-saved', { detail: { profileId, action: 'created' } }));
+    }
     const recordReads = Array.isArray(result.recordReads) ? result.recordReads.slice(0, 8) : [];
     if (recordReads.length) {
-      const labels = { learning_profile: 'Learning preferences', skills: 'Skill attempts', question_history: 'Question history', mastery_checks: 'Mastery checks', saved_notes: 'Saved learning notes', canvas_courses: 'Canvas classes', canvas_preferences: 'Course choices', retrieval_sources: 'Saved source locations' };
+      const labels = { learning_profile: 'Learning preferences', skills: 'Skill attempts', question_history: 'Question history', mastery_checks: 'Mastery checks', saved_notes: 'Saved learning notes', study_plans: 'Saved study plans', practice_history: 'Practice history', canvas_courses: 'Canvas classes', canvas_preferences: 'Course choices', retrieval_sources: 'Saved source locations' };
       const details = element('details', 'page-coach-limitations');
-      details.appendChild(element('summary', '', 'Learning records checked'));
+      details.appendChild(element('summary', '', 'Study information used'));
+      // Successful lookups stay optional; missing or partial context remains visible.
+      details.open = recordReads.some(read => labels[read?.collection] && (read.state !== 'available'
+        || !Number.isInteger(read.count) || !Number.isInteger(read.totalCount) || read.count < read.totalCount));
       const list = element('ul');
       for (const read of recordReads) {
         if (!labels[read?.collection]) continue;
@@ -305,13 +567,17 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
     const limitations = Array.isArray(result.limitations) ? result.limitations.filter((item) => typeof item === 'string' && item.trim()).slice(0, 12) : [];
     if (limitations.length) {
       const details = element('details', 'page-coach-limitations');
-      details.appendChild(element('summary', '', 'Source lookup limits'));
+      details.open = true;
+      details.appendChild(element('summary', '', 'Limits to this reply'));
       const list = element('ul');
       for (const limitation of limitations) { const li = element('li'); appendTutorInline(li, limitation.slice(0, 700)); list.appendChild(li); }
       details.appendChild(list); bubble.appendChild(details);
     }
+    const sourceDetails = element('details', 'page-coach-limitations page-coach-reference-details');
+    sourceDetails.appendChild(element('summary', '', 'Source details'));
+    const sourceDetailList = element('ul');
     if (Number.isSafeInteger(result.rulesAdded) && result.rulesAdded > 0) {
-      bubble.appendChild(element('p', 'page-coach-remembered', `Remembered ${result.rulesAdded} additional source location${result.rulesAdded === 1 ? '' : 's'}. Earlier hints kept.`));
+      sourceDetailList.appendChild(element('li', '', `Saved ${result.rulesAdded} additional source location${result.rulesAdded === 1 ? '' : 's'} for future lookup.`));
     }
     const sources = Array.isArray(result.sources) ? result.sources.slice(0, 12) : [];
     if (sources.length) {
@@ -325,12 +591,19 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
         if (href) li.appendChild(makeLink(source.label.slice(0, 180), href));
         else appendTutorInline(li, source.label.slice(0, 180));
         if (typeof source.detail === 'string' && source.detail.trim()) {
-          const detail = element('span', 'page-coach-source-detail'); appendTutorInline(detail, coachSourceDetail(source.detail)); li.appendChild(detail);
+          const readable = coachSourceDetail(source.detail);
+          if (/^(available|retrieved)\b/.test(source.detail)) {
+            const detail = element('li'); appendTutorInline(detail, `${source.label.slice(0, 180)}: ${readable}`); sourceDetailList.appendChild(detail);
+          } else {
+            // Keep unavailable or uncertain source content next to its citation.
+            const detail = element('span', 'page-coach-source-detail'); appendTutorInline(detail, readable); li.appendChild(detail);
+          }
         }
         list.appendChild(li);
       }
       if (list.children.length) { sourceBox.appendChild(list); bubble.appendChild(sourceBox); }
     }
+    if (sourceDetailList.children.length) { sourceDetails.appendChild(sourceDetailList); bubble.appendChild(sourceDetails); }
     const recommendations = Array.isArray(result.actions) ? result.actions.slice(0, 6) : [];
     const row = element('div', 'page-coach-links');
     for (const action of recommendations) {
@@ -350,7 +623,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   function addMemoryEditor(bubble, reply, pageContext) {
     if (typeof saveMemo !== 'function') return;
     const details = element('details', 'coach-memo-editor');
-    details.appendChild(element('summary', '', 'Remember a learning note from this reply'));
+    details.appendChild(element('summary', '', 'Save a learning memory'));
     const label = element('label', '', 'Review the note before saving');
     const input = element('textarea'); input.rows = 4; input.maxLength = 2000;
     input.value = reply.slice(0, 2000); label.appendChild(input);
@@ -373,7 +646,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
           ...(pageContext.questionId ? { questionId: pageContext.questionId } : {}),
         } });
         if (disposed || !bubble.isConnected) return;
-        state.textContent = 'Saved. You can read your learning notes in Settings.';
+        state.textContent = 'Saved. You can read your learning notes in Coach Notes or Settings.';
         input.disabled = true; button.textContent = 'Note saved';
       } catch (error) {
         if (disposed || !bubble.isConnected) return;
@@ -392,7 +665,7 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
     status.textContent = 'Astra is looking at your request. A careful reply can take a minute or more.';
     try {
       if (typeof request !== 'function') throw new Error('No coach transport');
-      const result = await request({ pageContext: turn.pageContext, message: turn.message, transcript: transcript.slice(-12).map((entry) => ({ ...entry })) }, { signal: pendingController.signal });
+      const result = await request({ pageContext: turn.pageContext, message: turn.message, transcript: transcript.slice(-12).map((entry) => ({ ...entry })), ...(turn.attachments?.length ? { attachments: turn.attachments } : {}) }, { signal: pendingController.signal });
       if (disposed || generation !== ownGeneration) return;
       if (!result || typeof result.text !== 'string' || !result.text.trim()) throw new Error('Empty coach reply');
       const reply = result.text.trim().slice(0, MAX_REPLY);
@@ -400,17 +673,43 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
       const bubble = addMessage('assistant', reply, identity.caption, identity.speaker);
       addReferences(bubble, result);
       if (!result.refusal) addMemoryEditor(bubble, reply, turn.pageContext);
+      if (!result.refusal && typeof onPlan === 'function') {
+        const plan = element('button', 'secondary page-coach-plan', 'Add to Plan'); plan.type = 'button';
+        on(plan, 'click', async () => {
+          if (disposed || plan.disabled) return;
+          plan.disabled = true;
+          try { await onPlan({ text: reply, request: turn.message, pageContext: { ...turn.pageContext } }); }
+          catch { if (!disposed) status.textContent = 'The plan could not be opened. Try again when you are ready.'; }
+          finally { if (!disposed) plan.disabled = false; }
+        });
+        bubble.appendChild(plan);
+      }
+      const speechText = spokenReply(reply);
+      lastReply = speechText;
+      if (audioController) {
+        const readReply = element('button', 'secondary page-coach-read-reply', 'Read aloud'); readReply.type = 'button';
+        readReply.setAttribute('aria-describedby', audioNote.id);
+        on(readReply, 'click', () => audioController.speak(speechText, voiceSelect.value));
+        bubble.appendChild(readReply);
+        if (readReplies && !document.hidden) audioController.speak(speechText, voiceSelect.value);
+      }
       turn.bubble.classList.remove('is-pending');
       transcript.push({ role: 'user', text: turn.message }, { role: 'assistant', text: reply });
       if (transcript.length > 12) transcript.splice(0, transcript.length - 12);
+      attachments.clear(); turn.attachments = []; attachmentStatus.textContent = '';
       status.textContent = '';
       // Scroll only within the conversation, never jump the entire study page.
-      log.scrollTop += bubble.getBoundingClientRect().top - log.getBoundingClientRect().top;
-    } catch {
+      thread.scrollTop += bubble.getBoundingClientRect().top - thread.getBoundingClientRect().top;
+      return { text: reply, model: result.model };
+    } catch (error) {
       if (disposed || generation !== ownGeneration) return;
+      audioController?.stopPlayback();
+      if (Array.isArray(error?.memoryWrites)) addReferences(turn.bubble, { memoryWrites: error.memoryWrites });
       turn.bubble.classList.remove('is-pending');
       retryTurn = turn; retry.hidden = false;
-      status.textContent = 'Astra could not reply this time. Your message is still here. Try again when you are ready.';
+      status.textContent = error?.code === 'invalid_attachments'
+        ? String(error.message || 'This attachment could not be read. Remove it and choose another photo or note.').slice(0, 400)
+        : 'Astra could not reply this time. Your message is still here. Try again when you are ready.';
     } finally {
       if (!disposed && generation === ownGeneration) { pendingController = null; pendingTurn = null; setBusy(false); }
     }
@@ -419,24 +718,30 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
   function begin(message) {
     if (disposed || signedOut) return;
     refresh();
-    if (busy) return;
-    const text = String(message || '').trim().slice(0, MAX_MESSAGE);
+    if (busy || attachments.loading) return;
+    const files = attachments.snapshot();
+    const text = String(message || '').trim().slice(0, MAX_MESSAGE) || (files.length ? COACH_ATTACHMENT_PROMPT : '');
     if (!text) { input.focus(); return; }
+    audioController?.stopPlayback();
     const pageContext = readContext();
     const bubble = addMessage('user', text, coachContextLabel(pageContext)); bubble.classList.add('is-pending');
-    ask({ message: text, pageContext, bubble });
+    if (files.length) bubble.appendChild(element('p', 'page-coach-message-attachments', files.map(file => file.name).join(' · ')));
+    closeAttachmentMenu();
+    return ask({ message: text, pageContext, bubble, attachments: files });
   }
 
   on(form, 'submit', (event) => {
     event.preventDefault();
-    if (busy || !input.value.trim()) return;
+    if (busy || attachments.loading || (!input.value.trim() && !attachments.items.length)) return;
     const message = input.value; input.value = ''; begin(message);
   });
+  on(input, 'input', () => setBusy(busy));
   on(input, 'keydown', (event) => {
-    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); form.requestSubmit(); }
+    if (event.key === 'Enter' && !event.isComposing && (!event.shiftKey || event.ctrlKey || event.metaKey)) { event.preventDefault(); form.requestSubmit(); }
   });
-  on(retry, 'click', () => { if (!busy && retryTurn) ask(retryTurn); });
+  on(retry, 'click', () => { if (!busy && !attachments.loading && retryTurn) ask(retryTurn); });
   on(cancel, 'click', () => {
+    audioController?.stopPlayback();
     generation += 1;
     pendingController?.abort(); pendingController = null;
     pendingTurn?.bubble.classList.remove('is-pending'); retryTurn = pendingTurn; pendingTurn = null;
@@ -444,28 +749,47 @@ export function mountPageCoach(container, { context = () => ({}), request, rende
     status.textContent = 'Stopped waiting. Your message stays here; you can try it again or ask something else.';
   });
   on(window, 'hashchange', refresh);
+  if (profileId) on(window, 'students4ai-memo-saved', (event) => {
+    if (disposed || event.detail?.profileId !== profileId || !['updated', 'deleted'].includes(event.detail.action)) return;
+    generation += 1; pendingController?.abort(); pendingController = null;
+    pendingTurn?.bubble.classList.remove('is-pending'); pendingTurn = null; retryTurn = null; retry.hidden = true;
+    transcript.length = 0; lastReply = ''; stopAudio(); setBusy(false);
+    status.textContent = 'Memory changed. Your next message will use the current saved memories.';
+  });
   refresh();
 
   const cleanup = () => {
     if (disposed) return;
     disposed = true; generation += 1; pendingController?.abort();
+    stopAudio();
     notesCleanup?.();
     transcript.length = 0; retryTurn = null; pendingTurn = null;
+    attachments.clear(); fileInput.value = ''; cameraInput.value = '';
     for (const remove of removers) remove();
     card.remove();
   };
   cleanup.refresh = refresh;
+  cleanup.pause = () => {
+    if (disposed) return;
+    stopAudio();
+    generation += 1; pendingController?.abort(); pendingController = null;
+    pendingTurn?.bubble.classList.remove('is-pending');
+    retryTurn = pendingTurn || retryTurn; pendingTurn = null;
+    retry.hidden = !retryTurn; setBusy(false);
+    status.textContent = 'Study paused.';
+  };
   cleanup.focus = (message) => {
     if (disposed) return;
-    if (typeof message === 'string') input.value = message.slice(0, MAX_MESSAGE);
+    if (typeof message === 'string') { input.value = message.slice(0, MAX_MESSAGE); setBusy(busy); }
     input.focus();
   };
   cleanup.ask = (message) => {
-    if (disposed) return;
+    if (disposed || signedOut) return false;
     refresh();
     const text = String(message || '').trim().slice(0, MAX_MESSAGE);
-    cleanup.focus(busy ? text : undefined);
-    if (!busy) begin(text);
+    const waiting = busy || attachments.loading;
+    cleanup.focus(waiting ? text : undefined);
+    return waiting ? false : Boolean(begin(text));
   };
   return cleanup;
 }

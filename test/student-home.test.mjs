@@ -1,8 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { homeCourseGroups, courseTimeStatus, currentHomeTermIds, canvasRefreshDue, homePlanTopics } from '../public/student-home.js';
+import { homeCourseGroups, courseTimeStatus, currentHomeTermIds, canvasRefreshDue, homePlanTopics, studentGreeting } from '../public/student-home.js';
 const now = Date.parse('2026-09-14T18:00:00Z');
 const current = { id: '347', startAt: '2026-08-11T00:00:00Z', endAt: '2027-05-15T00:00:00Z' };
+test('greetings follow local day boundaries without a farewell at midnight', () => {
+  for (const [hour, minute, expected] of [[4, 59, 'evening'], [5, 0, 'morning'], [11, 59, 'morning'], [12, 0, 'afternoon'], [16, 59, 'afternoon'], [17, 0, 'evening'], [23, 59, 'evening'], [0, 0, 'evening']]) {
+    assert.equal(studentGreeting(' Jordan ', new Date(2026, 9, 2, hour, minute)), `Good ${expected}, Jordan`);
+  }
+  assert.equal(studentGreeting(null, new Date(2026, 9, 2, 9)), 'Good morning');
+  assert.equal(studentGreeting('Jordan', new Date(NaN)), 'Hello, Jordan');
+});
 test('the student home includes all current subjects and keeps previous physics out of current classes', () => {
   const courses = [
     { id: '1', name: 'AP Biology', term: current, assignments: [] },
