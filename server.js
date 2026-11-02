@@ -3,6 +3,7 @@
 // backed by files in ./data (so progress survives browser changes on Replit).
 
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
 import { dirname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +13,8 @@ const PUBLIC = join(ROOT, 'public');
 const CONTENT = join(ROOT, 'content');
 const DATA = join(ROOT, 'data');
 const PORT = Number(process.env.PORT) || 3000;
+const CANVAS_SESSION_TTL_MS = 8 * 60 * 60 * 1000;
+const canvasSessions = new Map();
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -61,6 +64,140 @@ function readBody(req, limit = 2 * 1024 * 1024) {
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
     req.on('error', reject);
   });
+}
+
+// --------------------------------------------------------------- Canvas LMS
+// Canvas tokens stay on the server in an expiring, in-memory session. They are
+// never written to the progress file, localStorage, or sent back to the browser.
+function parseCookies(req) {
+  return Object.fromEntries(String(req.headers.cookie || '').split(';').map((part) => {
+    const i = part.indexOf('=');
+    return i < 0 ? [] : [part.slice(0, i).trim(), decodeURIComponent(part.slice(i + 1))];
+  }).filter((pair) => pair.length));
+}
+
+function canvasBaseUrl(value) {
+  let url;
+  try { url = new URL(String(value || '').trim()); } catch { return null; }
+  // Canvas credentials must never be sent over clear-text HTTP or to a local
+  // address. This also prevents this proxy from being used to probe local services.
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== 'https:' || url.username || url.password || !host || host === 'localhost' || host.endsWith('.localhost') || /^127\.|^10\.|^192\.168\.|^169\.254\.|^0\.|^\[?::1\]?$/i.test(host) || /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return null;
+  url.pathname = url.pathname.replace(/\/$/, '');
+  url.search = '';
+  url.hash = '';
+  return url.toString().replace(/\/$/, '');
+}
+
+function canvasSession(req) {
+  const id = parseCookies(req).canvas_session;
+  const session = id && canvasSessions.get(id);
+  if (!session || session.expiresAt <= Date.now()) {
+    if (id) canvasSessions.delete(id);
+    return null;
+  }
+  return { id, ...session };
+}
+
+function setCanvasCookie(res, id, maxAge = CANVAS_SESSION_TTL_MS / 1000) {
+  res.setHeader('Set-Cookie', `canvas_session=${encodeURIComponent(id)}; Path=/api/canvas; HttpOnly; SameSite=Strict; Secure; Max-Age=${maxAge}`);
+}
+
+async function canvasGet(session, endpoint, query = {}) {
+  const url = new URL(`/api/v1/${endpoint.replace(/^\//, '')}`, session.baseUrl);
+  for (const [key, value] of Object.entries(query)) {
+    for (const entry of Array.isArray(value) ? value : [value]) url.searchParams.append(key, String(entry));
+  }
+  const response = await fetch(url, {
+    headers: { authorization: `Bearer ${session.token}`, accept: 'application/json+canvas-string-ids' },
+    signal: AbortSignal.timeout(20_000),
+  });
+  let data = null;
+  try { data = await response.json(); } catch { /* handled below */ }
+  if (!response.ok) {
+    const detail = String(data?.errors?.[0]?.message || data?.message || `Canvas returned HTTP ${response.status}`).slice(0, 240);
+    throw new ProviderError('canvas', response.status, detail);
+  }
+  return data;
+}
+
+function cleanCanvasCourse(course) {
+  return {
+    id: String(course.id), name: String(course.name || course.course_code || 'Untitled course'),
+    courseCode: String(course.course_code || ''),
+    workflowState: String(course.workflow_state || ''),
+    score: Number.isFinite(Number(course?.enrollments?.[0]?.computed_current_score)) ? Number(course.enrollments[0].computed_current_score) : null,
+    grade: String(course?.enrollments?.[0]?.computed_current_grade || ''),
+  };
+}
+
+async function handleCanvas(req, res, url) {
+  if (req.method === 'DELETE' && url.pathname === '/api/canvas/session') {
+    const session = canvasSession(req);
+    if (session) canvasSessions.delete(session.id);
+    setCanvasCookie(res, '', 0);
+    return sendJson(res, 200, { connected: false });
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/canvas/session') {
+    let body;
+    try { body = JSON.parse(await readBody(req, 20_000)); } catch { return sendJson(res, 400, { error: 'body must be valid JSON' }); }
+    const baseUrl = canvasBaseUrl(body?.baseUrl);
+    const token = typeof body?.token === 'string' ? body.token.trim() : '';
+    if (!baseUrl || !token || token.length > 2048) return sendJson(res, 400, { error: 'Enter an HTTPS Canvas URL and a valid access token.' });
+    const candidate = { baseUrl, token, expiresAt: Date.now() + CANVAS_SESSION_TTL_MS };
+    try {
+      const user = await canvasGet(candidate, 'users/self');
+      const id = randomUUID();
+      canvasSessions.set(id, candidate);
+      setCanvasCookie(res, id);
+      return sendJson(res, 200, { connected: true, user: { name: String(user.name || 'Canvas learner'), id: String(user.id || '') } });
+    } catch (e) {
+      return sendJson(res, e instanceof ProviderError ? 502 : 500, { error: 'Canvas could not verify that connection. Check the URL, token, and API access.' });
+    }
+  }
+
+  const session = canvasSession(req);
+  if (!session) return sendJson(res, 401, { connected: false, error: 'Connect Canvas before requesting progress.' });
+  session.expiresAt = Date.now() + CANVAS_SESSION_TTL_MS;
+  canvasSessions.set(session.id, session);
+
+  try {
+    if (req.method === 'GET' && url.pathname === '/api/canvas/overview') {
+      const [user, courses] = await Promise.all([
+        canvasGet(session, 'users/self'),
+        canvasGet(session, 'courses', { enrollment_state: 'active', include: 'total_scores', per_page: 100 }),
+      ]);
+      return sendJson(res, 200, { connected: true, user: { name: String(user.name || 'Canvas learner'), id: String(user.id || '') }, courses: (Array.isArray(courses) ? courses : []).map(cleanCanvasCourse) });
+    }
+    const match = url.pathname.match(/^\/api\/canvas\/courses\/([^/]+)\/progress$/);
+    if (req.method === 'GET' && match) {
+      const courseId = decodeURIComponent(match[1]);
+      if (!/^[0-9]+$/.test(courseId)) return sendJson(res, 400, { error: 'invalid course id' });
+      const [progress, assignments] = await Promise.all([
+        canvasGet(session, `courses/${courseId}/users/self/progress`),
+        canvasGet(session, `courses/${courseId}/assignments`, { include: 'submission', per_page: 100, order_by: 'due_at' }),
+      ]);
+      const items = (Array.isArray(assignments) ? assignments : []).map((assignment) => ({
+        id: String(assignment.id), name: String(assignment.name || 'Untitled assignment'), dueAt: assignment.due_at || null,
+        pointsPossible: Number.isFinite(Number(assignment.points_possible)) ? Number(assignment.points_possible) : null,
+        submission: assignment.submission ? {
+          submittedAt: assignment.submission.submitted_at || null, workflowState: String(assignment.submission.workflow_state || ''),
+          score: Number.isFinite(Number(assignment.submission.score)) ? Number(assignment.submission.score) : null,
+          grade: assignment.submission.grade === null || assignment.submission.grade === undefined ? '' : String(assignment.submission.grade),
+          late: Boolean(assignment.submission.late), missing: Boolean(assignment.submission.missing),
+        } : null,
+      }));
+      return sendJson(res, 200, { courseId, progress: progress && typeof progress === 'object' ? {
+        requirementCount: Number(progress.requirement_count || 0), requirementCompletedCount: Number(progress.requirement_completed_count || 0),
+        nextRequirementUrl: progress.next_requirement_url || null, completedAt: progress.completed_at || null,
+      } : null, assignments: items });
+    }
+    return sendJson(res, 404, { error: 'unknown Canvas endpoint' });
+  } catch (e) {
+    console.error('[calc-coach] Canvas request failed:', e.message);
+    return sendJson(res, e instanceof ProviderError ? 502 : 500, { error: 'Canvas could not load this data. Your Calc Coach progress is unaffected.' });
+  }
 }
 
 // ---------------------------------------------------------------- AI tutor
@@ -280,6 +417,7 @@ const server = createServer(async (req, res) => {
   try {
     if (path === '/api/health') return sendJson(res, 200, { ok: true, app: 'calc-coach' });
     if (path === '/api/tutor') return await handleTutor(req, res, url);
+    if (path.startsWith('/api/canvas/')) return await handleCanvas(req, res, url);
 
     if (path === '/api/progress') {
       const file = profileFile(url.searchParams.get('profile'));

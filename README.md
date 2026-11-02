@@ -148,6 +148,29 @@ Guardrails, by design:
   HTTPS with Node's built-in `fetch` (no SDK), keeping the no-`npm install`
   guarantee.
 
+## Optional: Canvas LMS learning context
+
+The **Canvas** tab can show a learner's active Canvas courses, current scores,
+module-requirement completion, assignments, submission status, missing/late
+labels, and assignment scores. It is read-only: Calc Coach never creates,
+changes, or submits Canvas content, and Canvas information never changes Calc
+Coach mastery scoring.
+
+The learner enters their institution's HTTPS Canvas URL and a personal access
+token from **Canvas → Account → Settings → New Access Token** (where their
+institution permits tokens). The server verifies the token with Canvas's
+`GET /api/v1/users/self` endpoint and then uses the Authorization Bearer header
+for Canvas API requests. The token is held only in an expiring, HttpOnly,
+SameSite=Strict server-memory session (eight hours); it is never written to
+browser storage, exported progress JSON, or the `data/` directory, and it is
+never supplied to the AI tutor. Disconnecting removes the session immediately.
+
+The implementation requests Canvas string IDs and uses these read-only
+endpoints: `users/self`, `courses` with total scores,
+`courses/:course_id/users/self/progress`, and `courses/:course_id/assignments`
+with the learner's submission included. Canvas's availability and exact fields
+can vary by institution permissions and course configuration.
+
 ## Architecture
 
 ```

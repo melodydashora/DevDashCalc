@@ -952,6 +952,101 @@ function viewSettings() {
   });
 }
 
+// -------------------------------------------------------------- Canvas LMS
+// The token is posted once to the server and is held there only in an
+// HttpOnly, expiring session. It is deliberately not part of S or browser
+// storage, so exporting Calc Coach progress cannot expose Canvas credentials.
+const canvasDate = (value) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) : 'No due date';
+const canvasScore = (score, possible) => score === null ? 'Not graded' : `${score}${possible === null ? '' : ` / ${possible}`}`;
+
+function canvasAssignmentRows(assignments) {
+  if (!assignments.length) return '<p>No assignments were returned for this course.</p>';
+  return `<div class="canvas-assignment-list">${assignments.map((a) => {
+    const sub = a.submission;
+    const state = !sub ? 'Not submitted' : sub.missing ? 'Missing' : sub.late ? 'Submitted late' : sub.workflowState === 'graded' ? 'Graded' : sub.submittedAt ? 'Submitted' : sub.workflowState || 'Not submitted';
+    return `<article class="canvas-assignment ${sub?.missing ? 'missing' : ''}">
+      <div><strong>${esc(a.name)}</strong><span class="session-progress">Due: ${esc(canvasDate(a.dueAt))}</span></div>
+      <div><span class="tag">${esc(state)}</span><span class="canvas-grade">${esc(canvasScore(sub?.score ?? null, a.pointsPossible))}</span></div>
+    </article>`;
+  }).join('')}</div>`;
+}
+
+function viewCanvas() {
+  const v = mountView(`
+    <h1>Canvas learning context</h1>
+    <p>This optional connection gives Calc Coach a read-only view of your current Canvas courses, module progress, assignments, submission state, and grades. It does not change Canvas and does not change Calc Coach mastery scores.</p>
+    <div id="canvas-content" class="card" aria-live="polite"><p>Checking the Canvas connection.</p></div>
+  `, { breadcrumb: ['Home', 'Canvas learning context'], nav: 'canvas' });
+  const content = $('#canvas-content', v);
+
+  const connectionForm = (message = '') => {
+    content.innerHTML = `
+      <h2>Connect Canvas</h2>
+      <p>Enter your Canvas institution URL and a Canvas access token. Create a token in Canvas from <strong>Account → Settings → New Access Token</strong>, if your institution permits personal access tokens.</p>
+      <p class="viz-note">The token is sent only to this Calc Coach server over HTTPS. It stays in an HttpOnly server session for up to 8 hours, is never saved in this browser or your Calc Coach progress file, and is never sent to the tutor.</p>
+      ${message ? `<p class="canvas-error">${esc(message)}</p>` : ''}
+      <form id="canvas-connect" class="canvas-form">
+        <label>Canvas URL <input name="baseUrl" type="url" inputmode="url" autocomplete="url" placeholder="https://school.instructure.com" required></label>
+        <label>Access token <input name="token" type="password" autocomplete="off" spellcheck="false" required></label>
+        <div class="btn-row"><button type="submit">Connect read-only Canvas data</button></div>
+      </form>`;
+    $('#canvas-connect', content).addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const button = $('button[type="submit"]', form);
+      button.disabled = true;
+      button.textContent = 'Verifying Canvas connection';
+      try {
+        const data = await fetch('/api/canvas/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) }).then(async (res) => {
+          const body = await res.json(); if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`); return body;
+        });
+        renderOverview(data);
+      } catch (e) { connectionForm(e.message); }
+    });
+  };
+
+  const renderCourse = async (course) => {
+    content.innerHTML = `<h2>${esc(course.name)}</h2><p>Loading module and assignment progress.</p>`;
+    try {
+      const data = await fetch(`/api/canvas/courses/${encodeURIComponent(course.id)}/progress`).then(async (res) => { const body = await res.json(); if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`); return body; });
+      const p = data.progress;
+      const submitted = data.assignments.filter((a) => a.submission?.submittedAt).length;
+      const missing = data.assignments.filter((a) => a.submission?.missing).length;
+      content.innerHTML = `
+        <div class="canvas-title-row"><div><h2>${esc(course.name)}</h2><p class="session-progress">${esc(course.courseCode || 'Canvas course')}</p></div><button type="button" class="secondary canvas-back">All courses</button></div>
+        ${p ? `<div class="canvas-stats"><div><strong>${p.requirementCompletedCount} / ${p.requirementCount}</strong><span>module requirements completed</span></div><div><strong>${submitted} / ${data.assignments.length}</strong><span>assignments submitted</span></div><div><strong>${missing}</strong><span>assignments marked missing</span></div></div>` : '<p class="viz-note">Canvas did not return module requirement progress for this course.</p>'}
+        <h3>Assignments</h3>${canvasAssignmentRows(data.assignments)}
+        <p class="viz-note">Assignment data is shown as Canvas reports it. A missing or late label is information for planning; Calc Coach does not infer a cause or alter your learning path.</p>`;
+      $('.canvas-back', content).addEventListener('click', loadOverview);
+    } catch (e) {
+      content.innerHTML = `<h2>${esc(course.name)}</h2><p class="canvas-error">${esc(e.message)}</p><div class="btn-row"><button type="button" class="secondary canvas-back">All courses</button></div>`;
+      $('.canvas-back', content).addEventListener('click', loadOverview);
+    }
+  };
+
+  const renderOverview = (data) => {
+    const courses = data.courses || [];
+    content.innerHTML = `
+      <div class="canvas-title-row"><div><h2>Connected as ${esc(data.user?.name || 'Canvas learner')}</h2><p class="session-progress">Choose a course to view its learning context.</p></div><button type="button" class="quiet canvas-disconnect">Disconnect</button></div>
+      ${courses.length ? `<div class="canvas-course-list">${courses.map((course) => `<button type="button" class="canvas-course" data-course-id="${esc(course.id)}"><span><strong>${esc(course.name)}</strong><small>${esc(course.courseCode || 'Canvas course')}</small></span><span>${course.score === null ? 'No current score' : `${course.score}%${course.grade ? ` (${course.grade})` : ''}`}</span></button>`).join('')}</div>` : '<p>Canvas returned no active courses.</p>'}
+      <p class="viz-note">Current scores come from Canvas enrollments. Select a course for assignments and module requirements.</p>`;
+    content.querySelectorAll('.canvas-course').forEach((button) => button.addEventListener('click', () => renderCourse(courses.find((course) => course.id === button.dataset.courseId))));
+    $('.canvas-disconnect', content).addEventListener('click', async () => { await fetch('/api/canvas/session', { method: 'DELETE' }); connectionForm('Canvas is disconnected.'); });
+  };
+
+  const loadOverview = async () => {
+    content.innerHTML = '<p>Loading Canvas courses.</p>';
+    try {
+      const response = await fetch('/api/canvas/overview');
+      const data = await response.json();
+      if (response.status === 401) return connectionForm();
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      renderOverview(data);
+    } catch (e) { connectionForm(e.message); }
+  };
+  loadOverview();
+}
+
 // ---------------------------------------------------------------- app plumbing
 function applySettings() {
   const s = S.settings;
@@ -980,6 +1075,7 @@ function router() {
   else if (route === 'mastery' && a) viewMastery(a);
   else if (route === 'diagnostic') viewDiagnostic();
   else if (route === 'review') viewReview();
+  else if (route === 'canvas') viewCanvas();
   else if (route === 'settings') viewSettings();
   else viewHome();
 }
