@@ -15,4 +15,3 @@ The guide does not submit applications, change course requests, sign forms,
 make payments, or contact the school. Its static source guidance replaces the
 interactive coach on this route because those sources are not in the coach's
 server-side context.
-
