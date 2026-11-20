@@ -45,6 +45,7 @@ let remindersProfile = null;
 let practiceBuilderCleanup = null;
 let evidenceMysteryCleanup = null;
 let practiceInsightsCleanup = null;
+let reedyGuideCleanup = null;
 const questionModelCleanups = new Set();
 let pageCoachCleanup = null;
 let activeQuestionCoach = null;
@@ -320,6 +321,17 @@ const activeUnit = (id) => {
   return unit ? unitForSubject(unit, S.settings.subject) : null;
 };
 
+function setStudySubject(subjectId) {
+  const subject = normalizeSubjectId(subjectId);
+  if (subject === S.settings.subject) return;
+  S.settings.subject = subject;
+  CANVAS.selectedCourseId = null;
+  CANVAS.assessment = null;
+  const current = currentHomeTermIds(CANVAS.terms, Date.now());
+  CANVAS.termIds = current.length ? current : null;
+  if (CANVAS.snapshot) canvasRebuildInsights();
+}
+
 function studyControls() {
   const root = $('#study-controls');
   if (!root || !S) return;
@@ -329,12 +341,7 @@ function studyControls() {
     <span class="open-status">All learning modules open</span>`;
     $('#study-profile', root).addEventListener('change', (e) => switchProfile(e.target.value));
     $('#study-subject', root).addEventListener('change', (e) => {
-    S.settings.subject = normalizeSubjectId(e.target.value);
-    CANVAS.selectedCourseId = null;
-    CANVAS.assessment = null;
-    const current = currentHomeTermIds(CANVAS.terms, Date.now());
-    CANVAS.termIds = current.length ? current : null;
-    if (CANVAS.snapshot) canvasRebuildInsights();
+    setStudySubject(e.target.value);
     save();
     if (location.hash.startsWith('#/canvas/course/')) location.hash = '#/canvas';
     else if (location.hash.startsWith('#/canvas') || location.hash === '#/focus' || location.hash.startsWith('#/mixed') || location.hash.startsWith('#/plans') || location.hash === '#/library' || location.hash === '#/build') router();
@@ -420,6 +427,7 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   practiceBuilderCleanup?.(); practiceBuilderCleanup = null;
   evidenceMysteryCleanup?.(); evidenceMysteryCleanup = null;
   practiceInsightsCleanup?.(); practiceInsightsCleanup = null;
+  reedyGuideCleanup?.(); reedyGuideCleanup = null;
   for (const cleanup of questionModelCleanups) cleanup();
   questionModelCleanups.clear();
   activeQuestionCoach = null;
@@ -775,7 +783,7 @@ function viewHome() {
     '<section class="dashboard-hero"><div><span class="kicker">Students4AI</span><h1>Your classes and study plans</h1><p>Choose a class, save a plan, and return to the step you want to work on. Your saved course topics appear below.</p><div class="btn-row"><a class="btn" href="#/plans">Open study plans</a><a class="btn secondary" href="' + practiceHref + '">Start fresh practice</a><a class="btn secondary" href="#/library">Course library</a></div></div></section>' +
     '<section class="home-classes" id="home-classes">' + homeClassesHtml() + '</section>' +
     '<section id="home-saved-plans"></section>' +
-    '<section class="card"><h2>Your study tools</h2><p>Use your saved plan, work on a Canvas assignment, or start an optional session timer.</p><div class="home-study-tools"><a href="#/canvas/plan">Canvas assignment plan</a><a href="#/focus">Session timer</a><a href="#/library">Lessons and learning models</a><a href="#/build">Build new practice with Astra</a></div></section>',
+    '<section class="card"><h2>Your study tools</h2><p>Use your saved plan, work on a Canvas assignment, or start an optional session timer.</p><div class="home-study-tools"><a href="#/canvas/plan">Canvas assignment plan</a><a href="#/focus">Session timer</a><a href="#/library">Lessons and learning models</a><a href="#/build">Build new practice with Astra</a><a href="#/reedy">Reedy course planning guide</a></div></section>',
     { breadcrumb: ['Home'], nav: 'home' });
   wireHomeClasses($('#home-classes', v));
   const host = $('#home-saved-plans', v);
@@ -786,6 +794,38 @@ function viewHome() {
 
 function independentPracticeHref() {
   return ['sat', 'algebra'].includes(S.settings.subject) ? '#/mixed/' + S.settings.subject : '#/mixed';
+}
+
+async function viewReedyGuide() {
+  const profileId = activeProfile;
+  const v = mountView('<div id="reedy-guide-slot"><h1>Reedy guide</h1><p>Opening school planning guidance.</p></div>', { breadcrumb: ['Home', 'Reedy guide'], nav: 'reedy' });
+  const host = $('#reedy-guide-slot', v);
+  const isCurrent = () => host.isConnected && profileId === activeProfile && !accountGateActive && !switchingProfile
+    && (!ACCOUNT?.authRequired || ACCOUNT.authenticated);
+  try {
+    const { mountReedyGuide } = await import('/reedy-guide.js');
+    if (!isCurrent()) return;
+    reedyGuideCleanup = mountReedyGuide(host, {
+      manifest: CONTENT.manifest,
+      initialSubject: ['calculus-ab', 'calculus-bc'].includes(S.settings.subject) ? S.settings.subject : 'calculus-ab',
+      onStudyUnit(selection) {
+        if (!isCurrent() || !['calculus-ab', 'calculus-bc'].includes(selection?.subjectId)) return;
+        const unit = CONTENT.units.get(selection.unitId);
+        if (!unit || !unitForSubject(unit, selection.subjectId)
+            || !unitsForSubject(CONTENT.manifest, selection.subjectId).some(meta => meta.id === unit.id)) return;
+        // Opening an independent lesson changes only the learning view.
+        // It never selects or requests a high-school or college course.
+        setStudySubject(selection.subjectId);
+        save();
+        location.hash = '#/unit/' + unit.id;
+      },
+      onOpenTool(route) {
+        if (isCurrent() && ['#/plans', '#/library', '#/canvas', '#/focus'].includes(route)) location.hash = route;
+      },
+    });
+  } catch {
+    if (isCurrent()) host.textContent = 'The Reedy guide could not load. Reload this page to try again. Your learning progress is unchanged.';
+  }
 }
 
 async function viewPracticeBuilder() {
@@ -2412,6 +2452,7 @@ function router() {
   if (b !== undefined && !SAFE_ID.test(b)) { b = undefined; route = 'home'; }
   if (route === 'home' || route === '') viewHome();
   else if (route === 'library') viewLibrary();
+  else if (route === 'reedy') viewReedyGuide();
   else if (route === 'build') viewPracticeBuilder();
   else if (route === 'mystery') viewEvidenceMystery();
   else if (route === 'plans' && a === 'course' && b) viewStudyPlans(null, b);
@@ -2475,6 +2516,13 @@ function ensurePlanReminders() {
 }
 
 function ensurePageCoach() {
+  if (/^#\/reedy(?:\/|$)/.test(location.hash)) {
+    pageCoachCleanup?.(); pageCoachCleanup = null;
+    // These dated school sources are not part of the coach's server context.
+    // Keep a bottom guidance panel without implying a grounded AI answer.
+    $('#page-coach-slot').innerHTML = '<section class="card"><h2>Use the guide sources for school decisions</h2><p>This guide shows dated instructions and questions to verify with the school. Astra remains available in the learning tools; it does not confirm enrollment or replace counselor approval.</p></section>';
+    return;
+  }
   if (pageCoachCleanup) { pageCoachCleanup.refresh(); return; }
   pageCoachCleanup = mountPageCoach($('#page-coach-slot'), {
     context: () => ({ route: location.hash || '#/home', timeZone: appClock.read().timeZone, subject: activeMixedQuestion?.subject || S.settings.subject,
