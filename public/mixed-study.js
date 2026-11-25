@@ -3,6 +3,7 @@
 import { apiFetch } from './auth-ui.js';
 import { appendTutorInline } from './tutor-text.js';
 import { getQuestionModel, mountQuestionModel } from './question-models.js';
+import { TEXAS_ALGEBRA_ASSESSMENTS } from './texas-math-prep.js';
 const workspaces = new Map();
 let nextViewId = 0;
 
@@ -19,6 +20,54 @@ function button(text, action, className = 'secondary') {
 
 function linkedNode(tag, className, text) {
   const el = node(tag, className); appendTutorInline(el, text); return el;
+}
+
+export function texasAlgebraGuide(form) {
+  const guide = node('details', 'mixed-texas-guide');
+  guide.appendChild(node('summary', '', 'Texas Algebra I exam prep'));
+  const label = node('label', '', 'School year and assessment');
+  const picker = node('select');
+  for (const item of TEXAS_ALGEBRA_ASSESSMENTS) {
+    const option = node('option', '', `${item.schoolYear} · ${item.program}`);
+    option.value = item.id;
+    picker.appendChild(option);
+  }
+  label.appendChild(picker);
+  const controls = node('div', 'mixed-session-options');
+  controls.appendChild(label);
+  const content = node('div');
+  guide.append(controls, content);
+  const showAssessment = () => {
+    content.replaceChildren();
+    const item = TEXAS_ALGEBRA_ASSESSMENTS.find((entry) => entry.id === picker.value);
+    if (!item) return;
+    content.appendChild(node('p', 'mixed-muted', item.description));
+    if (item.examples) {
+      const list = node('ul');
+      for (const example of item.examples) list.appendChild(node('li', '', example.text));
+      const status = node('p', 'mixed-selection-status');
+      status.setAttribute('role', 'status');
+      const choose = button('Select only these Algebra topics', () => {
+        const topicIds = new Set(item.examples.map((example) => example.topicId));
+        let selected = 0;
+        for (const box of form.querySelectorAll('input[name="topic"]')) {
+          box.checked = topicIds.has(box.value);
+          if (box.checked) selected++;
+        }
+        status.textContent = `${selected} topics selected. You can adjust your choices before continuing.`;
+      });
+      content.append(list, choose, status);
+    }
+    const resources = node('ul');
+    for (const [title, url] of item.links) {
+      const link = node('a', '', title); link.href = url;
+      const li = node('li'); li.appendChild(link); resources.appendChild(li);
+    }
+    content.appendChild(resources);
+  };
+  picker.addEventListener('change', showAssessment);
+  showAssessment();
+  return guide;
 }
 
 // Author-controlled prompts use a small HTML vocabulary. Preserve its structure
@@ -269,6 +318,7 @@ export function mountMixedStudy(container, { profileId = 'learner', renderMath, 
         if (topic.description) copy.appendChild(node('small', '', (subject === 'sat' ? `${topic.domainGroup}: ` : '') + String(topic.description)));
         label.append(input, copy); group.appendChild(label);
       }
+      if (subject === 'algebra') group.appendChild(texasAlgebraGuide(form));
       groups.appendChild(group);
     }
     form.appendChild(groups);

@@ -1,13 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendMixedPrompt, mixedSubjectLabel, mixedProviderLabel, mixedSummaryAfter } from '../public/mixed-study.js';
+import { appendMixedPrompt, mixedSubjectLabel, mixedProviderLabel, mixedSummaryAfter, texasAlgebraGuide } from '../public/mixed-study.js';
+import { ALGEBRA_TOPICS } from '../mixed-sat-bank.js';
 
 class FixtureNode {
   constructor(tag, text = '') { this.tagName = tag.toUpperCase(); this.children = []; this.text = text; this.attributes = {}; }
   set textContent(text) { this.text = text; this.children = []; }
   get textContent() { return this.text + this.children.map((child) => child.textContent).join(''); }
   set innerHTML(_) { throw new Error('Prompt rendering must not parse arbitrary HTML'); }
-  appendChild(child) { this.children.push(child); return child; }
+  appendChild(child) {
+    if (this.tagName === 'SELECT' && !this.children.length) this.value = child.value;
+    this.children.push(child); return child;
+  }
+  append(...children) { for (const child of children) this.appendChild(child); }
+  replaceChildren() { this.children = []; }
+  addEventListener(event, fn) { this['on' + event] = fn; }
   setAttribute(name, value) { this.attributes[name] = value; }
 }
 function withFixture(callback) {
@@ -16,6 +23,32 @@ function withFixture(callback) {
   try { callback(new FixtureNode('div')); } finally { globalThis.document = original; }
 }
 const descendants = (node) => [node, ...node.children.flatMap(descendants)];
+
+test('Texas Algebra prep chooses available practice only on request and keeps programs distinct', () => withFixture((form) => {
+  const boxes = [...ALGEBRA_TOPICS.map((topic) => topic.id), 'sat-linear'].map((value) => ({ value, checked: true }));
+  form.querySelectorAll = (selector) => {
+    assert.equal(selector, 'input[name="topic"]');
+    return boxes;
+  };
+  const guide = texasAlgebraGuide(form);
+  const findTag = (name) => descendants(guide).find((child) => child.tagName === name);
+  const picker = findTag('SELECT');
+  assert.equal(picker.value, '2026-27-staar-eoc');
+  assert.match(guide.textContent, /A\.5A/);
+  assert.equal(boxes.filter((box) => box.checked).length, 5);
+  findTag('BUTTON').onclick();
+  const chosen = () => boxes.filter((box) => box.checked).map((box) => box.value);
+  const aligned = ['algebra-linear', 'algebra-quadratics', 'algebra-exponents'];
+  assert.deepEqual(chosen(), aligned);
+  assert.match(guide.textContent, /3 topics selected/);
+  for (const [assessment, details] of [['2026-27-staar-interim', /final school year/], ['2027-28-sst', /transition guidance/]]) {
+    picker.value = assessment; picker.onchange();
+    assert.match(guide.textContent, details);
+    assert.equal(findTag('BUTTON'), undefined);
+    assert.ok(descendants(guide).filter((child) => child.tagName === 'A').every((link) => new URL(link.href).hostname === 'tea.texas.gov'));
+    assert.deepEqual(chosen(), aligned);
+  }
+}));
 
 test('generated prompt structure preserves authored paragraphs and LaTeX without literal HTML wrappers', () => withFixture((root) => {
   appendMixedPrompt(root, '<p>A cart has position $x(t)=t^2$.</p><p>Find its <strong>velocity</strong> at $t=3$.</p>');

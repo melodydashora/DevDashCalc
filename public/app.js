@@ -6,6 +6,8 @@ import * as E from '/engine.js';
 import * as CI from '/canvas-insights.js';
 import { explorersFor, mountExplorer, explorerTitle } from '/viz.js';
 import { mountStudyLab } from '/study-lab.js';
+import { mountCrossSectionLesson } from '/cross-section-lesson.js';
+import { mountSpatialReview, spatialReviewDue } from '/spatial-review.js';
 import { mountPageCoach, coachReplyIdentity, appendReply } from '/page-coach.js';
 import { activateFocusProfile, pauseFocusSessions, subscribeFocusSession } from '/focus-planner.js';
 import { STUDY_SUBJECTS, normalizeSubjectId, unitsForSubject, unitForSubject } from '/courses.js';
@@ -38,6 +40,8 @@ let saveTimer = null;
 let tickTimer = null;        // optional elapsed-time display
 let labCleanup = null;
 let spatialCleanup = null;
+let crossSectionReview = null;
+let crossSectionLessonCleanup = null;
 let focusCleanup = null;
 let studyPlansCleanup = null;
 let planRemindersCleanup = null;
@@ -63,6 +67,7 @@ let memosCleanup = null;
 let canvasAccountCleanup = null;
 let activeProfile = 'learner';
 let switchingProfile = false;
+let learningReady = false;
 let profiles = [{ id: 'learner', name: 'My workspace' }];
 try {
   const stored = JSON.parse(localStorage.getItem('students4ai-profiles') || 'null');
@@ -437,6 +442,8 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   clearInterval(tickTimer);
   if (labCleanup) { labCleanup(); labCleanup = null; }
   if (spatialCleanup) { spatialCleanup(); spatialCleanup = null; }
+  crossSectionReview?.destroy(); crossSectionReview = null;
+  crossSectionLessonCleanup?.(); crossSectionLessonCleanup = null;
   if (focusCleanup) { focusCleanup(); focusCleanup = null; }
   studyControls();
   const v = viewEl();
@@ -776,6 +783,12 @@ function wireHomeClasses(root) {
   });
 }
 
+const crossSectionLessonLink = '<a href="#/cross-sections">Practice volumes with square cross sections</a>';
+const crossSectionDueLink = '<a href="#/cross-sections/review">Take your two-week cross-section check</a>';
+function crossSectionCheckReady() {
+  return spatialReviewDue(S.spatialReview, appClock.now());
+}
+
 function viewHome() {
   const profileId = activeProfile;
   const practiceHref = independentPracticeHref();
@@ -783,7 +796,7 @@ function viewHome() {
     '<section class="dashboard-hero"><div><span class="kicker">Students4AI</span><h1>Your classes and study plans</h1><p>Choose a class, save a plan, and return to the step you want to work on. Your saved course topics appear below.</p><div class="btn-row"><a class="btn" href="#/plans">Open study plans</a><a class="btn secondary" href="' + practiceHref + '">Start fresh practice</a><a class="btn secondary" href="#/library">Course library</a></div></div></section>' +
     '<section class="home-classes" id="home-classes">' + homeClassesHtml() + '</section>' +
     '<section id="home-saved-plans"></section>' +
-    '<section class="card"><h2>Your study tools</h2><p>Use your saved plan, work on a Canvas assignment, or start an optional session timer.</p><div class="home-study-tools"><a href="#/canvas/plan">Canvas assignment plan</a><a href="#/focus">Session timer</a><a href="#/library">Lessons and learning models</a><a href="#/build">Build new practice with Astra</a><a href="#/reedy">Reedy course planning guide</a></div></section>',
+    '<section class="card"><h2>Your study tools</h2><p>Use your saved plan, work on a Canvas assignment, or start an optional session timer.</p><div class="home-study-tools"><a href="#/canvas/plan">Canvas assignment plan</a><a href="#/focus">Session timer</a><a href="#/library">Lessons and learning models</a><a href="#/build">Build new practice with Astra</a><a href="#/reedy">Reedy course planning guide</a>' + (crossSectionCheckReady() ? crossSectionDueLink : '') + '</div></section>',
     { breadcrumb: ['Home'], nav: 'home' });
   wireHomeClasses($('#home-classes', v));
   const host = $('#home-saved-plans', v);
@@ -901,6 +914,7 @@ function viewLibrary() {
     (units.length ? '<div class="dashboard-stats"><div><strong>' + units.length + '</strong><span>open modules</span></div><div><strong>' + average + '<small> / 100</small></strong><span>average skill progress</span></div><div><strong>' + passed + '</strong><span>mastery checks passed</span></div><div><strong>' + due.length + '</strong><span>skills ready for review</span></div></div>' : '') +
     (CONTENT.failed.length ? '<div class="card"><p>' + esc(CONTENT.failed.join('; ')) + '</p></div>' : '') +
     '<div id="home-study-lab"></div><div class="unit-grid"><section class="card" id="school-pace">' + canvasPaceHtml() + '</section><section class="card"><span class="kicker">Your learning pace</span><h2>' + (average >= 80 ? 'Explain. Connect. Extend.' : average >= 35 ? 'Make the next connection' : 'Try an idea, then test it') + '</h2><p>' + (average >= 80 ? 'Practice now emphasizes harder applications. Try independent AP-style questions and explain your reasoning.' : 'Adaptive practice returns to skills that need attention and increases difficulty as your answers show understanding.') + '</p><div class="btn-row">' + (next ? '<a class="btn secondary" href="#/practice/' + next.id + '">Practice at my level</a>' : '') + '<a class="btn quiet" href="#/review">Review skills</a></div></section></div>' +
+    (['calculus-ab', 'calculus-bc'].includes(S.settings.subject) ? '<section class="card"><h2>Volumes with cross sections</h2><p>Choose a 2D diagram or rotate a 3D solid, predict the area of a slice, then build the volume integral.</p>' + crossSectionLessonLink + (crossSectionCheckReady() ? '<p>' + crossSectionDueLink + '</p>' : '') + '</section>' : '') +
     (units.length ? '<h2>Explore your modules</h2><p>Lessons, practice, and mastery checks are available from the start. Pick a topic because it interests you or because schoolwork needs it.</p><div class="unit-grid">' + cards + '</div>' : '') +
     (!units.length ? '<div class="card"><h3>' + esc(subjectLabel()) + ' study workspace</h3><p>Choose fresh practice or make a saved study plan. The authored lesson and mastery-check library covers AP Calculus AB and BC.</p><div class="btn-row"><a class="btn" href="' + independentPracticeHref() + '">Open fresh practice</a><a class="btn secondary" href="#/plans">Make a study plan</a></div></div>' : '<details class="card"><summary>Optional placement check</summary><p>Get a starting estimate of familiar units. It does not restrict what you can open, and you can stop at any time.</p><a class="btn secondary" href="#/diagnostic">Start placement check</a></details>'),
     { breadcrumb: ['Home', 'Course library'], nav: 'library' });
@@ -1066,6 +1080,7 @@ function viewUnit(requestedId) {
     <h2>Interactive explorers</h2>
     <div class="card">
       <p>Play an animation, change a parameter, and watch the math respond. Pause at any point to inspect the graph and its data table. Motion controls are available in Settings.</p>
+      ${unit.number === 8 ? '<p>' + crossSectionLessonLink + '</p>' : ''}
       <div id="explorer-slots"></div>
     </div>
     <h2>Lessons</h2>
@@ -1414,20 +1429,47 @@ function viewDiagnostic() {
   });
 }
 
+function viewCrossSections(reviewOnly) {
+  const state = S, profile = activeProfile;
+  const title = reviewOnly ? 'Cross-section follow-up' : 'Cross-section practice';
+  const v = mountView(`<h1>${title}</h1>
+    ${reviewOnly ? '' : '<div id="cross-section-lesson"></div>'}
+    <section class="card" id="cross-section-review"></section>
+    <div class="btn-row">${reviewOnly ? crossSectionLessonLink : ''}<a href="#/library">Course library</a></div>`,
+    { breadcrumb: ['Home', 'Course library', title], nav: reviewOnly ? 'review' : 'library' });
+  const host = $('#cross-section-review', v);
+  const current = () => host.isConnected && state === S && profile === activeProfile && !switchingProfile
+    && !accountGateActive && (!ACCOUNT?.authRequired || ACCOUNT.authenticated);
+  const review = mountSpatialReview(host, {
+    reviewOnly, now: appClock.now,
+    getRecord: () => current() ? state.spatialReview : null,
+    setRecord(record) {
+      if (current()) { state.spatialReview = record; save(); }
+    },
+  });
+  crossSectionReview = review;
+  if (!reviewOnly) {
+    crossSectionLessonCleanup = mountCrossSectionLesson($('#cross-section-lesson', v), {
+      onComplete(result) { if (current()) review.complete(result); },
+    });
+  }
+}
+
 // -------------------------------------------------------------- views: review
 function viewReview() {
   const m = CONTENT.manifest;
   const due = E.reviewQueue(S, allUnits(), Date.now(), m.reviewAfterDays);
+  const spatialCheck = crossSectionCheckReady() ? '<p>' + crossSectionDueLink + '</p>' : '';
   if (!due.length) {
-    return mountView(`<h1>Review</h1>
-      <p>Nothing is due for review right now. A skill appears here after it reaches mastery and then goes ${m.reviewAfterDays} days without being practiced. Review is recommended, never required; it never blocks progress.</p>
+    return mountView(`<h1>Review</h1>${spatialCheck}
+      <p>No mastered skills are due for review right now. A skill appears here after it reaches mastery and then goes ${m.reviewAfterDays} days without being practiced. Review is recommended, never required; it never blocks progress.</p>
       <div class="btn-row"><a class="btn secondary" href="#/home">Back to Home</a></div>`,
       { breadcrumb: ['Home', 'Review'], nav: 'review' });
   }
   const sessionItems = due.slice(0, 6);
   const listed = due.map((d) => `<li>${esc(d.skill.name)} (Unit ${d.unit.number}) — last practiced ${new Date(d.lastSeen).toLocaleDateString()}</li>`).join('');
   const v = mountView(`
-    <h1>Review</h1>
+    <h1>Review</h1>${spatialCheck}
     <p>${due.length} skill${due.length > 1 ? 's are' : ' is'} due. This session covers up to ${sessionItems.length} of them, one question each, hints allowed.</p>
     <ul class="rules-list">${listed}</ul>
     <div class="btn-row"><button type="button" id="rev-start">Start review session</button><a class="btn secondary" href="#/home">Back to Home</a></div>
@@ -2443,7 +2485,7 @@ function router() {
   captureEnrollment();
   if (ACCOUNT?.authRequired && isSignupRoute()) { showAccountGate(); return; }
   if (ACCOUNT?.authRequired && (!ACCOUNT.authenticated || accountGateActive)) { showAccountGate(); return; }
-  if (switchingProfile) return;
+  if (!learningReady || switchingProfile) return;
   ensurePlanReminders();
   const hash = location.hash || '#/home';
   const parts = hash.slice(2).split('/');
@@ -2463,6 +2505,7 @@ function router() {
   else if (route === 'mastery' && a) viewMastery(a);
   else if (route === 'diagnostic') viewDiagnostic();
   else if (route === 'review') viewReview();
+  else if (route === 'cross-sections' && (!a || a === 'review') && !b) viewCrossSections(a === 'review');
   else if (route === 'focus') viewFocus();
   else if (route === 'mixed') viewMixedStudy(['sat', 'algebra'].includes(a) ? a : null);
   else if (route === 'canvas' && a === 'plan') viewCanvasPlan();
@@ -2543,6 +2586,7 @@ function ensurePageCoach() {
     } : undefined,
     request: async (payload, { signal }) => {
       const profile = activeProfile;
+      const spatialReview = crossSectionReview;
       const question = activeQuestionCoach?.container.isConnected ? activeQuestionCoach : null;
       const mixedQuestion = activeMixedQuestion?.container.isConnected ? activeMixedQuestion : null;
       // The persistent coach uses the verified question handler and hint-credit
@@ -2576,6 +2620,7 @@ function ensurePageCoach() {
       const { res, data } = await canvasApi('/api/canvas/coach', { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(schoolPayload) });
       if (!res.ok || data.error) throw new Error(data.error || 'The study coach could not answer.');
       const receivedHelp = Boolean(data.text && data.available !== false && !data.refusal);
+      if (spatialReview && spatialReview === crossSectionReview && receivedHelp && profile === activeProfile && !signal.aborted) spatialReview.markCoachHelp();
       if (question && receivedHelp && profile === activeProfile && !signal.aborted) question.ctx.onHelp?.();
       if (mixedQuestion && receivedHelp && mixedQuestion.phase === 'before-answer' && profile === activeProfile && !signal.aborted) {
         const marked = await apiFetch(`/api/mixed/assisted?profile=${encodeURIComponent(profile)}`, { method: 'POST', signal, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: mixedQuestion.sessionId, questionId: mixedQuestion.questionId }) });
@@ -2622,6 +2667,7 @@ async function boot() {
     window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', applySettings);
     const tutorReady = apiFetch('/api/tutor').then((r) => r.json()).then((d) => { TUTOR.available = Boolean(d.available); }).catch(() => {});
     await Promise.all([loadContent(), tutorReady]);
+    learningReady = true;
     if (ACCOUNT.authRequired && !ACCOUNT.authenticated) return;
     router();
     // Keep the interactive home usable while the optional school snapshot loads.
