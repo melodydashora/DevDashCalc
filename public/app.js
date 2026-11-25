@@ -18,6 +18,7 @@ import { getQuestionModel, mountQuestionModel } from '/question-models.js';
 import { mountPracticeInsights } from '/practice-insights.js';
 import { createAppClock, mountHeaderClock } from '/time-context.js';
 import { mountPlanReminders } from '/plan-schedule-ui.js';
+import { mountReedyStudyBrief } from '/reedy-study-brief.js';
 
 const appClock = createAppClock();
 async function synchronizeAppClock() {
@@ -46,6 +47,7 @@ let practiceBuilderCleanup = null;
 let evidenceMysteryCleanup = null;
 let practiceInsightsCleanup = null;
 let reedyGuideCleanup = null;
+let reedyStudyBriefCleanup = null;
 const questionModelCleanups = new Set();
 let pageCoachCleanup = null;
 let activeQuestionCoach = null;
@@ -428,6 +430,7 @@ function mountView(html, { breadcrumb = [], nav = '' } = {}) {
   evidenceMysteryCleanup?.(); evidenceMysteryCleanup = null;
   practiceInsightsCleanup?.(); practiceInsightsCleanup = null;
   reedyGuideCleanup?.(); reedyGuideCleanup = null;
+  reedyStudyBriefCleanup?.(); reedyStudyBriefCleanup = null;
   for (const cleanup of questionModelCleanups) cleanup();
   questionModelCleanups.clear();
   activeQuestionCoach = null;
@@ -2415,11 +2418,24 @@ function viewCanvasCourse(courseId) {
       ${course.deadlineReview?.length ? '<p class="canvas-note">Some instructor dates need review or differ from Canvas. Canvas dates remain authoritative; use Find instructions to compare sources.</p>' : ''}
       ${stats}
       ${modules}
+      <div id="reedy-study-brief"></div>
       <h3>Assignments (${course.assignments.length})</h3>
       <p class="canvas-meta">Statuses and scores are shown as Canvas reports them. Students4AI does not infer a cause and does not change your learning path.</p>
       <div class="canvas-list">${assignmentRows}</div>
     </div>`;
-  }, ['Canvas', 'Course'], 'overview');
+  }, ['Canvas', 'Course'], 'overview', body => {
+    reedyStudyBriefCleanup?.(); reedyStudyBriefCleanup = null;
+    const host = $('#reedy-study-brief', body);
+    const snapshot = CANVAS.snapshot, generation = canvasGeneration, profileId = activeProfile;
+    const course = snapshot?.courses.find(item => item.id === courseId);
+    if (!host || !course) return;
+    reedyStudyBriefCleanup = mountReedyStudyBrief(host, {
+      course,
+      isCurrent: () => host.isConnected && generation === canvasGeneration && snapshot === CANVAS.snapshot
+        && profileId === activeProfile && !accountGateActive && !switchingProfile
+        && (!ACCOUNT?.authRequired || ACCOUNT.authenticated),
+    });
+  });
 }
 
 // ---------------------------------------------------------------- app plumbing

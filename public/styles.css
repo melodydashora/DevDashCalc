@@ -278,6 +278,8 @@ table.simple th { background: var(--surface-2); }
 .canvas-item > div { display: grid; gap: 0.15rem; }
 .canvas-item-side { justify-items: end; text-align: right; }
 .canvas-item .canvas-meta { margin: 0; }
+.reedy-brief-choice { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; justify-content: start; }
+.reedy-brief-choice > span { display: grid; gap: 0.15rem; overflow-wrap: anywhere; }
 .canvas-copy { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; }
 .canvas-assessment { border: 1px solid var(--accent); border-radius: 10px; background: var(--surface); padding: 0.8rem 1rem; }
 .canvas-assessment p { margin: 0.4rem 0; }
