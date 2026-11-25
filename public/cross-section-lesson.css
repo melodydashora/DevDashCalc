@@ -1,0 +1,18 @@
+.cross-section-lesson { max-width: 52rem; }
+.cross-section-lesson figure { margin: 1rem 0; }
+.cross-section-lesson figcaption { font-size: .94em; }
+.slice-picture { background: var(--surface-2); border: 1px solid var(--border); border-radius: .65rem; margin-bottom: .55rem; }
+.slice-picture svg { display: block; width: 100%; max-height: 18rem; }
+.slice-picture text { fill: var(--text); font: 12px var(--mono); }
+.slice-wire, .slice-wire polygon, .slice-wire polyline { fill: none; stroke: var(--muted); stroke-width: 1.5; }
+.slice-base { fill: var(--accent-soft); stroke: var(--muted); stroke-width: 1.5; }
+.slice-face { fill: var(--accent); fill-opacity: .15; stroke: var(--accent); stroke-width: 2.5; }
+.slice-mark { fill: none; stroke: var(--text); stroke-width: 4; }
+.cross-section-lesson fieldset { min-width: 0; border: 1px solid var(--border); border-radius: .65rem; padding: .9rem 1rem; margin: 1rem 0; }
+.cross-section-lesson legend { font-weight: 650; padding: 0 .35rem; }
+.cross-section-lesson label { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin: .35rem 0; }
+.cross-section-lesson input[type="number"] { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: .4rem; padding: .35em; width: 6em; }
+.cross-section-lesson label:has([type="radio"]), .cross-section-lesson label:has([type="checkbox"]) { min-height: 2.5rem; }
+.cross-section-lesson input[type="range"] { width: min(13rem, 55%); }
+.cross-section-lesson fieldset button { margin-top: .65rem; }
+.cross-section-lesson [role="status"]:empty { margin: 0; }

@@ -22,6 +22,10 @@
 .mixed-topic-option > span { min-width: 0; }
 .mixed-topic-title { display: block; font-size: 0.85em; font-weight: 600; line-height: 1.6; }
 .mixed-topic-option small { display: block; margin-top: 0.15rem; font-size: 0.73em; color: var(--muted); line-height: 1.55; }
+.mixed-texas-guide { margin-top: 0.6rem; padding-top: 0.35rem; border-top: 1px solid var(--border); }
+.mixed-texas-guide summary { min-height: 44px; padding: 0.65rem 0.35rem; color: var(--accent); font-weight: 600; cursor: pointer; }
+.mixed-texas-guide ul { padding-left: 1.25rem; font-size: 0.85em; line-height: 1.7; }
+.mixed-texas-guide select { min-width: 0; max-width: 100%; }
 .mixed-session-options { display: flex; gap: 1rem; flex-wrap: wrap; margin: 1rem 0; }
 .mixed-session-options label { display: grid; flex: 1 1 12rem; gap: 0.35rem; font-size: 0.85em; color: var(--muted); }
 .mixed-session-options select { width: 100%; min-height: 44px; padding: 0.55rem; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; }

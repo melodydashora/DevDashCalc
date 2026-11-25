@@ -212,6 +212,32 @@ The session continues while moving between this app's pages. A quiet return
 link stays visible while it runs. Switching learners or closing/reloading the
 page pauses it, so another student's time never enters the session.
 
+## Cross-section practice and Texas Algebra I prep
+
+In **Course library → Calculus AB or BC → Unit 8**, choose **Practice volumes with
+square cross sections**. Students can switch between a flat diagram and a
+rotatable solid, predict a slice area, and choose a volume integral. An optional
+check two weeks later asks the same student to apply the idea to triangular
+slices. When due, it appears on Home and Review. The learner's progress stores
+first responses, view choices, optional effort and usability feedback, and
+follow-up assistance separately from course mastery. The activities address
+[AP Calculus topics 8.7 and 8.8](https://apcentral.collegeboard.org/media/pdf/ap-calculus-ab-and-bc-course-and-exam-description.pdf#page=158).
+
+A [randomized spatial-training study](https://academic.oup.com/chidev/advance-article/doi/10.1093/chidev/aacag217/9103316)
+found comparable gains among three active conditions in fifth- and sixth-graders.
+Whether rotating a solid helps AP students set up an unfamiliar integral remains
+an open question. For a pilot, assign a starting view at random, keep questions
+and feedback the same, and compare first responses on the delayed check. Report
+participation, view switching, recent practice, help, and difficulty using the
+controls alongside accuracy. Learners choose their own view in the shipped lesson.
+
+In **Mixed practice → Algebra → Texas Algebra I exam prep**, the 2026–27 STAAR
+end-of-course option selects three original Algebra topic banks. Students can
+adjust the selection before starting. The guide links the corresponding Texas
+standards and official released questions. It lists the optional STAAR Interim
+and the 2027–28 Student Success Tool under their own years and programs.
+[Texas Education Agency interim assessment guidance](https://tea.texas.gov/assessment-and-accountability/assessment-initiatives/staar-interim-assessments)
+
 ## Original SAT, Algebra, Physics, and Calculus practice
 
 Open **Start fresh practice** on Home or a practice entry in Course library.
